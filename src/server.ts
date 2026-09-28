@@ -1,12 +1,12 @@
-import { createApp } from "./app.js";
-import { createMessageRepository } from "./features/messages/repository.js";
-import { createSessionRepository } from "./platform/auth/sessions.js";
-import { createUserRepository } from "./platform/auth/users.js";
-import { loadConfig } from "./platform/config.js";
-import { createDatabase } from "./platform/database.js";
-import { createLogger } from "./platform/logger.js";
-import { verifyDatabaseState } from "./platform/migrations.js";
-import { createRuntime } from "./platform/runtime.js";
+import { createApp } from "./app.ts";
+import { createMessageRepository } from "./features/messages/repository.ts";
+import { createSessionRepository } from "./platform/auth/sessions.ts";
+import { createUserRepository } from "./platform/auth/users.ts";
+import { loadConfig } from "./platform/config.ts";
+import { createDatabase } from "./platform/database.ts";
+import { createLogger } from "./platform/logger.ts";
+import { verifyDatabaseState } from "./platform/migrations.ts";
+import { createRuntime } from "./platform/runtime.ts";
 
 const config = loadConfig();
 const logger = createLogger({ level: config.logLevel });
@@ -52,7 +52,7 @@ logger.info(
 
 let shuttingDown = false;
 
-async function shutdown(signal) {
+async function shutdown(signal: string) {
   if (shuttingDown) return;
   shuttingDown = true;
 

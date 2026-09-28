@@ -1,9 +1,9 @@
 # YapArena
 
 YapArena is the starting backend for a live debate platform. It currently provides a Node.js 24,
-Express, and PostgreSQL service with authentication, migrations, tests, monitoring, and container
-releases. The messages API is an example feature; debates, voting, incentives, and markets have not
-been implemented yet.
+strict TypeScript, Express, and PostgreSQL service with authentication, migrations, tests,
+monitoring, and container releases. The messages API is an example feature; debates, voting,
+incentives, and markets have not been implemented yet.
 
 To work on YapArena, follow [Local development](#local-development). The original
 [service template guide](docs/getting-started.md) remains available if you want to create a separate
@@ -93,8 +93,8 @@ Start the API with automatic reload:
 npm run dev
 ```
 
-This starts the API directly with Node.js, loads `.env`, and automatically restarts when source files
-change. PostgreSQL must still be running in Docker. Open <http://localhost:3000/ready> to confirm the
+This starts the TypeScript API directly with Node.js, loads `.env`, and automatically restarts when source files
+change. `npm run build` compiles production JavaScript into the ignored `dist/` directory. PostgreSQL must still be running in Docker. Open <http://localhost:3000/ready> to confirm the
 API can reach the database. Press `Ctrl-C` to stop the API; the database container keeps running until
 you run `docker compose down`.
 
@@ -104,7 +104,7 @@ Run the quality gate:
 npm run check
 ```
 
-This runs lint rules, verifies formatting, and executes the test suite with its coverage thresholds.
+This runs lint rules, verifies formatting and strict types, and executes the test suite with its coverage thresholds.
 It is the same main quality gate used by CI, so run it before committing or opening a pull request.
 CI means **continuous integration**: GitHub automatically runs checks on pushed changes.
 

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, mock } from "node:test";
 
-import { verifyDatabaseState } from "../src/platform/migrations.js";
+import { verifyDatabaseState } from "../dist/platform/migrations.js";
 
 describe("database migration verification", () => {
   async function migrationDirectory() {

@@ -9,7 +9,11 @@ const logLevels = new Set([
   "silent",
 ]);
 
-function parseInteger(value, name, { minimum, maximum }) {
+function parseInteger(
+  value: string,
+  name: string,
+  { minimum, maximum }: { minimum: number; maximum: number },
+) {
   const parsed = Number(value);
 
   if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
@@ -21,12 +25,12 @@ function parseInteger(value, name, { minimum, maximum }) {
   return parsed;
 }
 
-function parseTrustProxy(value) {
+function parseTrustProxy(value: string | undefined): number | false {
   if (value === undefined || value === "false") return false;
   return parseInteger(value, "TRUST_PROXY", { minimum: 1, maximum: 10 });
 }
 
-export function loadConfig(environment = process.env) {
+export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
   const nodeEnvironment = environment.NODE_ENV ?? "development";
   const host = environment.HOST ?? "0.0.0.0";
   const rawPort = environment.PORT ?? "3000";
@@ -81,7 +85,7 @@ export function loadConfig(environment = process.env) {
 
   if (nodeEnvironment === "production") {
     try {
-      const origin = new URL(applicationOrigin);
+      const origin = new URL(applicationOrigin ?? "");
       if (origin.origin !== applicationOrigin || origin.protocol !== "https:")
         throw new Error();
     } catch {

@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 import request from "supertest";
 
-import { createApp, handleError } from "../src/app.js";
-import { createLogger } from "../src/platform/logger.js";
+import { createApp, handleError } from "../dist/app.js";
+import { createLogger } from "../dist/platform/logger.js";
 
 describe("yaparena API", () => {
   const logger = createLogger({ enabled: false });

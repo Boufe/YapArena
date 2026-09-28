@@ -1,3 +1,10 @@
+import type { Server } from "node:http";
+import type { Express } from "express";
+import type { Pool } from "pg";
+import type { Logger } from "pino";
+import type { createSessionRepository } from "./auth/sessions.ts";
+import type { loadConfig } from "./config.ts";
+
 export function createRuntime({
   app,
   database,
@@ -8,9 +15,19 @@ export function createRuntime({
   cleanupIntervalMs = 60 * 60 * 1_000,
   setIntervalFn = setInterval,
   clearIntervalFn = clearInterval,
+}: {
+  app: Express;
+  database: Pick<Pool, "end">;
+  sessions: Pick<ReturnType<typeof createSessionRepository>, "deleteExpired">;
+  logger: Pick<Logger, "info" | "error">;
+  config: Pick<ReturnType<typeof loadConfig>, "port" | "host">;
+  verifyDatabase: () => Promise<void>;
+  cleanupIntervalMs?: number;
+  setIntervalFn?: typeof setInterval;
+  clearIntervalFn?: typeof clearInterval;
 }) {
-  let server;
-  let cleanupTimer;
+  let server: Server | undefined;
+  let cleanupTimer: NodeJS.Timeout | undefined;
 
   async function cleanupSessions() {
     try {
@@ -25,7 +42,7 @@ export function createRuntime({
     async start() {
       await verifyDatabase();
 
-      server = await new Promise((resolve, reject) => {
+      server = await new Promise<Server>((resolve, reject) => {
         const listeningServer = app.listen(config.port, config.host, () =>
           resolve(listeningServer),
         );
@@ -41,8 +58,9 @@ export function createRuntime({
       if (cleanupTimer) clearIntervalFn(cleanupTimer);
 
       if (server) {
-        await new Promise((resolve, reject) => {
-          server.close((error) => (error ? reject(error) : resolve()));
+        const listeningServer = server;
+        await new Promise<void>((resolve, reject) => {
+          listeningServer.close((error) => (error ? reject(error) : resolve()));
         });
       }
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 
-import { createSessionRepository } from "../src/platform/auth/sessions.js";
+import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 
 describe("session repository", () => {
   it("creates a session using only the token hash", async () => {

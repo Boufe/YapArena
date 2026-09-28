@@ -1,24 +1,39 @@
 import express from "express";
-import { hashPassword, validatePassword, verifyPassword } from "./passwords.js";
-import { createSessionToken, hashSessionToken } from "./session-tokens.js";
-import { createApiRateLimiter } from "../security.js";
+import type { NextFunction, Request, Response } from "express";
+import type { PublicUser } from "./users.ts";
+import type { createUserRepository } from "./users.ts";
+import type { createSessionRepository } from "./sessions.ts";
+import { hashPassword, validatePassword, verifyPassword } from "./passwords.ts";
+import { createSessionToken, hashSessionToken } from "./session-tokens.ts";
+import { createApiRateLimiter } from "../security.ts";
 
 const dummyPasswordHash =
   "$argon2id$v=19$m=19456,p=1,t=2$lyjbixDyiZIjLayIBjKzug$XkfmwNfqtaLsRnC6LtyIEGEQ5pApGzGiypF/XpcVboI";
 
-function normalizeEmail(email) {
+declare module "express-serve-static-core" {
+  interface Request {
+    user?: PublicUser;
+  }
+}
+
+function normalizeEmail(email: unknown) {
   return typeof email === "string" ? email.trim().toLowerCase() : "";
 }
 
-function isValidEmail(email) {
+function isValidEmail(email: string) {
   return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email);
 }
 
-function isUniqueViolation(error) {
-  return error?.code === "23505";
+function isUniqueViolation(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "23505"
+  );
 }
 
-function getCookieSettings(environment) {
+function getCookieSettings(environment: string) {
   const isProduction = environment === "production";
 
   return {
@@ -26,16 +41,26 @@ function getCookieSettings(environment) {
     options: Object.freeze({
       httpOnly: true,
       secure: isProduction,
-      sameSite: "strict",
+      sameSite: "strict" as const,
       path: "/",
     }),
   };
 }
 
-export function createRequireAuthentication({ sessions, environment }) {
+export function createRequireAuthentication({
+  sessions,
+  environment,
+}: {
+  sessions: ReturnType<typeof createSessionRepository>;
+  environment: string;
+}) {
   const cookie = getCookieSettings(environment);
 
-  return async function requireAuthentication(request, response, next) {
+  return async function requireAuthentication(
+    request: Request,
+    response: Response,
+    next: NextFunction,
+  ) {
     const token = request.cookies[cookie.name];
 
     if (!token) {
@@ -61,6 +86,14 @@ export function createAuthRouter({
   sessionDurationMs = 7 * 24 * 60 * 60 * 1_000,
   authRateLimit = 10,
   rateLimitWindowMs = 15 * 60 * 1_000,
+}: {
+  users: ReturnType<typeof createUserRepository>;
+  sessions: ReturnType<typeof createSessionRepository>;
+  environment: string;
+  now?: () => number;
+  sessionDurationMs?: number;
+  authRateLimit?: number;
+  rateLimitWindowMs?: number;
 }) {
   const router = express.Router();
   const cookie = getCookieSettings(environment);
@@ -78,7 +111,7 @@ export function createAuthRouter({
     next();
   });
 
-  async function startSession(user, response) {
+  async function startSession(user: PublicUser, response: Response) {
     const { token, tokenHash } = createSessionToken();
     const expiresAt = new Date(now() + sessionDurationMs);
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 
-import { createMessageRepository } from "../src/features/messages/repository.js";
+import { createMessageRepository } from "../dist/features/messages/repository.js";
 
 describe("message repository", () => {
   it("inserts and returns a message", async () => {

@@ -8,9 +8,9 @@ const hashingOptions = {
   memoryCost: 19_456,
   timeCost: 2,
   parallelism: 1,
-};
+} as const;
 
-export function validatePassword(password) {
+export function validatePassword(password: unknown): string | null {
   if (typeof password !== "string") {
     return "password must be a string";
   }
@@ -24,10 +24,10 @@ export function validatePassword(password) {
   return null;
 }
 
-export function hashPassword(password) {
+export function hashPassword(password: string) {
   return argon2.hash(password, hashingOptions);
 }
 
-export function verifyPassword(passwordHash, password) {
+export function verifyPassword(passwordHash: string, password: string) {
   return argon2.verify(passwordHash, password);
 }

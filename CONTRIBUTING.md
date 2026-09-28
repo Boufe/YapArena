@@ -29,7 +29,7 @@ run `git init` inside the clone. YapArena product changes belong in this reposit
    change intentionally adds or updates a dependency, and review both `package.json` and
    `package-lock.json` afterward.
 
-3. Make the change and add or update tests for changed behavior. Tests belong under `tests/`; database
+3. Make the change in strict TypeScript under `src/` and add or update tests for changed behavior. Tests belong under `tests/`; database
    structure changes also require a new migration rather than an edit to migration history.
 
 4. Run the local quality gate:
@@ -38,7 +38,7 @@ run `git init` inside the clone. YapArena product changes belong in this reposit
    npm run check
    ```
 
-   This checks lint rules and formatting, then runs tests with coverage thresholds. If the change
+   This checks lint rules, formatting, and types, then runs tests with coverage thresholds. If the change
    affects containers or Compose configuration, also render and start the relevant stack as described
    in the [operations runbook](docs/operations.md).
 

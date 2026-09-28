@@ -158,13 +158,13 @@ committing to confirm that `.env`, `node_modules/`, and other private or generat
 
 ## 7. Replace the example feature
 
-Reusable capabilities live under `src/platform`. Product behavior lives under `src/features`; the
+Reusable TypeScript capabilities live under `src/platform`. Product behavior lives under `src/features`; the
 included messages repository and router are examples. Replace the message routes, repository,
-migration, and tests together. Preserve dependency injection in `src/app.js` and `src/server.js` so
+migration, and tests together. Preserve dependency injection in `src/app.ts` and `src/server.ts` so
 domain tests do not require a live database.
 
 The example is connected in several places: `src/features/messages/` contains its application code,
-`src/app.js` mounts its routes, `src/server.js` creates its repository, `tests/messages.test.js` and
+`src/app.ts` mounts its routes, `src/server.ts` creates its repository, `tests/messages.test.js` and
 parts of `tests/app.test.js` test it, and both existing files under `migrations/` refer to its
 `messages` table. Search for `message` before removing it so those references are handled together.
 

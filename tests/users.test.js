@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 
-import { createUserRepository } from "../src/platform/auth/users.js";
+import { createUserRepository } from "../dist/platform/auth/users.js";
 
 describe("user repository", () => {
   it("creates and returns safe user fields", async () => {

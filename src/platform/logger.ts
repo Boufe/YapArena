@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
 
 import pino from "pino";
-import pinoHttp from "pino-http";
+import { pinoHttp } from "pino-http";
+import type { Logger } from "pino";
 
-export function createLogger({ level = "info", enabled = true } = {}) {
+export function createLogger({
+  level = "info",
+  enabled = true,
+}: { level?: string; enabled?: boolean } = {}) {
   return pino({
     level,
     enabled,
@@ -14,7 +18,7 @@ export function createLogger({ level = "info", enabled = true } = {}) {
   });
 }
 
-export function createHttpLogger(logger) {
+export function createHttpLogger(logger: Logger) {
   return pinoHttp({
     logger,
     quietReqLogger: true,
@@ -30,7 +34,7 @@ export function createHttpLogger(logger) {
     genReqId(request, response) {
       const incomingId = request.headers["x-request-id"];
       const requestId = Array.isArray(incomingId)
-        ? incomingId[0]
+        ? (incomingId[0] ?? randomUUID())
         : incomingId || randomUUID();
 
       response.setHeader("X-Request-Id", requestId);

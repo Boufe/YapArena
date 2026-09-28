@@ -46,7 +46,7 @@ describe("project initializer", () => {
     assert.match(compose, /COMPOSE_PROJECT_NAME:-forecast-lab/);
     assert.match(environment, /POSTGRES_DB=forecast_lab/);
     for (const path of [
-      "src/platform/metrics.js",
+      "src/platform/metrics.ts",
       "monitoring/prometheus.yml",
       "monitoring/prometheus/rules/yaparena.yml",
     ]) {

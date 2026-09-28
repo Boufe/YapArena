@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import {
   createSessionToken,
   hashSessionToken,
-} from "../src/platform/auth/session-tokens.js";
+} from "../dist/platform/auth/session-tokens.js";
 
 describe("session tokens", () => {
   it("creates unique 256-bit URL-safe tokens", () => {

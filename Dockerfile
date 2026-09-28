@@ -12,6 +12,9 @@
   FROM development AS test
   RUN npm run check
 
+  FROM development AS build
+  RUN npm run build
+
   FROM base AS production-dependencies
   ENV NODE_ENV=production
   COPY package.json package-lock.json ./
@@ -30,7 +33,7 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
 COPY --from=production-dependencies /app/node_modules ./node_modules
 COPY --chown=node:node package.json ./
 COPY --chown=node:node migrations ./migrations
-COPY --chown=node:node src ./src
+COPY --from=build --chown=node:node /app/dist ./dist
   USER node
   EXPOSE 3000
-  CMD ["node", "src/server.js"]
+  CMD ["node", "dist/server.js"]

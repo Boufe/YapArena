@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 import request from "supertest";
 
-import { createApp } from "../src/app.js";
-import { hashPassword } from "../src/platform/auth/passwords.js";
-import { createLogger } from "../src/platform/logger.js";
+import { createApp } from "../dist/app.js";
+import { hashPassword } from "../dist/platform/auth/passwords.js";
+import { createLogger } from "../dist/platform/logger.js";
 
 const logger = createLogger({ enabled: false });
 const messages = { isReady: async () => {} };

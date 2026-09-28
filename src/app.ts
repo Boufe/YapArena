@@ -1,21 +1,31 @@
 import cookieParser from "cookie-parser";
 import express from "express";
 import helmet from "helmet";
+import type { ErrorRequestHandler } from "express";
+import type { Logger } from "pino";
+import type { createMessageRepository } from "./features/messages/repository.ts";
+import type { createUserRepository } from "./platform/auth/users.ts";
+import type { createSessionRepository } from "./platform/auth/sessions.ts";
 
-import { createMessageRouter } from "./features/messages/router.js";
+import { createMessageRouter } from "./features/messages/router.ts";
 import {
   createAuthRouter,
   createRequireAuthentication,
-} from "./platform/auth/router.js";
-import { createHttpLogger } from "./platform/logger.js";
-import { createMetrics } from "./platform/metrics.js";
+} from "./platform/auth/router.ts";
+import { createHttpLogger } from "./platform/logger.ts";
+import { createMetrics } from "./platform/metrics.ts";
 import {
   createApiRateLimiter,
   createCsrfOriginProtection,
-} from "./platform/security.js";
+} from "./platform/security.ts";
 
-export function handleError(error, request, response, next) {
-  void next;
+export const handleError: ErrorRequestHandler = (
+  error: unknown,
+  request,
+  response,
+  _next,
+) => {
+  void _next;
 
   if (error instanceof SyntaxError) {
     return response.status(400).json({
@@ -28,7 +38,7 @@ export function handleError(error, request, response, next) {
   return response.status(500).json({
     error: "internal server error",
   });
-}
+};
 
 export function createApp({
   messages,
@@ -44,6 +54,20 @@ export function createApp({
   authRateLimit = 10,
   rateLimitWindowMs = 15 * 60 * 1_000,
   sessionDurationMs = 7 * 24 * 60 * 60 * 1_000,
+}: {
+  messages: ReturnType<typeof createMessageRepository>;
+  users: ReturnType<typeof createUserRepository>;
+  sessions: ReturnType<typeof createSessionRepository>;
+  logger: Logger;
+  environment?: string;
+  metrics?: ReturnType<typeof createMetrics>;
+  applicationOrigin?: string;
+  trustProxy?: number | false;
+  requestBodyLimit?: string;
+  apiRateLimit?: number;
+  authRateLimit?: number;
+  rateLimitWindowMs?: number;
+  sessionDurationMs?: number;
 }) {
   const app = express();
 

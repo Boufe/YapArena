@@ -17,7 +17,7 @@ const identityFiles = [
   "monitoring/prometheus.yml",
   "monitoring/grafana/dashboards/yaparena-overview.json",
   "monitoring/prometheus/rules/yaparena.yml",
-  "src/platform/metrics.js",
+  "src/platform/metrics.ts",
   "tests/app.test.js",
   "tests/metrics.test.js",
 ];
@@ -25,7 +25,7 @@ const metricIdentityFiles = new Set([
   "monitoring/prometheus.yml",
   "monitoring/grafana/dashboards/yaparena-overview.json",
   "monitoring/prometheus/rules/yaparena.yml",
-  "src/platform/metrics.js",
+  "src/platform/metrics.ts",
   "tests/app.test.js",
   "tests/metrics.test.js",
 ]);

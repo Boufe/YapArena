@@ -1,15 +1,17 @@
 {
   "name": "yaparena",
   "version": "1.0.0",
-  "description": "A production-style Node.js service for learning Docker",
+  "description": "Backend foundation for a live debate platform",
   "scripts": {
-    "test": "node --test",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude=scripts/** --test-coverage-exclude=tests/** --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90",
-    "start": "node src/server.js",
-    "dev": "node --env-file-if-exists=.env --watch src/server.js",
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.js",
+    "test:coverage": "npm run build && node --test --experimental-test-coverage --test-coverage-exclude=scripts/** --test-coverage-exclude=tests/** --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 tests/*.test.js",
+    "start": "node dist/server.js",
+    "dev": "node --env-file-if-exists=.env --watch src/server.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "check": "npm run lint && npm run format:check && npm run test:coverage",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run test:coverage",
     "format:check": "prettier --check .",
     "migrate": "node-pg-migrate",
     "initialize": "node scripts/initialize-project.js"
@@ -39,10 +41,17 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.19.0",
+    "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
     "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.9.0",
     "prettier": "^3.9.6",
-    "supertest": "^7.2.2"
+    "supertest": "^7.2.2",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.1"
   }
 }

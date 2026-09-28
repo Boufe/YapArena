@@ -1,8 +1,9 @@
 import pg from "pg";
+import type { Logger } from "pino";
 
 const { Pool } = pg;
 
-export function createDatabase(connectionString, logger) {
+export function createDatabase(connectionString: string, logger: Logger) {
   const database = new Pool({
     connectionString,
     max: 10,

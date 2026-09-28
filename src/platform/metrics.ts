@@ -4,6 +4,7 @@ import {
   Histogram,
   Registry,
 } from "prom-client";
+import type { NextFunction, Request, Response } from "express";
 
 export function createMetrics() {
   const registry = new Registry();
@@ -27,7 +28,11 @@ export function createMetrics() {
     registers: [registry],
   });
 
-  function middleware(request, response, next) {
+  function middleware(
+    request: Request,
+    response: Response,
+    next: NextFunction,
+  ) {
     if (request.path === "/metrics") {
       return next();
     }
@@ -51,7 +56,7 @@ export function createMetrics() {
     return next();
   }
 
-  async function handler(_request, response) {
+  async function handler(_request: Request, response: Response) {
     response.type(registry.contentType);
     return response.send(await registry.metrics());
   }

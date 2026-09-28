@@ -1,8 +1,15 @@
 import { rateLimit } from "express-rate-limit";
+import type { NextFunction, Request, Response } from "express";
 
 const safeMethods = new Set(["GET", "HEAD", "OPTIONS"]);
 
-export function createApiRateLimiter({ windowMs, limit }) {
+export function createApiRateLimiter({
+  windowMs,
+  limit,
+}: {
+  windowMs: number;
+  limit: number;
+}) {
   return rateLimit({
     windowMs,
     limit,
@@ -11,8 +18,18 @@ export function createApiRateLimiter({ windowMs, limit }) {
   });
 }
 
-export function createCsrfOriginProtection({ environment, applicationOrigin }) {
-  return function csrfOriginProtection(request, response, next) {
+export function createCsrfOriginProtection({
+  environment,
+  applicationOrigin,
+}: {
+  environment: string;
+  applicationOrigin?: string;
+}) {
+  return function csrfOriginProtection(
+    request: Request,
+    response: Response,
+    next: NextFunction,
+  ) {
     if (environment !== "production" || safeMethods.has(request.method)) {
       return next();
     }

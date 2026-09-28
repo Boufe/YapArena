@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 
-import { createMetrics } from "../src/platform/metrics.js";
+import { createMetrics } from "../dist/platform/metrics.js";
 
 describe("metrics", () => {
   it("labels unmatched routes without using the raw URL", async () => {

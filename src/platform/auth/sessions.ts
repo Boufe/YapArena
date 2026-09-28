@@ -1,7 +1,21 @@
-export function createSessionRepository(database) {
+import type { Pool } from "pg";
+import type { PublicUser } from "./users.ts";
+
+interface StoredSession {
+  id: string;
+  userId: string;
+  expiresAt: Date;
+  createdAt: Date;
+}
+
+export function createSessionRepository(database: Pool) {
   return Object.freeze({
-    async create(userId, tokenHash, expiresAt) {
-      const result = await database.query(
+    async create(
+      userId: string,
+      tokenHash: string,
+      expiresAt: Date,
+    ): Promise<StoredSession> {
+      const result = await database.query<StoredSession>(
         `INSERT INTO sessions (user_id, token_hash, expires_at)
          VALUES ($1, $2, $3)
          RETURNING id, user_id AS "userId", expires_at AS "expiresAt",
@@ -9,11 +23,12 @@ export function createSessionRepository(database) {
         [userId, tokenHash, expiresAt],
       );
 
+      if (!result.rows[0]) throw new Error("created session was not returned");
       return result.rows[0];
     },
 
-    async findUserByTokenHash(tokenHash) {
-      const result = await database.query(
+    async findUserByTokenHash(tokenHash: string): Promise<PublicUser | null> {
+      const result = await database.query<PublicUser>(
         `SELECT users.id, users.email, users.created_at AS "createdAt"
          FROM sessions
          INNER JOIN users ON users.id = sessions.user_id
@@ -25,7 +40,7 @@ export function createSessionRepository(database) {
       return result.rows[0] ?? null;
     },
 
-    async deleteByTokenHash(tokenHash) {
+    async deleteByTokenHash(tokenHash: string) {
       const result = await database.query(
         `DELETE FROM sessions
          WHERE token_hash = $1
@@ -33,7 +48,7 @@ export function createSessionRepository(database) {
         [tokenHash],
       );
 
-      return result.rowCount > 0;
+      return (result.rowCount ?? 0) > 0;
     },
 
     async deleteExpired() {
@@ -42,7 +57,7 @@ export function createSessionRepository(database) {
          WHERE expires_at <= CURRENT_TIMESTAMP`,
       );
 
-      return result.rowCount;
+      return result.rowCount ?? 0;
     },
   });
 }

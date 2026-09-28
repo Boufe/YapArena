@@ -5,7 +5,7 @@ import {
   hashPassword,
   validatePassword,
   verifyPassword,
-} from "../src/platform/auth/passwords.js";
+} from "../dist/platform/auth/passwords.js";
 
 describe("passwords", () => {
   it("accepts passwords within the supported length", () => {

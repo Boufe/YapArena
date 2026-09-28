@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 
-import { createRuntime } from "../src/platform/runtime.js";
+import { createRuntime } from "../dist/platform/runtime.js";
 
 describe("service runtime", () => {
   it("verifies the database before listening and closes resources", async () => {

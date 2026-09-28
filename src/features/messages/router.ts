@@ -1,6 +1,11 @@
 import express from "express";
+import type { createMessageRepository } from "./repository.ts";
 
-export function createMessageRouter({ messages }) {
+export function createMessageRouter({
+  messages,
+}: {
+  messages: ReturnType<typeof createMessageRepository>;
+}) {
   const router = express.Router();
 
   router.post("/", async (request, response) => {
@@ -15,7 +20,7 @@ export function createMessageRouter({ messages }) {
 
     const message = `Hello, ${normalizedName}!`;
     const createdMessage = await messages.create(
-      request.user.id,
+      request.user!.id,
       normalizedName,
       message,
     );
@@ -40,7 +45,7 @@ export function createMessageRouter({ messages }) {
     }
 
     const items = await messages.list({
-      userId: request.user.id,
+      userId: request.user!.id,
       limit,
       offset,
     });

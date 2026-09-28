@@ -1,6 +1,10 @@
 import { readdir } from "node:fs/promises";
+import type { Pool } from "pg";
 
-export async function verifyDatabaseState(database, migrationsDirectory) {
+export async function verifyDatabaseState(
+  database: Pool,
+  migrationsDirectory: URL,
+) {
   await database.query("SELECT 1");
 
   const files = await readdir(migrationsDirectory);
@@ -8,7 +12,7 @@ export async function verifyDatabaseState(database, migrationsDirectory) {
     .filter((file) => /^\d+_.+\.js$/u.test(file))
     .map((file) => file.replace(/\.js$/u, ""))
     .sort();
-  const result = await database.query(
+  const result = await database.query<{ name: string }>(
     "SELECT name FROM pgmigrations ORDER BY name",
   );
   const applied = result.rows.map(({ name }) => name).sort();

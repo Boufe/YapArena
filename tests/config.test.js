@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { loadConfig } from "../src/platform/config.js";
+import { loadConfig } from "../dist/platform/config.js";
 
 describe("configuration", () => {
   const databaseUrl = "postgresql://user:password@localhost:5432/database";

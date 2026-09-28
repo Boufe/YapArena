@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    uses: ./.github/workflows/reusable-quality.yml
+
+  container:
+    runs-on: ubuntu-latest
+    needs: quality
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v7
+
+      - name: Build production image
+        run: docker build --target production --tag service:ci .
+
+      - name: Scan production image
+        run: >-
+          docker run --rm
+          --volume /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c
+          image --scanners vuln --severity HIGH,CRITICAL
+          --ignore-unfixed --exit-code 1 service:ci
+
+  monitoring:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v7
+
+      - name: Validate monitoring Compose configuration
+        run: |
+          cp .env.example .env
+          docker compose --profile monitoring config --quiet
+
+      - name: Validate Prometheus configuration and rules
+        run: >-
+          docker run --rm --entrypoint promtool
+          --volume "${{ github.workspace }}/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+          --volume "${{ github.workspace }}/monitoring/prometheus/rules:/etc/prometheus/rules:ro"
+          prom/prometheus:v3.13.0
+          check config /etc/prometheus/prometheus.yml
+
+  deployment:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v7
+
+      - name: Validate production Compose configuration
+        env:
+          APP_IMAGE: ghcr.io/example/service@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          DATABASE_URL: postgresql://yaparena:placeholder@database.example/yaparena
+          APP_ORIGIN: https://service.example.com
+        run: docker compose --file compose.production.yaml --profile release config --quiet
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: quality
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v7
+
+      - name: Create local test configuration
+        run: cp .env.example .env
+
+      - name: Start PostgreSQL
+        run: docker compose up --detach --wait db
+
+      - name: Apply database migrations
+        run: >-
+          docker compose run --rm --build app
+          node node_modules/node-pg-migrate/bin/node-pg-migrate.js up
+
+      - name: Start application
+        run: docker compose up --detach --build --wait app
+
+      - name: Verify persisted API request
+        run: |
+          curl --fail --silent --show-error \
+            --request POST http://localhost:3000/api/auth/register \
+            --header "Content-Type: application/json" \
+            --cookie-jar /tmp/yaparena-ci.cookies \
+            --data '{"email":"ci@example.com","password":"a secure CI passphrase"}'
+
+          curl --fail --silent --show-error \
+            --request POST http://localhost:3000/api/messages \
+            --header "Content-Type: application/json" \
+            --cookie /tmp/yaparena-ci.cookies \
+            --data '{"name":"CI"}' \
+            | grep --fixed-strings '"message":"Hello, CI!"'
+
+          curl --fail --silent --show-error \
+            --cookie /tmp/yaparena-ci.cookies \
+            "http://localhost:3000/api/messages?limit=10&offset=0" \
+            | grep --fixed-strings '"name":"CI"'
+
+      - name: Show logs after failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Clean up containers and volumes
+        if: always()
+        run: docker compose down --volumes --remove-orphans

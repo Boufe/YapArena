@@ -1,0 +1,7 @@
+{
+  "name": "YapArena",
+  "slug": "yaparena",
+  "owner": "Boufe",
+  "database": "yaparena",
+  "description": "Backend foundation for a live debate platform"
+}

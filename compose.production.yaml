@@ -1,0 +1,61 @@
+name: ${COMPOSE_PROJECT_NAME:-yaparena-production}
+
+services:
+  app:
+    image: ${APP_IMAGE:?Set APP_IMAGE to an immutable ghcr.io image digest}
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN to the public HTTPS origin}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      REQUEST_BODY_LIMIT: ${REQUEST_BODY_LIMIT:-10kb}
+      API_RATE_LIMIT: ${API_RATE_LIMIT:-300}
+      AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-10}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+      SESSION_DURATION_MS: ${SESSION_DURATION_MS:-604800000}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the production PostgreSQL connection string}
+    ports:
+      - "127.0.0.1:${HOST_PORT:-3000}:3000"
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - |
+          fetch("http://127.0.0.1:3000/ready")
+            .then((response) => {
+              if (!response.ok) process.exit(1);
+            })
+            .catch(() => process.exit(1));
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  migrate:
+    image: ${APP_IMAGE:?Set APP_IMAGE to an immutable ghcr.io image digest}
+    profiles: [release]
+    command:
+      - node
+      - node_modules/node-pg-migrate/bin/node-pg-migrate.js
+      - up
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the production PostgreSQL connection string}
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

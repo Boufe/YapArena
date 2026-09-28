@@ -214,10 +214,16 @@ git push origin v1.0.0
 Replace `v1.0.0` with the intended release version. `git tag` creates the tag locally; `git push
 origin v1.0.0` sends that specific tag to GitHub, where the release workflow starts. Confirm
 `git status` is clean and that the checked-out commit is the reviewed `main` commit before tagging.
+The workflow accepts only a `vMAJOR.MINOR.PATCH` tag whose commit is in `main` history. Protect
+release tags in GitHub when that setting is available, since anyone allowed to create one can start
+a publication run. Make sure the release workflow has reached `main` before tagging.
 
 The `Release container` workflow publishes Linux AMD64 and ARM64 images to GHCR with OCI build
 provenance and an SBOM. Copy the `image@sha256:...` reference from the workflow summary. Version
 and commit tags are convenient discovery pointers, but deployments must use the digest.
+After the first release, verify the registry manifest lists both platforms, the provenance and SBOM
+are attached to the published image, and the summary digest resolves to that manifest. Confirm the
+deployment host has read access to the package if GHCR keeps it private.
 
 On the deployment host, provide the immutable image reference and production database URL through
 an access-controlled environment file. Apply migrations as a separate release step:

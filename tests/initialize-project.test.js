@@ -45,6 +45,17 @@ describe("project initializer", () => {
     assert.equal(packageJson.description, "A forecasting service.");
     assert.match(compose, /COMPOSE_PROJECT_NAME:-forecast-lab/);
     assert.match(environment, /POSTGRES_DB=forecast_lab/);
+    assert.match(
+      await readFile(join(temporaryRoot, ".github/CODEOWNERS"), "utf8"),
+      /\* @example-org/,
+    );
+    assert.match(
+      await readFile(
+        join(temporaryRoot, ".github/ISSUE_TEMPLATE/config.yml"),
+        "utf8",
+      ),
+      /github\.com\/example-org\/forecast-lab\/security\/advisories\/new/,
+    );
     for (const path of [
       "src/platform/metrics.ts",
       "monitoring/prometheus.yml",

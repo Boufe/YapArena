@@ -165,9 +165,10 @@ jurisdiction-specific legal review; it must never rely on a mutable `users.balan
 
 ## Completion evidence
 
-The implementation PR must link test output and note any external adoption gates. Enabling GitHub's
-**Template repository** setting is the only expected repository-hosting action after merge; all source
-requirements must already be complete.
+The implementation PR must link test output and note any external adoption gates. After merge,
+maintainers must configure the GitHub settings in [Getting started](getting-started.md#8-configure-github),
+enable **Template repository** if this repository will be used as a template, and verify one real
+release run before claiming that publishing works end to end.
 
 Implemented evidence:
 

@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(import.meta.dirname, "..");
 const identityFiles = [
   ".env.example",
+  ".github/CODEOWNERS",
   ".github/workflows/ci.yml",
   ".github/ISSUE_TEMPLATE/config.yml",
   "README.md",
@@ -94,6 +95,12 @@ export async function initializeProject(
   for (const relativePath of identityFiles) {
     const path = resolve(projectRoot, relativePath);
     let contents = await readFile(path, "utf8");
+    if (relativePath === ".github/ISSUE_TEMPLATE/config.yml") {
+      contents = contents.replace(
+        /github\.com\/Boufe\/YapArena/gu,
+        `github.com/${project.owner}/${project.slug}`,
+      );
+    }
     const replacements = [
       [/OWNER\/REPOSITORY/gu, `${project.owner}/${project.slug}`],
       [/YapArena/gu, project.name],
@@ -104,6 +111,9 @@ export async function initializeProject(
     ];
     for (const [pattern, replacement] of replacements) {
       contents = contents.replace(pattern, replacement);
+    }
+    if (relativePath === ".github/CODEOWNERS") {
+      contents = contents.replace(/@Boufe\b/gu, `@${project.owner}`);
     }
     await writeFile(path, contents);
   }

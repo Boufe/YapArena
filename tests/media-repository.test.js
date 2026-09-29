@@ -118,7 +118,11 @@ function fake() {
       return result([media]);
     }
     if (sql.startsWith("UPDATE debate_media SET state = 'running'")) {
-      if (media.state !== "paused" || media.revision !== values[1])
+      if (
+        media.state !== "paused" ||
+        media.recordingStatus !== "recording" ||
+        media.revision !== values[1]
+      )
         return result();
       media = {
         ...media,
@@ -146,9 +150,14 @@ function fake() {
       return result();
     }
     if (sql.startsWith("UPDATE event_participants SET active")) return result();
-    if (sql.startsWith("UPDATE debate_media SET recording_status = $2")) {
+    if (sql.startsWith("UPDATE debate_media SET recording_status = CASE")) {
       if (!media || media.egressId !== values[0]) return result();
-      media = { ...media, recordingStatus: values[1], recordingKey: values[2] };
+      const complete = media.state === "ended" && values[1] === "ready";
+      media = {
+        ...media,
+        recordingStatus: complete ? "ready" : "failed",
+        recordingKey: complete ? values[2] : null,
+      };
       return result([media]);
     }
     if (sql.startsWith("UPDATE debate_media SET recording_status = 'failed'")) {
@@ -320,6 +329,24 @@ describe("durable media lifecycle", () => {
       (await f.repository.recordingEnded("egress", false, null))
         .recordingStatus,
       "failed",
+    );
+  });
+
+  it("rejects a partial recording and prevents the paused debate from resuming", async () => {
+    const f = fake();
+    await f.repository.start(id, "egress", "key");
+    f.event.status = "live";
+    const stopped = await f.repository.recordingEnded("egress", true, "key");
+    assert.equal(stopped.recordingStatus, "failed");
+    assert.equal(stopped.recordingKey, null);
+    const paused = await f.repository.pause(
+      id,
+      null,
+      "recording stopped early",
+    );
+    await assert.rejects(
+      () => f.repository.resume(id, "9", paused.revision),
+      MediaConflictError,
     );
   });
 

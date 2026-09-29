@@ -330,7 +330,22 @@ export function createMediaRouter({
         return response.status(400).json({ error: "revision required" });
       try {
         const state = await media.resume(id, request.user!.id, revision);
-        await provider.setTurn(id, state.activeSide);
+        try {
+          await provider.setTurn(id, state.activeSide);
+        } catch (permissionError) {
+          request.log.error(
+            { permissionError, id },
+            "failed to restore speaker turn after resume",
+          );
+          await media.pause(
+            id,
+            request.user!.id,
+            "Speaker permissions could not be restored.",
+          );
+          return response.status(503).json({
+            error: "speaker permissions unavailable; debate paused",
+          });
+        }
         return response.json({ state });
       } catch (error) {
         return problem(response, error);
@@ -435,6 +450,7 @@ export function createMediaWebhookRouter({
               null,
               "Speaker disconnected. Operator review required.",
             );
+            await provider.setTurn(id, null);
           } catch (error) {
             if (!(error instanceof MediaConflictError)) throw error;
           }
@@ -449,14 +465,14 @@ export function createMediaWebhookRouter({
           success,
           success ? file!.filename : null,
         );
-        if (state?.state === "running")
+        if (state?.state === "running") {
           await media.pause(
             state.debateId,
             null,
-            success
-              ? "Recording stopped before the debate ended. Operator review required."
-              : "Recording failed. Operator review required.",
+            "Recording stopped before the debate ended. Operator review required.",
           );
+          await provider.setTurn(state.debateId, null);
+        }
       }
       return response.status(204).end();
     } catch (error) {

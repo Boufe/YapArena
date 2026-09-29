@@ -231,7 +231,8 @@ export function createMediaRepository(db: Pool) {
           `UPDATE debate_media SET state = 'running',
           turn_deadline_at = CURRENT_TIMESTAMP + (remaining_ms * INTERVAL '1 millisecond'),
           last_resumed_at = CURRENT_TIMESTAMP, incident = NULL, revision = revision + 1,
-          updated_at = CURRENT_TIMESTAMP WHERE debate_id = $1 AND state = 'paused' AND revision = $2
+          updated_at = CURRENT_TIMESTAMP WHERE debate_id = $1 AND state = 'paused'
+          AND recording_status = 'recording' AND revision = $2
           AND (SELECT status FROM debates WHERE id = $1) = 'live' RETURNING ${fields}`,
           [debateId, revision],
         );
@@ -358,8 +359,13 @@ export function createMediaRepository(db: Pool) {
       key: string | null,
     ) {
       const result = await db.query<MediaState>(
-        `UPDATE debate_media SET recording_status = $2,
-        recording_key = $3, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
+        `UPDATE debate_media SET recording_status = CASE
+          WHEN $2 = 'ready' AND state <> 'ended' THEN 'failed'
+          ELSE $2 END,
+        recording_key = CASE
+          WHEN $2 = 'ready' AND state = 'ended' THEN $3
+          ELSE NULL END,
+        revision = revision + 1, updated_at = CURRENT_TIMESTAMP
         WHERE egress_id = $1 AND recording_status IN ('recording', 'processing')
           AND ($2 = 'failed' OR recording_key = $3) RETURNING ${fields}`,
         [egressId, success ? "ready" : "failed", success ? key : null],

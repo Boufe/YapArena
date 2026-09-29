@@ -393,6 +393,24 @@ describe("media API", () => {
     assert.ok(f.calls.includes("setTurn:A"));
   });
 
+  it("pauses again when LiveKit cannot restore the resumed speaker turn", async () => {
+    const f = fixture({
+      provider: {
+        async setTurn() {
+          throw new Error("LiveKit unavailable");
+        },
+      },
+    });
+    const response = await request(f.app)
+      .post(`/api/media/events/${id}/resume`)
+      .set("x-user", "9")
+      .send({ revision: 3 });
+    assert.equal(response.status, 503);
+    assert.ok(
+      f.calls.includes("pause:9:Speaker permissions could not be restored."),
+    );
+  });
+
   it("requires a verified recording to publish replay and validates WebVTT", async () => {
     const f = fixture();
     assert.equal(
@@ -758,8 +776,8 @@ describe("signed media webhooks", () => {
       async webhook() {
         return event;
       },
-      async setTurn() {
-        calls.push("setTurn");
+      async setTurn(_id, side) {
+        calls.push(`setTurn:${side}`);
       },
     };
     const app = express();
@@ -781,7 +799,10 @@ describe("signed media webhooks", () => {
       ).status,
       204,
     );
-    assert.equal(calls.length, 1);
+    assert.deepEqual(calls, [
+      [id, null, "Speaker disconnected. Operator review required."],
+      "setTurn:null",
+    ]);
     event = {
       event: "participant_joined",
       room: { name: `debate-${id}` },
@@ -796,7 +817,7 @@ describe("signed media webhooks", () => {
       ).status,
       204,
     );
-    assert.ok(calls.includes("setTurn"));
+    assert.ok(calls.includes("setTurn:A"));
     event = {
       event: "egress_ended",
       egressInfo: { egressId: "egress-1", fileResults: [] },
@@ -810,7 +831,8 @@ describe("signed media webhooks", () => {
       ).status,
       204,
     );
-    assert.equal(calls.length, 3);
+    assert.equal(calls.length, 5);
+    assert.equal(calls.at(-1), "setTurn:null");
     event = {
       event: "participant_left",
       room: { name: `debate-${id}` },
@@ -825,7 +847,7 @@ describe("signed media webhooks", () => {
       ).status,
       204,
     );
-    assert.equal(calls.length, 3);
+    assert.equal(calls.length, 5);
   });
 
   it("rejects an invalid signature or webhook payload", async () => {

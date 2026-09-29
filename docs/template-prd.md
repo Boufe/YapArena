@@ -1,5 +1,11 @@
 # Production Service Template PRD
 
+This document records the reusable backend template and its original acceptance criteria. It is
+not YAP Arena's product specification. The [YAP Arena product PRD](product-prd.md) governs product
+behavior and first-release scope; its [companion outlines](product-specification-outlines.md)
+track unresolved financial designs and evidence required before accepting real funds. References
+below to a play-money template example do not define or stage YAP Arena's planned paid release.
+
 ## Status
 
 - Owner: repository maintainers
@@ -34,7 +40,8 @@ template, runs one initializer, implements domain behavior, and inherits tested 
 4. Strengthen reusable application security and lifecycle behavior.
 5. Keep CI, container publishing, monitoring, and deployment provider-neutral.
 6. Document the difference between repository readiness and full enterprise readiness.
-7. Make the foundation suitable for ordinary SaaS products and a play-money prediction-market MVP.
+7. Make the generic foundation suitable for ordinary SaaS products and a play-money
+   prediction-market example; YAP Arena's product scope is defined separately.
 
 ## Non-goals and external adoption gates
 
@@ -142,11 +149,15 @@ The primary user is a developer or small team starting a Node.js/PostgreSQL serv
 
 ## Prediction-market suitability
 
-The template may host a play-money prediction-market MVP after adding product-specific markets,
+The generic template may host a play-money prediction-market MVP after adding product-specific markets,
 outcomes, positions, pricing, resolution, audit, and real-time behavior. Real-money use is explicitly
 outside the template's assurances. Any monetary implementation must use an append-only double-entry
 ledger, exact numeric representation, idempotency keys, strict transactions, reconciliation, and
 jurisdiction-specific legal review; it must never rely on a mutable `users.balance` field.
+
+For YAP Arena, the [product PRD](product-prd.md) specifies a combined first paid release with two
+real-money crypto markets. This template's example does not replace that decision or satisfy its
+release gates.
 
 ## Acceptance criteria
 

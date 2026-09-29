@@ -1,0 +1,198 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import {
+  ChallengeUnavailableError,
+  WalletAlreadyLinkedError,
+  createWalletRepository,
+} from "../dist/platform/auth/wallets.js";
+
+const user = { id: "7", email: null, createdAt: new Date("2026-09-01") };
+const address = `0x${"a".repeat(40)}`;
+const wallet = {
+  id: "11111111-1111-4111-8111-111111111111",
+  userId: "7",
+  address,
+  chainId: "1",
+  createdAt: new Date("2026-09-01"),
+};
+
+function fakePool(options = {}) {
+  const calls = [];
+  const query = async (sql, values = []) => {
+    calls.push({ sql, values });
+    if (sql.includes("INSERT INTO wallet_challenges"))
+      return {
+        rows: [{ id: "challenge", address, chainId: "1", purpose: "login" }],
+      };
+    if (sql.includes("FROM wallet_challenges") && sql.includes("SELECT id"))
+      return {
+        rows: options.challengeMissing
+          ? []
+          : [{ id: "challenge", address, chainId: "1", purpose: "login" }],
+      };
+    if (sql.includes("UPDATE wallet_challenges"))
+      return {
+        rows: options.challengeMissing ? [] : [{ address, chainId: "1" }],
+      };
+    if (sql.includes("FROM wallet_identities w JOIN users"))
+      return { rows: options.existingLogin ? [user] : [] };
+    if (sql.includes("INSERT INTO users")) return { rows: [user] };
+    if (sql.includes("FROM wallet_identities WHERE chain_id"))
+      return {
+        rows:
+          options.linkedTo === undefined
+            ? []
+            : [{ ...wallet, userId: options.linkedTo }],
+      };
+    if (
+      sql.includes("INSERT INTO wallet_identities") &&
+      sql.includes("RETURNING")
+    )
+      return { rows: [wallet] };
+    if (sql.includes("SELECT email FROM users"))
+      return { rows: [{ email: options.email ?? null }] };
+    if (sql.includes("SELECT id FROM wallet_identities WHERE id"))
+      return { rows: options.walletMissing ? [] : [wallet] };
+    if (sql.includes("count(*)::text"))
+      return { rows: [{ count: String(options.walletCount ?? 1) }] };
+    if (sql.includes("FROM wallet_identities WHERE user_id"))
+      return { rows: [wallet] };
+    if (sql.includes("DELETE FROM wallet_challenges"))
+      return { rowCount: 2, rows: [] };
+    return { rows: [], rowCount: 1 };
+  };
+  return {
+    pool: {
+      query,
+      connect: async () => ({
+        query,
+        release() {
+          calls.push({ sql: "RELEASE" });
+        },
+      }),
+    },
+    calls,
+  };
+}
+
+describe("wallet repository atomic identity changes", () => {
+  it("stores and loads short-lived challenges", async () => {
+    const { pool, calls } = fakePool();
+    const repository = createWalletRepository(pool);
+    const issued = await repository.createChallenge({
+      address,
+      chainId: 1,
+      purpose: "login",
+      message: "signed message",
+      expiresAt: new Date("2026-10-01"),
+    });
+    assert.equal(issued.id, "challenge");
+    assert.deepEqual(calls[0].values.slice(0, 4), [
+      address,
+      1,
+      "login",
+      "signed message",
+    ]);
+    assert.equal((await repository.getChallenge("challenge")).id, "challenge");
+    assert.equal(await repository.deleteExpiredChallenges(), 2);
+  });
+
+  it("creates a wallet-only account or reuses the linked account under a transaction lock", async () => {
+    const first = fakePool();
+    const created = await createWalletRepository(first.pool).completeLogin(
+      "challenge",
+    );
+    assert.equal(created.id, "7");
+    assert.ok(first.calls.some(({ sql }) => sql.includes("INSERT INTO users")));
+    assert.ok(
+      first.calls.some(({ sql }) =>
+        sql.includes("INSERT INTO wallet_identities"),
+      ),
+    );
+    assert.ok(
+      first.calls.some(({ sql }) => sql.includes("pg_advisory_xact_lock")),
+    );
+    assert.ok(first.calls.some(({ sql }) => sql === "COMMIT"));
+    const existing = fakePool({ existingLogin: true });
+    assert.equal(
+      (await createWalletRepository(existing.pool).completeLogin("challenge"))
+        .id,
+      "7",
+    );
+    assert.ok(
+      !existing.calls.some(({ sql }) => sql.includes("INSERT INTO users")),
+    );
+  });
+
+  it("rolls back a replayed challenge", async () => {
+    const { pool, calls } = fakePool({ challengeMissing: true });
+    await assert.rejects(
+      () => createWalletRepository(pool).completeLogin("challenge"),
+      ChallengeUnavailableError,
+    );
+    assert.ok(calls.some(({ sql }) => sql === "ROLLBACK"));
+  });
+
+  it("links only to the intended owner and rejects an occupied wallet", async () => {
+    const newLink = fakePool();
+    const linked = await createWalletRepository(newLink.pool).completeLink(
+      "challenge",
+      "7",
+      "hash",
+    );
+    assert.equal(linked.address, address);
+    assert.deepEqual(
+      newLink.calls.find(({ sql }) => sql.includes("UPDATE wallet_challenges"))
+        .values,
+      ["challenge", "7", "hash"],
+    );
+    const same = fakePool({ linkedTo: "7" });
+    assert.equal(
+      (
+        await createWalletRepository(same.pool).completeLink(
+          "challenge",
+          "7",
+          "hash",
+        )
+      ).id,
+      wallet.id,
+    );
+    const occupied = fakePool({ linkedTo: "8" });
+    await assert.rejects(
+      () =>
+        createWalletRepository(occupied.pool).completeLink(
+          "challenge",
+          "7",
+          "hash",
+        ),
+      WalletAlreadyLinkedError,
+    );
+    assert.ok(occupied.calls.some(({ sql }) => sql === "ROLLBACK"));
+  });
+
+  it("preserves the last login method during unlink", async () => {
+    const repository = (options) =>
+      createWalletRepository(fakePool(options).pool);
+    assert.equal(
+      await repository({ walletMissing: true }).unlinkWallet("7", wallet.id),
+      "missing",
+    );
+    assert.equal(
+      await repository({}).unlinkWallet("7", wallet.id),
+      "last_credentials",
+    );
+    assert.equal(
+      await repository({ email: "me@example.com" }).unlinkWallet(
+        "7",
+        wallet.id,
+      ),
+      "removed",
+    );
+    assert.equal(
+      await repository({ walletCount: 2 }).unlinkWallet("7", wallet.id),
+      "removed",
+    );
+    assert.equal((await repository({}).listWallets("7"))[0].id, wallet.id);
+  });
+});

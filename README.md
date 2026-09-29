@@ -1,9 +1,46 @@
 # YapArena
 
-YapArena is the starting backend for a live debate platform. It currently provides a Node.js 24,
+YapArena is a live debate platform in development. It currently provides a Node.js 24,
 strict TypeScript, Express, and PostgreSQL service with authentication, migrations, tests,
-monitoring, and container releases. The messages API is an example feature; debates, voting,
-incentives, and markets have not been implemented yet.
+monitoring, container releases, public discovery, wallet sign-in, profiles, follows, topics,
+nonfinancial debate matching, and a local live debate and replay prototype. The messages API remains
+an example feature. Voting, incentives, and markets have not been implemented yet.
+
+## Product direction and document authority
+
+The [YAP Arena product PRD](docs/product-prd.md) defines the planned product. Its
+[specification outlines and release evidence](docs/product-specification-outlines.md) identify
+the financial, privacy, instrument, and eligibility decisions that still require approved
+specifications and proof. When product guidance differs from the older
+[service template PRD](docs/template-prd.md), follow the product PRD for YapArena behavior.
+
+The planned first paid release includes two real-money crypto markets together: a debate-event
+market and a continuing ideas market. Wallet sign-in and linked identities support this
+nonfinancial preview. The existing email/password flow remains available for earlier accounts;
+neither sign-in flow authorizes financial activity.
+The PRD does not authorize accepting funds. Prototypes and simulations may precede launch, while
+real-fund activation depends on the companion document's evidence checklist and qualified
+jurisdiction-specific review.
+
+The companion document is an outline, not an approved technical design. The next product work is
+to settle the PRD's proposed and open decisions, then produce reviewable specifications for event
+economics, hidden-tally protection, the ongoing instrument, and launch eligibility. Use the
+worked examples and evidence requirements in those outlines to test each design. Both markets
+must pass the combined release gate before the first paid launch.
+
+The [nonfinancial implementation plan](docs/nonfinancial-implementation-plan.md) orders the
+discovery, debate, replay, community, moderation, and operating work that can proceed while
+financial specifications are resolved.
+The [public discovery decision](docs/decisions/0001-public-discovery.md) records the initial
+HTML/API architecture and its release checks.
+The [identity and social decision](docs/decisions/0002-identity-and-social.md) records account
+ownership, wallet recovery limits, audit retention, and export/deletion behavior.
+The [topic and event decision](docs/decisions/0003-topics-matching-events.md) records the
+preview's challenge, scheduling, no-show, audit, and lifecycle rules.
+The [live media decision](docs/decisions/0004-live-debate-replay.md) records prototype timings,
+recording gates, incident behavior, and the validation still needed before a production media choice.
+The [Render staging runbook](docs/render-staging.md) describes the hosted app, database, dedicated
+clock worker, access gate, and media integration steps.
 
 To work on YapArena, follow [Local development](#local-development). The original
 [service template guide](docs/getting-started.md) remains available if you want to create a separate
@@ -98,6 +135,68 @@ change. `npm run build` compiles production JavaScript into the ignored `dist/` 
 API can reach the database. Press `Ctrl-C` to stop the API; the database container keeps running until
 you run `docker compose down`.
 
+### Public discovery preview
+
+Open <http://localhost:3000/> for the public home page, or visit `/debates` and `/topics`.
+Anonymous visitors can search and browse published debates, topics, and speaker profiles.
+The read-only JSON API lives under `/api/public`. It supports bounded `q`, `status`, `topic`,
+`profile`, `limit`, and `offset` query parameters as applicable. Debate pages show only public
+event fields; they never infer a winner or expose a hidden tally.
+
+The database starts with no public records. To add fictional, clearly marked examples in local
+development after migrating, run:
+
+```sh
+npm run seed:discovery
+```
+
+The seed is idempotent and refuses `NODE_ENV=production`. It creates sample topics, speakers,
+and listings only. A demo replay listing has no video. In Docker development, run the seed from
+the host against the published database port, then refresh the pages. The old messages migration
+and API remain for existing clients.
+After a first successful visit, the public shell caches a short offline explanation. It does
+not cache debate records; reconnect to see current content.
+
+### Identity and social preview
+
+Open <http://localhost:3000/account> to sign in with an EVM wallet and a one-time
+Sign-In with Ethereum message. You can also use an existing email account, then link a wallet.
+Creating a profile starts a private draft; choose Public and save to publish it. Public people
+and topic pages have follow controls. The account page shows linked wallets, follows, and
+recent identity activity. Signing in and linking wallets do not authorize a transaction.
+
+`APP_ORIGIN` must exactly match the browser origin, including the port, for SIWE challenges and
+cookie-authenticated writes. EOA wallets work without RPC configuration. To verify contract
+wallets, set `SIWE_RPC_URLS` to a JSON object mapping supported chain IDs to trusted RPC URLs,
+for example `{"1":"https://rpc.example"}`. Production accepts only HTTPS RPC URLs.
+Accounts with one wallet and no email cannot unlink their last sign-in method. Review the
+[identity decision](docs/decisions/0002-identity-and-social.md) before collecting user data:
+automated export and deletion are not yet available.
+
+### Topics and debate matching preview
+
+Open <http://localhost:3000/match> after signing in and publishing a profile. Create a topic
+draft, review its side mapping, and publish it. You can then issue a direct challenge or open a
+queue request. A second speaker accepts or joins on the opposite side. The match page shows
+requests, scheduled events, readiness, and account notifications. Speakers complete a camera and
+microphone check on the public event page before readiness. An operator can record reschedules,
+cancellations, and no-shows through the matching API, and control live, pause, end, and replay through
+the media API or the event page. The [event decision](docs/decisions/0003-topics-matching-events.md)
+states the preview policies.
+
+Every created event stores an immutable snapshot of its platform rules version. No event in
+this preview accepts funds, computes a paid cutoff, or publishes a winner. Historical demo replay
+listings have no recording. New events use prototype media timings until product rules are approved.
+
+### Local live debate and replay prototype
+
+The optional media stack uses LiveKit, an Egress recording worker, Redis, and S3-compatible local
+storage. Start it with `docker compose -f compose.yaml -f compose.media.yaml` and apply migrations
+before starting the app; see the [media decision](docs/decisions/0004-live-debate-replay.md) for the
+exact commands, controls, and validation limits. Local keys in the Compose override are development
+only. A recording must be complete and verified in object storage before an operator can publish
+replay. Captions are reviewed WebVTT text uploaded by an operator. Extensions remain disabled.
+
 Run the quality gate:
 
 ```sh
@@ -123,6 +222,7 @@ source code, and a running process or container must be restarted before it sees
 | `HOST_PORT`                          | `3000`                             | Selects the host port used to reach the API when it runs through Docker Compose.                                                |
 | `LOG_LEVEL`                          | `debug`                            | Controls how much structured log detail the application emits.                                                                  |
 | `APP_ORIGIN`                         | `http://localhost:3000`            | Identifies the browser origin allowed to make cookie-authenticated write requests.                                              |
+| `SIWE_RPC_URLS`                      | `{}`                               | Maps EVM chain IDs to trusted RPC URLs for contract-wallet signature verification.                                              |
 | `TRUST_PROXY`                        | `false`                            | Trusts no reverse proxy locally; production must use the exact trusted proxy-hop count.                                         |
 | `REQUEST_BODY_LIMIT`                 | `10kb`                             | Rejects JSON request bodies larger than this amount.                                                                            |
 | `API_RATE_LIMIT`                     | `300`                              | Limits general API requests from one client during each rate-limit window.                                                      |

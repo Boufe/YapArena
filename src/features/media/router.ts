@@ -1,0 +1,468 @@
+import { randomUUID } from "node:crypto";
+import { Router } from "express";
+import type { Request, Response, RequestHandler } from "express";
+import type { createMediaRepository } from "./repository.ts";
+import type { createMediaProvider } from "./provider.ts";
+import type { createMatchingRepository } from "../matching/repository.ts";
+import type { createIdentityRepository } from "../identity/repository.ts";
+import { MediaConflictError, MediaNotFoundError } from "./repository.ts";
+import {
+  MatchConflictError,
+  MatchNotFoundError,
+} from "../matching/repository.ts";
+import { createRequireRole } from "../identity/router.ts";
+
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const idOf = (request: Request) =>
+  typeof request.params.id === "string" && uuid.test(request.params.id)
+    ? request.params.id
+    : null;
+function problem(response: Response, error: unknown) {
+  if (
+    error instanceof MediaNotFoundError ||
+    error instanceof MatchNotFoundError
+  )
+    return response.status(404).json({ error: error.message });
+  if (
+    error instanceof MediaConflictError ||
+    error instanceof MatchConflictError
+  )
+    return response.status(409).json({ error: error.message });
+  throw error;
+}
+
+function vtt(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    value.length > 200_000 ||
+    !value.startsWith("WEBVTT\n")
+  )
+    return false;
+  if (/<[a-z!/]/i.test(value)) return false;
+  return value.split("\n").length <= 5000;
+}
+
+export function createMediaRouter({
+  media,
+  provider,
+  matching,
+  identity,
+  requireAuth,
+}: {
+  media: ReturnType<typeof createMediaRepository>;
+  provider: ReturnType<typeof createMediaProvider>;
+  matching: ReturnType<typeof createMatchingRepository>;
+  identity: ReturnType<typeof createIdentityRepository>;
+  requireAuth: RequestHandler;
+}) {
+  const router = Router();
+  const participant = createRequireRole(identity, ["participant"]);
+  const operator = createRequireRole(identity, ["operator"]);
+  router.use((_request, response, next) => {
+    response.set("Cache-Control", "no-store");
+    next();
+  });
+
+  router.get("/events/:id", async (request, response) => {
+    const id = idOf(request);
+    if (!id) return response.status(404).json({ error: "event not found" });
+    const event = await media.getPublicEvent(id);
+    if (!event || event.publicationState !== "published")
+      return response.status(404).json({ error: "event not found" });
+    const state = await media.get(id);
+    return response.json({
+      state,
+      eventStatus: event.status,
+      serverNow: new Date().toISOString(),
+      extensionsEnabled: false,
+    });
+  });
+  router.get("/events/:id/replay", async (request, response) => {
+    const id = idOf(request);
+    if (!id) return response.status(404).json({ error: "event not found" });
+    const [event, state] = await Promise.all([
+      media.getPublicEvent(id),
+      media.get(id),
+    ]);
+    if (
+      !event ||
+      event.publicationState !== "published" ||
+      !["replay", "finalized"].includes(event.status) ||
+      state?.recordingStatus !== "ready" ||
+      !state.recordingKey
+    )
+      return response.status(404).json({ error: "replay not available" });
+    try {
+      return response.json({
+        url: await provider.replayUrl(state.recordingKey),
+        expiresIn: 3600,
+      });
+    } catch (error) {
+      request.log.error({ error, id }, "replay object unavailable");
+      return response
+        .status(503)
+        .json({ error: "replay temporarily unavailable" });
+    }
+  });
+  router.get("/events/:id/captions.vtt", async (request, response) => {
+    const id = idOf(request);
+    if (!id) return response.status(404).end();
+    const event = await media.getPublicEvent(id);
+    if (
+      !event ||
+      event.publicationState !== "published" ||
+      !["replay", "finalized"].includes(event.status)
+    )
+      return response.status(404).end();
+    const captions = await media.captions(id);
+    return captions
+      ? response.type("text/vtt").send(captions)
+      : response.status(404).end();
+  });
+  router.post("/events/:id/viewer-token", async (request, response) => {
+    const id = idOf(request);
+    if (!id) return response.status(404).json({ error: "event not found" });
+    const event = await media.getPublicEvent(id);
+    if (
+      !event ||
+      event.publicationState !== "published" ||
+      event.status !== "live"
+    )
+      return response.status(404).json({ error: "live debate not available" });
+    return response.json({
+      token: await provider.token(id, randomUUID(), false),
+      url: provider.publicUrl,
+    });
+  });
+  router.post(
+    "/events/:id/device-check",
+    requireAuth,
+    participant,
+    async (request, response) => {
+      const id = idOf(request);
+      if (!id) return response.status(404).json({ error: "event not found" });
+      const { cameraOk, microphoneOk } = request.body ?? {};
+      if (typeof cameraOk !== "boolean" || typeof microphoneOk !== "boolean")
+        return response
+          .status(400)
+          .json({ error: "cameraOk and microphoneOk are required" });
+      try {
+        return response.json({
+          check: await media.checkDevice(
+            id,
+            request.user!.id,
+            cameraOk,
+            microphoneOk,
+          ),
+        });
+      } catch (error) {
+        return problem(response, error);
+      }
+    },
+  );
+  router.post(
+    "/events/:id/speaker-token",
+    requireAuth,
+    participant,
+    async (request, response) => {
+      const id = idOf(request);
+      if (!id) return response.status(404).json({ error: "event not found" });
+      const [event, side] = await Promise.all([
+        media.getPublicEvent(id),
+        media.sideFor(id, request.user!.id),
+      ]);
+      if (
+        !side ||
+        !event ||
+        !["scheduled", "ready", "live"].includes(event.status)
+      )
+        return response
+          .status(404)
+          .json({ error: "speaker seat not available" });
+      try {
+        await media.assertDeviceReady(id, request.user!.id);
+        return response.json({
+          token: await provider.token(id, request.user!.id, true, side),
+          url: provider.publicUrl,
+          side,
+        });
+      } catch (error) {
+        return problem(response, error);
+      }
+    },
+  );
+  router.post(
+    "/events/:id/start",
+    requireAuth,
+    operator,
+    async (request, response) => {
+      const id = idOf(request);
+      if (!id) return response.status(404).json({ error: "event not found" });
+      const reason =
+        typeof request.body?.reason === "string"
+          ? request.body.reason.trim()
+          : "";
+      if (reason.length < 5 || reason.length > 500)
+        return response
+          .status(400)
+          .json({ error: "reason must be 5–500 characters" });
+      let recording: { egressId: string; key: string } | undefined;
+      try {
+        if ((await provider.connectedSpeakers(id)) !== 2)
+          throw new MediaConflictError(
+            "both speakers must be connected before start",
+          );
+        recording = await provider.beginRecording(id);
+        await media.start(id, recording.egressId, recording.key);
+        const event = await matching.operatorTransition(
+          request.user!.id,
+          id,
+          "start",
+          reason,
+        );
+        try {
+          await provider.setTurn(id, "A");
+        } catch (permissionError) {
+          request.log.error(
+            { permissionError, id },
+            "failed to set initial speaker turn",
+          );
+          try {
+            await media.pause(
+              id,
+              null,
+              "Speaker permissions could not be applied.",
+            );
+          } catch (pauseError) {
+            request.log.error(
+              { pauseError, id },
+              "failed to pause after permission error",
+            );
+          }
+        }
+        return response.json({ event, state: await media.get(id) });
+      } catch (error) {
+        if (recording) {
+          await media.undoFailedStart(id);
+          try {
+            await provider.stopRecording(recording.egressId);
+          } catch (stopError) {
+            request.log.error(
+              { stopError, id },
+              "failed to stop orphan recording",
+            );
+          }
+        }
+        return problem(response, error);
+      }
+    },
+  );
+  router.post(
+    "/events/:id/end",
+    requireAuth,
+    operator,
+    async (request, response) => {
+      const id = idOf(request);
+      if (!id) return response.status(404).json({ error: "event not found" });
+      const reason =
+        typeof request.body?.reason === "string"
+          ? request.body.reason.trim()
+          : "";
+      if (reason.length < 5 || reason.length > 500)
+        return response
+          .status(400)
+          .json({ error: "reason must be 5–500 characters" });
+      try {
+        const event = await matching.operatorTransition(
+          request.user!.id,
+          id,
+          "end",
+          reason,
+        );
+        const state = await media.stop(id, reason);
+        try {
+          await provider.setTurn(id, null);
+        } catch (permissionError) {
+          request.log.error(
+            { permissionError, id },
+            "failed to revoke speaker turn at end",
+          );
+        }
+        return response.json({ event, state });
+      } catch (error) {
+        return problem(response, error);
+      }
+    },
+  );
+  router.post(
+    "/events/:id/pause",
+    requireAuth,
+    operator,
+    async (request, response) => {
+      const id = idOf(request);
+      if (!id) return response.status(404).json({ error: "event not found" });
+      const reason =
+        typeof request.body?.reason === "string"
+          ? request.body.reason.trim()
+          : "";
+      if (reason.length < 5 || reason.length > 500)
+        return response
+          .status(400)
+          .json({ error: "reason must be 5–500 characters" });
+      try {
+        const state = await media.pause(id, request.user!.id, reason);
+        await provider.setTurn(id, null);
+        return response.json({ state });
+      } catch (error) {
+        return problem(response, error);
+      }
+    },
+  );
+  router.post(
+    "/events/:id/resume",
+    requireAuth,
+    operator,
+    async (request, response) => {
+      const id = idOf(request);
+      if (!id) return response.status(404).json({ error: "event not found" });
+      const revision = request.body?.revision;
+      if (!Number.isInteger(revision) || revision < 0)
+        return response.status(400).json({ error: "revision required" });
+      try {
+        const state = await media.resume(id, request.user!.id, revision);
+        await provider.setTurn(id, state.activeSide);
+        return response.json({ state });
+      } catch (error) {
+        return problem(response, error);
+      }
+    },
+  );
+  router.post(
+    "/events/:id/replay",
+    requireAuth,
+    operator,
+    async (request, response) => {
+      const id = idOf(request);
+      if (!id) return response.status(404).json({ error: "event not found" });
+      const reason =
+        typeof request.body?.reason === "string"
+          ? request.body.reason.trim()
+          : "";
+      if (reason.length < 5 || reason.length > 500)
+        return response
+          .status(400)
+          .json({ error: "reason must be 5–500 characters" });
+      try {
+        const state = await media.get(id);
+        if (state?.recordingStatus !== "ready" || !state.recordingKey)
+          throw new MediaConflictError(
+            "verified recording required before replay",
+          );
+        await provider.replayUrl(state.recordingKey);
+        return response.json({
+          event: await matching.operatorTransition(
+            request.user!.id,
+            id,
+            "replay",
+            reason,
+          ),
+        });
+      } catch (error) {
+        return problem(response, error);
+      }
+    },
+  );
+  router.put(
+    "/events/:id/captions",
+    requireAuth,
+    operator,
+    async (request, response) => {
+      const id = idOf(request);
+      if (!id) return response.status(404).json({ error: "event not found" });
+      if (!vtt(request.body?.vtt))
+        return response
+          .status(400)
+          .json({ error: "valid plain WebVTT required" });
+      try {
+        await media.setCaptions(id, request.body.vtt);
+        return response.status(204).end();
+      } catch (error) {
+        return problem(response, error);
+      }
+    },
+  );
+  return router;
+}
+
+export function createMediaWebhookRouter({
+  media,
+  provider,
+}: {
+  media: ReturnType<typeof createMediaRepository>;
+  provider: ReturnType<typeof createMediaProvider>;
+}) {
+  const router = Router();
+  router.post("/", async (request, response) => {
+    try {
+      const event = await provider.webhook(
+        request.body.toString("utf8"),
+        request.header("Authorization"),
+      );
+      if (
+        event.event === "participant_joined" &&
+        event.room?.name &&
+        event.participant?.identity.startsWith("speaker-")
+      ) {
+        const id = event.room.name.replace(/^debate-/, "");
+        if (uuid.test(id)) {
+          const state = await media.get(id);
+          await provider.setTurn(
+            id,
+            state?.state === "running" ? state.activeSide : null,
+          );
+        }
+      }
+      if (
+        event.event === "participant_left" &&
+        event.room?.name &&
+        event.participant?.identity.startsWith("speaker-")
+      ) {
+        const id = event.room.name.replace(/^debate-/, "");
+        if (uuid.test(id)) {
+          try {
+            await media.pause(
+              id,
+              null,
+              "Speaker disconnected. Operator review required.",
+            );
+          } catch (error) {
+            if (!(error instanceof MediaConflictError)) throw error;
+          }
+        }
+      }
+      if (event.event === "egress_ended" && event.egressInfo?.egressId) {
+        const info = event.egressInfo;
+        const file = info.fileResults[0];
+        const success = Boolean(file?.filename && file.size > 0n);
+        const state = await media.recordingEnded(
+          info.egressId,
+          success,
+          success ? file!.filename : null,
+        );
+        if (state?.state === "running")
+          await media.pause(
+            state.debateId,
+            null,
+            success
+              ? "Recording stopped before the debate ended. Operator review required."
+              : "Recording failed. Operator review required.",
+          );
+      }
+      return response.status(204).end();
+    } catch (error) {
+      request.log.warn({ error }, "invalid or failed media webhook");
+      return response.status(400).end();
+    }
+  });
+  return router;
+}

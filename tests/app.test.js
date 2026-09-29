@@ -50,6 +50,61 @@ describe("yaparena API", () => {
     assert.match(response.headers["x-request-id"], /^[0-9a-f-]{36}$/);
   });
 
+  it("requires a secret for staging pages and APIs while keeping readiness available", async () => {
+    const staging = createApp({
+      messages,
+      users,
+      sessions,
+      logger,
+      stagingAccessSecret: "a".repeat(32),
+    });
+    assert.equal((await request(staging).get("/ready")).status, 200);
+    const denied = await request(staging).get("/unknown");
+    assert.equal(denied.status, 401);
+    assert.match(denied.headers["www-authenticate"], /Basic/);
+    const allowed = await request(staging)
+      .get("/unknown")
+      .auth("staging", "a".repeat(32));
+    assert.equal(allowed.status, 404);
+  });
+
+  it("allows only configured media origins in the browser policy", async () => {
+    const mediaProvider = {
+      publicUrl: "ws://localhost:7880",
+      playbackOrigin: "http://localhost:8333",
+    };
+    const mediaApp = createApp({
+      messages,
+      users,
+      sessions,
+      logger,
+      mediaProvider,
+    });
+    const response = await request(mediaApp).get("/health");
+    const policy = response.headers["content-security-policy"];
+    assert.match(policy, /connect-src 'self' ws:\/\/localhost:7880/);
+    assert.match(policy, /http:\/\/localhost:7880/);
+    assert.match(policy, /media-src 'self' http:\/\/localhost:8333/);
+    assert.doesNotMatch(policy, /upgrade-insecure-requests/);
+    const productionApp = createApp({
+      messages,
+      users,
+      sessions,
+      logger,
+      mediaProvider: {
+        publicUrl: "wss://media.example",
+        playbackOrigin: "https://storage.example",
+      },
+      environment: "production",
+      applicationOrigin: "https://arena.example",
+    });
+    const productionPolicy = (await request(productionApp).get("/health"))
+      .headers["content-security-policy"];
+    assert.match(productionPolicy, /connect-src 'self' wss:\/\/media.example/);
+    assert.match(productionPolicy, /https:\/\/media.example/);
+    assert.match(productionPolicy, /upgrade-insecure-requests/);
+  });
+
   it("reports that it is ready for traffic", async () => {
     const response = await request(app).get("/ready");
 

@@ -4,6 +4,51 @@ import { describe, it, mock } from "node:test";
 import { createRuntime } from "../dist/platform/runtime.js";
 
 describe("service runtime", () => {
+  it("runs only maintenance when no web app is supplied", async () => {
+    const callbacks = new Map();
+    const events = [];
+    const runtime = createRuntime({
+      database: { end: async () => events.push("closed") },
+      sessions: { deleteExpired: async () => events.push("cleanup") },
+      logger: { info() {}, error() {} },
+      config: { port: 3000, host: "127.0.0.1" },
+      verifyDatabase: async () => {},
+      setIntervalFn: (callback, interval) => {
+        callbacks.set(interval, callback);
+        return { unref() {} };
+      },
+      clearIntervalFn: () => {},
+    });
+    await runtime.start();
+    await callbacks.get(3600000)();
+    await runtime.stop();
+    assert.deepEqual(events, ["cleanup", "closed"]);
+  });
+
+  it("starts a web server without duplicate background jobs when disabled", async () => {
+    const events = [];
+    const runtime = createRuntime({
+      app: {
+        listen: (_port, _host, callback) => {
+          queueMicrotask(callback);
+          return { close: (done) => done(), once: () => {} };
+        },
+      },
+      database: { end: async () => events.push("closed") },
+      sessions: { deleteExpired: async () => 0 },
+      logger: { info() {}, error() {} },
+      config: { port: 3000, host: "127.0.0.1" },
+      verifyDatabase: async () => {},
+      backgroundJobs: false,
+      setIntervalFn: () => {
+        throw new Error("web service must not start a clock");
+      },
+    });
+    await runtime.start();
+    await runtime.stop();
+    assert.deepEqual(events, ["closed"]);
+  });
+
   it("verifies the database before listening and closes resources", async () => {
     const events = [];
     const server = { close: (callback) => callback() };
@@ -86,5 +131,203 @@ describe("service runtime", () => {
 
     assert.equal(cleanupCalls, 2);
     assert.deepEqual(errors, ["temporary cleanup failure"]);
+  });
+
+  it("expires wallet challenges and audit records independently", async () => {
+    const events = [];
+    let cleanup;
+    const runtime = createRuntime({
+      app: {
+        listen: (_port, _host, callback) => {
+          queueMicrotask(callback);
+          return { close: (done) => done(), once: () => {} };
+        },
+      },
+      database: { end: async () => {} },
+      sessions: { deleteExpired: async () => 0 },
+      wallets: {
+        deleteExpiredChallenges: async () => {
+          events.push("wallets");
+          throw new Error("wallet cleanup failed");
+        },
+      },
+      identity: {
+        deleteExpiredAudit: async () => {
+          events.push("audit");
+          return 3;
+        },
+      },
+      logger: {
+        info: () => {},
+        error: ({ error }) => events.push(error.message),
+      },
+      config: { port: 3000, host: "127.0.0.1" },
+      verifyDatabase: async () => {},
+      setIntervalFn: (callback) => {
+        cleanup = callback;
+        return { unref: () => {} };
+      },
+      clearIntervalFn: () => {},
+    });
+    await runtime.start();
+    await cleanup();
+    await runtime.stop();
+    assert.deepEqual(events, ["wallets", "wallet cleanup failed", "audit"]);
+  });
+
+  it("expires debate requests without affecting other maintenance", async () => {
+    const events = [];
+    let cleanup;
+    const runtime = createRuntime({
+      app: {
+        listen: (_port, _host, callback) => {
+          queueMicrotask(callback);
+          return { close: (done) => done(), once: () => {} };
+        },
+      },
+      database: { end: async () => {} },
+      sessions: { deleteExpired: async () => 0 },
+      matching: {
+        expireRequests: async () => {
+          events.push("matching");
+          throw new Error("matching cleanup failed");
+        },
+      },
+      logger: {
+        info: () => {},
+        error: ({ error }) => events.push(error.message),
+      },
+      config: { port: 3000, host: "127.0.0.1" },
+      verifyDatabase: async () => {},
+      setIntervalFn: (callback) => {
+        cleanup = callback;
+        return { unref: () => {} };
+      },
+      clearIntervalFn: () => {},
+    });
+    await runtime.start();
+    await cleanup();
+    await runtime.stop();
+    assert.deepEqual(events, ["matching", "matching cleanup failed"]);
+  });
+
+  it("advances media turns and stops recordings independently of session cleanup", async () => {
+    const events = [];
+    const callbacks = new Map();
+    const runtime = createRuntime({
+      app: {
+        listen: (_port, _host, callback) => {
+          queueMicrotask(callback);
+          return { close: (done) => done(), once: () => {} };
+        },
+      },
+      database: { end: async () => events.push("database closed") },
+      sessions: { deleteExpired: async () => 0 },
+      media: {
+        tick: async () => ({
+          turns: [{ debateId: "event-1", side: "B" }],
+          ended: ["event-2"],
+        }),
+        claimRecordingStops: async () => [
+          { debateId: "event-1", egressId: "egress-1" },
+        ],
+        recordingStopFailed: async () => {},
+      },
+      mediaProvider: {
+        setTurn: async (_id, side) => events.push(`turn:${side}`),
+        stopRecording: async (id) => events.push(`stop:${id}`),
+      },
+      logger: { info() {}, error() {} },
+      config: { port: 3000, host: "127.0.0.1" },
+      verifyDatabase: async () => {},
+      setIntervalFn: (callback, interval) => {
+        callbacks.set(interval, callback);
+        return { unref() {} };
+      },
+      clearIntervalFn: () => {},
+    });
+    await runtime.start();
+    await callbacks.get(1000)();
+    await runtime.stop();
+    assert.deepEqual(events, [
+      "turn:B",
+      "turn:null",
+      "stop:egress-1",
+      "database closed",
+    ]);
+  });
+
+  it("logs a media clock failure and keeps the service alive", async () => {
+    const events = [];
+    const callbacks = new Map();
+    const runtime = createRuntime({
+      app: {
+        listen: (_port, _host, callback) => {
+          queueMicrotask(callback);
+          return { close: (done) => done(), once: () => {} };
+        },
+      },
+      database: { end: async () => {} },
+      sessions: { deleteExpired: async () => 0 },
+      media: {
+        tick: async () => {
+          throw new Error("database unavailable");
+        },
+        claimRecordingStops: async () => [],
+        recordingStopFailed: async () => {},
+      },
+      logger: { info() {}, error: ({ error }) => events.push(error.message) },
+      config: { port: 3000, host: "127.0.0.1" },
+      verifyDatabase: async () => {},
+      setIntervalFn: (callback, interval) => {
+        callbacks.set(interval, callback);
+        return { unref() {} };
+      },
+      clearIntervalFn: () => {},
+    });
+    await runtime.start();
+    await callbacks.get(1000)();
+    await runtime.stop();
+    assert.deepEqual(events, ["database unavailable"]);
+  });
+
+  it("retries an unsuccessful recording stop without losing the durable request", async () => {
+    const events = [];
+    const callbacks = new Map();
+    const runtime = createRuntime({
+      app: {
+        listen: (_port, _host, callback) => {
+          queueMicrotask(callback);
+          return { close: (done) => done(), once: () => {} };
+        },
+      },
+      database: { end: async () => {} },
+      sessions: { deleteExpired: async () => 0 },
+      media: {
+        tick: async () => ({ turns: [], ended: [] }),
+        claimRecordingStops: async () => [
+          { debateId: "event-1", egressId: "egress-1" },
+        ],
+        recordingStopFailed: async (id) => events.push(`retry:${id}`),
+      },
+      mediaProvider: {
+        setTurn: async () => {},
+        stopRecording: async () => {
+          throw new Error("egress unavailable");
+        },
+      },
+      logger: { info() {}, error: ({ error }) => events.push(error.message) },
+      config: { port: 3000, host: "127.0.0.1" },
+      verifyDatabase: async () => {},
+      setIntervalFn: (callback, interval) => {
+        callbacks.set(interval, callback);
+        return { unref() {} };
+      },
+      clearIntervalFn: () => {},
+    });
+    await runtime.start();
+    await callbacks.get(1000)();
+    await runtime.stop();
+    assert.deepEqual(events, ["egress unavailable", "retry:event-1"]);
   });
 });

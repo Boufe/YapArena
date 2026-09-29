@@ -1,0 +1,808 @@
+import { randomUUID } from "node:crypto";
+import type { Pool, PoolClient } from "pg";
+
+export class MatchConflictError extends Error {}
+export class MatchNotFoundError extends Error {}
+
+type Side = "A" | "B";
+type RequestKind = "direct" | "queue";
+type RequestStatus =
+  "open" | "accepted" | "declined" | "withdrawn" | "expired" | "conflicted";
+
+export interface MatchRequest {
+  id: string;
+  kind: RequestKind;
+  status: RequestStatus;
+  initiatorUserId: string;
+  targetUserId: string | null;
+  topicId: string;
+  topicSlug: string;
+  sideALabel: string;
+  sideBLabel: string;
+  proposition: string;
+  requestedSide: Side;
+  scheduledAt: Date;
+  expiresAt: Date;
+  debateId: string | null;
+  createdAt: Date;
+}
+
+export interface EventRecord {
+  id: string;
+  slug: string;
+  status: string;
+  publicationState: string;
+  topicId: string;
+  proposition: string;
+  speakerAProfileId: string | null;
+  speakerBProfileId: string | null;
+  rulesVersion: string;
+  rulesSnapshot: object;
+  scheduledAt: Date | null;
+  readyAAt: Date | null;
+  readyBAt: Date | null;
+  liveStartedAt: Date | null;
+  liveEndedAt: Date | null;
+  endedReason: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const requestFields = `r.id, r.kind, r.status, r.initiator_user_id AS "initiatorUserId",
+  r.target_user_id AS "targetUserId", r.topic_id AS "topicId", t.slug AS "topicSlug",
+  t.side_a_label AS "sideALabel", t.side_b_label AS "sideBLabel",
+  r.proposition, r.requested_side AS "requestedSide", r.scheduled_at AS "scheduledAt",
+  r.expires_at AS "expiresAt", r.debate_id AS "debateId", r.created_at AS "createdAt"`;
+const eventFields = `id, slug, status, publication_state AS "publicationState",
+  topic_id AS "topicId", proposition, speaker_a_profile_id AS "speakerAProfileId",
+  speaker_b_profile_id AS "speakerBProfileId", rules_version AS "rulesVersion",
+  rules_snapshot AS "rulesSnapshot", scheduled_at AS "scheduledAt",
+  ready_a_at AS "readyAAt", ready_b_at AS "readyBAt",
+  live_started_at AS "liveStartedAt", live_ended_at AS "liveEndedAt",
+  ended_reason AS "endedReason", created_at AS "createdAt", updated_at AS "updatedAt"`;
+
+async function transaction<T>(
+  database: Pool,
+  action: (client: PoolClient) => Promise<T>,
+) {
+  const client = await database.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await action(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function lockUsers(client: PoolClient, ...ids: string[]) {
+  for (const id of [...new Set(ids)].sort((a, b) =>
+    BigInt(a) < BigInt(b) ? -1 : 1,
+  )) {
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `match:${id}`,
+    ]);
+  }
+}
+
+async function profileFor(client: PoolClient, userId: string) {
+  const result = await client.query<{ id: string }>(
+    "SELECT id FROM public_profiles WHERE user_id = $1 AND publication_state = 'published' AND is_demo = false",
+    [userId],
+  );
+  if (!result.rows[0])
+    throw new MatchConflictError("a published participant profile is required");
+  return result.rows[0].id;
+}
+
+async function ensureAvailable(client: PoolClient, userId: string) {
+  const result = await client.query(
+    "SELECT 1 FROM event_participants WHERE user_id = $1 AND active LIMIT 1",
+    [userId],
+  );
+  if (result.rows[0])
+    throw new MatchConflictError("participant already has an active event");
+}
+
+async function record(
+  client: PoolClient,
+  subject: { debateId?: string; requestId?: string },
+  actorId: string | null,
+  action: string,
+  from: string | null,
+  to: string,
+  reason: string | null = null,
+) {
+  await client.query(
+    `INSERT INTO event_history (debate_id, request_id, actor_user_id, action, from_status, to_status, reason)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      subject.debateId ?? null,
+      subject.requestId ?? null,
+      actorId,
+      action,
+      from,
+      to,
+      reason,
+    ],
+  );
+}
+
+async function notify(
+  client: PoolClient,
+  userId: string,
+  type: string,
+  message: string,
+  subject: { debateId?: string; requestId?: string },
+) {
+  await client.query(
+    `INSERT INTO account_notifications (user_id, event_type, message, debate_id, request_id)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [
+      userId,
+      type,
+      message,
+      subject.debateId ?? null,
+      subject.requestId ?? null,
+    ],
+  );
+}
+
+async function requestById(
+  client: PoolClient,
+  id: string,
+  lock = false,
+): Promise<MatchRequest | null> {
+  const result = await client.query<MatchRequest>(
+    `SELECT ${requestFields} FROM match_requests r JOIN topics t ON t.id = r.topic_id
+     WHERE r.id = $1${lock ? " FOR UPDATE OF r" : ""}`,
+    [id],
+  );
+  return result.rows[0] ?? null;
+}
+
+async function completeMatch(
+  client: PoolClient,
+  request: MatchRequest,
+  accepterId: string,
+  actorId: string,
+) {
+  if (
+    request.status !== "open" ||
+    new Date(request.expiresAt).getTime() <= Date.now()
+  )
+    throw new MatchConflictError("request is no longer open");
+  if (request.initiatorUserId === accepterId)
+    throw new MatchConflictError("participants must be distinct");
+  await ensureAvailable(client, request.initiatorUserId);
+  await ensureAvailable(client, accepterId);
+  const [initiatorProfile, accepterProfile] = await Promise.all([
+    profileFor(client, request.initiatorUserId),
+    profileFor(client, accepterId),
+  ]);
+  const topic = await client.query(
+    "SELECT 1 FROM topics WHERE id = $1 AND publication_state = 'published'",
+    [request.topicId],
+  );
+  if (!topic.rows[0]) throw new MatchConflictError("topic is no longer public");
+  const rule = await client.query<{ version: string; rules: object }>(
+    "SELECT version, rules FROM event_rule_versions WHERE enabled ORDER BY created_at DESC LIMIT 1",
+  );
+  if (!rule.rows[0]) throw new MatchConflictError("no event rules are active");
+  const aUser =
+    request.requestedSide === "A" ? request.initiatorUserId : accepterId;
+  const bUser =
+    request.requestedSide === "B" ? request.initiatorUserId : accepterId;
+  const aProfile =
+    request.requestedSide === "A" ? initiatorProfile : accepterProfile;
+  const bProfile =
+    request.requestedSide === "B" ? initiatorProfile : accepterProfile;
+  const created = await client.query<EventRecord>(
+    `INSERT INTO debates (slug, topic_id, proposition, speaker_a_profile_id,
+       speaker_b_profile_id, status, publication_state, rules_version, rules_snapshot, scheduled_at)
+     VALUES ($1, $2, $3, $4, $5, 'scheduled', 'published', $6, $7, $8)
+     RETURNING ${eventFields}`,
+    [
+      `debate-${randomUUID()}`,
+      request.topicId,
+      request.proposition,
+      aProfile,
+      bProfile,
+      rule.rows[0].version,
+      rule.rows[0].rules,
+      request.scheduledAt,
+    ],
+  );
+  const event = created.rows[0];
+  if (!event) throw new Error("created event was not returned");
+  await client.query(
+    "INSERT INTO event_participants (debate_id, user_id, side) VALUES ($1, $2, 'A'), ($1, $3, 'B')",
+    [event.id, aUser, bUser],
+  );
+  await client.query(
+    "UPDATE match_requests SET status = 'accepted', debate_id = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+    [request.id, event.id],
+  );
+  const conflicted = await client.query<{
+    id: string;
+    initiatorUserId: string;
+    targetUserId: string | null;
+  }>(
+    `UPDATE match_requests SET status = 'conflicted', updated_at = CURRENT_TIMESTAMP
+     WHERE status = 'open' AND id <> $1 AND
+       (initiator_user_id = ANY($2::bigint[]) OR target_user_id = ANY($2::bigint[]))
+     RETURNING id, initiator_user_id AS "initiatorUserId", target_user_id AS "targetUserId"`,
+    [request.id, [aUser, bUser]],
+  );
+  for (const entry of conflicted.rows) {
+    await record(
+      client,
+      { requestId: entry.id },
+      actorId,
+      "conflicted",
+      "open",
+      "conflicted",
+    );
+    await notify(
+      client,
+      entry.initiatorUserId,
+      "challenge.conflicted",
+      "A debate request closed because a participant joined another event.",
+      { requestId: entry.id },
+    );
+    if (entry.targetUserId)
+      await notify(
+        client,
+        entry.targetUserId,
+        "challenge.conflicted",
+        "A debate challenge closed because a participant joined another event.",
+        { requestId: entry.id },
+      );
+  }
+  await record(
+    client,
+    { requestId: request.id },
+    actorId,
+    "accepted",
+    "open",
+    "accepted",
+  );
+  await record(
+    client,
+    { debateId: event.id },
+    actorId,
+    "scheduled",
+    null,
+    "scheduled",
+  );
+  await notify(client, aUser, "event.scheduled", "Your debate is scheduled.", {
+    debateId: event.id,
+  });
+  await notify(client, bUser, "event.scheduled", "Your debate is scheduled.", {
+    debateId: event.id,
+  });
+  return event;
+}
+
+export function createMatchingRepository(database: Pool) {
+  return Object.freeze({
+    async createTopic(
+      userId: string,
+      input: {
+        slug: string;
+        title: string;
+        summary: string;
+        sideALabel: string;
+        sideBLabel: string;
+      },
+    ) {
+      const result = await database.query(
+        `INSERT INTO topics (creator_user_id, slug, title, summary, side_a_label, side_b_label)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, slug, title, summary, side_a_label AS "sideALabel",
+           side_b_label AS "sideBLabel", publication_state AS "publicationState"`,
+        [
+          userId,
+          input.slug,
+          input.title,
+          input.summary,
+          input.sideALabel,
+          input.sideBLabel,
+        ],
+      );
+      return result.rows[0];
+    },
+    async listOwnTopics(userId: string) {
+      const result = await database.query(
+        `SELECT id, slug, title, summary, side_a_label AS "sideALabel",
+           side_b_label AS "sideBLabel", publication_state AS "publicationState"
+         FROM topics WHERE creator_user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+        [userId],
+      );
+      return result.rows;
+    },
+    async publishTopic(userId: string, slug: string) {
+      const result = await database.query(
+        `UPDATE topics SET publication_state = 'published', updated_at = CURRENT_TIMESTAMP
+         WHERE creator_user_id = $1 AND slug = $2 AND publication_state = 'draft' AND is_demo = false
+         RETURNING id, slug, title, publication_state AS "publicationState"`,
+        [userId, slug],
+      );
+      return result.rows[0] ?? null;
+    },
+    async listRules() {
+      const result = await database.query(
+        "SELECT version, rules FROM event_rule_versions WHERE enabled ORDER BY created_at DESC LIMIT 1",
+      );
+      return result.rows[0] ?? null;
+    },
+    async createRequest(
+      userId: string,
+      input: {
+        kind: RequestKind;
+        topicSlug: string;
+        targetHandle?: string;
+        proposition: string;
+        requestedSide: Side;
+        scheduledAt: Date;
+      },
+    ) {
+      return transaction(database, async (client) => {
+        await lockUsers(client, userId);
+        await profileFor(client, userId);
+        await ensureAvailable(client, userId);
+        const expired = await client.query<{
+          id: string;
+          targetUserId: string | null;
+        }>(
+          `UPDATE match_requests SET status = 'expired', updated_at = CURRENT_TIMESTAMP
+           WHERE initiator_user_id = $1 AND status = 'open' AND expires_at <= CURRENT_TIMESTAMP
+           RETURNING id, target_user_id AS "targetUserId"`,
+          [userId],
+        );
+        for (const entry of expired.rows) {
+          await record(
+            client,
+            { requestId: entry.id },
+            null,
+            "expired",
+            "open",
+            "expired",
+          );
+          if (entry.targetUserId)
+            await notify(
+              client,
+              entry.targetUserId,
+              "challenge.expired",
+              "A debate challenge expired.",
+              { requestId: entry.id },
+            );
+        }
+        const outgoing = await client.query(
+          "SELECT 1 FROM match_requests WHERE initiator_user_id = $1 AND status = 'open' LIMIT 1",
+          [userId],
+        );
+        if (outgoing.rows[0])
+          throw new MatchConflictError("an outgoing request is already open");
+        const topic = await client.query<{ id: string }>(
+          "SELECT id FROM topics WHERE slug = $1 AND publication_state = 'published'",
+          [input.topicSlug],
+        );
+        if (!topic.rows[0]) throw new MatchNotFoundError("topic not found");
+        let targetId: string | null = null;
+        if (input.kind === "direct") {
+          const target = await client.query<{ userId: string }>(
+            `SELECT user_id AS "userId" FROM public_profiles
+             WHERE handle = $1 AND publication_state = 'published' AND is_demo = false AND user_id IS NOT NULL`,
+            [input.targetHandle],
+          );
+          targetId = target.rows[0]?.userId ?? null;
+          if (!targetId) throw new MatchNotFoundError("participant not found");
+          if (targetId === userId)
+            throw new MatchConflictError("participants must be distinct");
+        }
+        const expiresAt = new Date(
+          Math.min(
+            Date.now() + 24 * 60 * 60 * 1000,
+            input.scheduledAt.getTime() - 30 * 60 * 1000,
+          ),
+        );
+        const created = await client.query<MatchRequest>(
+          `INSERT INTO match_requests (kind, status, initiator_user_id, target_user_id,
+             topic_id, proposition, requested_side, scheduled_at, expires_at)
+           VALUES ($1, 'open', $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+          [
+            input.kind,
+            userId,
+            targetId,
+            topic.rows[0].id,
+            input.proposition,
+            input.requestedSide,
+            input.scheduledAt,
+            expiresAt,
+          ],
+        );
+        const request = await requestById(client, created.rows[0]!.id);
+        if (!request) throw new Error("created request was not returned");
+        await record(
+          client,
+          { requestId: request.id },
+          userId,
+          "opened",
+          null,
+          "open",
+        );
+        if (targetId)
+          await notify(
+            client,
+            targetId,
+            "challenge.received",
+            "You have a new debate challenge.",
+            { requestId: request.id },
+          );
+        return request;
+      });
+    },
+    async listRequests(userId: string) {
+      const result = await database.query<MatchRequest>(
+        `SELECT ${requestFields} FROM match_requests r JOIN topics t ON t.id = r.topic_id
+         WHERE r.initiator_user_id = $1 OR r.target_user_id = $1
+         ORDER BY r.created_at DESC LIMIT 50`,
+        [userId],
+      );
+      return result.rows;
+    },
+    async listQueue() {
+      const result = await database.query<MatchRequest>(
+        `SELECT ${requestFields} FROM match_requests r JOIN topics t ON t.id = r.topic_id
+         WHERE r.kind = 'queue' AND r.status = 'open' AND r.expires_at > CURRENT_TIMESTAMP
+           AND t.publication_state = 'published'
+         ORDER BY r.created_at LIMIT 50`,
+      );
+      return result.rows;
+    },
+    async acceptRequest(userId: string, requestId: string) {
+      return transaction(database, async (client) => {
+        const initial = await requestById(client, requestId);
+        if (
+          !initial ||
+          initial.kind !== "direct" ||
+          initial.targetUserId !== userId
+        )
+          throw new MatchNotFoundError("request not found");
+        await lockUsers(client, initial.initiatorUserId, userId);
+        const request = await requestById(client, requestId, true);
+        if (!request) throw new MatchNotFoundError("request not found");
+        if (request.kind !== "direct" || request.targetUserId !== userId)
+          throw new MatchNotFoundError("request not found");
+        return completeMatch(client, request, userId, userId);
+      });
+    },
+    async joinQueue(userId: string, requestId: string) {
+      return transaction(database, async (client) => {
+        const initial = await requestById(client, requestId);
+        if (!initial || initial.kind !== "queue")
+          throw new MatchNotFoundError("queue entry not found");
+        await lockUsers(client, initial.initiatorUserId, userId);
+        const request = await requestById(client, requestId, true);
+        if (!request || request.kind !== "queue")
+          throw new MatchNotFoundError("queue entry not found");
+        return completeMatch(client, request, userId, userId);
+      });
+    },
+    async closeRequest(
+      userId: string,
+      requestId: string,
+      action: "declined" | "withdrawn",
+    ) {
+      return transaction(database, async (client) => {
+        const request = await requestById(client, requestId, true);
+        if (
+          !request ||
+          (action === "withdrawn"
+            ? request.initiatorUserId !== userId
+            : request.targetUserId !== userId)
+        )
+          throw new MatchNotFoundError("request not found");
+        if (request.status !== "open")
+          throw new MatchConflictError("request is no longer open");
+        await client.query(
+          "UPDATE match_requests SET status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+          [requestId, action],
+        );
+        await record(client, { requestId }, userId, action, "open", action);
+        await notify(
+          client,
+          action === "declined"
+            ? request.initiatorUserId
+            : (request.targetUserId ?? request.initiatorUserId),
+          `challenge.${action}`,
+          `A debate request was ${action}.`,
+          { requestId },
+        );
+        return { ...request, status: action };
+      });
+    },
+    async expireRequests() {
+      return transaction(database, async (client) => {
+        const expired = await client.query<{
+          id: string;
+          initiatorUserId: string;
+          targetUserId: string | null;
+        }>(
+          `UPDATE match_requests SET status = 'expired', updated_at = CURRENT_TIMESTAMP
+           WHERE status = 'open' AND expires_at <= CURRENT_TIMESTAMP
+           RETURNING id, initiator_user_id AS "initiatorUserId", target_user_id AS "targetUserId"`,
+        );
+        for (const entry of expired.rows) {
+          await record(
+            client,
+            { requestId: entry.id },
+            null,
+            "expired",
+            "open",
+            "expired",
+          );
+          await notify(
+            client,
+            entry.initiatorUserId,
+            "challenge.expired",
+            "Your debate request expired.",
+            { requestId: entry.id },
+          );
+          if (entry.targetUserId)
+            await notify(
+              client,
+              entry.targetUserId,
+              "challenge.expired",
+              "A debate challenge expired.",
+              { requestId: entry.id },
+            );
+        }
+        return expired.rows.length;
+      });
+    },
+    async listEvents(userId: string) {
+      const result = await database.query<EventRecord>(
+        `SELECT ${eventFields} FROM debates WHERE id IN
+           (SELECT debate_id FROM event_participants WHERE user_id = $1)
+         ORDER BY created_at DESC LIMIT 50`,
+        [userId],
+      );
+      return result.rows;
+    },
+    async getEvent(id: string) {
+      const result = await database.query<EventRecord>(
+        `SELECT ${eventFields} FROM debates WHERE id = $1`,
+        [id],
+      );
+      return result.rows[0] ?? null;
+    },
+    async isParticipant(userId: string, eventId: string) {
+      const result = await database.query(
+        "SELECT 1 FROM event_participants WHERE user_id = $1 AND debate_id = $2",
+        [userId, eventId],
+      );
+      return Boolean(result.rows[0]);
+    },
+    async getEventHistory(id: string) {
+      const result = await database.query(
+        `SELECT id, action, from_status AS "fromStatus", to_status AS "toStatus",
+           reason, occurred_at AS "occurredAt" FROM event_history
+         WHERE debate_id = $1 ORDER BY occurred_at, id LIMIT 100`,
+        [id],
+      );
+      return result.rows;
+    },
+    async listNotifications(userId: string) {
+      const result = await database.query(
+        `SELECT id, event_type AS "eventType", message, debate_id AS "debateId",
+           request_id AS "requestId", read_at AS "readAt", created_at AS "createdAt"
+         FROM account_notifications WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 50`,
+        [userId],
+      );
+      return result.rows;
+    },
+    async markNotificationRead(userId: string, id: string) {
+      const result = await database.query(
+        "UPDATE account_notifications SET read_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2 RETURNING id",
+        [id, userId],
+      );
+      return Boolean(result.rows[0]);
+    },
+    async markReady(userId: string, id: string) {
+      return transaction(database, async (client) => {
+        const event = await client.query<EventRecord>(
+          `SELECT ${eventFields} FROM debates WHERE id = $1 FOR UPDATE`,
+          [id],
+        );
+        const current = event.rows[0];
+        if (!current) throw new MatchNotFoundError("event not found");
+        if (current.status !== "scheduled" && current.status !== "ready")
+          throw new MatchConflictError("event is not awaiting readiness");
+        const participant = await client.query<{ side: Side }>(
+          "SELECT side FROM event_participants WHERE debate_id = $1 AND user_id = $2",
+          [id, userId],
+        );
+        const side = participant.rows[0]?.side;
+        if (!side) throw new MatchNotFoundError("event not found");
+        const column = side === "A" ? "ready_a_at" : "ready_b_at";
+        if (side === "A" ? current.readyAAt : current.readyBAt) return current;
+        const result = await client.query<EventRecord>(
+          `UPDATE debates SET ${column} = CURRENT_TIMESTAMP,
+             status = CASE WHEN ${side === "A" ? "ready_b_at" : "ready_a_at"} IS NOT NULL THEN 'ready' ELSE status END,
+             updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING ${eventFields}`,
+          [id],
+        );
+        const updated = result.rows[0]!;
+        await record(
+          client,
+          { debateId: id },
+          userId,
+          "participant_ready",
+          current.status,
+          updated.status,
+        );
+        if (updated.status === "ready") {
+          const users = await client.query<{ userId: string }>(
+            "SELECT user_id AS " +
+              '"userId"' +
+              " FROM event_participants WHERE debate_id = $1",
+            [id],
+          );
+          for (const user of users.rows)
+            await notify(
+              client,
+              user.userId,
+              "event.ready",
+              "Both speakers are ready.",
+              { debateId: id },
+            );
+        }
+        return updated;
+      });
+    },
+    async operatorTransition(
+      actorId: string,
+      id: string,
+      action:
+        | "start"
+        | "end"
+        | "replay"
+        | "void_review"
+        | "cancel"
+        | "reschedule"
+        | "no_show",
+      reason: string,
+      scheduledAt?: Date,
+    ) {
+      return transaction(database, async (client) => {
+        const found = await client.query<EventRecord>(
+          `SELECT ${eventFields} FROM debates WHERE id = $1 FOR UPDATE`,
+          [id],
+        );
+        const event = found.rows[0];
+        if (!event) throw new MatchNotFoundError("event not found");
+        const transitions: Record<string, readonly string[]> = {
+          start: ["ready"],
+          end: ["live"],
+          replay: ["ended"],
+          void_review: ["scheduled", "ready", "live", "ended", "replay"],
+          cancel: ["scheduled", "ready", "void_review"],
+          reschedule: ["scheduled", "ready"],
+          no_show: ["scheduled", "ready"],
+        };
+        if (!transitions[action]!.includes(event.status))
+          throw new MatchConflictError("invalid event transition");
+        if (action === "start" || action === "end" || action === "replay") {
+          const media = await client.query<{
+            state: string;
+            recordingStatus: string;
+          }>(
+            `SELECT state, recording_status AS "recordingStatus" FROM debate_media WHERE debate_id = $1`,
+            [id],
+          );
+          const state = media.rows[0];
+          if (
+            action === "start" &&
+            (state?.state !== "running" ||
+              state.recordingStatus !== "recording")
+          )
+            throw new MatchConflictError(
+              "active media recording required before live start",
+            );
+          if (action === "end" && !state)
+            throw new MatchConflictError(
+              "media session required before event end",
+            );
+          if (
+            action === "replay" &&
+            (state?.state !== "ended" || state.recordingStatus !== "ready")
+          )
+            throw new MatchConflictError(
+              "verified recording required before replay",
+            );
+        }
+        if (
+          action === "start" &&
+          event.scheduledAt &&
+          Date.now() < new Date(event.scheduledAt).getTime() - 15 * 60 * 1000
+        )
+          throw new MatchConflictError(
+            "event cannot start before its scheduled window",
+          );
+        if (
+          action === "reschedule" &&
+          (!scheduledAt || scheduledAt.getTime() <= Date.now() + 60 * 60 * 1000)
+        )
+          throw new MatchConflictError(
+            "new start must be at least one hour away",
+          );
+        if (
+          action === "no_show" &&
+          (new Date(event.scheduledAt!).getTime() + 15 * 60 * 1000 >
+            Date.now() ||
+            (event.readyAAt && event.readyBAt))
+        )
+          throw new MatchConflictError("no-show review is not eligible yet");
+        const next =
+          action === "start"
+            ? "live"
+            : action === "end"
+              ? "ended"
+              : action === "replay"
+                ? "replay"
+                : action === "void_review"
+                  ? "void_review"
+                  : action === "cancel" || action === "no_show"
+                    ? "cancelled"
+                    : "scheduled";
+        const updated = await client.query<EventRecord>(
+          `UPDATE debates SET status = $2, scheduled_at = CASE WHEN $3 = 'reschedule' THEN $4 ELSE scheduled_at END,
+             ready_a_at = CASE WHEN $3 = 'reschedule' THEN NULL ELSE ready_a_at END,
+             ready_b_at = CASE WHEN $3 = 'reschedule' THEN NULL ELSE ready_b_at END,
+             live_started_at = CASE WHEN $3 = 'start' THEN CURRENT_TIMESTAMP ELSE live_started_at END,
+             live_ended_at = CASE WHEN $3 = 'end' OR ($3 = 'void_review' AND status = 'live') THEN CURRENT_TIMESTAMP ELSE live_ended_at END,
+             ended_reason = CASE WHEN $3 IN ('end', 'cancel', 'void_review', 'no_show') THEN $5 ELSE ended_reason END,
+             updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING ${eventFields}`,
+          [id, next, action, scheduledAt ?? null, reason],
+        );
+        if (
+          next === "ended" ||
+          next === "cancelled" ||
+          (next === "void_review" && event.status === "live")
+        )
+          await client.query(
+            "UPDATE event_participants SET active = false WHERE debate_id = $1",
+            [id],
+          );
+        await record(
+          client,
+          { debateId: id },
+          actorId,
+          action,
+          event.status,
+          next,
+          reason,
+        );
+        const users = await client.query<{ userId: string }>(
+          `SELECT user_id AS "userId" FROM event_participants WHERE debate_id = $1`,
+          [id],
+        );
+        for (const user of users.rows)
+          await notify(
+            client,
+            user.userId,
+            `event.${action}`,
+            `Your debate was ${action === "reschedule" ? "rescheduled" : next.replace("_", " ")}.`,
+            { debateId: id },
+          );
+        return updated.rows[0]!;
+      });
+    },
+  });
+}

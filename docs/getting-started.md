@@ -4,6 +4,11 @@ Use this guide when you want a new project with its own name and GitHub reposito
 template's application, database, tests, containers, and automation. Commands in this guide run in a
 terminal. Text such as `YOUR-OWNER` is a placeholder that you must replace; do not type it literally.
 
+The [YAP Arena product PRD](product-prd.md) and its
+[specification outlines](product-specification-outlines.md) belong to this product. A separate
+project created from the repository should replace or remove those documents rather than inherit
+YAP Arena's financial and release requirements by accident.
+
 ## 1. Check the required tools
 
 Install Git, Node.js 24 with npm, and Docker with Compose before creating the project. Confirm that

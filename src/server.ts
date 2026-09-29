@@ -1,6 +1,12 @@
 import { createApp } from "./app.ts";
 import { createMessageRepository } from "./features/messages/repository.ts";
+import { createDiscoveryRepository } from "./features/discovery/repository.ts";
+import { createIdentityRepository } from "./features/identity/repository.ts";
+import { createMatchingRepository } from "./features/matching/repository.ts";
+import { createMediaRepository } from "./features/media/repository.ts";
+import { createMediaProvider } from "./features/media/provider.ts";
 import { createSessionRepository } from "./platform/auth/sessions.ts";
+import { createWalletRepository } from "./platform/auth/wallets.ts";
 import { createUserRepository } from "./platform/auth/users.ts";
 import { loadConfig } from "./platform/config.ts";
 import { createDatabase } from "./platform/database.ts";
@@ -12,12 +18,26 @@ const config = loadConfig();
 const logger = createLogger({ level: config.logLevel });
 const database = createDatabase(config.databaseUrl, logger);
 const messages = createMessageRepository(database);
+const discovery = createDiscoveryRepository(database);
+const identity = createIdentityRepository(database);
+const matching = createMatchingRepository(database);
+const media = config.media ? createMediaRepository(database) : undefined;
+const mediaProvider = config.media
+  ? createMediaProvider(config.media)
+  : undefined;
 const users = createUserRepository(database);
 const sessions = createSessionRepository(database);
+const wallets = createWalletRepository(database);
 const app = createApp({
   messages,
+  discovery,
+  identity,
+  matching,
+  media,
+  mediaProvider,
   users,
   sessions,
+  wallets,
   logger,
   environment: config.environment,
   applicationOrigin: config.applicationOrigin,
@@ -27,16 +47,24 @@ const app = createApp({
   authRateLimit: config.authRateLimit,
   rateLimitWindowMs: config.rateLimitWindowMs,
   sessionDurationMs: config.sessionDurationMs,
+  siweRpcUrls: config.siweRpcUrls,
+  stagingAccessSecret: config.stagingAccessSecret,
 });
 
 const runtime = createRuntime({
   app,
   database,
   sessions,
+  identity,
+  matching,
+  media,
+  mediaProvider,
+  wallets,
   logger,
   config,
   verifyDatabase: () =>
     verifyDatabaseState(database, new URL("../migrations", import.meta.url)),
+  backgroundJobs: config.backgroundJobs,
 });
 
 await runtime.start();

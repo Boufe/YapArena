@@ -8,6 +8,7 @@ services:
       PORT: 3000
       LOG_LEVEL: ${LOG_LEVEL:-info}
       APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN to the public HTTPS origin}
+      SIWE_RPC_URLS: ${SIWE_RPC_URLS:-}
       TRUST_PROXY: ${TRUST_PROXY:-1}
       REQUEST_BODY_LIMIT: ${REQUEST_BODY_LIMIT:-10kb}
       API_RATE_LIMIT: ${API_RATE_LIMIT:-300}

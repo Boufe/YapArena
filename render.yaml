@@ -1,0 +1,66 @@
+services:
+  - type: web
+    name: yaparena-staging-web
+    runtime: docker
+    region: ohio
+    plan: 1c-2g
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: checksPass
+    healthCheckPath: /ready
+    preDeployCommand: node node_modules/node-pg-migrate/bin/node-pg-migrate.js up
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: RUN_BACKGROUND_JOBS
+        value: "false"
+      - key: APP_ORIGIN
+        fromService:
+          name: yaparena-staging-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: STAGING_ACCESS_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: yaparena-staging-db
+          property: connectionString
+
+  - type: worker
+    name: yaparena-staging-worker
+    runtime: docker
+    region: ohio
+    plan: 0.5c-512mb
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: node dist/worker.js
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RUN_BACKGROUND_JOBS
+        value: "true"
+      - key: APP_ORIGIN
+        fromService:
+          name: yaparena-staging-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: DATABASE_URL
+        fromDatabase:
+          name: yaparena-staging-db
+          property: connectionString
+
+databases:
+  - name: yaparena-staging-db
+    databaseName: yaparena
+    user: yaparena
+    region: ohio
+    plan: 0.5c-1g
+    postgresMajorVersion: "18"
+    diskSizeGB: 5
+    storageAutoscalingEnabled: true
+    ipAllowList: []

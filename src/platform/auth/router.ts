@@ -3,8 +3,21 @@ import type { NextFunction, Request, Response } from "express";
 import type { PublicUser } from "./users.ts";
 import type { createUserRepository } from "./users.ts";
 import type { createSessionRepository } from "./sessions.ts";
+import type { createWalletRepository } from "./wallets.ts";
+import type { WalletChallenge } from "./wallets.ts";
 import { hashPassword, validatePassword, verifyPassword } from "./passwords.ts";
 import { createSessionToken, hashSessionToken } from "./session-tokens.ts";
+import {
+  createChallengeMessage,
+  normalizeWalletAddress,
+  validChainId,
+  verifyChallengeSignature,
+  WalletVerificationUnavailableError,
+} from "./siwe.ts";
+import {
+  ChallengeUnavailableError,
+  WalletAlreadyLinkedError,
+} from "./wallets.ts";
 import { createApiRateLimiter } from "../security.ts";
 
 const dummyPasswordHash =
@@ -81,7 +94,10 @@ export function createRequireAuthentication({
 export function createAuthRouter({
   users,
   sessions,
+  wallets,
   environment,
+  applicationOrigin = "http://localhost:3000",
+  siweRpcUrls = {},
   now = Date.now,
   sessionDurationMs = 7 * 24 * 60 * 60 * 1_000,
   authRateLimit = 10,
@@ -89,7 +105,10 @@ export function createAuthRouter({
 }: {
   users: ReturnType<typeof createUserRepository>;
   sessions: ReturnType<typeof createSessionRepository>;
+  wallets?: ReturnType<typeof createWalletRepository>;
   environment: string;
+  applicationOrigin?: string;
+  siweRpcUrls?: Readonly<Record<string, string>>;
   now?: () => number;
   sessionDurationMs?: number;
   authRateLimit?: number;
@@ -104,6 +123,10 @@ export function createAuthRouter({
   const authLimiter = createApiRateLimiter({
     windowMs: rateLimitWindowMs,
     limit: authRateLimit,
+  });
+  const walletLimiter = createApiRateLimiter({
+    windowMs: rateLimitWindowMs,
+    limit: authRateLimit * 4,
   });
 
   router.use((_request, response, next) => {
@@ -199,6 +222,252 @@ export function createAuthRouter({
     response.clearCookie(cookie.name, cookie.options);
     return response.status(204).end();
   });
+
+  if (wallets) {
+    const walletRepository = wallets;
+    function walletInput(body: unknown) {
+      if (typeof body !== "object" || body === null || Array.isArray(body))
+        return null;
+      const value = body as Record<string, unknown>;
+      const address = normalizeWalletAddress(value.address);
+      if (!address || !validChainId(value.chainId)) return null;
+      return { address, chainId: value.chainId };
+    }
+
+    async function issueChallenge(
+      body: unknown,
+      purpose: "login" | "link",
+      userId?: string,
+      sessionTokenHash?: string,
+    ) {
+      const input = walletInput(body);
+      if (!input) return null;
+      const { message, expiresAt } = createChallengeMessage({
+        ...input,
+        origin: applicationOrigin,
+        purpose,
+      });
+      return walletRepository.createChallenge({
+        ...input,
+        purpose,
+        message,
+        expiresAt,
+        userId,
+        sessionTokenHash,
+      });
+    }
+
+    function verificationInput(body: unknown) {
+      if (typeof body !== "object" || body === null || Array.isArray(body))
+        return null;
+      const value = body as Record<string, unknown>;
+      if (
+        typeof value.challengeId !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          value.challengeId,
+        ) ||
+        typeof value.signature !== "string" ||
+        value.signature.length > 8194
+      )
+        return null;
+      return { challengeId: value.challengeId, signature: value.signature };
+    }
+
+    async function validSignature(
+      challenge: WalletChallenge,
+      signature: string,
+    ) {
+      return verifyChallengeSignature({
+        challenge,
+        signature,
+        origin: applicationOrigin,
+        rpcUrls: siweRpcUrls,
+      });
+    }
+
+    router.post(
+      "/wallet/login/challenge",
+      walletLimiter,
+      async (request, response) => {
+        const existingToken = request.cookies[cookie.name];
+        if (
+          existingToken &&
+          (await sessions.findUserByTokenHash(hashSessionToken(existingToken)))
+        ) {
+          return response
+            .status(409)
+            .json({ error: "sign out before switching accounts" });
+        }
+        const challenge = await issueChallenge(request.body, "login");
+        if (!challenge)
+          return response
+            .status(400)
+            .json({ error: "invalid wallet or chain" });
+        return response.status(201).json({
+          id: challenge.id,
+          message: challenge.message,
+          expiresAt: challenge.expiresAt,
+        });
+      },
+    );
+
+    router.post(
+      "/wallet/login/verify",
+      walletLimiter,
+      async (request, response) => {
+        const input = verificationInput(request.body);
+        if (!input)
+          return response
+            .status(400)
+            .json({ error: "invalid verification request" });
+        const existingToken = request.cookies[cookie.name];
+        if (
+          existingToken &&
+          (await sessions.findUserByTokenHash(hashSessionToken(existingToken)))
+        ) {
+          return response
+            .status(409)
+            .json({ error: "sign out before switching accounts" });
+        }
+        const challenge = await walletRepository.getChallenge(
+          input.challengeId,
+        );
+        if (!challenge || challenge.purpose !== "login")
+          return response
+            .status(410)
+            .json({ error: "challenge expired or used" });
+        try {
+          if (!(await validSignature(challenge, input.signature)))
+            return response
+              .status(401)
+              .json({ error: "wallet signature is invalid" });
+        } catch (error) {
+          if (error instanceof WalletVerificationUnavailableError)
+            return response.status(503).json({
+              error: "wallet verification is temporarily unavailable",
+            });
+          throw error;
+        }
+        try {
+          const user = await walletRepository.completeLogin(challenge.id);
+          await startSession(user, response);
+          return response.json({ user });
+        } catch (error) {
+          if (error instanceof ChallengeUnavailableError)
+            return response
+              .status(410)
+              .json({ error: "challenge expired or used" });
+          throw error;
+        }
+      },
+    );
+
+    router.post(
+      "/wallet/link/challenge",
+      walletLimiter,
+      requireAuthentication,
+      async (request, response) => {
+        const sessionTokenHash = hashSessionToken(request.cookies[cookie.name]);
+        const challenge = await issueChallenge(
+          request.body,
+          "link",
+          request.user!.id,
+          sessionTokenHash,
+        );
+        if (!challenge)
+          return response
+            .status(400)
+            .json({ error: "invalid wallet or chain" });
+        return response.status(201).json({
+          id: challenge.id,
+          message: challenge.message,
+          expiresAt: challenge.expiresAt,
+        });
+      },
+    );
+
+    router.post(
+      "/wallet/link/verify",
+      walletLimiter,
+      requireAuthentication,
+      async (request, response) => {
+        const input = verificationInput(request.body);
+        if (!input)
+          return response
+            .status(400)
+            .json({ error: "invalid verification request" });
+        const sessionTokenHash = hashSessionToken(request.cookies[cookie.name]);
+        const challenge = await walletRepository.getChallenge(
+          input.challengeId,
+        );
+        if (
+          !challenge ||
+          challenge.purpose !== "link" ||
+          challenge.userId !== request.user!.id ||
+          challenge.sessionTokenHash !== sessionTokenHash
+        )
+          return response
+            .status(410)
+            .json({ error: "challenge expired or used" });
+        try {
+          if (!(await validSignature(challenge, input.signature)))
+            return response
+              .status(401)
+              .json({ error: "wallet signature is invalid" });
+        } catch (error) {
+          if (error instanceof WalletVerificationUnavailableError)
+            return response.status(503).json({
+              error: "wallet verification is temporarily unavailable",
+            });
+          throw error;
+        }
+        try {
+          const wallet = await walletRepository.completeLink(
+            challenge.id,
+            request.user!.id,
+            sessionTokenHash,
+          );
+          return response.json({ wallet });
+        } catch (error) {
+          if (error instanceof ChallengeUnavailableError)
+            return response
+              .status(410)
+              .json({ error: "challenge expired or used" });
+          if (error instanceof WalletAlreadyLinkedError)
+            return response
+              .status(409)
+              .json({ error: "wallet belongs to another account" });
+          throw error;
+        }
+      },
+    );
+
+    router.get("/wallets", requireAuthentication, async (request, response) => {
+      return response.json({
+        wallets: await walletRepository.listWallets(request.user!.id),
+      });
+    });
+    router.delete(
+      "/wallets/:id",
+      requireAuthentication,
+      async (request, response) => {
+        const walletId = request.params.id;
+        if (typeof walletId !== "string" || !/^[0-9a-f-]{36}$/i.test(walletId))
+          return response.status(404).json({ error: "wallet not found" });
+        const result = await walletRepository.unlinkWallet(
+          request.user!.id,
+          walletId,
+        );
+        if (result === "missing")
+          return response.status(404).json({ error: "wallet not found" });
+        if (result === "last_credentials")
+          return response
+            .status(409)
+            .json({ error: "cannot remove the last sign-in method" });
+        return response.status(204).end();
+      },
+    );
+  }
 
   return router;
 }

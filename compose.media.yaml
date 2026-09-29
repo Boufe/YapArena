@@ -1,0 +1,79 @@
+# Local media prototype only. Combine with compose.yaml; never use these keys in production.
+services:
+  app:
+    environment:
+      LIVEKIT_URL: http://livekit:7880
+      LIVEKIT_PUBLIC_URL: ws://localhost:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      MEDIA_S3_ENDPOINT: http://object-store:8333
+      MEDIA_S3_PUBLIC_ENDPOINT: http://localhost:8333
+      MEDIA_S3_REGION: us-east-1
+      MEDIA_S3_BUCKET: yaparena-replays
+      MEDIA_S3_ACCESS_KEY: localmedia
+      MEDIA_S3_SECRET_KEY: localmedia-secret
+    depends_on:
+      livekit:
+        condition: service_started
+      object-store:
+        condition: service_started
+
+  redis-media:
+    image: redis:8.2.2-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  livekit:
+    image: livekit/livekit-server:v1.13.7
+    command: ["--dev", "--bind", "0.0.0.0"]
+    environment:
+      LIVEKIT_CONFIG: |
+        port: 7880
+        redis:
+          address: redis-media:6379
+        webhook:
+          api_key: devkey
+          urls:
+            - http://app:3000/api/media/webhook
+    ports:
+      - "127.0.0.1:7880:7880"
+      - "7882:7882/udp"
+    depends_on:
+      redis-media:
+        condition: service_healthy
+
+  object-store:
+    image: chrislusf/seaweedfs:4.47
+    command: ["mini", "-dir=/data"]
+    environment:
+      AWS_ACCESS_KEY_ID: localmedia
+      AWS_SECRET_ACCESS_KEY: localmedia-secret
+      S3_BUCKET: yaparena-replays
+    ports:
+      - "127.0.0.1:8333:8333"
+    volumes:
+      - media-data:/data
+
+  egress:
+    image: livekit/egress:v1.14.1
+    cap_add: [SYS_ADMIN]
+    environment:
+      EGRESS_CONFIG_BODY: |
+        api_key: devkey
+        api_secret: secret
+        ws_url: ws://livekit:7880
+        insecure: true
+        redis:
+          address: redis-media:6379
+    depends_on:
+      livekit:
+        condition: service_started
+      redis-media:
+        condition: service_healthy
+
+volumes:
+  media-data:

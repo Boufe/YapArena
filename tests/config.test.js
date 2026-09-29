@@ -23,7 +23,6 @@ describe("configuration", () => {
       siweRpcUrls: {},
       media: undefined,
       backgroundJobs: true,
-      stagingAccessSecret: undefined,
     });
   });
 
@@ -59,7 +58,6 @@ describe("configuration", () => {
         siweRpcUrls: {},
         media: undefined,
         backgroundJobs: true,
-        stagingAccessSecret: undefined,
       },
     );
   });
@@ -71,12 +69,11 @@ describe("configuration", () => {
     );
   });
 
-  it("validates staging access and background worker configuration", () => {
+  it("validates background worker configuration", () => {
     assert.equal(
       loadConfig({
         DATABASE_URL: databaseUrl,
         RUN_BACKGROUND_JOBS: "false",
-        STAGING_ACCESS_SECRET: "a".repeat(32),
       }).backgroundJobs,
       false,
     );
@@ -84,14 +81,6 @@ describe("configuration", () => {
       () =>
         loadConfig({ DATABASE_URL: databaseUrl, RUN_BACKGROUND_JOBS: "off" }),
       /RUN_BACKGROUND_JOBS/,
-    );
-    assert.throws(
-      () =>
-        loadConfig({
-          DATABASE_URL: databaseUrl,
-          STAGING_ACCESS_SECRET: "short",
-        }),
-      /STAGING_ACCESS_SECRET/,
     );
   });
 

@@ -48,7 +48,6 @@ const app = createApp({
   rateLimitWindowMs: config.rateLimitWindowMs,
   sessionDurationMs: config.sessionDurationMs,
   siweRpcUrls: config.siweRpcUrls,
-  stagingAccessSecret: config.stagingAccessSecret,
 });
 
 const runtime = createRuntime({

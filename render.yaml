@@ -23,7 +23,5 @@ services:
           name: yaparena-staging-web
           type: web
           envVarKey: RENDER_EXTERNAL_URL
-      - key: STAGING_ACCESS_SECRET
-        generateValue: true
       - key: DATABASE_URL
         sync: false

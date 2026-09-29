@@ -35,11 +35,10 @@ activity. Do not use this environment for promised live events or real user data
 2. In Render, use **New → Blueprint**, connect `Boufe/YapArena`, and select the staging branch.
    Review the preview: it should create only `yaparena-staging-web` on the Free plan.
 3. When prompted for `DATABASE_URL`, paste the Supabase Session pooler URL in Render's secret field.
-   Render generates `STAGING_ACCESS_SECRET` for the web service. Deploy the Blueprint.
+   Deploy the Blueprint.
 4. Confirm migrations succeeded in the deploy logs and `/ready` passes. Open the HTTPS Render URL
-   with username `staging` and the generated `STAGING_ACCESS_SECRET` as password. Do not put the
-   secret in Git or a message. `/health`, `/ready`, and the signed LiveKit webhook endpoint are
-   exempt from this staging gate.
+   directly. Public pages need no shared password; speaker and operator actions still require
+   account sign-in and their respective roles.
 
 The first deploy has no media configuration and says so on debate pages. Seeded demo debates use
 the older `preview-1` rules and cannot be used for a real media trial.

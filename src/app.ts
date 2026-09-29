@@ -1,6 +1,5 @@
 import cookieParser from "cookie-parser";
 import express from "express";
-import { createHash, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import helmet from "helmet";
 import type { ErrorRequestHandler } from "express";
@@ -84,7 +83,6 @@ export function createApp({
   rateLimitWindowMs = 15 * 60 * 1_000,
   sessionDurationMs = 7 * 24 * 60 * 60 * 1_000,
   siweRpcUrls = {},
-  stagingAccessSecret,
 }: {
   messages: ReturnType<typeof createMessageRepository>;
   discovery?: ReturnType<typeof createDiscoveryRepository>;
@@ -106,7 +104,6 @@ export function createApp({
   rateLimitWindowMs?: number;
   sessionDurationMs?: number;
   siweRpcUrls?: Readonly<Record<string, string>>;
-  stagingAccessSecret?: string;
 }) {
   const app = express();
   const mediaUrl = mediaProvider ? new URL(mediaProvider.publicUrl) : undefined;
@@ -117,27 +114,6 @@ export function createApp({
   app.disable("x-powered-by");
   app.set("trust proxy", trustProxy);
   app.use(createHttpLogger(logger));
-  if (stagingAccessSecret) {
-    const expected = createHash("sha256")
-      .update(
-        `Basic ${Buffer.from(`staging:${stagingAccessSecret}`).toString("base64")}`,
-      )
-      .digest();
-    app.use((request, response, next) => {
-      if (
-        request.path === "/health" ||
-        request.path === "/ready" ||
-        request.path === "/api/media/webhook"
-      )
-        return next();
-      const received = createHash("sha256")
-        .update(request.get("Authorization") ?? "")
-        .digest();
-      if (timingSafeEqual(expected, received)) return next();
-      response.set("WWW-Authenticate", 'Basic realm="YAP Arena staging"');
-      return response.status(401).send("Staging access required");
-    });
-  }
   app.use(metrics.middleware);
   app.use(
     mediaProvider

@@ -175,16 +175,12 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
   );
   const media = parseMedia(environment, nodeEnvironment);
   const backgroundJobs = environment.RUN_BACKGROUND_JOBS ?? "true";
-  const stagingAccessSecret = environment.STAGING_ACCESS_SECRET;
 
   if (!environments.has(nodeEnvironment)) {
     throw new Error("NODE_ENV must be development, test, or production");
   }
   if (backgroundJobs !== "true" && backgroundJobs !== "false") {
     throw new Error("RUN_BACKGROUND_JOBS must be true or false");
-  }
-  if (stagingAccessSecret && stagingAccessSecret.length < 24) {
-    throw new Error("STAGING_ACCESS_SECRET must be at least 24 characters");
   }
 
   if (host.trim() === "") {
@@ -229,6 +225,5 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
     siweRpcUrls,
     media,
     backgroundJobs: backgroundJobs === "true",
-    stagingAccessSecret,
   });
 }

@@ -50,22 +50,10 @@ describe("yaparena API", () => {
     assert.match(response.headers["x-request-id"], /^[0-9a-f-]{36}$/);
   });
 
-  it("requires a secret for staging pages and APIs while keeping readiness available", async () => {
-    const staging = createApp({
-      messages,
-      users,
-      sessions,
-      logger,
-      stagingAccessSecret: "a".repeat(32),
-    });
-    assert.equal((await request(staging).get("/ready")).status, 200);
-    const denied = await request(staging).get("/unknown");
-    assert.equal(denied.status, 401);
-    assert.match(denied.headers["www-authenticate"], /Basic/);
-    const allowed = await request(staging)
-      .get("/unknown")
-      .auth("staging", "a".repeat(32));
-    assert.equal(allowed.status, 404);
+  it("does not require a shared staging password for public requests", async () => {
+    const response = await request(app).get("/unknown");
+    assert.equal(response.status, 404);
+    assert.equal(response.headers["www-authenticate"], undefined);
   });
 
   it("allows only configured media origins in the browser policy", async () => {

@@ -92,15 +92,23 @@ if (root) {
       await connect(grant.token, grant.url);
       await room.localParticipant.setCameraEnabled(true);
       await room.localParticipant.setMicrophoneEnabled(false);
-      const ready = await fetch(`/api/matching/events/${id}/ready`, {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      if (!ready.ok) {
-        const data = await ready.json().catch(() => ({}));
-        throw new Error(data.error || "Could not record speaker readiness");
+      const joined = await request("");
+      if (["scheduled", "ready"].includes(joined.eventStatus)) {
+        const ready = await fetch(`/api/matching/events/${id}/ready`, {
+          method: "POST",
+          credentials: "same-origin",
+        });
+        if (!ready.ok) {
+          const data = await ready.json().catch(() => ({}));
+          throw new Error(data.error || "Could not record speaker readiness");
+        }
       }
-      say(`Connected as speaker ${side}. Your microphone opens on your turn.`);
+      await refresh();
+      say(
+        joined.state?.state === "paused"
+          ? `Reconnected as speaker ${side}. The operator can resume once both speakers are connected.`
+          : `Connected as speaker ${side}. Your microphone opens on your turn.`,
+      );
     } catch (error) {
       say(error.message);
       speakerButton.disabled = false;
@@ -178,6 +186,9 @@ if (root) {
       speakerButton.hidden = !["scheduled", "ready", "live"].includes(
         result.eventStatus,
       );
+      speakerButton.textContent = live
+        ? "Connect or reconnect as speaker"
+        : "Check camera and join as speaker";
       replay.hidden = !presentation.replayVisible;
       say(presentation.message);
       for (const button of operator.querySelectorAll("[data-media-action]"))

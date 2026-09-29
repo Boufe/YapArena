@@ -107,12 +107,14 @@ function fake() {
       return result([media]);
     }
     if (sql.startsWith("UPDATE debate_media SET state = 'paused'")) {
+      assert.equal(values.length, 2);
+      assert.match(sql, /incident = \$2/);
       media = {
         ...media,
         state: "paused",
         remainingMs: 30000,
         turnDeadlineAt: null,
-        incident: values[2],
+        incident: values[1],
         revision: media.revision + 1,
       };
       return result([media]);
@@ -222,6 +224,9 @@ describe("durable media lifecycle", () => {
     await f.repository.checkDevice(id, "1", true, true);
     await f.repository.assertDeviceReady(id, "1");
     f.event.status = "live";
+    await f.repository.checkDevice(id, "1", true, true);
+    await f.repository.assertDeviceReady(id, "1");
+    f.event.status = "ended";
     await assert.rejects(
       () => f.repository.checkDevice(id, "1", true, true),
       MediaConflictError,

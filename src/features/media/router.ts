@@ -330,6 +330,10 @@ export function createMediaRouter({
       if (!Number.isInteger(revision) || revision < 0)
         return response.status(400).json({ error: "revision required" });
       try {
+        if ((await provider.connectedSpeakers(id)) !== 2)
+          throw new MediaConflictError(
+            "both speakers must be connected before resume",
+          );
         const state = await media.resume(id, request.user!.id, revision);
         try {
           await provider.setTurn(id, state.activeSide);

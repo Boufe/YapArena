@@ -345,10 +345,11 @@ describe("media API", () => {
   });
 
   it("requires both speakers and exposes explicit pause and resume", async () => {
+    let connected = 1;
     const f = fixture({
       provider: {
         async connectedSpeakers() {
-          return 1;
+          return connected;
         },
       },
     });
@@ -381,6 +382,7 @@ describe("media API", () => {
       ).status,
       400,
     );
+    connected = 2;
     assert.equal(
       (
         await request(f.app)
@@ -592,6 +594,24 @@ describe("media API", () => {
       200,
     );
     assert.ok(f.calls.some((call) => call.startsWith("pause:null")));
+  });
+
+  it("keeps a paused debate paused until both speakers have reconnected", async () => {
+    const f = fixture({
+      provider: {
+        async connectedSpeakers() {
+          return 1;
+        },
+      },
+    });
+    f.state.state = "paused";
+    const response = await request(f.app)
+      .post(`/api/media/events/${id}/resume`)
+      .set("x-user", "9")
+      .send({ revision: f.state.revision });
+    assert.equal(response.status, 409);
+    assert.match(response.body.error, /both speakers must be connected/);
+    assert.ok(!f.calls.includes("resume"));
   });
 
   it("records an operator end even when LiveKit turn revocation is unavailable", async () => {

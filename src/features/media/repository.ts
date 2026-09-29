@@ -108,7 +108,7 @@ export function createMediaRepository(db: Pool) {
         );
         if (
           !event.rows[0] ||
-          !["scheduled", "ready"].includes(event.rows[0].status)
+          !["scheduled", "ready", "live"].includes(event.rows[0].status)
         )
           throw new MediaConflictError("event is not awaiting speakers");
         const participant = await client.query(
@@ -211,10 +211,10 @@ export function createMediaRepository(db: Pool) {
           `UPDATE debate_media SET state = 'paused',
           remaining_ms = GREATEST(0, EXTRACT(EPOCH FROM (turn_deadline_at - CURRENT_TIMESTAMP)) * 1000)::integer,
           active_ms = active_ms + GREATEST(0, EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - last_resumed_at)) * 1000)::integer,
-          last_resumed_at = NULL, turn_deadline_at = NULL, incident = $3,
+          last_resumed_at = NULL, turn_deadline_at = NULL, incident = $2,
           revision = revision + 1, updated_at = CURRENT_TIMESTAMP WHERE debate_id = $1
           AND (SELECT status FROM debates WHERE id = $1) = 'live' RETURNING ${fields}`,
-          [debateId, actorId, reason],
+          [debateId, reason],
         );
         if (!result.rows[0]) throw new MediaConflictError("debate is not live");
         await client.query(

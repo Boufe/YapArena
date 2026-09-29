@@ -24,7 +24,9 @@ activity. Do not use this environment for promised live events or real user data
    access through Supabase REST or GraphQL.
 3. In the project's **Connect** dialog, copy the **Session pooler** PostgreSQL URL (port 5432).
    This supports the app's persistent `pg` pool on an IPv4 network. Do not use the transaction
-   pooler URL (port 6543) for this deployment. Keep the URL and password out of Git and chat.
+   pooler URL (port 6543) for this deployment. Replace the password placeholder without its square
+   brackets, URL-encode reserved password characters, and require SSL with `sslmode=require`. Keep
+   the URL and password out of Git and chat.
 
 ## Deploy the web service
 

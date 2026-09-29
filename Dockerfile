@@ -33,6 +33,7 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
 COPY --from=production-dependencies /app/node_modules ./node_modules
 COPY --chown=node:node package.json ./
 COPY --chown=node:node migrations ./migrations
+COPY --chown=node:node scripts/start-staging.sh ./scripts/start-staging.sh
 COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/dist ./dist
   USER node

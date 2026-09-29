@@ -6,7 +6,7 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    dockerCommand: /bin/sh -c 'node node_modules/node-pg-migrate/bin/node-pg-migrate.js up && exec node dist/server.js'
+    dockerCommand: /bin/sh /app/scripts/start-staging.sh
     autoDeployTrigger: checksPass
     healthCheckPath: /ready
     envVars:

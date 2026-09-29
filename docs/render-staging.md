@@ -52,15 +52,15 @@ the older `preview-1` rules and cannot be used for a real media trial.
 3. Add **all** variables below to the Render web service together. Partial media configuration
    prevents the app from starting. Save and redeploy after all values are present.
 
-| Variable                                        | Source                                      |
-| ----------------------------------------------- | ------------------------------------------- |
-| `LIVEKIT_URL`                                   | LiveKit Cloud HTTPS API URL                 |
-| `LIVEKIT_PUBLIC_URL`                            | LiveKit Cloud WSS browser URL               |
-| `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`         | LiveKit project credentials                 |
+| Variable                                        | Source                                     |
+| ----------------------------------------------- | ------------------------------------------ |
+| `LIVEKIT_URL`                                   | LiveKit Cloud HTTPS API URL                |
+| `LIVEKIT_PUBLIC_URL`                            | LiveKit Cloud WSS browser URL              |
+| `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`         | LiveKit project credentials                |
 | `MEDIA_S3_ENDPOINT`, `MEDIA_S3_PUBLIC_ENDPOINT` | R2 HTTPS S3 endpoint (same value for both) |
-| `MEDIA_S3_REGION`                               | `auto`                                      |
-| `MEDIA_S3_BUCKET`                               | Private R2 bucket name                      |
-| `MEDIA_S3_ACCESS_KEY`, `MEDIA_S3_SECRET_KEY`    | R2 bucket-scoped S3 credentials             |
+| `MEDIA_S3_REGION`                               | `auto`                                     |
+| `MEDIA_S3_BUCKET`                               | Private R2 bucket name                     |
+| `MEDIA_S3_ACCESS_KEY`, `MEDIA_S3_SECRET_KEY`    | R2 bucket-scoped S3 credentials            |
 
 The current media provider sends the same S3 key to LiveKit Egress and uses it for playback. A
 single bucket-scoped key therefore needs write and read permissions. Split those permissions and

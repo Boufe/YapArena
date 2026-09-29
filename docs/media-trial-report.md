@@ -18,7 +18,7 @@
 | Resume when LiveKit permission update fails                                                                                                                                                              | Defect fixed, automated pass | The route now pauses again and returns 503 instead of leaving a running clock with stale speaker permissions.                                                                                                                                |
 | Two-speaker staging join, camera/mic publishing, audience playback, turn changes, reload/clock recovery, device/network reconnect, completed Egress file, replay video, caption quality, mobile playback | **Not run**                  | Requires staging access, three signed-in test accounts including an operator, two camera/mic devices on separate networks, an audience device, and human audio/video observation. The available browser connection could not be established. |
 
-The fixes are local and **not deployed to staging**. The current staging service must not be treated as evidence for them.
+These fixes require a confirmed staging deployment and a repeat trial. The staging health and webhook observations above do not establish that the fixes were running.
 
 ## Staging trial procedure
 

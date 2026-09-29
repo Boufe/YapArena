@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { EgressStatus } from "@livekit/protocol";
 import { Router } from "express";
 import type { Request, Response, RequestHandler } from "express";
 import type { createMediaRepository } from "./repository.ts";
@@ -459,7 +460,16 @@ export function createMediaWebhookRouter({
       if (event.event === "egress_ended" && event.egressInfo?.egressId) {
         const info = event.egressInfo;
         const file = info.fileResults[0];
-        const success = Boolean(file?.filename && file.size > 0n);
+        const success = Boolean(
+          info.status === EgressStatus.EGRESS_COMPLETE &&
+          file?.filename &&
+          file.size > 0n,
+        );
+        if (!success)
+          request.log.warn(
+            { egressId: info.egressId, status: info.status, error: info.error },
+            "recording ended without a usable file",
+          );
         const state = await media.recordingEnded(
           info.egressId,
           success,

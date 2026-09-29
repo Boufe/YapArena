@@ -820,7 +820,7 @@ describe("signed media webhooks", () => {
     assert.ok(calls.includes("setTurn:A"));
     event = {
       event: "egress_ended",
-      egressInfo: { egressId: "egress-1", fileResults: [] },
+      egressInfo: { egressId: "egress-1", status: 4, fileResults: [] },
     };
     assert.equal(
       (
@@ -885,6 +885,7 @@ describe("signed media webhooks", () => {
       event: "egress_ended",
       egressInfo: {
         egressId: "egress-1",
+        status: 3,
         fileResults: [{ filename: `debates/${id}/recording.mp4`, size: 100n }],
       },
     };
@@ -924,6 +925,17 @@ describe("signed media webhooks", () => {
     assert.deepEqual(calls, [
       { success: true, key: `debates/${id}/recording.mp4` },
     ]);
+    event.egressInfo.status = 4;
+    assert.equal(
+      (
+        await request(app)
+          .post("/webhook")
+          .set("Content-Type", "application/webhook+json")
+          .send("{}")
+      ).status,
+      204,
+    );
+    assert.deepEqual(calls.at(-1), { success: false, key: null });
     event = {
       event: "participant_left",
       room: { name: `debate-${id}` },

@@ -1,5 +1,6 @@
-/* global document */
+/* global document, window */
 import { Room, RoomEvent, Track } from "livekit-client";
+import { mediaPresentation } from "./media-presentation.js";
 
 const root = document.querySelector("[data-media-event]");
 if (root) {
@@ -123,6 +124,11 @@ if (root) {
       button.disabled = true;
       try {
         const action = button.dataset.mediaAction;
+        if (
+          action === "end" &&
+          !window.confirm("End this debate now? This cannot be undone.")
+        )
+          return;
         const reason = operator
           .querySelector("[data-media-reason]")
           .value.trim();
@@ -167,29 +173,15 @@ if (root) {
       currentState = result.state;
       serverOffset = new Date(result.serverNow).getTime() - Date.now();
       const live = result.eventStatus === "live";
+      const presentation = mediaPresentation(result.eventStatus, result.state);
       viewerButton.hidden = !live;
       speakerButton.hidden = !["scheduled", "ready", "live"].includes(
         result.eventStatus,
       );
-      replay.hidden =
-        !["replay", "finalized"].includes(result.eventStatus) ||
-        result.state?.recordingStatus !== "ready";
-      if (live && result.state?.state === "paused")
-        say(`Debate paused: ${result.state.incident || "operator review"}`);
-      if (live && result.state?.state === "running")
-        say(
-          `Live. Speaker ${result.state.activeSide} has the floor. Recording ${result.state.recordingStatus}.`,
-        );
-      if (!live && !room)
-        say(
-          result.eventStatus === "ended"
-            ? "Debate ended. Replay is being prepared."
-            : ["scheduled", "ready"].includes(result.eventStatus)
-              ? "This debate has not started yet."
-              : ["replay", "finalized"].includes(result.eventStatus)
-                ? "No replay video is available for this listing."
-                : "Live media is unavailable for this debate.",
-        );
+      replay.hidden = !presentation.replayVisible;
+      say(presentation.message);
+      for (const button of operator.querySelectorAll("[data-media-action]"))
+        button.hidden = !presentation.actions[button.dataset.mediaAction];
       if (room && side) {
         const shouldSpeak =
           live &&

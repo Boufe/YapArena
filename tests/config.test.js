@@ -155,6 +155,20 @@ describe("configuration", () => {
       loadConfig({ DATABASE_URL: databaseUrl, ...media }).media.s3Bucket,
       "replays",
     );
+    assert.equal(
+      loadConfig({
+        DATABASE_URL: databaseUrl,
+        ...media,
+        MEDIA_S3_ENDPOINT: "https://example.r2.cloudflarestorage.com",
+        MEDIA_S3_PUBLIC_ENDPOINT: "https://example.r2.cloudflarestorage.com",
+        MEDIA_S3_REGION: "Eastern North America (ENAM)",
+      }).media.s3Region,
+      "auto",
+    );
+    assert.equal(
+      loadConfig({ DATABASE_URL: databaseUrl, ...media }).media.s3Region,
+      "us-east-1",
+    );
     assert.throws(
       () =>
         loadConfig({

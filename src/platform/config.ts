@@ -96,6 +96,7 @@ function parseMedia(environment: NodeJS.ProcessEnv, nodeEnvironment: string) {
     (livekitUrl.protocol !== "https:" || livekitPublicUrl.protocol !== "wss:")
   )
     throw new Error("production media requires HTTPS and WSS");
+  let s3Region = environment.MEDIA_S3_REGION!;
   if (environment.MEDIA_S3_ENDPOINT) {
     if (!environment.MEDIA_S3_PUBLIC_ENDPOINT)
       throw new Error(
@@ -107,6 +108,8 @@ function parseMedia(environment: NodeJS.ProcessEnv, nodeEnvironment: string) {
       (nodeEnvironment === "production" && endpoint.protocol !== "https:")
     )
       throw new Error("invalid media S3 endpoint");
+    if (endpoint.hostname.endsWith(".r2.cloudflarestorage.com"))
+      s3Region = "auto";
   }
   if (environment.MEDIA_S3_PUBLIC_ENDPOINT) {
     const endpoint = new URL(environment.MEDIA_S3_PUBLIC_ENDPOINT);
@@ -123,7 +126,7 @@ function parseMedia(environment: NodeJS.ProcessEnv, nodeEnvironment: string) {
     livekitSecret: environment.LIVEKIT_API_SECRET!,
     s3Endpoint: environment.MEDIA_S3_ENDPOINT,
     s3PublicEndpoint: environment.MEDIA_S3_PUBLIC_ENDPOINT,
-    s3Region: environment.MEDIA_S3_REGION!,
+    s3Region,
     s3Bucket: environment.MEDIA_S3_BUCKET!,
     s3AccessKey: environment.MEDIA_S3_ACCESS_KEY!,
     s3SecretKey: environment.MEDIA_S3_SECRET_KEY!,

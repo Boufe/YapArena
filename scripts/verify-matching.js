@@ -99,7 +99,7 @@ try {
   const event = outcomes.find((entry) => entry.status === "fulfilled").value;
   events.push(event.id);
   assert.equal(event.status, "scheduled");
-  assert.equal(event.rulesVersion, "preview-1");
+  assert.equal(event.rulesVersion, "prototype-media-1");
   assert.equal(event.rulesSnapshot.financial_terms, "not_active");
   assert.notEqual(event.speakerAProfileId, event.speakerBProfileId);
   assert.equal(
@@ -133,6 +133,11 @@ try {
     "UPDATE debates SET scheduled_at = CURRENT_TIMESTAMP WHERE id = $1",
     [event.id],
   );
+  await pool.query(
+    `INSERT INTO debate_media (debate_id, state, active_side, recording_status)
+     VALUES ($1, 'running', 'A', 'recording')`,
+    [event.id],
+  );
   assert.equal(
     (
       await matching.operatorTransition(
@@ -151,6 +156,11 @@ try {
     "Verification end",
   );
   assert.ok(ended.liveStartedAt && ended.liveEndedAt);
+  await pool.query(
+    `UPDATE debate_media SET state = 'ended', recording_status = 'ready'
+     WHERE debate_id = $1`,
+    [event.id],
+  );
   const afterEnd = await matching.createRequest(initiator.id, {
     kind: "direct",
     topicSlug: `match-topic-${suffix}`,

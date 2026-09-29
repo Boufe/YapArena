@@ -1,67 +1,78 @@
-# Render staging
+# Low cost staging
 
-`render.yaml` defines a paid staging web service, a single background worker, and a private
-PostgreSQL 18 database in Render's Ohio region. The web service uses Render's temporary HTTPS
-`onrender.com` address. It runs database migrations as a pre-deploy step. The web service does not
-run maintenance or the one-second debate clock; the worker does. Keep the worker at one instance
-until the clock has explicit leader election and recovery monitoring.
+The staging stack uses one Render web service, Supabase Postgres, LiveKit Cloud, and Cloudflare R2.
+Render runs the existing Node app and its background clock in one process. Supabase only hosts
+PostgreSQL; the application continues to own accounts, sessions, and authorization. LiveKit carries
+the live video and records it to a private R2 bucket. The browser reads replays through short-lived
+signed URLs created by the app.
 
-The Blueprint uses a 1 CPU / 2 GB web instance, a 0.5 CPU / 512 MB worker, a 0.5 CPU / 1 GB
-database, and 5 GB of database storage. Review Render's current estimate in its dashboard before
-creating these paid resources. Media, replay storage, network usage, and later scale cost extra.
+`render.yaml` creates **one Free Render web service**. It does not create a Render database or
+worker. Its Docker start command applies pending database migrations before starting the server;
+Render's separate pre-deploy command is unavailable on Free web services. Keep this deployment to
+one instance. Review each provider's current free allowances and billing settings before use.
 
-## Create the base environment
+This is a small trial environment. Render Free sleeps after 15 minutes without inbound traffic and
+can take about a minute to wake. A live debate page polls the app every three seconds, but an
+instance restart can still interrupt the turn clock. Supabase Free can pause after a week of low
+activity. Do not use this environment for promised live events or real user data.
 
-1. Connect the GitHub repository to a Render workspace with a payment method. This Blueprint
-   deploys the committed branch, so local uncommitted files do not appear in the deployment.
-2. Validate `render.yaml` with `render blueprints validate render.yaml`. Import it as a new Blueprint
-   in the Render dashboard and review the resource and monthly cost preview before creating it.
-3. Render generates `STAGING_ACCESS_SECRET` for the web service. Open its Environment page to reveal
-   the value. Visit the HTTPS staging address using username `staging` and that value as the
-   password. Do not put the secret in Git or a message. The app exempts only `/health`, `/ready`,
-   and the signed LiveKit webhook endpoint from this gate.
-4. Confirm the web service passes `/ready`, the worker stays running, the migration command
-   succeeds, and the database has no public inbound IP rules. Use test accounts and test data only.
+## Create the database
 
-The first deploy has no media configuration. The debate page will say live media is not configured
-for this deployment until the services below are connected. Seeded demo debates use the older
-`preview-1` rules and cannot be used for a real media trial.
+1. Create a Supabase Free project in a region close to Render's Ohio region.
+2. Disable Supabase's **Data API** for the project in the Data API integration settings. This app
+   uses its own Express API and direct PostgreSQL queries; its tables are not designed for public
+   access through Supabase REST or GraphQL.
+3. In the project's **Connect** dialog, copy the **Session pooler** PostgreSQL URL (port 5432).
+   This supports the app's persistent `pg` pool on an IPv4 network. Do not use the transaction
+   pooler URL (port 6543) for this deployment. Keep the URL and password out of Git and chat.
 
-## Add media for a complete staging trial
+## Deploy the web service
 
-Create a separate LiveKit Cloud staging project and a private Cloudflare R2 bucket. Create a
-bucket-scoped R2 key for the current prototype's write, read, and HEAD operations. Configure R2
-CORS for GET from the Render HTTPS origin. Set the LiveKit webhook
-URL to `https://<staging-host>/api/media/webhook`; the application verifies its signature.
+1. Commit and push the intended staging branch. Validate `render.yaml` with
+   `render blueprints validate render.yaml`.
+2. In Render, use **New → Blueprint**, connect `Boufe/YapArena`, and select the staging branch.
+   Review the preview: it should create only `yaparena-staging-web` on the Free plan.
+3. When prompted for `DATABASE_URL`, paste the Supabase Session pooler URL in Render's secret field.
+   Render generates `STAGING_ACCESS_SECRET` for the web service. Deploy the Blueprint.
+4. Confirm migrations succeeded in the deploy logs and `/ready` passes. Open the HTTPS Render URL
+   with username `staging` and the generated `STAGING_ACCESS_SECRET` as password. Do not put the
+   secret in Git or a message. `/health`, `/ready`, and the signed LiveKit webhook endpoint are
+   exempt from this staging gate.
 
-Add the following variables to **both** the web service and worker, preferably through a Render
-environment group. Supply actual values in Render, never in `render.yaml`:
+The first deploy has no media configuration and says so on debate pages. Seeded demo debates use
+the older `preview-1` rules and cannot be used for a real media trial.
 
-| Variable                                        | Source                              |
-| ----------------------------------------------- | ----------------------------------- |
-| `LIVEKIT_URL`                                   | LiveKit Cloud HTTPS API URL         |
-| `LIVEKIT_PUBLIC_URL`                            | LiveKit Cloud WSS browser URL       |
-| `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`         | LiveKit staging project credentials |
-| `MEDIA_S3_ENDPOINT`, `MEDIA_S3_PUBLIC_ENDPOINT` | R2 HTTPS S3 endpoint                |
-| `MEDIA_S3_REGION`                               | R2 region value (`auto`)            |
-| `MEDIA_S3_BUCKET`                               | Private replay bucket name          |
-| `MEDIA_S3_ACCESS_KEY`, `MEDIA_S3_SECRET_KEY`    | R2 key scoped to the replay bucket  |
+## Enable live video and replay
+
+1. Create a LiveKit Cloud Build project. Copy its HTTPS API URL, WSS browser URL, API key, and API
+   secret. Create a private Cloudflare R2 **Standard** bucket and a bucket-scoped S3 key that can
+   write, read, and HEAD replay objects. Keep all keys in the provider dashboards and Render.
+2. Configure R2 CORS for browser GET requests from the exact Render HTTPS origin. Set LiveKit's
+   webhook URL to `https://<staging-host>/api/media/webhook`; the app verifies webhook signatures.
+3. Add **all** variables below to the Render web service together. Partial media configuration
+   prevents the app from starting. Save and redeploy after all values are present.
+
+| Variable                                        | Source                                      |
+| ----------------------------------------------- | ------------------------------------------- |
+| `LIVEKIT_URL`                                   | LiveKit Cloud HTTPS API URL                 |
+| `LIVEKIT_PUBLIC_URL`                            | LiveKit Cloud WSS browser URL               |
+| `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`         | LiveKit project credentials                 |
+| `MEDIA_S3_ENDPOINT`, `MEDIA_S3_PUBLIC_ENDPOINT` | R2 HTTPS S3 endpoint (same value for both) |
+| `MEDIA_S3_REGION`                               | `auto`                                      |
+| `MEDIA_S3_BUCKET`                               | Private R2 bucket name                      |
+| `MEDIA_S3_ACCESS_KEY`, `MEDIA_S3_SECRET_KEY`    | R2 bucket-scoped S3 credentials             |
 
 The current media provider sends the same S3 key to LiveKit Egress and uses it for playback. A
-single bucket-scoped key therefore needs write and read permissions. Before a public launch,
-separate those permissions and rotate staging credentials. Media configuration is all-or-nothing:
-setting only some of these variables makes the process refuse to start.
+single bucket-scoped key therefore needs write and read permissions. Split those permissions and
+rotate staging credentials before a public launch. A new event under `prototype-media-1` is needed
+for a live media trial. Use two test speakers on separate networks and verify join, turn changes,
+pause/resume, recording completion, replay playback, captions, and reconnects.
 
-Create a **new** event under `prototype-media-1`. Two real test speakers check devices and join;
-an operator starts it after both are connected. Verify turn changes, pause/resume, recording
-completion, replay publication, captions, and reconnects from separate networks. The production
-media architecture and product timings are still pending review in
-[decision 0004](decisions/0004-live-debate-replay.md).
+## Later scale-up
 
-## Before production traffic
-
-Keep production in separate Render and LiveKit environments. Add a restore-tested database backup,
-database high availability, alert delivery, load and media trials, and a shared rate limiter before
-scaling the web service beyond one instance. `STAGING_ACCESS_SECRET` is a staging gate, not a user
-identity or production authorization mechanism. The Render URL is a temporary address; use a
-controlled domain and review cookies, SIWE origin, webhook URL, and CORS when changing it.
+The Free setup is for functional trials. For reliable scheduled events, first upgrade the Render
+web service so it stays awake; then separate the clock into a worker with leader election and
+monitoring. Move to a paid database with restore-tested backups before accepting real users. Add
+alert delivery, load and media trials, and a shared rate limiter before scaling web instances.
+Keep production in separate provider projects and credentials. See
+[decision 0004](decisions/0004-live-debate-replay.md) for open production media decisions.

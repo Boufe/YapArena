@@ -39,8 +39,8 @@ The [topic and event decision](docs/decisions/0003-topics-matching-events.md) re
 preview's challenge, scheduling, no-show, audit, and lifecycle rules.
 The [live media decision](docs/decisions/0004-live-debate-replay.md) records prototype timings,
 recording gates, incident behavior, and the validation still needed before a production media choice.
-The [Render staging runbook](docs/render-staging.md) describes the hosted app, database, dedicated
-clock worker, access gate, and media integration steps.
+The [low cost staging runbook](docs/render-staging.md) describes the Render app, Supabase database,
+access gate, and LiveKit/R2 media integration steps.
 
 To work on YapArena, follow [Local development](#local-development). The original
 [service template guide](docs/getting-started.md) remains available if you want to create a separate

@@ -1,6 +1,7 @@
 /* global document, window */
 import { Room, RoomEvent } from "livekit-client";
 import { mediaPresentation } from "./media-presentation.js";
+import { speakerButtonState, stopMediaSession } from "./media-session.js";
 import { joinSpeaker } from "./media-speaker.js";
 import { createMediaTracks } from "./media-tracks.js";
 
@@ -16,8 +17,16 @@ if (root) {
   const replay = root.querySelector("[data-media-replay]");
   const video = root.querySelector("[data-media-replay-video]");
   const operator = root.querySelector("[data-media-operator]");
+  let speakerMemoryKey;
   let room;
   let side;
+  let seatSide;
+  let eventStatus;
+  let speakerConnected = false;
+  let joiningSpeaker = false;
+  let reconnectAttempts = 0;
+  let reconnectTimer;
+  let microphoneChange;
   let serverOffset = 0;
   let currentState;
   const say = (message) => {
@@ -33,11 +42,71 @@ if (root) {
     if (!response.ok) throw new Error(result.error || "Media request failed");
     return result;
   };
+  const remembersSpeaker = () => {
+    if (!speakerMemoryKey) return false;
+    try {
+      return window.sessionStorage.getItem(speakerMemoryKey) === "1";
+    } catch {
+      return false;
+    }
+  };
+  const rememberSpeaker = (remember) => {
+    if (!speakerMemoryKey) return;
+    try {
+      if (remember) window.sessionStorage.setItem(speakerMemoryKey, "1");
+      else window.sessionStorage.removeItem(speakerMemoryKey);
+    } catch {
+      /* storage may be disabled in a private browsing context */
+    }
+  };
+  const canJoinAsSpeaker = () =>
+    seatSide && ["scheduled", "ready", "live"].includes(eventStatus);
+  function updateSpeakerButton() {
+    const state = speakerButtonState({
+      side: seatSide,
+      status: eventStatus,
+      connected: speakerConnected,
+      joining: joiningSpeaker,
+    });
+    speakerButton.hidden = state.hidden;
+    speakerButton.disabled = state.disabled;
+    speakerButton.textContent = state.text;
+  }
+  function cancelReconnect() {
+    if (reconnectTimer) window.clearTimeout(reconnectTimer);
+    reconnectTimer = undefined;
+  }
+  async function disconnectRoom() {
+    const previousRoom = room;
+    room = undefined;
+    side = undefined;
+    speakerConnected = false;
+    updateSpeakerButton();
+    await stopMediaSession(previousRoom, mediaTracks);
+  }
+  function scheduleReconnect() {
+    if (
+      reconnectTimer ||
+      joiningSpeaker ||
+      speakerConnected ||
+      !remembersSpeaker() ||
+      !canJoinAsSpeaker()
+    )
+      return;
+    const delays = [500, 1500, 3000, 5000];
+    if (reconnectAttempts >= delays.length) {
+      say("Automatic reconnect failed. Use Connect or reconnect as speaker.");
+      return;
+    }
+    reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = undefined;
+      void connectAsSpeaker(true);
+    }, delays[reconnectAttempts++]);
+  }
   async function connect(token, url) {
     const previousRoom = room;
     room = undefined;
-    mediaTracks.clear();
-    if (previousRoom) await previousRoom.disconnect();
+    await stopMediaSession(previousRoom, mediaTracks);
     const nextRoom = new Room({ adaptiveStream: true, dynacast: true });
     room = nextRoom;
     nextRoom.on(
@@ -59,14 +128,30 @@ if (root) {
       RoomEvent.Reconnecting,
       () => room === nextRoom && say("Connection interrupted. Reconnecting…"),
     );
+    nextRoom.on(RoomEvent.Reconnected, () => {
+      if (room !== nextRoom) return;
+      say("Connection restored.");
+      void refresh();
+    });
     nextRoom.on(
-      RoomEvent.Reconnected,
-      () => room === nextRoom && say("Connection restored."),
+      RoomEvent.ParticipantPermissionsChanged,
+      (_prior, participant) => {
+        if (room === nextRoom && participant === nextRoom.localParticipant)
+          void refresh();
+      },
     );
     nextRoom.on(RoomEvent.Disconnected, () => {
       if (room !== nextRoom) return;
       mediaTracks.clear();
-      say("Disconnected. Use Join to reconnect.");
+      side = undefined;
+      speakerConnected = false;
+      updateSpeakerButton();
+      say(
+        remembersSpeaker() && canJoinAsSpeaker()
+          ? "Disconnected. Reconnecting…"
+          : "Disconnected. Use Join to reconnect.",
+      );
+      scheduleReconnect();
     });
     await nextRoom.connect(url, token);
     for (const participant of nextRoom.remoteParticipants.values())
@@ -87,36 +172,58 @@ if (root) {
       viewerButton.disabled = false;
     }
   });
-  speakerButton.addEventListener("click", async () => {
+  async function connectAsSpeaker(automatic = false) {
+    if (joiningSpeaker || !canJoinAsSpeaker() || speakerConnected) return;
+    joiningSpeaker = true;
+    updateSpeakerButton();
     try {
-      say(
-        await joinSpeaker({
-          button: speakerButton,
-          mediaDevices: navigator.mediaDevices,
-          request,
-          connect,
-          tracks: mediaTracks,
-          setSide(value) {
-            side = value;
-          },
-          async markReady() {
-            const ready = await fetch(`/api/matching/events/${id}/ready`, {
-              method: "POST",
-              credentials: "same-origin",
-            });
-            if (!ready.ok) {
-              const data = await ready.json().catch(() => ({}));
-              throw new Error(
-                data.error || "Could not record speaker readiness",
-              );
-            }
-          },
-          refresh,
-        }),
-      );
+      const message = await joinSpeaker({
+        button: speakerButton,
+        mediaDevices: navigator.mediaDevices,
+        request,
+        connect,
+        tracks: mediaTracks,
+        setSide(value) {
+          side = value;
+        },
+        async markReady() {
+          const ready = await fetch(`/api/matching/events/${id}/ready`, {
+            method: "POST",
+            credentials: "same-origin",
+          });
+          if (!ready.ok) {
+            const data = await ready.json().catch(() => ({}));
+            throw new Error(data.error || "Could not record speaker readiness");
+          }
+        },
+        refresh,
+      });
+      if (!canJoinAsSpeaker() || !room)
+        throw new Error("Debate is no longer available for speakers");
+      speakerConnected = true;
+      viewerButton.hidden = true;
+      reconnectAttempts = 0;
+      rememberSpeaker(true);
+      cancelReconnect();
+      say(message);
     } catch (error) {
+      await disconnectRoom();
       say(error.message);
+      if (
+        automatic &&
+        ["NotAllowedError", "SecurityError"].includes(error.name)
+      )
+        rememberSpeaker(false);
+    } finally {
+      joiningSpeaker = false;
+      updateSpeakerButton();
+      if (automatic && !speakerConnected) scheduleReconnect();
     }
+  }
+  speakerButton.addEventListener("click", () => {
+    cancelReconnect();
+    reconnectAttempts = 0;
+    void connectAsSpeaker();
   });
   replay.addEventListener("click", async () => {
     try {
@@ -181,27 +288,37 @@ if (root) {
     try {
       const result = await request("");
       currentState = result.state;
+      eventStatus = result.eventStatus;
       serverOffset = new Date(result.serverNow).getTime() - Date.now();
       const live = result.eventStatus === "live";
       const presentation = mediaPresentation(result.eventStatus, result.state);
-      viewerButton.hidden = !live;
-      speakerButton.hidden = !["scheduled", "ready", "live"].includes(
-        result.eventStatus,
-      );
-      speakerButton.textContent = live
-        ? "Connect or reconnect as speaker"
-        : "Check camera and join as speaker";
+      viewerButton.hidden = !live || speakerConnected;
+      updateSpeakerButton();
       replay.hidden = !presentation.replayVisible;
       say(presentation.message);
       for (const button of operator.querySelectorAll("[data-media-action]"))
         button.hidden = !presentation.actions[button.dataset.mediaAction];
+      if (["ended", "replay", "finalized", "cancelled"].includes(eventStatus)) {
+        cancelReconnect();
+        rememberSpeaker(false);
+        if (room) await disconnectRoom();
+        return;
+      }
       if (room && side) {
         const shouldSpeak =
           live &&
           result.state?.state === "running" &&
           result.state.activeSide === side;
-        if (room.localParticipant.isMicrophoneEnabled !== shouldSpeak)
-          await room.localParticipant.setMicrophoneEnabled(shouldSpeak);
+        if (microphoneChange) await microphoneChange.catch(() => {});
+        if (room && room.localParticipant.isMicrophoneEnabled !== shouldSpeak) {
+          microphoneChange =
+            room.localParticipant.setMicrophoneEnabled(shouldSpeak);
+          try {
+            await microphoneChange;
+          } finally {
+            microphoneChange = undefined;
+          }
+        }
       }
     } catch (error) {
       say(
@@ -229,7 +346,13 @@ if (root) {
     clock.textContent = `${currentState.activeSide} · ${Math.ceil(remaining / 1000)}s`;
   }
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) void refresh();
+    if (!document.hidden) {
+      void refresh();
+      if (!speakerConnected) scheduleReconnect();
+    }
+  });
+  window.addEventListener("online", () => {
+    if (!speakerConnected) scheduleReconnect();
   });
   fetch("/api/me/roles", { credentials: "same-origin" })
     .then((response) => (response.ok ? response.json() : null))
@@ -237,9 +360,19 @@ if (root) {
       if (data?.roles?.includes("operator")) operator.hidden = false;
     })
     .catch(() => {});
-  void refresh();
+  void (async () => {
+    try {
+      const seat = await request("/speaker-seat");
+      seatSide = seat.side;
+      speakerMemoryKey = `media-speaker:${id}:${seat.userId}`;
+    } catch {
+      seatSide = undefined;
+    }
+    await refresh();
+    if (remembersSpeaker() && canJoinAsSpeaker()) void connectAsSpeaker(true);
+  })();
   setInterval(() => {
-    if (!document.hidden) void refresh();
+    void refresh();
   }, 3000);
   setInterval(paintClock, 250);
 }

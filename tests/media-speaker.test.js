@@ -40,9 +40,6 @@ it("shows the first speaker's camera and permits reconnect after a pause", async
             steps.push("camera opened");
             return { track: camera };
           },
-          async setMicrophoneEnabled(enabled) {
-            assert.equal(enabled, false);
-          },
         },
       };
     },

@@ -28,7 +28,6 @@ export async function joinSpeaker({
     const camera = await participant.setCameraEnabled(true);
     if (!camera?.track) throw new Error("Could not open camera");
     tracks.attach(camera.track, participant.identity);
-    await participant.setMicrophoneEnabled(false);
     setSide(grant.side);
 
     const joined = await request("");

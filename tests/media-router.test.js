@@ -211,6 +211,26 @@ describe("media API", () => {
   it("checks devices and issues speaker tokens only for the owning seat", async () => {
     const f = fixture();
     assert.equal(
+      (await request(f.app).get(`/api/media/events/${id}/speaker-seat`)).status,
+      401,
+    );
+    assert.deepEqual(
+      (
+        await request(f.app)
+          .get(`/api/media/events/${id}/speaker-seat`)
+          .set("x-user", "1")
+      ).body,
+      { side: "A", userId: "1" },
+    );
+    assert.equal(
+      (
+        await request(f.app)
+          .get(`/api/media/events/${id}/speaker-seat`)
+          .set("x-user", "2")
+      ).status,
+      404,
+    );
+    assert.equal(
       (
         await request(f.app)
           .post(`/api/media/events/${id}/device-check`)

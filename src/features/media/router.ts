@@ -78,6 +78,19 @@ export function createMediaRouter({
       extensionsEnabled: false,
     });
   });
+  router.get(
+    "/events/:id/speaker-seat",
+    requireAuth,
+    participant,
+    async (request, response) => {
+      const id = idOf(request);
+      if (!id) return response.status(404).json({ error: "event not found" });
+      const side = await media.sideFor(id, request.user!.id);
+      return side
+        ? response.json({ side, userId: request.user!.id })
+        : response.status(404).json({ error: "speaker seat not available" });
+    },
+  );
   router.get("/events/:id/replay", async (request, response) => {
     const id = idOf(request);
     if (!id) return response.status(404).json({ error: "event not found" });

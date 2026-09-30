@@ -626,8 +626,9 @@ h3 {
 }
 .media-videos video {
   width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
   background: #101216;
   border-radius: 0.5rem;
 }

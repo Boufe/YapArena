@@ -76,6 +76,7 @@ function fake(options = {}) {
         scheduledAt: values[6],
         expiresAt: values[7],
         debateId: null,
+        debateSlug: null,
       };
       return row([{ id }]);
     }
@@ -83,7 +84,19 @@ function fake(options = {}) {
       sql.includes("FROM match_requests r JOIN topics t") &&
       sql.includes("WHERE r.id = $1")
     )
-      return row(state.request?.id === values[0] ? [state.request] : []);
+      return row(
+        state.request?.id === values[0]
+          ? [
+              {
+                ...state.request,
+                debateSlug:
+                  state.request.debateId === state.event.id
+                    ? state.event.slug
+                    : null,
+              },
+            ]
+          : [],
+      );
     if (sql.startsWith("SELECT version, rules FROM event_rule_versions"))
       return row(
         options.ruleMissing
@@ -140,7 +153,19 @@ function fake(options = {}) {
       sql.includes("FROM match_requests r JOIN topics t") &&
       sql.includes("ORDER BY r.created_at")
     )
-      return row(state.request ? [state.request] : []);
+      return row(
+        state.request
+          ? [
+              {
+                ...state.request,
+                debateSlug:
+                  state.request.debateId === state.event.id
+                    ? state.event.slug
+                    : null,
+              },
+            ]
+          : [],
+      );
     if (
       sql.startsWith("SELECT id, slug, status, publication_state") &&
       sql.includes("FROM debates WHERE id IN")
@@ -259,7 +284,17 @@ describe("matching repository transaction boundaries", () => {
         sql.includes("UPDATE match_requests SET status = 'conflicted'"),
       ),
     );
-    assert.equal((await repository.listRequests("1")).length, 1);
+    const requests = await repository.listRequests("1");
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].debateSlug, event.slug);
+    assert.ok(
+      queries.some(
+        ([sql]) =>
+          sql.includes("FROM match_requests r JOIN topics t") &&
+          sql.includes("LEFT JOIN debates d ON d.id = r.debate_id") &&
+          sql.includes('d.slug AS "debateSlug"'),
+      ),
+    );
     assert.equal((await repository.listEvents("1")).length, 1);
     assert.equal((await repository.getEvent(eventId)).id, eventId);
     assert.equal(await repository.isParticipant("1", eventId), true);

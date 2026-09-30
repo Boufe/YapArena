@@ -24,6 +24,7 @@ export interface MatchRequest {
   scheduledAt: Date;
   expiresAt: Date;
   debateId: string | null;
+  debateSlug: string | null;
   createdAt: Date;
 }
 
@@ -52,7 +53,8 @@ const requestFields = `r.id, r.kind, r.status, r.initiator_user_id AS "initiator
   r.target_user_id AS "targetUserId", r.topic_id AS "topicId", t.slug AS "topicSlug",
   t.side_a_label AS "sideALabel", t.side_b_label AS "sideBLabel",
   r.proposition, r.requested_side AS "requestedSide", r.scheduled_at AS "scheduledAt",
-  r.expires_at AS "expiresAt", r.debate_id AS "debateId", r.created_at AS "createdAt"`;
+  r.expires_at AS "expiresAt", r.debate_id AS "debateId",
+  d.slug AS "debateSlug", r.created_at AS "createdAt"`;
 const eventFields = `id, slug, status, publication_state AS "publicationState",
   topic_id AS "topicId", proposition, speaker_a_profile_id AS "speakerAProfileId",
   speaker_b_profile_id AS "speakerBProfileId", rules_version AS "rulesVersion",
@@ -159,6 +161,7 @@ async function requestById(
 ): Promise<MatchRequest | null> {
   const result = await client.query<MatchRequest>(
     `SELECT ${requestFields} FROM match_requests r JOIN topics t ON t.id = r.topic_id
+     LEFT JOIN debates d ON d.id = r.debate_id
      WHERE r.id = $1${lock ? " FOR UPDATE OF r" : ""}`,
     [id],
   );
@@ -450,6 +453,7 @@ export function createMatchingRepository(database: Pool) {
     async listRequests(userId: string) {
       const result = await database.query<MatchRequest>(
         `SELECT ${requestFields} FROM match_requests r JOIN topics t ON t.id = r.topic_id
+         LEFT JOIN debates d ON d.id = r.debate_id
          WHERE r.initiator_user_id = $1 OR r.target_user_id = $1
          ORDER BY r.created_at DESC LIMIT 50`,
         [userId],
@@ -459,6 +463,7 @@ export function createMatchingRepository(database: Pool) {
     async listQueue() {
       const result = await database.query<MatchRequest>(
         `SELECT ${requestFields} FROM match_requests r JOIN topics t ON t.id = r.topic_id
+         LEFT JOIN debates d ON d.id = r.debate_id
          WHERE r.kind = 'queue' AND r.status = 'open' AND r.expires_at > CURRENT_TIMESTAMP
            AND t.publication_state = 'published'
          ORDER BY r.created_at LIMIT 50`,

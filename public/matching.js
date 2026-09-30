@@ -113,7 +113,9 @@ async function refresh() {
     const myLabel = mySide === "A" ? request.sideALabel : request.sideBLabel;
     const item = row(
       `${request.kind === "direct" ? "Challenge" : "Queue"}: ${request.proposition} · your side ${mySide} (${myLabel}) · ${request.status} · ${date(request.scheduledAt)}`,
-      request.debateId ? `/debates/debate-${request.debateId}` : null,
+      request.debateSlug
+        ? `/debates/${encodeURIComponent(request.debateSlug)}`
+        : null,
     );
     if (request.status === "open" && request.targetUserId === currentUser.id)
       action(item, "Accept", async () => {

@@ -1,6 +1,7 @@
 /* global document, window */
 import { Room, RoomEvent } from "livekit-client";
 import { mediaPresentation } from "./media-presentation.js";
+import { joinSpeaker } from "./media-speaker.js";
 import { createMediaTracks } from "./media-tracks.js";
 
 const root = document.querySelector("[data-media-event]");
@@ -72,6 +73,7 @@ if (root) {
       for (const publication of participant.trackPublications.values())
         if (publication.track)
           mediaTracks.attach(publication.track, participant.identity);
+    return nextRoom;
   }
   viewerButton.addEventListener("click", async () => {
     viewerButton.disabled = true;
@@ -81,51 +83,39 @@ if (root) {
       say("Watching live debate.");
     } catch (error) {
       say(error.message);
+    } finally {
       viewerButton.disabled = false;
     }
   });
   speakerButton.addEventListener("click", async () => {
-    speakerButton.disabled = true;
-    let preview;
     try {
-      preview = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: true,
-      });
-      await request("/device-check", {
-        method: "POST",
-        body: JSON.stringify({
-          cameraOk: preview.getVideoTracks().length > 0,
-          microphoneOk: preview.getAudioTracks().length > 0,
-        }),
-      });
-      const grant = await request("/speaker-token", { method: "POST" });
-      side = grant.side;
-      await connect(grant.token, grant.url);
-      await room.localParticipant.setCameraEnabled(true);
-      await room.localParticipant.setMicrophoneEnabled(false);
-      const joined = await request("");
-      if (["scheduled", "ready"].includes(joined.eventStatus)) {
-        const ready = await fetch(`/api/matching/events/${id}/ready`, {
-          method: "POST",
-          credentials: "same-origin",
-        });
-        if (!ready.ok) {
-          const data = await ready.json().catch(() => ({}));
-          throw new Error(data.error || "Could not record speaker readiness");
-        }
-      }
-      await refresh();
       say(
-        joined.state?.state === "paused"
-          ? `Reconnected as speaker ${side}. The operator can resume once both speakers are connected.`
-          : `Connected as speaker ${side}. Your microphone opens on your turn.`,
+        await joinSpeaker({
+          button: speakerButton,
+          mediaDevices: navigator.mediaDevices,
+          request,
+          connect,
+          tracks: mediaTracks,
+          setSide(value) {
+            side = value;
+          },
+          async markReady() {
+            const ready = await fetch(`/api/matching/events/${id}/ready`, {
+              method: "POST",
+              credentials: "same-origin",
+            });
+            if (!ready.ok) {
+              const data = await ready.json().catch(() => ({}));
+              throw new Error(
+                data.error || "Could not record speaker readiness",
+              );
+            }
+          },
+          refresh,
+        }),
       );
     } catch (error) {
       say(error.message);
-      speakerButton.disabled = false;
-    } finally {
-      preview?.getTracks().forEach((track) => track.stop());
     }
   });
   replay.addEventListener("click", async () => {

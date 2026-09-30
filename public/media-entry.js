@@ -1,6 +1,7 @@
 /* global document, window */
-import { Room, RoomEvent, Track } from "livekit-client";
+import { Room, RoomEvent } from "livekit-client";
 import { mediaPresentation } from "./media-presentation.js";
+import { createMediaTracks } from "./media-tracks.js";
 
 const root = document.querySelector("[data-media-event]");
 if (root) {
@@ -8,6 +9,7 @@ if (root) {
   const status = root.querySelector("[data-media-status]");
   const clock = root.querySelector("[data-media-clock]");
   const videos = root.querySelector("[data-media-videos]");
+  const mediaTracks = createMediaTracks(videos);
   const viewerButton = root.querySelector("[data-media-viewer]");
   const speakerButton = root.querySelector("[data-media-speaker]");
   const replay = root.querySelector("[data-media-replay]");
@@ -30,36 +32,46 @@ if (root) {
     if (!response.ok) throw new Error(result.error || "Media request failed");
     return result;
   };
-  const attach = (track, identity) => {
-    if (track.kind !== Track.Kind.Video && track.kind !== Track.Kind.Audio)
-      return;
-    const node = track.attach();
-    node.dataset.participant = identity;
-    node.autoplay = true;
-    if (track.kind === Track.Kind.Video) node.setAttribute("playsinline", "");
-    videos.append(node);
-  };
   async function connect(token, url) {
-    if (room) await room.disconnect();
-    videos.replaceChildren();
-    room = new Room({ adaptiveStream: true, dynacast: true });
-    room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) =>
-      attach(track, participant.identity),
+    const previousRoom = room;
+    room = undefined;
+    mediaTracks.clear();
+    if (previousRoom) await previousRoom.disconnect();
+    const nextRoom = new Room({ adaptiveStream: true, dynacast: true });
+    room = nextRoom;
+    nextRoom.on(
+      RoomEvent.TrackSubscribed,
+      (track, _publication, participant) =>
+        room === nextRoom && mediaTracks.attach(track, participant.identity),
     );
-    room.on(RoomEvent.TrackUnsubscribed, (track) =>
-      track.detach().forEach((node) => node.remove()),
+    nextRoom.on(
+      RoomEvent.TrackUnsubscribed,
+      (track) => room === nextRoom && mediaTracks.detach(track),
     );
-    room.on(RoomEvent.Reconnecting, () =>
-      say("Connection interrupted. Reconnecting…"),
+    nextRoom.on(
+      RoomEvent.ParticipantDisconnected,
+      (participant) =>
+        room === nextRoom &&
+        mediaTracks.removeParticipant(participant.identity),
     );
-    room.on(RoomEvent.Reconnected, () => say("Connection restored."));
-    room.on(RoomEvent.Disconnected, () =>
-      say("Disconnected. Use Join to reconnect."),
+    nextRoom.on(
+      RoomEvent.Reconnecting,
+      () => room === nextRoom && say("Connection interrupted. Reconnecting…"),
     );
-    await room.connect(url, token);
-    for (const participant of room.remoteParticipants.values())
+    nextRoom.on(
+      RoomEvent.Reconnected,
+      () => room === nextRoom && say("Connection restored."),
+    );
+    nextRoom.on(RoomEvent.Disconnected, () => {
+      if (room !== nextRoom) return;
+      mediaTracks.clear();
+      say("Disconnected. Use Join to reconnect.");
+    });
+    await nextRoom.connect(url, token);
+    for (const participant of nextRoom.remoteParticipants.values())
       for (const publication of participant.trackPublications.values())
-        if (publication.track) attach(publication.track, participant.identity);
+        if (publication.track)
+          mediaTracks.attach(publication.track, participant.identity);
   }
   viewerButton.addEventListener("click", async () => {
     viewerButton.disabled = true;

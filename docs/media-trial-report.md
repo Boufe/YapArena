@@ -33,6 +33,13 @@
 
 The failed-recording page and Egress status fixes passed CI and were deployed to staging as `af56d77` at 21:02 UTC. The reconnect fixes passed CI and were deployed as `e2c0439` at 21:10:52 UTC. The R2 region fix passed CI and was deployed as `428e3ec` at 21:23:50 UTC. All fixes require a repeat staging trial; staging health alone does not prove recording or replay quality.
 
+## Repeat trial — 2026-09-30 UTC
+
+- Event `94903e26-c021-4c99-b919-c808f9dfc65c` (`debate-836b72ce-a59f-43ae-afa0-d53affaedff1`, `prototype-media-1`) ran from 00:56:13 to 01:02:41 UTC under staging commit `5c171d8`.
+- The tester reported that two-speaker join, turn changes, speaker refresh/reconnect, device or network recovery, and mobile playback worked. Turn and reconnect responsiveness were slower than desired; no timing measurements were supplied. Viewer refresh was not tested.
+- Screenshots show extra video tiles after a speaker refresh or reconnect. The browser attached remote tracks both from subscription events and from the post-connect participant scan; it also left tiles on terminal disconnect. A deduplicated track view and disconnect cleanup were added for the next trial. The screenshots contain private media and are not stored in Git.
+- Egress `EG_2JWAXzMdAfuV` failed. Render recorded a signed webhook at 01:02:42 UTC with `S3 upload failed: ... CreateMultipartUpload ... 401 Unauthorized`. The request used the R2 `auto` region and the expected account endpoint and bucket. No R2 object or ready replay was observed. Cloudflare documents 401 as missing or invalid authentication credentials; the staging R2 access key pair must be checked or replaced before a new recording trial. The user confirmed the operator page displayed `Recording failed. Replay is unavailable.`
+
 ## Staging trial procedure
 
 1. Deploy the reviewed media fixes to the staging branch, confirm `/ready` is 200, and record the deployed commit SHA and UTC time. Open the staging HTTPS URL directly; public pages need no shared password. Account sign-in remains required for speaker and operator actions.

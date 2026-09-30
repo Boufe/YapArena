@@ -69,6 +69,12 @@ rotate staging credentials before a public launch. A new event under `prototype-
 for a live media trial. Use two test speakers on separate networks and verify join, turn changes,
 pause/resume, recording completion, replay playback, captions, and reconnects.
 
+If LiveKit Egress reports `CreateMultipartUpload` with HTTP 401, verify that
+`MEDIA_S3_ACCESS_KEY` and `MEDIA_S3_SECRET_KEY` are the S3 credentials from an active R2 API token
+with **Object Read & Write** access to `MEDIA_S3_BUCKET`. Confirm the S3 endpoint belongs to the
+same Cloudflare account. Replace both Render secrets together and redeploy before starting a new
+trial. [Cloudflare identifies 401 as missing or invalid credentials](https://developers.cloudflare.com/r2/api/error-codes/).
+
 ## Later scale-up
 
 The Free setup is for functional trials. For reliable scheduled events, first upgrade the Render

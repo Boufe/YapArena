@@ -22,7 +22,6 @@ function fake() {
   let participant = true;
   let device = false;
   let captions = null;
-  let scheduledAllowed = true;
   const result = (rows = []) => ({ rows });
   async function query(sql, values = []) {
     seen.push({ sql, values });
@@ -34,8 +33,6 @@ function fake() {
       sql.includes('"publicationState"')
     )
       return result(event ? [event] : []);
-    if (sql.includes("scheduled_at <= CURRENT_TIMESTAMP"))
-      return result([{ allowed: scheduledAllowed }]);
     if (sql.startsWith("SELECT side FROM event_participants"))
       return result(participant ? [{ side: "A" }] : []);
     if (sql.startsWith("SELECT 1 FROM event_participants"))
@@ -188,9 +185,6 @@ function fake() {
     setEventMissing() {
       event = null;
     },
-    setScheduledAllowed(value) {
-      scheduledAllowed = value;
-    },
     setParticipant(value) {
       participant = value;
     },
@@ -233,8 +227,9 @@ describe("durable media lifecycle", () => {
     );
   });
 
-  it("requires prototype timings and a ready event before recording starts", async () => {
+  it("requires prototype timings and a ready event before recording starts early", async () => {
     const f = fake();
+    f.event.scheduledAt = new Date(Date.now() + 3 * 60 * 60 * 1000);
     f.event.rulesSnapshot = {
       initial_speaking_time_seconds: null,
       maximum_duration_seconds: null,
@@ -373,7 +368,7 @@ describe("durable media lifecycle", () => {
     );
   });
 
-  it("handles missing seats, missing events and early start windows", async () => {
+  it("handles missing seats and missing events", async () => {
     const f = fake();
     f.setParticipant(false);
     assert.equal(await f.repository.sideFor(id, "1"), null);
@@ -383,11 +378,6 @@ describe("durable media lifecycle", () => {
     );
     await assert.rejects(
       () => f.repository.pause(id, "9", "speaker dropped"),
-      MediaConflictError,
-    );
-    f.setScheduledAllowed(false);
-    await assert.rejects(
-      () => f.repository.start(id, "egress", "key"),
       MediaConflictError,
     );
     f.setEventMissing();

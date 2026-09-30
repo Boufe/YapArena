@@ -59,8 +59,8 @@ on this machine.
 
 Speaker flow: create a new event under `prototype-media-1`, open its debate page as each speaker,
 allow camera and microphone, and join. The page records readiness. An operator opens the same page,
-enters a reason, and selects **Start** when both speakers are connected and the scheduled window
-allows it. **Pause**, **Resume**, and **End** control incidents. Once Egress has finished and object
+enters a reason, and selects **Start** when both speakers are ready and connected, regardless of
+the scheduled time. **Pause**, **Resume**, and **End** control incidents. Once Egress has finished and object
 storage confirms the file, the operator selects **Publish replay** and can upload reviewed WebVTT.
 Previously seeded demo replay listings intentionally have no video.
 

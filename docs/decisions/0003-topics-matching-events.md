@@ -51,7 +51,7 @@ create events in those states.
 | Transition                            | Authority and condition                                                                                                                    |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `scheduled` → `ready`                 | Each of the two speakers confirms readiness; the second confirmation changes status.                                                       |
-| `ready` → `live`                      | Operator action with a recorded reason, within 15 minutes of the scheduled start or later. One server timestamp records live start.        |
+| `ready` → `live`                      | Operator action with a recorded reason at any time after both speakers are ready. One server timestamp records live start.                 |
 | `live` → `ended`                      | Operator action with a recorded reason. One server timestamp records live end and releases active speaker reservations.                    |
 | `ended` → `replay`                    | Operator action with a recorded reason. The media package must supply and verify a recording before using this status operationally.       |
 | `scheduled`/`ready` → `scheduled`     | Operator reschedule with a reason and a new start at least one hour ahead; prior readiness is cleared.                                     |

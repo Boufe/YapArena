@@ -441,11 +441,7 @@ describe("matching repository transaction boundaries", () => {
     );
     assert.equal((await repository.markReady("2", eventId)).status, "ready");
     assert.equal((await repository.markReady("1", eventId)).status, "ready");
-    await assert.rejects(
-      () => repository.operatorTransition("9", eventId, "start", "too early"),
-      MatchConflictError,
-    );
-    state.event.scheduledAt = new Date(Date.now() - 1000);
+    const scheduledAt = state.event.scheduledAt;
     assert.equal(
       (
         await repository.operatorTransition(
@@ -457,6 +453,7 @@ describe("matching repository transaction boundaries", () => {
       ).status,
       "live",
     );
+    assert.equal(state.event.scheduledAt, scheduledAt);
     assert.equal(
       (
         await repository.operatorTransition(

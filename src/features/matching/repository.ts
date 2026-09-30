@@ -733,14 +733,6 @@ export function createMatchingRepository(database: Pool) {
             );
         }
         if (
-          action === "start" &&
-          event.scheduledAt &&
-          Date.now() < new Date(event.scheduledAt).getTime() - 15 * 60 * 1000
-        )
-          throw new MatchConflictError(
-            "event cannot start before its scheduled window",
-          );
-        if (
           action === "reschedule" &&
           (!scheduledAt || scheduledAt.getTime() <= Date.now() + 60 * 60 * 1000)
         )

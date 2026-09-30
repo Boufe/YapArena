@@ -150,14 +150,6 @@ export function createMediaRepository(db: Pool) {
         if (!event) throw new MediaNotFoundError("event not found");
         if (event.status !== "ready")
           throw new MediaConflictError("both speakers must be ready");
-        const scheduled = await client.query<{ allowed: boolean }>(
-          "SELECT scheduled_at <= CURRENT_TIMESTAMP + INTERVAL '15 minutes' AS allowed FROM debates WHERE id = $1",
-          [debateId],
-        );
-        if (!scheduled.rows[0]?.allowed)
-          throw new MediaConflictError(
-            "event cannot start before its scheduled window",
-          );
         const { turnMs } = timing(event.rulesSnapshot);
         const state = await client.query<MediaState>(
           `INSERT INTO debate_media

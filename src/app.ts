@@ -10,6 +10,7 @@ import type { createIdentityRepository } from "./features/identity/repository.ts
 import type { createMatchingRepository } from "./features/matching/repository.ts";
 import type { createMediaRepository } from "./features/media/repository.ts";
 import type { createMediaProvider } from "./features/media/provider.ts";
+import type { createCommunityRepository } from "./features/community/repository.ts";
 import type { createUserRepository } from "./platform/auth/users.ts";
 import type { createSessionRepository } from "./platform/auth/sessions.ts";
 import type { createWalletRepository } from "./platform/auth/wallets.ts";
@@ -18,6 +19,7 @@ import { createMessageRouter } from "./features/messages/router.ts";
 import { createDiscoveryRouter } from "./features/discovery/router.ts";
 import { createIdentityRouter } from "./features/identity/router.ts";
 import { createMatchingRouter } from "./features/matching/router.ts";
+import { createCommunityRouter } from "./features/community/router.ts";
 import {
   createMediaRouter,
   createMediaWebhookRouter,
@@ -69,6 +71,7 @@ export function createApp({
   matching,
   media,
   mediaProvider,
+  community,
   users,
   sessions,
   wallets,
@@ -90,6 +93,7 @@ export function createApp({
   matching?: ReturnType<typeof createMatchingRepository>;
   media?: ReturnType<typeof createMediaRepository>;
   mediaProvider?: ReturnType<typeof createMediaProvider>;
+  community?: ReturnType<typeof createCommunityRepository>;
   users: ReturnType<typeof createUserRepository>;
   sessions: ReturnType<typeof createSessionRepository>;
   wallets?: ReturnType<typeof createWalletRepository>;
@@ -222,6 +226,16 @@ export function createApp({
         matching,
         identity,
         requireAuth: createRequireAuthentication({ sessions, environment }),
+      }),
+    );
+  }
+  if (community && identity) {
+    app.use(
+      createCommunityRouter({
+        community,
+        identity,
+        requireAuth: createRequireAuthentication({ sessions, environment }),
+        applicationOrigin: applicationOrigin ?? "http://localhost:3000",
       }),
     );
   }

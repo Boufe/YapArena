@@ -1,0 +1,38 @@
+import type { createCommunityRepository } from "./repository.ts";
+
+type PublicEvent = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof createCommunityRepository>["publicEvent"]>
+  >
+>;
+
+const escape = (value: string) =>
+  value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        character
+      ]!,
+  );
+
+function shell(title: string, content: string) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(title)} · YAP Arena</title><link rel="stylesheet" href="/assets/site.css"><script defer src="/assets/community.js"></script></head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><div class="container nav"><a class="brand" href="/">YAP ARENA</a><nav aria-label="Main navigation"><a href="/debates">Debates</a><a href="/account">Account</a></nav></div></header><main id="main" class="container section">${content}</main><footer class="site-footer"><div class="container footer-inner">Community preview · No financial activity</div></footer></body></html>`;
+}
+
+export function renderMyModeration() {
+  return shell(
+    "My moderation",
+    `<section data-community-mine><h1>My reports and appeals</h1><p>Reports are private. If your chat was removed or your community access was restricted, you can appeal within 30 days.</p><button type="button" data-community-refresh>Refresh</button><p role="status" aria-live="polite" data-community-status>Loading your cases…</p><div data-community-list></div></section>`,
+  );
+}
+
+export function renderModeration() {
+  return shell(
+    "Moderation review",
+    `<section data-community-moderation><h1>Moderation review</h1><p>Review reports and appeals. Actions here affect community activity only.</p><label>Case status <select data-community-case-filter><option value="open">Open</option><option value="actioned">Actioned</option><option value="dismissed">Dismissed</option></select></label><button type="button" data-community-refresh>Refresh</button><p role="status" aria-live="polite" data-community-status>Loading cases…</p><div class="community-review-grid"><section><h2>Reports</h2><div data-community-cases></div></section><section><h2>Open appeals</h2><div data-community-appeals></div></section></div></section>`,
+  );
+}
+
+export function renderOverlay(event: PublicEvent) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(event.proposition)} · Broadcast overlay</title><link rel="stylesheet" href="/assets/site.css"></head><body class="overlay-page"><main class="broadcast-overlay" aria-label="Debate broadcast information"><span class="eyebrow">YAP ARENA · ${escape(event.status.toUpperCase())}</span><h1>${escape(event.proposition)}</h1><p>${escape(event.topicTitle)}</p><div class="overlay-speakers"><span>${escape(event.speakerA ?? event.sideALabel)}</span><span aria-hidden="true">VS</span><span>${escape(event.speakerB ?? event.sideBLabel)}</span></div><small>Event information only. No winner or official support is shown.</small></main></body></html>`;
+}

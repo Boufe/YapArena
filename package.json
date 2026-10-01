@@ -41,7 +41,7 @@
     "livekit-client": "^2.22.3",
     "livekit-server-sdk": "^2.19.1",
     "node-pg-migrate": "^9.0.0",
-    "pg": "^8.22.0",
+    "pg": "^8.23.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "prom-client": "^15.1.3",

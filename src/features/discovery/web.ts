@@ -1,9 +1,17 @@
+import { randomUUID } from "node:crypto";
 import type {
   PublicDebate,
   PublicList,
   PublicProfile,
   PublicTopic,
 } from "./repository.ts";
+
+const assetRevision = /^[0-9a-f]{40}$/i.test(
+  process.env.RENDER_GIT_COMMIT ?? "",
+)
+  ? process.env.RENDER_GIT_COMMIT!.slice(0, 12)
+  : randomUUID().replaceAll("-", "").slice(0, 12);
+const asset = (name: string) => `/assets/${name}?v=${assetRevision}`;
 
 const escape = (value: string) =>
   value.replace(
@@ -47,7 +55,7 @@ function layout(
   canonical: string,
   content: string,
 ) {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark"><title>${escape(title)} · YAP Arena</title><meta name="description" content="${escape(description)}"><link rel="canonical" href="${escape(canonical)}"><link rel="stylesheet" href="/assets/site.css"><script defer src="/assets/site.js"></script></head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><div class="container nav"><a class="brand" href="/" aria-label="YAP Arena home"><span class="brand-mark">Y</span><span>YAP<span class="brand-light">ARENA</span></span></a><nav aria-label="Main navigation"><a href="/debates">Debates</a><a href="/topics">Topics</a><a href="/match">Match</a><a href="/about">About</a><a href="/account">Account</a></nav><span class="preview-pill">PUBLIC PREVIEW</span></div></header><main id="main">${content}</main><footer class="site-footer"><div class="container footer-inner"><span>YAP ARENA <span class="muted">/ Ideas under pressure.</span></span><span>Public preview · No financial activity</span></div></footer></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark"><title>${escape(title)} · YAP Arena</title><meta name="description" content="${escape(description)}"><link rel="canonical" href="${escape(canonical)}"><link rel="stylesheet" href="${asset("site.css")}"><script defer src="${asset("site.js")}"></script></head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><div class="container nav"><a class="brand" href="/" aria-label="YAP Arena home"><span class="brand-mark">Y</span><span>YAP<span class="brand-light">ARENA</span></span></a><nav aria-label="Main navigation"><a href="/debates">Debates</a><a href="/topics">Topics</a><a href="/match">Match</a><a href="/about">About</a><a href="/account">Account</a></nav><span class="preview-pill">PUBLIC PREVIEW</span></div></header><main id="main">${content}</main><footer class="site-footer"><div class="container footer-inner"><span>YAP ARENA <span class="muted">/ Ideas under pressure.</span></span><span>Public preview · No financial activity</span></div></footer></body></html>`;
 }
 
 function badge(debate: PublicDebate) {
@@ -170,9 +178,9 @@ function speaker(profile: PublicDebate["speakerA"], side: string) {
 export function renderDebate(origin: string, debate: PublicDebate) {
   const content = `<section class="container detail-intro"><a class="back-link" href="/debates">← All debates</a><div class="detail-tags">${badge(debate)}<a href="/topics/${path(debate.topic.slug)}">${escape(debate.topic.title)} ↗</a></div><h1>${escape(debate.proposition)}</h1><p class="lead">A public debate on ${escape(debate.topic.title)}.</p><div class="speakers">${speaker(debate.speakerA, debate.topic.sideALabel)}<span class="versus">VS</span>${speaker(debate.speakerB, debate.topic.sideBLabel)}</div></section>
     <section class="container detail-grid"><div class="information-card"><span class="eyebrow">EVENT DETAILS</span><dl><div><dt>Status</dt><dd>${labels[debate.status]}</dd></div><div><dt>Scheduled</dt><dd>${date(debate.scheduledAt)}</dd></div><div><dt>Rules version</dt><dd>${escape(debate.rulesVersion)}</dd></div>${debate.sponsor ? `<div><dt>Sponsor</dt><dd>${escape(debate.sponsor.name)}<small>${escape(debate.sponsor.disclosure)}</small></dd></div>` : ""}</dl></div>
-    <div class="information-card media-card" data-media-event="${escape(debate.id)}"><span class="eyebrow">LIVE DEBATE & REPLAY</span><h2>Watch the debate</h2><p data-media-status role="status" aria-live="polite">Checking media availability…</p><strong data-media-clock aria-live="off"></strong><div class="media-videos" data-media-videos aria-label="Live debate video"></div><div class="media-actions"><button type="button" data-media-viewer hidden>Join as viewer</button><button type="button" data-media-speaker hidden>Check camera and join as speaker</button><button type="button" data-media-replay hidden>Play replay</button></div><video data-media-replay-video controls playsinline preload="none" hidden><track kind="captions" src="/api/media/events/${escape(debate.id)}/captions.vtt" srclang="en" label="English captions"></video>
+    <div class="information-card media-card" data-media-event="${escape(debate.id)}"><span class="eyebrow">LIVE DEBATE & REPLAY</span><h2>Watch the debate</h2><p data-media-status role="status" aria-live="polite">Checking media availability…</p><strong data-media-clock aria-live="off"></strong><p data-media-microphone role="status" aria-live="polite" hidden></p><div class="media-videos" data-media-videos aria-label="Live debate video"></div><div class="media-actions"><button type="button" data-media-viewer hidden>Join as viewer</button><button type="button" data-media-speaker hidden>Check camera and join as speaker</button><button type="button" data-media-replay hidden>Play replay</button></div><video data-media-replay-video controls playsinline preload="none" hidden><track kind="captions" src="/api/media/events/${escape(debate.id)}/captions.vtt" srclang="en" label="English captions"></video>
     <section class="media-operator" data-media-operator hidden><h3>Operator controls</h3><label>Reason for action<input data-media-reason maxlength="500" minlength="5" placeholder="Describe the action or incident"></label><div class="media-actions"><button type="button" data-media-action="start">Start</button><button type="button" data-media-action="pause">Pause</button><button type="button" data-media-action="resume">Resume</button><button type="button" data-media-action="end">End</button><button type="button" data-media-action="replay">Publish replay</button></div><label>Reviewed WebVTT captions<textarea data-media-captions rows="5" maxlength="200000" placeholder="WEBVTT"></textarea></label><button type="button" data-media-captions-submit>Publish captions</button></section>
-    <p class="media-note">Prototype timing. Extensions are disabled. Replay availability does not indicate a final result or financial participation.</p></div></section><script defer src="/assets/media.bundle.js"></script>`;
+    <p class="media-note">Prototype timing. Extensions are disabled. Replay availability does not indicate a final result or financial participation.</p></div></section><script defer src="${asset("media.bundle.js")}"></script>`;
   return layout(
     debate.proposition,
     `Debate on ${debate.topic.title}.`,

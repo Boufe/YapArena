@@ -169,9 +169,16 @@ describe("public discovery", () => {
   });
 
   it("serves the CSS asset for the page shell", async () => {
+    const page = await request(app).get("/debates/public-debate");
+    assert.match(page.text, /\/assets\/site\.css\?v=[0-9a-f]{12}/);
+    assert.match(page.text, /\/assets\/site\.js\?v=[0-9a-f]{12}/);
+    assert.match(page.text, /\/assets\/media\.bundle\.js\?v=[0-9a-f]{12}/);
+    assert.match(page.text, /data-media-microphone/);
     const response = await request(app).get("/assets/site.css");
     assert.equal(response.status, 200);
     assert.match(response.headers["content-type"], /^text\/css/);
+    assert.match(response.headers["cache-control"], /max-age=0/);
+    assert.doesNotMatch(response.headers["cache-control"], /immutable/);
     assert.equal((await request(app).get("/assets/site.js")).status, 200);
     const accountScript = await request(app).get("/assets/account.js");
     const matchingScript = await request(app).get("/assets/matching.js");

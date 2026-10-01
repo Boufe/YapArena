@@ -169,8 +169,7 @@ export function createApp({
     app.use(
       "/assets",
       express.static(fileURLToPath(new URL("../public", import.meta.url)), {
-        immutable: true,
-        maxAge: "1d",
+        maxAge: 0,
       }),
     );
     app.use(

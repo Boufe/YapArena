@@ -10,6 +10,7 @@ if (root) {
   const id = root.dataset.mediaEvent;
   const status = root.querySelector("[data-media-status]");
   const clock = root.querySelector("[data-media-clock]");
+  const microphoneStatus = root.querySelector("[data-media-microphone]");
   const videos = root.querySelector("[data-media-videos]");
   const mediaTracks = createMediaTracks(videos);
   const viewerButton = root.querySelector("[data-media-viewer]");
@@ -31,6 +32,10 @@ if (root) {
   let currentState;
   const say = (message) => {
     status.textContent = message;
+  };
+  const showMicrophoneStatus = (message) => {
+    microphoneStatus.textContent = message;
+    microphoneStatus.hidden = !message;
   };
   const request = async (path, options = {}) => {
     const response = await fetch(`/api/media/events/${id}${path}`, {
@@ -82,6 +87,7 @@ if (root) {
     side = undefined;
     speakerConnected = false;
     updateSpeakerButton();
+    showMicrophoneStatus("");
     await stopMediaSession(previousRoom, mediaTracks);
   }
   function scheduleReconnect() {
@@ -311,14 +317,30 @@ if (root) {
           result.state.activeSide === side;
         if (microphoneChange) await microphoneChange.catch(() => {});
         if (room && room.localParticipant.isMicrophoneEnabled !== shouldSpeak) {
+          showMicrophoneStatus(
+            shouldSpeak ? "Opening microphone…" : "Microphone off",
+          );
           microphoneChange =
             room.localParticipant.setMicrophoneEnabled(shouldSpeak);
           try {
             await microphoneChange;
+          } catch (error) {
+            showMicrophoneStatus(
+              "Microphone could not start. Check permission and reconnect.",
+            );
+            throw error;
           } finally {
             microphoneChange = undefined;
           }
         }
+        if (room)
+          showMicrophoneStatus(
+            room.localParticipant.isMicrophoneEnabled
+              ? "Microphone enabled"
+              : shouldSpeak
+                ? "Microphone still unavailable. Refresh to retry."
+                : "Microphone off",
+          );
       }
     } catch (error) {
       say(

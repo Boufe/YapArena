@@ -212,8 +212,10 @@ function initEvent(root) {
     messages.append(empty);
   }
 
-  function trimFeed() {
-    while (rendered.size > 200) {
+  function trimFeed(shouldFollow) {
+    const height = messages.scrollHeight;
+    const top = messages.scrollTop;
+    while (rendered.size > 500) {
       const first = messages.querySelector("[data-message-id]");
       if (!first) break;
       rendered.delete(first.dataset.messageId);
@@ -221,6 +223,8 @@ function initEvent(root) {
       first.remove();
       older.hidden = false;
     }
+    if (!shouldFollow)
+      messages.scrollTop = Math.max(0, top - height + messages.scrollHeight);
     oldest =
       messages.querySelector("[data-message-id]")?.dataset.messageId ?? null;
   }
@@ -262,13 +266,25 @@ function initEvent(root) {
     const shouldFollow = nearBottom();
     let received = 0;
     let hasMore = false;
+    const visibleIds = Array.from(rendered.keys());
+    const hiddenIds = Array.from(tracked)
+      .filter((id) => !rendered.has(id))
+      .sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1));
+    const hiddenBudget = Math.max(0, 1000 - visibleIds.length);
+    for (const staleId of hiddenIds.slice(
+      0,
+      Math.max(0, hiddenIds.length - hiddenBudget),
+    ))
+      tracked.delete(staleId);
+    const watched = [
+      ...visibleIds,
+      ...(hiddenBudget ? hiddenIds.slice(-hiddenBudget) : []),
+    ].sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1));
+    const watchPages = [];
+    for (let index = 0; index < watched.length; index += 200)
+      watchPages.push(watched.slice(index, index + 200));
     for (let pageNumber = 0; pageNumber < 20; pageNumber += 1) {
-      const watchedIds =
-        pageNumber === 0
-          ? Array.from(tracked)
-              .sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1))
-              .slice(-200)
-          : [];
+      const watchedIds = watchPages[pageNumber] ?? [];
       const query = new URLSearchParams({ after: latestId });
       if (watchedIds.length) query.set("watch", watchedIds.join(","));
       const page = await api(`/api/community/events/${id}/chat/sync?${query}`);
@@ -287,9 +303,9 @@ function initEvent(root) {
       }
       if (page.items.length) latestId = page.items.at(-1).id;
       hasMore = page.hasMore;
-      if (!hasMore) break;
+      if (!hasMore && pageNumber + 1 >= watchPages.length) break;
     }
-    trimFeed();
+    trimFeed(shouldFollow);
     updateEmpty();
     if (shouldFollow) {
       messages.scrollTop = messages.scrollHeight;

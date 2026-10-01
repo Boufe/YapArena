@@ -360,6 +360,45 @@ try {
       .count(),
     1,
   );
+  const archiveContext = await browser.newContext({ bypassCSP: true });
+  const archivePage = await archiveContext.newPage();
+  await archivePage.goto(`${base}/debates/${eventSlug}`);
+  await archivePage
+    .locator("[data-community-older]")
+    .waitFor({ state: "visible" });
+  await archivePage.locator("[data-community-older]").click();
+  await archivePage.getByText("Backlog 1", { exact: true }).waitFor();
+  await pool.query(
+    "INSERT INTO event_chat_messages (debate_id, author_user_id, body) VALUES ($1, $2, 'After history load')",
+    [eventId, author.userId],
+  );
+  await archivePage.getByText("After history load", { exact: true }).waitFor();
+  assert.equal(
+    await archivePage.getByText("Backlog 1", { exact: true }).count(),
+    1,
+  );
+  const oldMessage = reporter.page
+    .locator("[data-community-messages] [data-message-id]")
+    .filter({ hasText: "Backlog 1" })
+    .first();
+  await oldMessage.getByRole("button", { name: "Report message" }).click();
+  await oldMessage.locator("form select").selectOption("spam");
+  await oldMessage
+    .locator("form textarea")
+    .fill("Old chat message needs review");
+  await oldMessage.locator("form button[type=submit]").click();
+  await oldMessage.locator("form").waitFor({ state: "hidden" });
+  await moderatorB.page.locator("[data-community-refresh]").click();
+  const oldCase = moderatorB.page
+    .locator("[data-community-cases] .community-case")
+    .filter({ hasText: "Old chat message needs review" });
+  await oldCase.locator("select").first().selectOption("remove_chat");
+  await oldCase.locator("select").nth(1).selectOption("spam");
+  await oldCase.locator("textarea").fill("Remove older reported chat message");
+  await oldCase.getByRole("button", { name: "Save decision" }).click();
+  await archivePage
+    .getByText("Backlog 1", { exact: true })
+    .waitFor({ state: "hidden" });
   const overlay = await mobilePage.goto(`${base}/overlay/${eventSlug}`);
   assert.equal(overlay.status(), 200);
   assert.equal(

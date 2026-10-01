@@ -35,8 +35,10 @@ In a local two-viewer browser run, a sent message appeared in the other desktop 
 the phone viewport without either page refreshing. The sender saw an inline rate-limit error
 and retained the unsent draft. After one viewer went offline, messages arrived in order on
 reconnect without duplicate IDs. A 55-message backlog was drained across two sync pages;
-the reader could stay scrolled up and use **Jump to latest**. Moderator removal, appeal
-restoration, chat pause, and resume were reflected in both open viewers. The watch and chat
+the reader could stay scrolled up and use **Jump to latest**. A fresh viewer loaded older
+messages, kept them while new ones arrived, and saw an older message removed by moderation
+without refreshing. Moderator removal, appeal restoration, chat pause, and resume were
+reflected in both open viewers. The watch and chat
 area and the community section passed axe-core WCAG 2/2.1 A/AA checks at both sizes, with no
 horizontal overflow at 390 × 844.
 

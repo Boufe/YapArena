@@ -50,6 +50,49 @@ describe("yaparena API", () => {
     assert.match(response.headers["x-request-id"], /^[0-9a-f-]{36}$/);
   });
 
+  it("does not require a shared staging password for public requests", async () => {
+    const response = await request(app).get("/unknown");
+    assert.equal(response.status, 404);
+    assert.equal(response.headers["www-authenticate"], undefined);
+  });
+
+  it("allows only configured media origins in the browser policy", async () => {
+    const mediaProvider = {
+      publicUrl: "ws://localhost:7880",
+      playbackOrigin: "http://localhost:8333",
+    };
+    const mediaApp = createApp({
+      messages,
+      users,
+      sessions,
+      logger,
+      mediaProvider,
+    });
+    const response = await request(mediaApp).get("/health");
+    const policy = response.headers["content-security-policy"];
+    assert.match(policy, /connect-src 'self' ws:\/\/localhost:7880/);
+    assert.match(policy, /http:\/\/localhost:7880/);
+    assert.match(policy, /media-src 'self' http:\/\/localhost:8333/);
+    assert.doesNotMatch(policy, /upgrade-insecure-requests/);
+    const productionApp = createApp({
+      messages,
+      users,
+      sessions,
+      logger,
+      mediaProvider: {
+        publicUrl: "wss://media.example",
+        playbackOrigin: "https://storage.example",
+      },
+      environment: "production",
+      applicationOrigin: "https://arena.example",
+    });
+    const productionPolicy = (await request(productionApp).get("/health"))
+      .headers["content-security-policy"];
+    assert.match(productionPolicy, /connect-src 'self' wss:\/\/media.example/);
+    assert.match(productionPolicy, /https:\/\/media.example/);
+    assert.match(productionPolicy, /upgrade-insecure-requests/);
+  });
+
   it("reports that it is ready for traffic", async () => {
     const response = await request(app).get("/ready");
 

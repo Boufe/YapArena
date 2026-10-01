@@ -5,4 +5,5 @@
 node_modules
 dist
 coverage
+public/media.bundle.js
 .DS_Store

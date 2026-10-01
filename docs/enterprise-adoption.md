@@ -1,7 +1,10 @@
 # Enterprise adoption checklist
 
-This template supplies professional application and delivery foundations. It does not make a generated
-service enterprise-grade by itself. Record owners and evidence for every applicable item.
+The current backend supplies professional application and delivery foundations. It does not make
+YAP Arena production-ready by itself. Record owners and evidence for every applicable item. The
+[product PRD](product-prd.md) defines the intended product, and the
+[release evidence checklist](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds)
+defines additional gates before accepting real funds.
 
 Terms used below: **RPO** is acceptable data loss, **RTO** is acceptable recovery time, **SLO** is a
 measurable reliability target, and an **error budget** is the tolerated amount of SLO failure.
@@ -37,13 +40,26 @@ General repository, container, and release terminology is defined in the [glossa
 - [ ] Privacy classification, retention/deletion policy, regulatory mapping, and user-data procedures —
       collect only justified data and handle it according to legal and product commitments.
 
-## Prediction-market products
+## YAP Arena financial-product gates
 
-A play-money market can build on this service after adding market, outcome, pricing, position,
-resolution, fraud, and real-time domains. Real-money functionality requires jurisdiction-specific legal
-approval before implementation. It may implicate gambling, derivatives, payments, custody, KYC,
-sanctions, taxation, and geographic restrictions.
+The planned first paid release includes both the real-money debate-event market and continuing
+ideas market. Reversible prototypes and simulations can proceed while specifications are settled;
+they do not authorize real-fund activation. The event market needs approved paired-collateral,
+fee-reserve, refund, and hidden-tally designs. The ongoing market needs a defined instrument,
+holder rights, issuance, liquidity, and exit rules. Both markets must pass the companion evidence
+checklist together before paid access.
 
-Represent monetary value with exact units and an append-only double-entry ledger. Require idempotency,
-transactional invariants, immutable audit records, and reconciliation. Never implement money as a
-mutable `users.balance` field.
+- [ ] Obtain written, structure-specific specialist review for the intended Québec, Canadian, and
+      US jurisdictions; implement the required permissions and eligibility controls before accepting
+      funds. Wallet-first preference does not decide whether identity checks are required.
+- [ ] Approve the financial specifications, demonstrate full backing and independent reconciliation,
+      and verify that event collateral, refundable fees, ongoing-market assets, sponsor funds, and
+      operating revenue remain distinguishable.
+- [ ] Test the hidden-tally promise against actual chain, order, quote, API, analytics, and staff-access
+      surfaces before advertising it as verified.
+- [ ] Complete the security, privacy, operational, user-comprehension, sponsor, and combined-release
+      evidence listed in the companion checklist.
+
+Use exact units, an append-only double-entry ledger, idempotency, transactional invariants,
+immutable audit records, and reconciliation for money movements. Never implement money as a mutable
+`users.balance` field.

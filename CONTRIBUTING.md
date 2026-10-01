@@ -4,6 +4,13 @@ These instructions assume that you already cloned the repository, changed into i
 and installed the tools listed in the [README](README.md#requirements). Cloning initializes Git; do not
 run `git init` inside the clone. YapArena product changes belong in this repository.
 
+For product behavior, follow the [YAP Arena product PRD](docs/product-prd.md) and its
+[specification outlines](docs/product-specification-outlines.md). The
+[template PRD](docs/template-prd.md) documents the reusable service foundation, not the current
+product's financial rules or release scope. Keep confirmed decisions intact, identify proposals
+and open decisions explicitly, and resolve financial behavior in reviewed specifications before
+implementing it. Do not treat a passing backend quality gate as permission to accept real funds.
+
 ## Development workflow
 
 1. Update `main` and create a focused branch:

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/render-staging
   pull_request:
 
 permissions:
@@ -87,6 +88,35 @@ jobs:
 
       - name: Start application
         run: docker compose up --detach --build --wait app
+
+      - name: Verify public discovery against PostgreSQL
+        run: |
+          docker compose run --rm \
+            --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
+            app node scripts/seed-discovery.js
+
+          docker compose run --rm \
+            --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
+            app node scripts/verify-discovery.js
+
+          docker compose run --rm \
+            --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
+            app node scripts/verify-identity-social.js
+
+          docker compose run --rm \
+            --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
+            app node scripts/verify-matching.js
+
+          curl --fail --silent --show-error http://localhost:3000/ \
+            | grep --fixed-strings 'can-ai-make-us-more-creative'
+          curl --fail --silent --show-error \
+            'http://localhost:3000/api/public/debates?status=scheduled&limit=2' \
+            | grep --fixed-strings '"isDemo":true'
+          curl --fail --silent --show-error \
+            http://localhost:3000/assets/site.css \
+            | grep --fixed-strings '.site-header'
+          curl --fail --silent --show-error http://localhost:3000/match \
+            | grep --fixed-strings 'DEBATE MATCHING'
 
       - name: Verify persisted API request
         run: |

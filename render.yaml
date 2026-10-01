@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: yaparena-staging-web
+    runtime: docker
+    region: ohio
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: /bin/sh /app/scripts/start-staging.sh
+    autoDeployTrigger: checksPass
+    healthCheckPath: /ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: RUN_BACKGROUND_JOBS
+        value: "true"
+      - key: APP_ORIGIN
+        fromService:
+          name: yaparena-staging-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: DATABASE_URL
+        sync: false

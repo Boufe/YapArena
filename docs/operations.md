@@ -3,6 +3,17 @@
 This runbook covers the local production-like stack. Adapt commands, credentials, storage, and
 approval procedures before using them in a hosted environment.
 
+It covers the current backend only. Starting or deploying this service does not activate either
+planned financial market. Follow the [product PRD](product-prd.md) and the
+[pre-funds evidence checklist](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds)
+before any real-fund release; the Compose health check and migrations below are only part of that
+evidence.
+
+For local live debate and replay, use the optional [media prototype runbook](decisions/0004-live-debate-replay.md).
+During an incident, inspect the event's media state and history, pause the clock, and verify Egress
+and object storage before resuming or publishing replay. Recording stop failures are retried by the
+server worker and surfaced as an incident in media state.
+
 Run local commands from the repository root, where `compose.yaml` is located. The setup requires
 Docker with Compose and an active Docker daemon. Commands containing values such as
 `/secure/location/yaparena.dump`, `OWNER`, `REPOSITORY`, `USER`, or `DATABASE_HOST` use placeholders;

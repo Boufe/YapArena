@@ -1,0 +1,361 @@
+import { Router } from "express";
+import type { Request, Response } from "express";
+import type { createMatchingRepository } from "./repository.ts";
+import type { createIdentityRepository } from "../identity/repository.ts";
+import type { createMediaRepository } from "../media/repository.ts";
+import { MediaConflictError } from "../media/repository.ts";
+import { createRequireRole } from "../identity/router.ts";
+import { MatchConflictError, MatchNotFoundError } from "./repository.ts";
+
+type Repository = ReturnType<typeof createMatchingRepository>;
+const slugPattern = /^[a-z0-9][a-z0-9-]{2,79}$/;
+const handlePattern = /^[a-z0-9][a-z0-9-]{2,39}$/;
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function object(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function text(value: unknown, max: number, min = 1): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().replace(/\s+/g, " ");
+  return normalized.length >= min && normalized.length <= max
+    ? normalized
+    : null;
+}
+
+function topicInput(body: unknown) {
+  const value = object(body);
+  if (
+    !value ||
+    Object.keys(value).some(
+      (key) =>
+        !["slug", "title", "summary", "sideALabel", "sideBLabel"].includes(key),
+    )
+  )
+    return null;
+  const slug = value.slug;
+  const title = text(value.title, 140, 5);
+  const summary = text(value.summary, 600, 10);
+  const sideALabel = text(value.sideALabel, 80, 2);
+  const sideBLabel = text(value.sideBLabel, 80, 2);
+  if (
+    typeof slug !== "string" ||
+    !slugPattern.test(slug) ||
+    !title ||
+    !summary ||
+    !sideALabel ||
+    !sideBLabel ||
+    sideALabel.toLowerCase() === sideBLabel.toLowerCase()
+  )
+    return null;
+  return { slug, title, summary, sideALabel, sideBLabel };
+}
+
+function requestInput(body: unknown) {
+  const value = object(body);
+  if (
+    !value ||
+    Object.keys(value).some(
+      (key) =>
+        ![
+          "kind",
+          "topicSlug",
+          "targetHandle",
+          "proposition",
+          "requestedSide",
+          "scheduledAt",
+        ].includes(key),
+    )
+  )
+    return null;
+  const { kind, topicSlug, targetHandle, requestedSide } = value;
+  const proposition = text(value.proposition, 240, 10);
+  if (
+    (kind !== "direct" && kind !== "queue") ||
+    typeof topicSlug !== "string" ||
+    !slugPattern.test(topicSlug) ||
+    !proposition ||
+    (requestedSide !== "A" && requestedSide !== "B")
+  )
+    return null;
+  if (
+    kind === "direct" &&
+    (typeof targetHandle !== "string" || !handlePattern.test(targetHandle))
+  )
+    return null;
+  if (kind === "queue" && targetHandle !== undefined) return null;
+  if (
+    typeof value.scheduledAt !== "string" ||
+    !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(value.scheduledAt)
+  )
+    return null;
+  const scheduledAt = new Date(value.scheduledAt);
+  if (
+    !Number.isFinite(scheduledAt.getTime()) ||
+    scheduledAt.getTime() < Date.now() + 60 * 60 * 1000 ||
+    scheduledAt.getTime() > Date.now() + 90 * 24 * 60 * 60 * 1000
+  )
+    return null;
+  return {
+    kind: kind as "direct" | "queue",
+    topicSlug,
+    targetHandle: typeof targetHandle === "string" ? targetHandle : undefined,
+    proposition,
+    requestedSide: requestedSide as "A" | "B",
+    scheduledAt,
+  };
+}
+
+function errorResponse(response: Response, error: unknown) {
+  if (error instanceof MatchNotFoundError)
+    return response.status(404).json({ error: error.message });
+  if (error instanceof MatchConflictError)
+    return response.status(409).json({ error: error.message });
+  if (error instanceof MediaConflictError)
+    return response.status(409).json({ error: error.message });
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "23505"
+  )
+    return response
+      .status(409)
+      .json({ error: "resource or active request already exists" });
+  throw error;
+}
+
+function idFrom(request: Request) {
+  const id = request.params.id;
+  return typeof id === "string" && uuidPattern.test(id) ? id : null;
+}
+
+export function createMatchingRouter({
+  matching,
+  identity,
+  media,
+}: {
+  matching: Repository;
+  identity: ReturnType<typeof createIdentityRepository>;
+  media?: ReturnType<typeof createMediaRepository>;
+}) {
+  const router = Router();
+  const participant = createRequireRole(identity, ["participant"]);
+  const operator = createRequireRole(identity, ["operator"]);
+  router.use((_request, response, next) => {
+    response.set("Cache-Control", "no-store");
+    next();
+  });
+
+  router.get("/rules", async (_request, response) =>
+    response.json({ rules: await matching.listRules() }),
+  );
+  router.get("/topics/mine", async (request, response) =>
+    response.json({ topics: await matching.listOwnTopics(request.user!.id) }),
+  );
+  router.post("/topics", participant, async (request, response) => {
+    const input = topicInput(request.body);
+    if (!input)
+      return response.status(400).json({ error: "invalid topic fields" });
+    try {
+      return response
+        .status(201)
+        .json({ topic: await matching.createTopic(request.user!.id, input) });
+    } catch (error) {
+      return errorResponse(response, error);
+    }
+  });
+  router.post(
+    "/topics/:slug/publish",
+    participant,
+    async (request, response) => {
+      const slug = request.params.slug;
+      if (typeof slug !== "string" || !slugPattern.test(slug))
+        return response.status(404).json({ error: "topic not found" });
+      const topic = await matching.publishTopic(request.user!.id, slug);
+      return topic
+        ? response.json({ topic })
+        : response.status(404).json({ error: "topic not found" });
+    },
+  );
+
+  router.get("/requests", async (request, response) =>
+    response.json({ requests: await matching.listRequests(request.user!.id) }),
+  );
+  router.get("/queue", async (_request, response) =>
+    response.json({ requests: await matching.listQueue() }),
+  );
+  router.post("/requests", participant, async (request, response) => {
+    const input = requestInput(request.body);
+    if (!input)
+      return response.status(400).json({ error: "invalid debate request" });
+    try {
+      return response.status(201).json({
+        request: await matching.createRequest(request.user!.id, input),
+      });
+    } catch (error) {
+      return errorResponse(response, error);
+    }
+  });
+  router.post(
+    "/requests/:id/accept",
+    participant,
+    async (request, response) => {
+      const id = idFrom(request);
+      if (!id) return response.status(404).json({ error: "request not found" });
+      try {
+        return response
+          .status(201)
+          .json({ event: await matching.acceptRequest(request.user!.id, id) });
+      } catch (error) {
+        return errorResponse(response, error);
+      }
+    },
+  );
+  router.post("/queue/:id/join", participant, async (request, response) => {
+    const id = idFrom(request);
+    if (!id)
+      return response.status(404).json({ error: "queue entry not found" });
+    try {
+      return response
+        .status(201)
+        .json({ event: await matching.joinQueue(request.user!.id, id) });
+    } catch (error) {
+      return errorResponse(response, error);
+    }
+  });
+  for (const action of ["declined", "withdrawn"] as const) {
+    router.post(
+      `/requests/:id/${action}`,
+      participant,
+      async (request, response) => {
+        const id = idFrom(request);
+        if (!id)
+          return response.status(404).json({ error: "request not found" });
+        try {
+          return response.json({
+            request: await matching.closeRequest(request.user!.id, id, action),
+          });
+        } catch (error) {
+          return errorResponse(response, error);
+        }
+      },
+    );
+  }
+
+  router.get("/events", async (request, response) =>
+    response.json({ events: await matching.listEvents(request.user!.id) }),
+  );
+  router.get("/events/:id", async (request, response) => {
+    const id = idFrom(request);
+    if (!id) return response.status(404).json({ error: "event not found" });
+    const event = await matching.getEvent(id);
+    if (!event) return response.status(404).json({ error: "event not found" });
+    const owned = await matching.isParticipant(request.user!.id, id);
+    const operator = (await identity.getRoles(request.user!.id)).includes(
+      "operator",
+    );
+    if (!owned && !operator && event.publicationState !== "published")
+      return response.status(404).json({ error: "event not found" });
+    return response.json({
+      event,
+      history: owned || operator ? await matching.getEventHistory(id) : [],
+    });
+  });
+  router.post("/events/:id/ready", participant, async (request, response) => {
+    const id = idFrom(request);
+    if (!id) return response.status(404).json({ error: "event not found" });
+    try {
+      if (media) await media.assertDeviceReady(id, request.user!.id);
+      return response.json({
+        event: await matching.markReady(request.user!.id, id),
+      });
+    } catch (error) {
+      return errorResponse(response, error);
+    }
+  });
+  router.post("/events/:id/transition", operator, async (request, response) => {
+    const id = idFrom(request);
+    const body = object(request.body);
+    if (!id) return response.status(404).json({ error: "event not found" });
+    if (
+      !body ||
+      Object.keys(body).some(
+        (key) => !["action", "reason", "scheduledAt"].includes(key),
+      ) ||
+      ![
+        "start",
+        "end",
+        "replay",
+        "void_review",
+        "cancel",
+        "reschedule",
+        "no_show",
+      ].includes(String(body.action))
+    )
+      return response.status(400).json({ error: "invalid transition" });
+    const action = body.action as
+      | "start"
+      | "end"
+      | "replay"
+      | "void_review"
+      | "cancel"
+      | "reschedule"
+      | "no_show";
+    if (media && ["start", "end", "replay"].includes(action))
+      return response.status(409).json({
+        error: "use the media lifecycle endpoint for this transition",
+      });
+    if (media && action === "void_review") {
+      const event = await matching.getEvent(id);
+      if (event?.status === "live")
+        return response.status(409).json({ error: "end media before review" });
+    }
+    const reason = text(body.reason, 500, 5);
+    if (!reason)
+      return response.status(400).json({ error: "a reason is required" });
+    const scheduledAt =
+      typeof body.scheduledAt === "string"
+        ? new Date(body.scheduledAt)
+        : undefined;
+    if (
+      action === "reschedule" &&
+      (!scheduledAt || !Number.isFinite(scheduledAt.getTime()))
+    )
+      return response
+        .status(400)
+        .json({ error: "valid scheduledAt is required" });
+    try {
+      return response.json({
+        event: await matching.operatorTransition(
+          request.user!.id,
+          id,
+          action,
+          reason,
+          scheduledAt,
+        ),
+      });
+    } catch (error) {
+      return errorResponse(response, error);
+    }
+  });
+
+  router.get("/notifications", async (request, response) =>
+    response.json({
+      notifications: await matching.listNotifications(request.user!.id),
+    }),
+  );
+  router.post("/notifications/:id/read", async (request, response) => {
+    const id = request.params.id;
+    if (typeof id !== "string" || !/^[1-9]\d*$/.test(id))
+      return response.status(404).json({ error: "notification not found" });
+    return (await matching.markNotificationRead(request.user!.id, id))
+      ? response.status(204).end()
+      : response.status(404).json({ error: "notification not found" });
+  });
+  return router;
+}

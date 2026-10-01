@@ -11,6 +11,7 @@ services:
       PORT: 3000
       LOG_LEVEL: ${LOG_LEVEL:-info}
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      SIWE_RPC_URLS: ${SIWE_RPC_URLS:-}
       TRUST_PROXY: ${TRUST_PROXY:-false}
       REQUEST_BODY_LIMIT: ${REQUEST_BODY_LIMIT:-10kb}
       API_RATE_LIMIT: ${API_RATE_LIMIT:-300}

@@ -4,5 +4,6 @@ node_modules/
 !.env.example
 coverage/
 dist/
+public/media.bundle.js
 .DS_Store
 npm-debug.log*

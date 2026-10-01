@@ -2,12 +2,12 @@ import type { Pool } from "pg";
 
 export interface PublicUser {
   id: string;
-  email: string;
+  email: string | null;
   createdAt: Date;
 }
 
 export interface StoredUser extends PublicUser {
-  passwordHash: string;
+  passwordHash: string | null;
 }
 
 export function createUserRepository(database: Pool) {

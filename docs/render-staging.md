@@ -30,10 +30,10 @@ activity. Do not use this environment for promised live events or real user data
 
 ## Deploy the web service
 
-1. Commit and push the intended staging branch. Validate `render.yaml` with
-   `render blueprints validate render.yaml`.
-2. In Render, use **New → Blueprint**, connect `Boufe/YapArena`, and select the staging branch.
-   Review the preview: it should create only `yaparena-staging-web` on the Free plan.
+1. Commit and push `main`. Validate `render.yaml` with `render blueprints validate render.yaml`.
+2. In Render, use **New → Blueprint**, connect `Boufe/YapArena`, and select `main`. The existing
+   `yaparena-staging-web` service also tracks `main`. Review the preview: it should create only
+   `yaparena-staging-web` on the Free plan.
 3. When prompted for `DATABASE_URL`, paste the Supabase Session pooler URL in Render's secret field.
    Deploy the Blueprint.
 4. Confirm migrations succeeded in the deploy logs and `/ready` passes. Open the HTTPS Render URL

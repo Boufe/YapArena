@@ -22,10 +22,11 @@ Visual evidence: [desktop event](evidence/community-desktop.png),
 [phone-sized event](evidence/community-mobile.png), and
 [moderation queue](evidence/community-moderation.png). Screenshots contain only synthetic text.
 
-Still open: staging use on desktop and physical mobile browsers, keyboard and screen-reader
-review, QR scanning with a phone, link previews in sharing apps, overlay compositor checks,
-moderation volume/latency, the privacy retention review, and the separate measured media trial
-in [the media report](media-trial-report.md#work-package-5-readiness-gate). No production
+Still open: documented staging checks on desktop and physical mobile browsers, keyboard and
+screen-reader review, a documented QR scan with a phone, link previews in sharing apps,
+overlay compositor checks, moderation volume/latency, the privacy retention review, and the
+separate measured media trial in
+[the media report](media-trial-report.md#work-package-5-readiness-gate). No production
 readiness claim follows from this local trial.
 
 ## Live chat follow-up — 2026-10-01
@@ -47,3 +48,11 @@ chat form remained visually displayed during a pause because of a CSS rule. Both
 before the successful repeat. The screenshots above now show the updated watch/chat layout.
 This remains a local Chrome trial; physical mobile, screen-reader, and staging multi-viewer
 checks are still open.
+
+## Staging tester feedback — 2026-10-01
+
+The tester reported that event chat and the QR code worked on staging, then confirmed a
+suggested follow-up check also worked. The specific follow-up action, devices, browsers, and
+timings were not recorded, so this is qualitative feedback rather than evidence for each of
+the separate multi-viewer, reconnect, moderation, mobile, or phone-scanning checks above.
+The measured desktop and mobile media trial remains open.

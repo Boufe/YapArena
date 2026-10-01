@@ -161,9 +161,10 @@ architecture.
 
 ## Work package 5 — Community, moderation, and distribution
 
-**Build** chat, likes, reporting, case review, enforcement, appeals, sponsor identification,
-event links, QR/share metadata, and basic broadcast overlays. Separate visible engagement from
-official event support. Sponsor tools may see contracted exposure and public content only.
+**Build** chat, likes, reporting, case review, enforcement, appeals, event links,
+QR/share metadata, and basic broadcast overlays. Separate visible engagement from official
+event support. **Defer sponsor identification, sponsor tools, placements, and exposure
+tracking** to a separately reviewed package. No sponsor or financial workflow is included here.
 
 - Chat and reactions have abuse limits, report flows, and moderation states. Deleting unsafe
   public content preserves the internal audit record and appeal trail under the retention policy.
@@ -172,8 +173,14 @@ official event support. Sponsor tools may see contracted exposure and public con
 - No-show, video interruption, report, removal, and appeal exercises are documented and tested.
 - Shared links and overlays display only permitted public fields and do not reveal a hidden
   tally or suggest that visible likes determine the official winner.
-- Sponsor placements and delivered-exposure measurements are traceable, without implementing
-  sponsor billing, revenue allocation, or winning-debater payments.
+- Sponsor identification, placements, delivered-exposure measurement, billing, revenue
+  allocation, and winning-debater payments remain out of scope.
+
+The moderation roles, reason codes, content states, retention, and appeal policy for this
+package are defined in [decision 0005](decisions/0005-community-moderation-distribution.md).
+The [media trial gate](media-trial-report.md#work-package-5-readiness-gate) remains open until a
+measured desktop and mobile trial is recorded. Community development can proceed while it is
+open; passing code checks alone does not approve a production rollout.
 
 ## Work package 6 — Measurement and operating readiness
 

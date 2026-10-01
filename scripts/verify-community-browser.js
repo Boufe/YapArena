@@ -116,6 +116,19 @@ try {
   await author.page
     .locator("[data-community-chat-form]")
     .waitFor({ state: "visible" });
+  const reporter = await register("reporter", true);
+  await reporter.page.goto(`${base}/debates/${eventSlug}`);
+  await reporter.page.getByText("Live updates on").waitFor();
+  const mobile = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 1,
+    isMobile: true,
+    hasTouch: true,
+    bypassCSP: true,
+  });
+  const mobilePage = await mobile.newPage();
+  await mobilePage.goto(`${base}/debates/${eventSlug}`);
+  await mobilePage.getByText("Live updates on").waitFor();
   await author.page.locator("[data-community-like]").click();
   try {
     await author.page
@@ -137,21 +150,60 @@ try {
     .fill("A useful public comment");
   await author.page.locator("[data-community-chat-form] button").click();
   await author.page.getByText("A useful public comment").waitFor();
+  await reporter.page.getByText("A useful public comment").waitFor();
+  await mobilePage.getByText("A useful public comment").waitFor();
+  assert.equal(
+    await reporter.page
+      .locator("[data-community-messages] [data-message-id]")
+      .count(),
+    1,
+  );
+  await reporter.context.setOffline(true);
+  await reporter.page
+    .getByText("Connection interrupted", { exact: false })
+    .waitFor();
+  await pool.query(
+    "UPDATE event_chat_messages SET created_at = CURRENT_TIMESTAMP - INTERVAL '20 seconds' WHERE debate_id = $1",
+    [eventId],
+  );
+  await author.page
+    .locator("[data-community-chat-form] textarea")
+    .fill("Arrived while disconnected");
+  await author.page.locator("[data-community-chat-form] button").click();
+  await mobilePage.getByText("Arrived while disconnected").waitFor();
+  await reporter.context.setOffline(false);
+  await reporter.page.getByText("Arrived while disconnected").waitFor();
+  assert.deepEqual(
+    await reporter.page
+      .locator("[data-community-messages] [data-message-id] p")
+      .allTextContents(),
+    ["A useful public comment", "Arrived while disconnected"],
+  );
   await author.page
     .locator("[data-community-chat-form] textarea")
     .fill("Too soon");
   await author.page.locator("[data-community-chat-form] button").click();
-  await author.page.getByText("chat limit reached", { exact: false }).waitFor();
+  await author.page
+    .locator("[data-community-send-status]")
+    .getByText("chat limit reached", { exact: false })
+    .waitFor();
+  assert.equal(
+    await author.page
+      .locator("[data-community-chat-form] textarea")
+      .inputValue(),
+    "Too soon",
+  );
   await author.page.screenshot({
     path: `${artifactDir}/community-desktop.png`,
     fullPage: true,
   });
+  assert.deepEqual(await axeViolations(author.page, ".detail-grid"), []);
   assert.deepEqual(await axeViolations(author.page, ".community-section"), []);
 
-  const reporter = await register("reporter", true);
-  await reporter.page.goto(`${base}/debates/${eventSlug}`);
-  await reporter.page.getByText("A useful public comment").waitFor();
-  await reporter.page.getByRole("button", { name: "Report message" }).click();
+  await reporter.page
+    .getByRole("button", { name: "Report message" })
+    .first()
+    .click();
   const reportForm = reporter.page.locator(".community-message form");
   await reportForm.locator("select").selectOption("spam");
   await reportForm.locator("textarea").fill("This needs moderator review");
@@ -192,9 +244,40 @@ try {
     .locator("textarea")
     .fill("This message needs removal pending appeal");
   await chatCase.getByRole("button", { name: "Save decision" }).click();
+  await chatCase.waitFor({ state: "hidden" });
+  await reporter.page
+    .getByText("A useful public comment")
+    .waitFor({ state: "hidden" });
+  await mobilePage
+    .getByText("A useful public comment")
+    .waitFor({ state: "hidden" });
+  const eventCase = moderatorA.page
+    .locator("[data-community-cases] .community-case")
+    .filter({ hasText: "event · open" })
+    .first();
+  await eventCase.locator("select").first().selectOption("pause_chat");
+  await eventCase.locator("select").nth(1).selectOption("other");
+  await eventCase.locator("textarea").fill("Pause chat for moderator review");
+  await eventCase.getByRole("button", { name: "Save decision" }).click();
+  await eventCase.waitFor({ state: "hidden" });
+  await reporter.page
+    .locator("[data-community-chat-form]")
+    .waitFor({ state: "hidden" });
+  await mobilePage
+    .locator("[data-community-chat-form]")
+    .waitFor({ state: "hidden" });
   await moderatorA.page
-    .getByText("Case decision saved", { exact: false })
-    .waitFor();
+    .locator("[data-community-case-filter]")
+    .selectOption("actioned");
+  const pausedCase = moderatorA.page
+    .locator("[data-community-cases] .community-case")
+    .filter({ hasText: "pause_chat" })
+    .first();
+  await pausedCase.locator("textarea").fill("Review is complete, resume chat");
+  await pausedCase.getByRole("button", { name: "Resume event chat" }).click();
+  await reporter.page
+    .locator("[data-community-chat-form]")
+    .waitFor({ state: "visible" });
 
   await author.page.goto(`${base}/account/moderation`);
   const appealForm = author.page.locator("[data-community-list] form").first();
@@ -219,34 +302,64 @@ try {
   await appealCard
     .getByRole("button", { name: "Save appeal decision" })
     .click();
-  await moderatorB.page
-    .getByText("Appeal decision saved", { exact: false })
-    .waitFor();
+  await appealCard.waitFor({ state: "hidden" });
+  await reporter.page.getByText("A useful public comment").waitFor();
+  await mobilePage.getByText("A useful public comment").waitFor();
+  assert.equal(
+    await reporter.page.getByText("A useful public comment").count(),
+    1,
+  );
   await author.page.goto(`${base}/debates/${eventSlug}`);
   await author.page.getByText("A useful public comment").waitFor();
-
-  const mobile = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 1,
-    isMobile: true,
-    hasTouch: true,
-    bypassCSP: true,
-  });
-  const mobilePage = await mobile.newPage();
-  await mobilePage.goto(`${base}/debates/${eventSlug}`);
-  await mobilePage
-    .locator("[data-community-status]")
-    .getByText("up to date", { exact: false })
-    .waitFor();
   const overflow = await mobilePage.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,
   );
   assert.ok(overflow <= 1, `mobile horizontal overflow: ${overflow}px`);
+  assert.deepEqual(await axeViolations(mobilePage, ".detail-grid"), []);
   assert.deepEqual(await axeViolations(mobilePage, ".community-section"), []);
   await mobilePage.screenshot({
     path: `${artifactDir}/community-mobile.png`,
     fullPage: true,
   });
+  await reporter.context.setOffline(true);
+  await pool.query(
+    `INSERT INTO event_chat_messages (debate_id, author_user_id, body)
+     SELECT $1, $2, 'Backlog ' || value FROM generate_series(1, 55) AS value`,
+    [eventId, author.userId],
+  );
+  await reporter.context.setOffline(false);
+  await reporter.page.getByText("Backlog 55", { exact: true }).waitFor();
+  const backlog = await reporter.page
+    .locator("[data-community-messages] [data-message-id] p")
+    .allTextContents();
+  assert.deepEqual(
+    backlog.filter((text) => text.startsWith("Backlog ")),
+    Array.from({ length: 55 }, (_, index) => `Backlog ${index + 1}`),
+  );
+  await reporter.page.locator("[data-community-messages]").evaluate((node) => {
+    node.scrollTop = 0;
+  });
+  await pool.query(
+    "INSERT INTO event_chat_messages (debate_id, author_user_id, body) VALUES ($1, $2, 'Latest while reading')",
+    [eventId, author.userId],
+  );
+  await reporter.page
+    .getByRole("button", { name: /new message.*Jump to latest/ })
+    .waitFor();
+  assert.ok(
+    (await reporter.page
+      .locator("[data-community-messages]")
+      .evaluate((node) => node.scrollTop)) < 50,
+  );
+  await reporter.page
+    .getByRole("button", { name: /new message.*Jump to latest/ })
+    .click();
+  assert.equal(
+    await reporter.page
+      .getByText("Latest while reading", { exact: true })
+      .count(),
+    1,
+  );
   const overlay = await mobilePage.goto(`${base}/overlay/${eventSlug}`);
   assert.equal(overlay.status(), 200);
   assert.equal(

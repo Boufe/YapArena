@@ -32,6 +32,7 @@ function fixture({
   roles = ["participant"],
   failure,
   hidden = false,
+  apiRateLimit,
 } = {}) {
   const calls = [];
   const community = {
@@ -53,6 +54,15 @@ function fixture({
       calls.push(["listChat", id, before]);
       if (failure) throw failure;
       return { items: [{ id: "1", body: "Hello" }], hasMore: false };
+    },
+    syncChat: async (id, after, watchedIds) => {
+      calls.push(["syncChat", id, after, watchedIds]);
+      if (failure) throw failure;
+      return {
+        items: [{ id: "2", body: "New message" }],
+        hasMore: false,
+        watched: [{ id: "1", body: "Hello" }],
+      };
     },
     postChat: async (...args) => {
       calls.push(["postChat", ...args]);
@@ -111,6 +121,7 @@ function fixture({
     messages: { isReady: async () => {} },
     logger: createLogger({ enabled: false }),
     applicationOrigin: "https://arena.example",
+    apiRateLimit,
   });
   const agent = () => request(app);
   const auth = (method, path) =>
@@ -166,6 +177,38 @@ describe("community API and share surfaces", () => {
       (await request(app).get("/debates/not-found/qr.svg")).status,
       404,
     );
+  });
+
+  it("serves bounded guest chat sync with ordered cursors and no cache", async () => {
+    const { app, calls } = fixture({ signedIn: false });
+    const path = `/api/community/events/${eventId}/chat/sync`;
+    const result = await request(app).get(`${path}?after=1&watch=2,1,2`);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.items[0].body, "New message");
+    assert.equal(result.headers["cache-control"], "no-store");
+    assert.deepEqual(calls.at(-1), ["syncChat", eventId, "1", ["2", "1"]]);
+    for (const query of [
+      "after=-1",
+      "after=abc",
+      "watch=1,wat",
+      `watch=${Array.from({ length: 201 }, (_, index) => index + 1).join(",")}`,
+    ])
+      assert.equal((await request(app).get(`${path}?${query}`)).status, 400);
+  });
+
+  it("keeps live reads on a separate bounded limit from ordinary API actions", async () => {
+    const { app } = fixture({ signedIn: false, apiRateLimit: 1 });
+    for (let index = 0; index < 3; index += 1)
+      assert.equal(
+        (
+          await request(app).get(
+            `/api/community/events/${eventId}/chat/sync?after=0`,
+          )
+        ).status,
+        200,
+      );
+    assert.equal((await request(app).get("/health")).status, 200);
+    assert.equal((await request(app).get("/health")).status, 429);
   });
 
   it("posts chat and uses idempotent like methods with server-bound account identity", async () => {

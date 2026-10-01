@@ -35,6 +35,11 @@ identification is deferred.
    is live and chat is open. Any participant can like a published event once. The page labels
    these as visible interest, not official support. A guest or restricted account sees a clear
    sign-in or restriction error for writes. Chat becomes read-only when the event leaves `live`.
+   The feed sits beside the watch view on desktop and directly below it on mobile. New messages
+   are checked every two seconds while the page is visible. The client keeps an ordered cursor,
+   drains missed pages after reconnect, avoids duplicate IDs, and preserves the reader's scroll
+   position until they choose **Jump to latest**. A failed send leaves the draft in place with
+   an inline error. Pauses and removals appear without a page refresh.
 3. A participant reports a chat message or event with a reason and context. The report is
    private and appears in `/account/moderation`. Repeat reports for the same target return a
    conflict; more than five reports in 24 hours return HTTP 429. More than ten actual like-state
@@ -55,6 +60,10 @@ identification is deferred.
 Case and appeal decisions are serialized by database row locks. Account writes use a per-account
 transaction lock, so parallel chat, like, and report requests cannot bypass account limits.
 The moderator API has no event-result or future-settlement method.
+
+Live read requests have a separate server limit of 600 per minute per IP so watch and chat
+polling cannot consume the lower general API allowance. That limit is for this staging
+prototype; concurrent audience load and shared-network behavior remain release checks.
 
 ## Failure handling and retention
 

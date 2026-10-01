@@ -104,18 +104,31 @@ function reportForm(targetType, targetId, status, onDone) {
 
 function initEvent(root) {
   const id = root.dataset.communityEvent;
+  const chatRoot =
+    document.querySelector("[data-community-chat-panel]") || root;
   const status = root.querySelector("[data-community-status]");
-  const chatState = root.querySelector("[data-community-chat-state]");
-  const messages = root.querySelector("[data-community-messages]");
-  const older = root.querySelector("[data-community-older]");
+  const connection = chatRoot.querySelector("[data-community-connection]");
+  const chatState = chatRoot.querySelector("[data-community-chat-state]");
+  const messages = chatRoot.querySelector("[data-community-messages]");
+  const older = chatRoot.querySelector("[data-community-older]");
+  const newMessages = chatRoot.querySelector("[data-community-new]");
+  const sendStatus = chatRoot.querySelector("[data-community-send-status]");
   const like = root.querySelector("[data-community-like]");
   const count = root.querySelector("[data-community-likes]");
-  const chatForm = root.querySelector("[data-community-chat-form]");
+  const chatForm = chatRoot.querySelector("[data-community-chat-form]");
   const report = root.querySelector("[data-community-report-form]");
   let currentLiked = false;
   let oldest = null;
-  let showingOlder = false;
   let signedIn = false;
+  let latestId = "0";
+  let initialized = false;
+  let syncing = false;
+  let loadingOlder = false;
+  let retryDelay = 2000;
+  let timer;
+  let unseenCount = 0;
+  const rendered = new Map();
+  const tracked = new Set();
 
   async function refreshSummary() {
     const summary = await api(`/api/community/events/${id}`);
@@ -165,29 +178,156 @@ function initEvent(root) {
     return line;
   }
 
-  async function refreshChat(loadOlder = false) {
-    const url = `/api/community/events/${id}/chat${loadOlder && oldest ? `?before=${encodeURIComponent(oldest)}` : ""}`;
-    const page = await api(url);
-    const nodes = page.items.map(messageNode);
-    if (loadOlder) {
-      messages.prepend(...nodes);
-      showingOlder = true;
-    } else {
-      messages.replaceChildren(...nodes);
-    }
-    if (page.items.length)
-      oldest = loadOlder ? page.items[0].id : page.items[0].id;
-    older.hidden = !page.hasMore;
-    if (!messages.children.length)
-      messages.append(element("li", "No chat messages yet."));
+  function nearBottom() {
+    return (
+      messages.scrollHeight - messages.scrollTop - messages.clientHeight < 64
+    );
   }
 
-  async function refresh() {
+  function showNewCount() {
+    newMessages.hidden = unseenCount === 0;
+    newMessages.textContent = `${unseenCount} new ${unseenCount === 1 ? "message" : "messages"} · Jump to latest`;
+  }
+
+  function insertMessage(item) {
+    if (rendered.has(item.id)) return false;
+    messages.querySelector("[data-community-empty]")?.remove();
+    const node = messageNode(item);
+    const next = Array.from(messages.children).find(
+      (child) =>
+        child.dataset.messageId &&
+        BigInt(child.dataset.messageId) > BigInt(item.id),
+    );
+    messages.insertBefore(node, next || null);
+    rendered.set(item.id, node);
+    tracked.add(item.id);
+    return true;
+  }
+
+  function updateEmpty() {
+    if (rendered.size || messages.querySelector("[data-community-empty]"))
+      return;
+    const empty = element("li", "No chat messages yet.");
+    empty.dataset.communityEmpty = "";
+    messages.append(empty);
+  }
+
+  function trimFeed() {
+    while (rendered.size > 200) {
+      const first = messages.querySelector("[data-message-id]");
+      if (!first) break;
+      rendered.delete(first.dataset.messageId);
+      tracked.delete(first.dataset.messageId);
+      first.remove();
+      older.hidden = false;
+    }
+    oldest =
+      messages.querySelector("[data-message-id]")?.dataset.messageId ?? null;
+  }
+
+  async function loadInitialChat() {
+    const page = await api(`/api/community/events/${id}/chat`);
+    for (const item of page.items) insertMessage(item);
+    oldest = page.items[0]?.id ?? null;
+    latestId = page.items.at(-1)?.id ?? "0";
+    older.hidden = !page.hasMore;
+    updateEmpty();
+    messages.scrollTop = messages.scrollHeight;
+    initialized = true;
+  }
+
+  async function loadOlderChat() {
+    if (!oldest || loadingOlder) return;
+    loadingOlder = true;
+    older.disabled = true;
+    const height = messages.scrollHeight;
+    const top = messages.scrollTop;
     try {
-      await Promise.all([refreshSummary(), refreshChat()]);
-      status.textContent = "Community activity is up to date.";
+      const page = await api(
+        `/api/community/events/${id}/chat?before=${encodeURIComponent(oldest)}`,
+      );
+      for (const item of page.items) insertMessage(item);
+      oldest = page.items[0]?.id ?? oldest;
+      older.hidden = !page.hasMore;
+      messages.scrollTop = top + messages.scrollHeight - height;
     } catch (error) {
       status.textContent = error.message;
+    } finally {
+      older.disabled = false;
+      loadingOlder = false;
+    }
+  }
+
+  async function syncChat() {
+    const shouldFollow = nearBottom();
+    let received = 0;
+    let hasMore = false;
+    for (let pageNumber = 0; pageNumber < 20; pageNumber += 1) {
+      const watchedIds =
+        pageNumber === 0
+          ? Array.from(tracked)
+              .sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1))
+              .slice(-200)
+          : [];
+      const query = new URLSearchParams({ after: latestId });
+      if (watchedIds.length) query.set("watch", watchedIds.join(","));
+      const page = await api(`/api/community/events/${id}/chat/sync?${query}`);
+      if (watchedIds.length) {
+        const visible = new Set(page.watched.map((item) => item.id));
+        for (const watchedId of watchedIds) {
+          if (!visible.has(watchedId) && rendered.has(watchedId)) {
+            rendered.get(watchedId).remove();
+            rendered.delete(watchedId);
+          }
+        }
+        for (const item of page.watched) insertMessage(item);
+      }
+      for (const item of page.items) {
+        if (insertMessage(item)) received += 1;
+      }
+      if (page.items.length) latestId = page.items.at(-1).id;
+      hasMore = page.hasMore;
+      if (!hasMore) break;
+    }
+    trimFeed();
+    updateEmpty();
+    if (shouldFollow) {
+      messages.scrollTop = messages.scrollHeight;
+      unseenCount = 0;
+    } else {
+      unseenCount += received;
+    }
+    showNewCount();
+    return hasMore;
+  }
+
+  function schedule(delay) {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => void poll(), delay);
+  }
+
+  async function poll() {
+    if (syncing) return;
+    if (document.visibilityState === "hidden") {
+      schedule(2000);
+      return;
+    }
+    syncing = true;
+    try {
+      if (!initialized) await loadInitialChat();
+      const hasMore = await syncChat();
+      await refreshSummary();
+      connection.textContent = "Live updates on";
+      if (status.textContent === "Loading community activity…")
+        status.textContent = "Community activity ready.";
+      retryDelay = 2000;
+      schedule(hasMore ? 0 : 2000);
+    } catch {
+      connection.textContent = "Connection interrupted. Reconnecting…";
+      schedule(retryDelay);
+      retryDelay = Math.min(retryDelay * 2, 15000);
+    } finally {
+      syncing = false;
     }
   }
 
@@ -200,18 +340,23 @@ function initEvent(root) {
       signedIn = false;
       like.title = "Sign in to like this event";
     });
-  void refresh();
+  void poll();
   root
     .querySelector("[data-community-refresh]")
     .addEventListener("click", () => {
-      showingOlder = false;
-      void refresh();
+      connection.textContent = "Checking for messages…";
+      schedule(0);
     });
-  older.addEventListener("click", () => {
-    void refreshChat(true).catch((error) => {
-      status.textContent = error.message;
-    });
+  older.addEventListener("click", () => void loadOlderChat());
+  newMessages.addEventListener("click", () => {
+    messages.scrollTop = messages.scrollHeight;
+    unseenCount = 0;
+    showNewCount();
   });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") schedule(0);
+  });
+  window.addEventListener("online", () => schedule(0));
   like.addEventListener("click", () => {
     like.disabled = true;
     void api(`/api/community/events/${id}/like`, {
@@ -248,21 +393,26 @@ function initEvent(root) {
   });
   chatForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    void submit(
-      chatForm,
-      async () => {
-        const body = chatForm.elements.body.value;
+    const button = chatForm.querySelector('button[type="submit"]');
+    button.disabled = true;
+    sendStatus.textContent = "Sending message…";
+    void (async () => {
+      try {
+        const body = chatForm.elements.body.value.trim();
         await api(`/api/community/events/${id}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ body }),
         });
         chatForm.reset();
-        status.textContent = "Message posted.";
-        await refreshChat();
-      },
-      status,
-    );
+        sendStatus.textContent = "Message sent.";
+        schedule(0);
+      } catch (error) {
+        sendStatus.textContent = `Message not confirmed: ${error.message} Your draft is still here.`;
+      } finally {
+        button.disabled = false;
+      }
+    })();
   });
   report.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -285,12 +435,6 @@ function initEvent(root) {
       status,
     );
   });
-  window.setInterval(() => {
-    if (document.visibilityState !== "visible" || showingOlder) return;
-    void Promise.all([refreshSummary(), refreshChat()]).catch((error) => {
-      status.textContent = error.message;
-    });
-  }, 5000);
 }
 
 function initMine(root) {

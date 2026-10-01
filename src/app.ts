@@ -2,7 +2,7 @@ import cookieParser from "cookie-parser";
 import express from "express";
 import { fileURLToPath } from "node:url";
 import helmet from "helmet";
-import type { ErrorRequestHandler } from "express";
+import type { ErrorRequestHandler, Request } from "express";
 import type { Logger } from "pino";
 import type { createMessageRepository } from "./features/messages/repository.ts";
 import type { createDiscoveryRepository } from "./features/discovery/repository.ts";
@@ -133,8 +133,24 @@ export function createApp({
         })
       : helmet(),
   );
+  const liveRead = (request: Request) =>
+    request.method === "GET" &&
+    /^\/api\/(?:media\/events\/[0-9a-f-]{36}|community\/events\/[0-9a-f-]{36}(?:\/my-like|\/chat\/sync)?)$/i.test(
+      request.path,
+    );
   app.use(
-    createApiRateLimiter({ windowMs: rateLimitWindowMs, limit: apiRateLimit }),
+    createApiRateLimiter({
+      windowMs: 60_000,
+      limit: 600,
+      skip: (request) => !liveRead(request),
+    }),
+  );
+  app.use(
+    createApiRateLimiter({
+      windowMs: rateLimitWindowMs,
+      limit: apiRateLimit,
+      skip: liveRead,
+    }),
   );
   if (media && mediaProvider) {
     app.use(

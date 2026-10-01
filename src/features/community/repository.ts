@@ -248,6 +248,52 @@ export function createCommunityRepository(database: Pool) {
       };
     },
 
+    async syncChat(id: string, after: string, watchedIds: string[]) {
+      const event = await this.publicEvent(id);
+      if (!event) throw new CommunityNotFoundError("event not found");
+      const [newMessages, watched] = await Promise.all([
+        database.query<ChatRow>(
+          `SELECT m.id, m.debate_id AS "debateId",
+            m.author_user_id AS "authorUserId",
+            COALESCE(p.display_name, 'Participant') AS "authorName",
+            m.body, m.state, m.created_at AS "createdAt"
+           FROM event_chat_messages m
+           LEFT JOIN public_profiles p ON p.user_id = m.author_user_id
+             AND p.publication_state = 'published'
+           WHERE m.debate_id = $1 AND m.state = 'visible' AND m.id > $2
+           ORDER BY m.id ASC LIMIT 51`,
+          [id, after],
+        ),
+        watchedIds.length
+          ? database.query<ChatRow>(
+              `SELECT m.id, m.debate_id AS "debateId",
+                m.author_user_id AS "authorUserId",
+                COALESCE(p.display_name, 'Participant') AS "authorName",
+                m.body, m.state, m.created_at AS "createdAt"
+               FROM event_chat_messages m
+               LEFT JOIN public_profiles p ON p.user_id = m.author_user_id
+                 AND p.publication_state = 'published'
+               WHERE m.debate_id = $1 AND m.state = 'visible'
+                 AND m.id = ANY($2::bigint[])
+               ORDER BY m.id ASC`,
+              [id, watchedIds],
+            )
+          : Promise.resolve({ rows: [] as ChatRow[] }),
+      ]);
+      const publicMessage = (item: ChatRow) => ({
+        id: item.id,
+        debateId: item.debateId,
+        authorName: item.authorName,
+        body: item.body,
+        createdAt: item.createdAt,
+      });
+      return {
+        items: newMessages.rows.slice(0, 50).map(publicMessage),
+        hasMore: newMessages.rows.length > 50,
+        watched: watched.rows.map(publicMessage),
+      };
+    },
+
     async postChat(id: string, userId: string, body: string) {
       return transaction(database, async (client) => {
         await lockAccount(client, userId);

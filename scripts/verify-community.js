@@ -77,6 +77,10 @@ try {
   const first = (await community.listChat(eventId)).items[0];
   assert.equal(first.body.length > 0, true);
   assert.equal("authorUserId" in first, false);
+  assert.deepEqual(
+    (await community.syncChat(eventId, "0", [])).items.map((item) => item.id),
+    [first.id],
+  );
 
   await Promise.all(
     Array.from({ length: 3 }, () => community.setLike(eventId, reporter, true)),
@@ -137,6 +141,10 @@ try {
     "Removing unsafe content",
   );
   assert.equal((await community.listChat(eventId)).items.length, 0);
+  assert.deepEqual(
+    (await community.syncChat(eventId, first.id, [first.id])).watched,
+    [],
+  );
   const evidence = await community.getCase(caseId);
   assert.equal(evidence.chatBody, first.body);
   assert.deepEqual(
@@ -165,6 +173,12 @@ try {
     "The content is permissible",
   );
   assert.equal((await community.listChat(eventId)).items.length, 1);
+  assert.deepEqual(
+    (await community.syncChat(eventId, first.id, [first.id])).watched.map(
+      (item) => item.id,
+    ),
+    [first.id],
+  );
   await assert.rejects(
     () => community.appeal(caseId, author, "A repeated appeal is not allowed"),
     CommunityConflictError,

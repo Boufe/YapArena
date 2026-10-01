@@ -6,13 +6,16 @@ const safeMethods = new Set(["GET", "HEAD", "OPTIONS"]);
 export function createApiRateLimiter({
   windowMs,
   limit,
+  skip,
 }: {
   windowMs: number;
   limit: number;
+  skip?: (request: Request) => boolean;
 }) {
   return rateLimit({
     windowMs,
     limit,
+    skip,
     standardHeaders: "draft-8",
     legacyHeaders: false,
   });

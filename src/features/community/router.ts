@@ -146,6 +146,30 @@ export function createCommunityRouter({
     );
   });
   router.get(
+    "/api/community/events/:id/chat/sync",
+    async (request, response) => {
+      const id = pathId(request);
+      if (!id) return response.status(404).json({ error: "event not found" });
+      const after = request.query.after ?? "0";
+      const watch = request.query.watch ?? "";
+      if (
+        typeof after !== "string" ||
+        (after !== "0" && !integer.test(after)) ||
+        typeof watch !== "string" ||
+        watch.length > 4000 ||
+        (watch && !watch.split(",").every((value) => integer.test(value)))
+      )
+        return response.status(400).json({ error: "invalid chat cursor" });
+      const watchedIds = watch ? [...new Set(watch.split(","))] : [];
+      if (watchedIds.length > 200)
+        return response
+          .status(400)
+          .json({ error: "too many watched messages" });
+      response.set("Cache-Control", "no-store");
+      return attempt(response, () => community.syncChat(id, after, watchedIds));
+    },
+  );
+  router.get(
     "/api/community/events/:id/my-like",
     requireAuth,
     async (request, response) => {

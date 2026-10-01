@@ -102,6 +102,10 @@ function fake(options = {}) {
           chatState: value("chatState", "open"),
         },
       ]);
+    if (sql.includes("m.id > $2") && sql.includes("FROM event_chat_messages m"))
+      return rows(value("newChatRows", [chat]));
+    if (sql.includes("m.id = ANY($2::bigint[])"))
+      return rows(value("watchedChatRows", [chat]));
     if (
       sql.includes("FROM event_chat_messages m") &&
       sql.includes("m.state = 'visible'")
@@ -230,6 +234,35 @@ describe("community repository policy", () => {
     await assert.rejects(
       () => fake({ missing: true }).community.listChat(eventId),
       CommunityNotFoundError,
+    );
+  });
+
+  it("catches up in ascending order and checks watched messages within the event", async () => {
+    const incoming = Array.from({ length: 51 }, (_, index) => ({
+      ...chat,
+      id: String(index + 11),
+    }));
+    const { community, queries } = fake({
+      newChatRows: incoming,
+      watchedChatRows: [chat],
+    });
+    const page = await community.syncChat(eventId, "10", ["10", "9"]);
+    assert.equal(page.items.length, 50);
+    assert.equal(page.items[0].id, "11");
+    assert.equal(page.items.at(-1).id, "60");
+    assert.equal(page.hasMore, true);
+    assert.deepEqual(
+      page.watched.map((item) => item.id),
+      ["10"],
+    );
+    assert.equal("authorUserId" in page.items[0], false);
+    assert.ok(
+      queries.some(
+        ([sql, params]) =>
+          sql.includes("m.id = ANY($2::bigint[])") &&
+          params[0] === eventId &&
+          params[1].length === 2,
+      ),
     );
   });
 

@@ -393,8 +393,15 @@ if (root) {
     await refresh();
     if (remembersSpeaker() && canJoinAsSpeaker()) void connectAsSpeaker(true);
   })();
-  setInterval(() => {
-    void refresh();
-  }, 3000);
+  function pollStatus() {
+    window.setTimeout(
+      async () => {
+        await refresh();
+        pollStatus();
+      },
+      speakerConnected ? 1000 : 3000,
+    );
+  }
+  pollStatus();
   setInterval(paintClock, 250);
 }

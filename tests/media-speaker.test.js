@@ -116,3 +116,95 @@ it("restores the join control when camera publishing fails", async () => {
   assert.equal(preview.stopped, true);
   assert.equal(button.disabled, false);
 });
+
+it("keeps a checked microphone muted until its turn and stops it if joining fails", async () => {
+  const camera = {
+    stopped: false,
+    stop() {
+      this.stopped = true;
+    },
+  };
+  const microphone = {
+    enabled: true,
+    stopped: false,
+    stop() {
+      this.stopped = true;
+    },
+  };
+  let prepared;
+  const mediaDevices = {
+    async getUserMedia() {
+      return {
+        getVideoTracks: () => [camera],
+        getAudioTracks: () => [microphone],
+        getTracks: () => [camera, microphone],
+      };
+    },
+  };
+  const request = async (path) =>
+    path === "/speaker-token"
+      ? { token: "token", url: "wss://example.test", side: "A" }
+      : path === ""
+        ? { eventStatus: "live", state: { state: "running" } }
+        : {};
+  const connect = async () => ({
+    localParticipant: {
+      identity: "speaker-a",
+      async setCameraEnabled() {
+        assert.equal(camera.stopped, true);
+        assert.equal(microphone.stopped, false);
+        return { track: camera };
+      },
+    },
+  });
+  await joinSpeaker({
+    button: { disabled: false },
+    mediaDevices,
+    request,
+    connect,
+    tracks: { attach() {} },
+    setSide() {},
+    setPreparedMicrophone(track) {
+      prepared = track;
+    },
+    async refresh() {},
+  });
+  assert.equal(prepared, microphone);
+  assert.equal(microphone.enabled, false);
+  assert.equal(microphone.stopped, false);
+
+  const failedMicrophone = {
+    enabled: true,
+    stopped: false,
+    stop() {
+      this.stopped = true;
+    },
+  };
+  await assert.rejects(
+    joinSpeaker({
+      button: { disabled: false },
+      mediaDevices: {
+        async getUserMedia() {
+          return {
+            getVideoTracks: () => [camera],
+            getAudioTracks: () => [failedMicrophone],
+            getTracks: () => [camera, failedMicrophone],
+          };
+        },
+      },
+      request,
+      connect: async () => ({
+        localParticipant: {
+          async setCameraEnabled() {
+            return undefined;
+          },
+        },
+      }),
+      setPreparedMicrophone() {
+        assert.fail("failed join must not retain microphone");
+      },
+    }),
+    /Could not open camera/,
+  );
+  assert.equal(failedMicrophone.stopped, true);
+});

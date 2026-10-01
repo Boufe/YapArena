@@ -1,5 +1,5 @@
 /* global document, window */
-import { Room, RoomEvent } from "livekit-client";
+import { Room, RoomEvent, Track } from "livekit-client";
 import { mediaPresentation } from "./media-presentation.js";
 import { speakerButtonState, stopMediaSession } from "./media-session.js";
 import { joinSpeaker } from "./media-speaker.js";
@@ -28,6 +28,7 @@ if (root) {
   let reconnectAttempts = 0;
   let reconnectTimer;
   let microphoneChange;
+  let preparedMicrophone;
   let serverOffset = 0;
   let currentState;
   const say = (message) => {
@@ -81,6 +82,10 @@ if (root) {
     if (reconnectTimer) window.clearTimeout(reconnectTimer);
     reconnectTimer = undefined;
   }
+  function stopPreparedMicrophone() {
+    preparedMicrophone?.stop();
+    preparedMicrophone = undefined;
+  }
   async function disconnectRoom() {
     const previousRoom = room;
     room = undefined;
@@ -88,6 +93,7 @@ if (root) {
     speakerConnected = false;
     updateSpeakerButton();
     showMicrophoneStatus("");
+    stopPreparedMicrophone();
     await stopMediaSession(previousRoom, mediaTracks);
   }
   function scheduleReconnect() {
@@ -112,6 +118,7 @@ if (root) {
   async function connect(token, url) {
     const previousRoom = room;
     room = undefined;
+    stopPreparedMicrophone();
     await stopMediaSession(previousRoom, mediaTracks);
     const nextRoom = new Room({ adaptiveStream: true, dynacast: true });
     room = nextRoom;
@@ -149,6 +156,7 @@ if (root) {
     nextRoom.on(RoomEvent.Disconnected, () => {
       if (room !== nextRoom) return;
       mediaTracks.clear();
+      stopPreparedMicrophone();
       side = undefined;
       speakerConnected = false;
       updateSpeakerButton();
@@ -191,6 +199,10 @@ if (root) {
         tracks: mediaTracks,
         setSide(value) {
           side = value;
+        },
+        setPreparedMicrophone(track) {
+          stopPreparedMicrophone();
+          preparedMicrophone = track;
         },
         async markReady() {
           const ready = await fetch(`/api/matching/events/${id}/ready`, {
@@ -316,12 +328,35 @@ if (root) {
           result.state?.state === "running" &&
           result.state.activeSide === side;
         if (microphoneChange) await microphoneChange.catch(() => {});
+        if (preparedMicrophone?.readyState === "ended")
+          stopPreparedMicrophone();
+        const mayPublishMicrophone =
+          room?.localParticipant.permissions?.canPublishSources.includes(
+            Track.sourceToProto(Track.Source.Microphone),
+          );
+        if (room && shouldSpeak && !mayPublishMicrophone) {
+          showMicrophoneStatus("Waiting for microphone access…");
+          return;
+        }
         if (room && room.localParticipant.isMicrophoneEnabled !== shouldSpeak) {
           showMicrophoneStatus(
             shouldSpeak ? "Opening microphone…" : "Microphone off",
           );
-          microphoneChange =
-            room.localParticipant.setMicrophoneEnabled(shouldSpeak);
+          if (shouldSpeak && preparedMicrophone) {
+            const track = preparedMicrophone;
+            preparedMicrophone = undefined;
+            microphoneChange = room.localParticipant.publishTrack(track, {
+              source: Track.Source.Microphone,
+            });
+            microphoneChange = microphoneChange.then((publication) => {
+              track.enabled = true;
+              return publication;
+            });
+            microphoneChange.catch(() => track.stop());
+          } else {
+            microphoneChange =
+              room.localParticipant.setMicrophoneEnabled(shouldSpeak);
+          }
           try {
             await microphoneChange;
           } catch (error) {
@@ -339,7 +374,9 @@ if (root) {
               ? "Microphone enabled"
               : shouldSpeak
                 ? "Microphone still unavailable. Refresh to retry."
-                : "Microphone off",
+                : preparedMicrophone
+                  ? "Microphone ready · muted"
+                  : "Microphone off",
           );
       }
     } catch (error) {

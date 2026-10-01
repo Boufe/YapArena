@@ -211,6 +211,39 @@ describe("service runtime", () => {
     assert.deepEqual(events, ["matching", "matching cleanup failed"]);
   });
 
+  it("prunes community records and logs a failed retention run without stopping cleanup", async () => {
+    const events = [];
+    let cleanup;
+    let runs = 0;
+    const runtime = createRuntime({
+      database: { end: async () => {} },
+      sessions: { deleteExpired: async () => 0 },
+      community: {
+        pruneExpired: async () => {
+          runs += 1;
+          if (runs === 1) events.push("pruned");
+          else throw new Error("retention unavailable");
+        },
+      },
+      logger: {
+        info: () => {},
+        error: ({ error }) => events.push(error.message),
+      },
+      config: { port: 3000, host: "127.0.0.1" },
+      verifyDatabase: async () => {},
+      setIntervalFn: (callback) => {
+        cleanup = callback;
+        return { unref: () => {} };
+      },
+      clearIntervalFn: () => {},
+    });
+    await runtime.start();
+    await cleanup();
+    await cleanup();
+    await runtime.stop();
+    assert.deepEqual(events, ["pruned", "retention unavailable"]);
+  });
+
   it("advances media turns and stops recordings independently of session cleanup", async () => {
     const events = [];
     const callbacks = new Map();

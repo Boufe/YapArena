@@ -323,7 +323,7 @@ describe("public discovery", () => {
       renderDebate(origin, { ...debate, status: "cancelled" }),
       /Cancelled/,
     );
-    assert.match(
+    assert.doesNotMatch(
       renderDebate(origin, {
         ...debate,
         isDemo: true,
@@ -407,10 +407,7 @@ describe("discovery repository visibility", () => {
       displayName: profile.displayName,
     });
     assert.equal(list.items[0].speakerB, null);
-    assert.deepEqual(list.items[0].sponsor, {
-      name: "Example Sponsor",
-      disclosure: "Sponsored listing",
-    });
+    assert.equal(list.items[0].sponsor, null);
     assert.equal((await repository.getDebate(debate.slug)).slug, debate.slug);
     assert.equal((await repository.getTopic(topic.slug)).slug, topic.slug);
     assert.equal(

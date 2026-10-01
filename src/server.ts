@@ -5,6 +5,7 @@ import { createIdentityRepository } from "./features/identity/repository.ts";
 import { createMatchingRepository } from "./features/matching/repository.ts";
 import { createMediaRepository } from "./features/media/repository.ts";
 import { createMediaProvider } from "./features/media/provider.ts";
+import { createCommunityRepository } from "./features/community/repository.ts";
 import { createSessionRepository } from "./platform/auth/sessions.ts";
 import { createWalletRepository } from "./platform/auth/wallets.ts";
 import { createUserRepository } from "./platform/auth/users.ts";
@@ -21,6 +22,7 @@ const messages = createMessageRepository(database);
 const discovery = createDiscoveryRepository(database);
 const identity = createIdentityRepository(database);
 const matching = createMatchingRepository(database);
+const community = createCommunityRepository(database);
 const media = config.media ? createMediaRepository(database) : undefined;
 const mediaProvider = config.media
   ? createMediaProvider(config.media)
@@ -35,6 +37,7 @@ const app = createApp({
   matching,
   media,
   mediaProvider,
+  community,
   users,
   sessions,
   wallets,
@@ -56,6 +59,7 @@ const runtime = createRuntime({
   sessions,
   identity,
   matching,
+  community,
   media,
   mediaProvider,
   wallets,

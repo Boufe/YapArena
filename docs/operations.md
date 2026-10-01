@@ -10,6 +10,8 @@ before any real-fund release; the Compose health check and migrations below are 
 evidence.
 
 For local live debate and replay, use the optional [media prototype runbook](decisions/0004-live-debate-replay.md).
+For event chat, reports, case review, appeals, share assets, and retention, use the
+[community operations runbook](community-operations.md).
 During an incident, inspect the event's media state and history, pause the clock, and verify Egress
 and object storage before resuming or publishing replay. Recording stop failures are retried by the
 server worker and surfaced as an incident in media state.

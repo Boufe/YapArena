@@ -1,0 +1,789 @@
+import type { Pool, PoolClient } from "pg";
+
+export class CommunityNotFoundError extends Error {}
+export class CommunityConflictError extends Error {}
+export class CommunityForbiddenError extends Error {}
+export class CommunityRateError extends Error {}
+
+export type ReasonCode =
+  "harassment" | "hate" | "threat" | "spam" | "privacy" | "other";
+export type CaseAction =
+  "dismiss" | "remove_chat" | "restrict_account" | "pause_chat";
+
+interface EventRow {
+  id: string;
+  slug: string;
+  status: string;
+  publicationState: string;
+  isDemo: boolean;
+}
+interface ChatRow {
+  id: string;
+  debateId: string;
+  authorUserId: string;
+  authorName: string;
+  body: string;
+  state: "visible" | "removed";
+  createdAt: Date;
+}
+interface CaseRow {
+  id: string;
+  reporterUserId: string;
+  debateId: string;
+  targetType: "event" | "chat";
+  targetChatId: string | null;
+  reasonCode: ReasonCode;
+  detail: string;
+  status: "open" | "dismissed" | "actioned";
+  action: CaseAction | null;
+  reviewerUserId: string | null;
+  decisionReason: ReasonCode | null;
+  decisionNote: string | null;
+  decidedAt: Date | null;
+  createdAt: Date;
+  subjectUserId: string | null;
+  chatBody: string | null;
+  chatState: "open" | "paused";
+}
+interface AppealRow {
+  id: string;
+  caseId: string;
+  appellantUserId: string;
+  reason: string;
+  status: "open" | "upheld" | "overturned";
+  reviewerUserId: string | null;
+  decisionNote: string | null;
+  decidedAt: Date | null;
+  createdAt: Date;
+}
+
+const caseFields = `c.id, c.reporter_user_id AS "reporterUserId",
+  c.debate_id AS "debateId", c.target_type AS "targetType",
+  c.target_chat_id AS "targetChatId", c.reason_code AS "reasonCode",
+  c.detail, c.status, c.action, c.reviewer_user_id AS "reviewerUserId",
+  c.decision_reason AS "decisionReason", c.decision_note AS "decisionNote",
+  c.decided_at AS "decidedAt", c.created_at AS "createdAt",
+  m.author_user_id AS "subjectUserId", m.body AS "chatBody",
+  COALESCE(ec.state, 'open') AS "chatState"`;
+const caseJoin = `FROM moderation_cases c
+  LEFT JOIN event_chat_messages m ON m.id = c.target_chat_id
+  LEFT JOIN event_chat_controls ec ON ec.debate_id = c.debate_id`;
+
+async function transaction<T>(
+  pool: Pool,
+  action: (client: PoolClient) => Promise<T>,
+) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await action(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function lockAccount(client: PoolClient, userId: string) {
+  await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+    `community:${userId}`,
+  ]);
+}
+
+async function eventFor(client: PoolClient, id: string, lock = false) {
+  const result = await client.query<EventRow>(
+    `SELECT id, slug, status, publication_state AS "publicationState",
+       is_demo AS "isDemo" FROM debates WHERE id = $1${lock ? " FOR SHARE" : ""}`,
+    [id],
+  );
+  const event = result.rows[0];
+  if (!event || event.publicationState !== "published" || event.isDemo)
+    throw new CommunityNotFoundError("event not found");
+  return event;
+}
+
+async function assertWritable(client: PoolClient, userId: string) {
+  const restricted = await client.query(
+    `SELECT 1 FROM community_restrictions
+     WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP
+     LIMIT 1`,
+    [userId],
+  );
+  if (restricted.rowCount)
+    throw new CommunityForbiddenError("community activity is restricted");
+}
+
+async function caseFor(client: PoolClient, id: string, lock = false) {
+  const result = await client.query<CaseRow>(
+    `SELECT ${caseFields} ${caseJoin} WHERE c.id = $1${lock ? " FOR UPDATE OF c" : ""}`,
+    [id],
+  );
+  const found = result.rows[0];
+  if (!found) throw new CommunityNotFoundError("case not found");
+  return found;
+}
+
+async function audit(
+  client: PoolClient,
+  caseId: string,
+  actorId: string,
+  action: string,
+  appealId: string | null = null,
+  note: string | null = null,
+) {
+  await client.query(
+    `INSERT INTO community_audit_events (case_id, appeal_id, actor_user_id, action, note)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [caseId, appealId, actorId, action, note],
+  );
+}
+
+async function notifyCase(
+  client: PoolClient,
+  userId: string,
+  debateId: string,
+  message: string,
+) {
+  await client.query(
+    `INSERT INTO account_notifications (user_id, event_type, message, debate_id)
+     VALUES ($1, 'community_moderation', $2, $3)`,
+    [userId, message, debateId],
+  );
+}
+
+export function createCommunityRepository(database: Pool) {
+  return Object.freeze({
+    async publicEvent(id: string) {
+      const result = await database.query<{
+        id: string;
+        slug: string;
+        status: string;
+        proposition: string;
+        topicTitle: string;
+        sideALabel: string;
+        sideBLabel: string;
+        speakerA: string | null;
+        speakerB: string | null;
+        scheduledAt: Date | null;
+      }>(
+        `SELECT d.id, d.slug, d.status, d.proposition,
+          t.title AS "topicTitle", t.side_a_label AS "sideALabel",
+          t.side_b_label AS "sideBLabel", pa.display_name AS "speakerA",
+          pb.display_name AS "speakerB", d.scheduled_at AS "scheduledAt"
+         FROM debates d JOIN topics t ON t.id = d.topic_id
+         LEFT JOIN public_profiles pa ON pa.id = d.speaker_a_profile_id AND pa.publication_state = 'published'
+         LEFT JOIN public_profiles pb ON pb.id = d.speaker_b_profile_id AND pb.publication_state = 'published'
+         WHERE d.id = $1 AND d.publication_state = 'published'
+           AND t.publication_state = 'published' AND d.is_demo = false`,
+        [id],
+      );
+      return result.rows[0] ?? null;
+    },
+
+    async publicEventBySlug(slug: string) {
+      const result = await database.query<{ id: string }>(
+        `SELECT d.id FROM debates d JOIN topics t ON t.id = d.topic_id
+         WHERE d.slug = $1 AND d.publication_state = 'published'
+           AND t.publication_state = 'published' AND d.is_demo = false`,
+        [slug],
+      );
+      return result.rows[0] ? this.publicEvent(result.rows[0].id) : null;
+    },
+
+    async summary(id: string, userId?: string) {
+      const event = await this.publicEvent(id);
+      if (!event) throw new CommunityNotFoundError("event not found");
+      const result = await database.query<{
+        likes: string;
+        liked: boolean;
+        chatState: "open" | "paused";
+      }>(
+        `SELECT
+          (SELECT COUNT(*)::text FROM event_likes WHERE debate_id = $1) AS likes,
+          EXISTS (SELECT 1 FROM event_likes WHERE debate_id = $1 AND user_id = $2) AS liked,
+          COALESCE((SELECT state FROM event_chat_controls WHERE debate_id = $1), 'open') AS "chatState"`,
+        [id, userId ?? null],
+      );
+      return {
+        eventId: id,
+        likes: Number(result.rows[0]!.likes),
+        liked: result.rows[0]!.liked,
+        chatState: result.rows[0]!.chatState,
+        chatWritable:
+          event.status === "live" && result.rows[0]!.chatState === "open",
+      };
+    },
+
+    async listChat(id: string, before?: string) {
+      const event = await this.publicEvent(id);
+      if (!event) throw new CommunityNotFoundError("event not found");
+      const result = await database.query<ChatRow>(
+        `SELECT m.id, m.debate_id AS "debateId",
+          m.author_user_id AS "authorUserId",
+          COALESCE(p.display_name, 'Participant') AS "authorName",
+          m.body, m.state, m.created_at AS "createdAt"
+         FROM event_chat_messages m
+         LEFT JOIN public_profiles p ON p.user_id = m.author_user_id
+           AND p.publication_state = 'published'
+         WHERE m.debate_id = $1 AND m.state = 'visible'
+           AND ($2::bigint IS NULL OR m.id < $2)
+         ORDER BY m.id DESC LIMIT 51`,
+        [id, before ?? null],
+      );
+      return {
+        items: result.rows
+          .slice(0, 50)
+          .reverse()
+          .map((item) => ({
+            id: item.id,
+            debateId: item.debateId,
+            authorName: item.authorName,
+            body: item.body,
+            createdAt: item.createdAt,
+          })),
+        hasMore: result.rows.length > 50,
+      };
+    },
+
+    async syncChat(id: string, after: string, watchedIds: string[]) {
+      const event = await this.publicEvent(id);
+      if (!event) throw new CommunityNotFoundError("event not found");
+      const [newMessages, watched] = await Promise.all([
+        database.query<ChatRow>(
+          `SELECT m.id, m.debate_id AS "debateId",
+            m.author_user_id AS "authorUserId",
+            COALESCE(p.display_name, 'Participant') AS "authorName",
+            m.body, m.state, m.created_at AS "createdAt"
+           FROM event_chat_messages m
+           LEFT JOIN public_profiles p ON p.user_id = m.author_user_id
+             AND p.publication_state = 'published'
+           WHERE m.debate_id = $1 AND m.state = 'visible' AND m.id > $2
+           ORDER BY m.id ASC LIMIT 51`,
+          [id, after],
+        ),
+        watchedIds.length
+          ? database.query<ChatRow>(
+              `SELECT m.id, m.debate_id AS "debateId",
+                m.author_user_id AS "authorUserId",
+                COALESCE(p.display_name, 'Participant') AS "authorName",
+                m.body, m.state, m.created_at AS "createdAt"
+               FROM event_chat_messages m
+               LEFT JOIN public_profiles p ON p.user_id = m.author_user_id
+                 AND p.publication_state = 'published'
+               WHERE m.debate_id = $1 AND m.state = 'visible'
+                 AND m.id = ANY($2::bigint[])
+               ORDER BY m.id ASC`,
+              [id, watchedIds],
+            )
+          : Promise.resolve({ rows: [] as ChatRow[] }),
+      ]);
+      const publicMessage = (item: ChatRow) => ({
+        id: item.id,
+        debateId: item.debateId,
+        authorName: item.authorName,
+        body: item.body,
+        createdAt: item.createdAt,
+      });
+      return {
+        items: newMessages.rows.slice(0, 50).map(publicMessage),
+        hasMore: newMessages.rows.length > 50,
+        watched: watched.rows.map(publicMessage),
+      };
+    },
+
+    async postChat(id: string, userId: string, body: string) {
+      return transaction(database, async (client) => {
+        await lockAccount(client, userId);
+        await assertWritable(client, userId);
+        const event = await eventFor(client, id, true);
+        if (event.status !== "live")
+          throw new CommunityConflictError(
+            "chat is available only during a live event",
+          );
+        const profile = await client.query(
+          `SELECT 1 FROM public_profiles WHERE user_id = $1
+             AND publication_state = 'published' AND is_demo = false`,
+          [userId],
+        );
+        if (!profile.rowCount)
+          throw new CommunityForbiddenError(
+            "a published profile is required to chat",
+          );
+        await client.query(
+          `INSERT INTO event_chat_controls (debate_id) VALUES ($1)
+           ON CONFLICT (debate_id) DO NOTHING`,
+          [id],
+        );
+        const control = await client.query<{ state: string }>(
+          "SELECT state FROM event_chat_controls WHERE debate_id = $1 FOR UPDATE",
+          [id],
+        );
+        if (control.rows[0]?.state !== "open")
+          throw new CommunityConflictError("event chat is paused");
+        const limits = await client.query<{ recent: string; hourly: string }>(
+          `SELECT
+            COUNT(*) FILTER (WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '10 seconds')::text AS recent,
+            COUNT(*) FILTER (WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '1 hour')::text AS hourly
+           FROM event_chat_messages WHERE author_user_id = $1
+             AND created_at > CURRENT_TIMESTAMP - INTERVAL '1 hour'`,
+          [userId],
+        );
+        if (
+          Number(limits.rows[0]!.recent) > 0 ||
+          Number(limits.rows[0]!.hourly) >= 30
+        )
+          throw new CommunityRateError("chat limit reached; try again later");
+        const result = await client.query<ChatRow>(
+          `INSERT INTO event_chat_messages (debate_id, author_user_id, body)
+           VALUES ($1, $2, $3)
+           RETURNING id, debate_id AS "debateId", author_user_id AS "authorUserId",
+             body, state, created_at AS "createdAt"`,
+          [id, userId, body],
+        );
+        return result.rows[0]!;
+      });
+    },
+
+    async setLike(id: string, userId: string, liked: boolean) {
+      return transaction(database, async (client) => {
+        await lockAccount(client, userId);
+        await eventFor(client, id, true);
+        if (liked) await assertWritable(client, userId);
+        const current = await client.query(
+          "SELECT 1 FROM event_likes WHERE debate_id = $1 AND user_id = $2",
+          [id, userId],
+        );
+        if (Boolean(current.rowCount) !== liked) {
+          const changes = await client.query<{ total: string }>(
+            `SELECT COUNT(*)::text AS total FROM event_like_changes
+             WHERE user_id = $1 AND changed_at > CURRENT_TIMESTAMP - INTERVAL '1 hour'`,
+            [userId],
+          );
+          if (Number(changes.rows[0]!.total) >= 10)
+            throw new CommunityRateError(
+              "like change limit reached; try again later",
+            );
+          if (liked) {
+            await client.query(
+              `INSERT INTO event_likes (debate_id, user_id) VALUES ($1, $2)
+               ON CONFLICT (debate_id, user_id) DO NOTHING`,
+              [id, userId],
+            );
+          } else {
+            await client.query(
+              "DELETE FROM event_likes WHERE debate_id = $1 AND user_id = $2",
+              [id, userId],
+            );
+          }
+          await client.query(
+            `INSERT INTO event_like_changes (debate_id, user_id, action)
+             VALUES ($1, $2, $3)`,
+            [id, userId, liked ? "like" : "unlike"],
+          );
+        }
+        const result = await client.query<{ likes: string }>(
+          "SELECT COUNT(*)::text AS likes FROM event_likes WHERE debate_id = $1",
+          [id],
+        );
+        return { liked, likes: Number(result.rows[0]!.likes) };
+      });
+    },
+
+    async report(
+      userId: string,
+      targetType: "event" | "chat",
+      targetId: string,
+      reasonCode: ReasonCode,
+      detail: string,
+    ) {
+      return transaction(database, async (client) => {
+        await lockAccount(client, userId);
+        await assertWritable(client, userId);
+        const count = await client.query<{ total: string }>(
+          `SELECT COUNT(*)::text AS total FROM moderation_cases
+           WHERE reporter_user_id = $1
+             AND created_at > CURRENT_TIMESTAMP - INTERVAL '24 hours'`,
+          [userId],
+        );
+        if (Number(count.rows[0]!.total) >= 5)
+          throw new CommunityRateError("report limit reached; try again later");
+        let debateId = targetId;
+        let chatId: string | null = null;
+        if (targetType === "chat") {
+          const chat = await client.query<{
+            debateId: string;
+            authorUserId: string;
+          }>(
+            `SELECT debate_id AS "debateId", author_user_id AS "authorUserId"
+             FROM event_chat_messages WHERE id = $1 AND state = 'visible' FOR SHARE`,
+            [targetId],
+          );
+          if (!chat.rows[0])
+            throw new CommunityNotFoundError("chat message not found");
+          if (chat.rows[0].authorUserId === userId)
+            throw new CommunityForbiddenError("cannot report your own chat");
+          debateId = chat.rows[0].debateId;
+          chatId = targetId;
+        }
+        await eventFor(client, debateId, true);
+        const result = await client.query<{ id: string }>(
+          `INSERT INTO moderation_cases
+            (reporter_user_id, debate_id, target_type, target_chat_id, reason_code, detail)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+          [userId, debateId, targetType, chatId, reasonCode, detail],
+        );
+        await audit(client, result.rows[0]!.id, userId, "reported");
+        return { id: result.rows[0]!.id, status: "open" as const };
+      });
+    },
+
+    async listCases(status: "open" | "dismissed" | "actioned" = "open") {
+      const result = await database.query<CaseRow>(
+        `SELECT ${caseFields} ${caseJoin}
+         WHERE c.status = $1 ORDER BY c.created_at ASC, c.id ASC LIMIT 50`,
+        [status],
+      );
+      return result.rows;
+    },
+
+    async getCase(id: string) {
+      const client = await database.connect();
+      try {
+        const record = await caseFor(client, id);
+        const [appeals, history] = await Promise.all([
+          client.query<AppealRow>(
+            `SELECT id, case_id AS "caseId", appellant_user_id AS "appellantUserId",
+              reason, status, reviewer_user_id AS "reviewerUserId",
+              decision_note AS "decisionNote", decided_at AS "decidedAt",
+              created_at AS "createdAt"
+             FROM moderation_appeals WHERE case_id = $1`,
+            [id],
+          ),
+          client.query(
+            `SELECT action, note, actor_user_id AS "actorUserId", occurred_at AS "occurredAt"
+             FROM community_audit_events WHERE case_id = $1 ORDER BY id`,
+            [id],
+          ),
+        ]);
+        return {
+          ...record,
+          appeal: appeals.rows[0] ?? null,
+          history: history.rows,
+        };
+      } finally {
+        client.release();
+      }
+    },
+
+    async listMyCases(userId: string) {
+      const result = await database.query<
+        CaseRow & {
+          appealId: string | null;
+          appealStatus: string | null;
+        }
+      >(
+        `SELECT ${caseFields}, a.id AS "appealId", a.status AS "appealStatus"
+         ${caseJoin} LEFT JOIN moderation_appeals a ON a.case_id = c.id
+         WHERE c.reporter_user_id = $1 OR m.author_user_id = $1
+         ORDER BY c.created_at DESC, c.id DESC LIMIT 50`,
+        [userId],
+      );
+      return result.rows.map((item) => ({
+        id: item.id,
+        debateId: item.debateId,
+        targetType: item.targetType,
+        reasonCode: item.reasonCode,
+        detail: item.reporterUserId === userId ? item.detail : null,
+        status: item.status,
+        action: item.action,
+        decisionReason: item.decisionReason,
+        createdAt: item.createdAt,
+        decidedAt: item.decidedAt,
+        isReporter: item.reporterUserId === userId,
+        appealId: item.subjectUserId === userId ? item.appealId : null,
+        appealStatus: item.subjectUserId === userId ? item.appealStatus : null,
+        canAppeal:
+          item.subjectUserId === userId &&
+          item.status === "actioned" &&
+          (item.action === "remove_chat" ||
+            item.action === "restrict_account") &&
+          !item.appealId &&
+          !!item.decidedAt &&
+          item.decidedAt.getTime() > Date.now() - 30 * 24 * 60 * 60 * 1000,
+      }));
+    },
+
+    async decideCase(
+      id: string,
+      moderatorId: string,
+      action: CaseAction,
+      reasonCode: ReasonCode,
+      note: string,
+    ) {
+      return transaction(database, async (client) => {
+        const record = await caseFor(client, id, true);
+        if (record.status !== "open")
+          throw new CommunityConflictError("case already reviewed");
+        if (
+          record.reporterUserId === moderatorId ||
+          record.subjectUserId === moderatorId
+        )
+          throw new CommunityForbiddenError(
+            "cannot review your own case or content",
+          );
+        if (record.targetType === "event") {
+          const ownSeat = await client.query(
+            "SELECT 1 FROM event_participants WHERE debate_id = $1 AND user_id = $2",
+            [record.debateId, moderatorId],
+          );
+          if (ownSeat.rowCount)
+            throw new CommunityForbiddenError("cannot review your own event");
+        }
+        if (
+          (record.targetType === "chat" && action === "pause_chat") ||
+          (record.targetType === "event" &&
+            ["remove_chat", "restrict_account"].includes(action))
+        )
+          throw new CommunityConflictError(
+            "action does not apply to this report",
+          );
+        if (action === "remove_chat") {
+          const changed = await client.query(
+            `UPDATE event_chat_messages SET state = 'removed', removal_case_id = $2
+             WHERE id = $1 AND state = 'visible'`,
+            [record.targetChatId, id],
+          );
+          if (!changed.rowCount)
+            throw new CommunityConflictError("chat message is already removed");
+        } else if (action === "restrict_account") {
+          if (!record.subjectUserId)
+            throw new CommunityConflictError("chat author is unavailable");
+          await lockAccount(client, record.subjectUserId);
+          const active = await client.query(
+            `SELECT 1 FROM community_restrictions
+             WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP`,
+            [record.subjectUserId],
+          );
+          if (active.rowCount)
+            throw new CommunityConflictError(
+              "account already has an active restriction",
+            );
+          await client.query(
+            `INSERT INTO community_restrictions (user_id, case_id, expires_at)
+             VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '7 days')`,
+            [record.subjectUserId, id],
+          );
+        } else if (action === "pause_chat") {
+          await client.query(
+            `INSERT INTO event_chat_controls (debate_id) VALUES ($1)
+             ON CONFLICT (debate_id) DO NOTHING`,
+            [record.debateId],
+          );
+          const changed = await client.query(
+            `UPDATE event_chat_controls SET state = 'paused', pause_case_id = $2,
+               updated_at = CURRENT_TIMESTAMP
+             WHERE debate_id = $1 AND state = 'open'`,
+            [record.debateId, id],
+          );
+          if (!changed.rowCount)
+            throw new CommunityConflictError("event chat is already paused");
+        }
+        await client.query(
+          `UPDATE moderation_cases SET status = $2, action = $3,
+             reviewer_user_id = $4, decision_reason = $5, decision_note = $6,
+             decided_at = CURRENT_TIMESTAMP WHERE id = $1`,
+          [
+            id,
+            action === "dismiss" ? "dismissed" : "actioned",
+            action,
+            moderatorId,
+            reasonCode,
+            note,
+          ],
+        );
+        await audit(client, id, moderatorId, action);
+        await notifyCase(
+          client,
+          record.reporterUserId,
+          record.debateId,
+          "Your community report was reviewed. See My reports and appeals for the decision.",
+        );
+        if (record.subjectUserId && action !== "dismiss")
+          await notifyCase(
+            client,
+            record.subjectUserId,
+            record.debateId,
+            "A moderation action affected your event chat. See My reports and appeals for details and appeal options.",
+          );
+        return {
+          id,
+          status: action === "dismiss" ? "dismissed" : "actioned",
+          action,
+        };
+      });
+    },
+
+    async resumeChat(id: string, moderatorId: string, note: string) {
+      return transaction(database, async (client) => {
+        const record = await caseFor(client, id, true);
+        if (record.action !== "pause_chat" || record.status !== "actioned")
+          throw new CommunityConflictError("case did not pause chat");
+        if (record.reporterUserId === moderatorId)
+          throw new CommunityForbiddenError("cannot review your own report");
+        const ownSeat = await client.query(
+          "SELECT 1 FROM event_participants WHERE debate_id = $1 AND user_id = $2",
+          [record.debateId, moderatorId],
+        );
+        if (ownSeat.rowCount)
+          throw new CommunityForbiddenError("cannot review your own event");
+        const changed = await client.query(
+          `UPDATE event_chat_controls SET state = 'open', pause_case_id = NULL,
+             updated_at = CURRENT_TIMESTAMP
+           WHERE debate_id = $1 AND state = 'paused' AND pause_case_id = $2`,
+          [record.debateId, id],
+        );
+        if (!changed.rowCount)
+          throw new CommunityConflictError("chat is not paused by this case");
+        await audit(client, id, moderatorId, "chat_resumed", null, note);
+        return { id, chatState: "open" as const };
+      });
+    },
+
+    async appeal(id: string, userId: string, reason: string) {
+      return transaction(database, async (client) => {
+        const record = await caseFor(client, id, true);
+        if (
+          record.status !== "actioned" ||
+          !["remove_chat", "restrict_account"].includes(record.action ?? "") ||
+          record.subjectUserId !== userId
+        )
+          throw new CommunityForbiddenError(
+            "case is not appealable by this account",
+          );
+        if (
+          !record.decidedAt ||
+          record.decidedAt.getTime() < Date.now() - 30 * 24 * 60 * 60 * 1000
+        )
+          throw new CommunityConflictError("appeal window has closed");
+        const existing = await client.query(
+          "SELECT 1 FROM moderation_appeals WHERE case_id = $1",
+          [id],
+        );
+        if (existing.rowCount)
+          throw new CommunityConflictError("case has already been appealed");
+        const result = await client.query<{ id: string }>(
+          `INSERT INTO moderation_appeals (case_id, appellant_user_id, reason)
+           VALUES ($1, $2, $3) RETURNING id`,
+          [id, userId, reason],
+        );
+        await audit(client, id, userId, "appealed", result.rows[0]!.id);
+        return { id: result.rows[0]!.id, caseId: id, status: "open" as const };
+      });
+    },
+
+    async listAppeals() {
+      const result = await database.query<AppealRow>(
+        `SELECT id, case_id AS "caseId", appellant_user_id AS "appellantUserId",
+          reason, status, reviewer_user_id AS "reviewerUserId",
+          decision_note AS "decisionNote", decided_at AS "decidedAt",
+          created_at AS "createdAt"
+         FROM moderation_appeals WHERE status = 'open'
+         ORDER BY created_at ASC, id ASC LIMIT 50`,
+      );
+      return result.rows;
+    },
+
+    async decideAppeal(
+      id: string,
+      moderatorId: string,
+      decision: "upheld" | "overturned",
+      note: string,
+    ) {
+      return transaction(database, async (client) => {
+        const target = await client.query<{ caseId: string }>(
+          'SELECT case_id AS "caseId" FROM moderation_appeals WHERE id = $1',
+          [id],
+        );
+        if (!target.rows[0])
+          throw new CommunityNotFoundError("appeal not found");
+        const record = await caseFor(client, target.rows[0].caseId, true);
+        const appeal = await client.query<AppealRow>(
+          `SELECT id, case_id AS "caseId", appellant_user_id AS "appellantUserId",
+            reason, status, reviewer_user_id AS "reviewerUserId",
+            decision_note AS "decisionNote", decided_at AS "decidedAt",
+            created_at AS "createdAt"
+           FROM moderation_appeals WHERE id = $1 FOR UPDATE`,
+          [id],
+        );
+        if (appeal.rows[0]?.status !== "open")
+          throw new CommunityConflictError("appeal already reviewed");
+        if (
+          record.reviewerUserId === moderatorId ||
+          appeal.rows[0].appellantUserId === moderatorId
+        )
+          throw new CommunityForbiddenError(
+            "a different moderator must review the appeal",
+          );
+        if (decision === "overturned") {
+          if (record.action === "remove_chat") {
+            await client.query(
+              `UPDATE event_chat_messages SET state = 'visible', removal_case_id = NULL
+               WHERE id = $1 AND state = 'removed' AND removal_case_id = $2`,
+              [record.targetChatId, record.id],
+            );
+          } else if (record.action === "restrict_account") {
+            await client.query(
+              `UPDATE community_restrictions SET revoked_at = CURRENT_TIMESTAMP
+               WHERE case_id = $1 AND revoked_at IS NULL`,
+              [record.id],
+            );
+          }
+        }
+        await client.query(
+          `UPDATE moderation_appeals SET status = $2, reviewer_user_id = $3,
+            decision_note = $4, decided_at = CURRENT_TIMESTAMP WHERE id = $1`,
+          [id, decision, moderatorId, note],
+        );
+        await audit(client, record.id, moderatorId, `appeal_${decision}`, id);
+        await notifyCase(
+          client,
+          appeal.rows[0].appellantUserId,
+          record.debateId,
+          "Your community appeal was reviewed. See My reports and appeals for the decision.",
+        );
+        return { id, status: decision };
+      });
+    },
+
+    async pruneExpired() {
+      return transaction(database, async (client) => {
+        const cases = await client.query(
+          `DELETE FROM moderation_cases c
+           WHERE c.status <> 'open' AND c.decided_at < CURRENT_TIMESTAMP - INTERVAL '365 days'
+             AND NOT EXISTS (SELECT 1 FROM moderation_appeals a
+               WHERE a.case_id = c.id AND a.status = 'open')`,
+        );
+        const chat = await client.query(
+          `DELETE FROM event_chat_messages m
+           WHERE m.created_at < CURRENT_TIMESTAMP - INTERVAL '365 days'
+             AND NOT EXISTS (SELECT 1 FROM moderation_cases c WHERE c.target_chat_id = m.id)`,
+        );
+        const likes = await client.query(
+          "DELETE FROM event_likes WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '365 days'",
+        );
+        const likeChanges = await client.query(
+          "DELETE FROM event_like_changes WHERE changed_at < CURRENT_TIMESTAMP - INTERVAL '365 days'",
+        );
+        return {
+          cases: cases.rowCount ?? 0,
+          chat: chat.rowCount ?? 0,
+          likes: likes.rowCount ?? 0,
+          likeChanges: likeChanges.rowCount ?? 0,
+        };
+      });
+    },
+  });
+}

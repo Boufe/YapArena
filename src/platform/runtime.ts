@@ -7,6 +7,7 @@ import type { createIdentityRepository } from "../features/identity/repository.t
 import type { createMatchingRepository } from "../features/matching/repository.ts";
 import type { createMediaRepository } from "../features/media/repository.ts";
 import type { createMediaProvider } from "../features/media/provider.ts";
+import type { createCommunityRepository } from "../features/community/repository.ts";
 import type { createWalletRepository } from "./auth/wallets.ts";
 import type { loadConfig } from "./config.ts";
 
@@ -16,6 +17,7 @@ export function createRuntime({
   sessions,
   identity,
   matching,
+  community,
   media,
   mediaProvider,
   wallets,
@@ -37,6 +39,10 @@ export function createRuntime({
   matching?: Pick<
     ReturnType<typeof createMatchingRepository>,
     "expireRequests"
+  >;
+  community?: Pick<
+    ReturnType<typeof createCommunityRepository>,
+    "pruneExpired"
   >;
   media?: Pick<
     ReturnType<typeof createMediaRepository>,
@@ -125,6 +131,13 @@ export function createRuntime({
         await matching.expireRequests();
       } catch (error) {
         logger.error({ error }, "debate request expiry failed");
+      }
+    }
+    if (community) {
+      try {
+        await community.pruneExpired();
+      } catch (error) {
+        logger.error({ error }, "community retention cleanup failed");
       }
     }
   }

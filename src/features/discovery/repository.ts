@@ -67,8 +67,6 @@ interface DebateRow extends Omit<
   speakerADisplayName: string | null;
   speakerBHandle: string | null;
   speakerBDisplayName: string | null;
-  sponsorName: string | null;
-  sponsorDisclosure: string | null;
 }
 
 function page<T>(rows: T[], limit: number, offset: number): PublicList<T> {
@@ -104,10 +102,7 @@ function mapDebate(row: DebateRow): PublicDebate {
       row.speakerBHandle && row.speakerBDisplayName
         ? { handle: row.speakerBHandle, displayName: row.speakerBDisplayName }
         : null,
-    sponsor:
-      row.sponsorName && row.sponsorDisclosure
-        ? { name: row.sponsorName, disclosure: row.sponsorDisclosure }
-        : null,
+    sponsor: null,
   };
 }
 
@@ -122,14 +117,12 @@ const debateColumns = `d.id, d.slug, d.proposition, d.status,
   t.slug AS "topicSlug", t.title AS "topicTitle",
   t.side_a_label AS "sideALabel", t.side_b_label AS "sideBLabel",
   pa.handle AS "speakerAHandle", pa.display_name AS "speakerADisplayName",
-  pb.handle AS "speakerBHandle", pb.display_name AS "speakerBDisplayName",
-  s.name AS "sponsorName", s.disclosure AS "sponsorDisclosure"`;
+  pb.handle AS "speakerBHandle", pb.display_name AS "speakerBDisplayName"`;
 
 const debateJoins = `FROM debates d
   INNER JOIN topics t ON t.id = d.topic_id AND t.publication_state = 'published'
   LEFT JOIN public_profiles pa ON pa.id = d.speaker_a_profile_id AND pa.publication_state = 'published'
-  LEFT JOIN public_profiles pb ON pb.id = d.speaker_b_profile_id AND pb.publication_state = 'published'
-  LEFT JOIN sponsors s ON s.id = d.sponsor_id`;
+  LEFT JOIN public_profiles pb ON pb.id = d.speaker_b_profile_id AND pb.publication_state = 'published'`;
 
 export function createDiscoveryRepository(database: Pool) {
   return Object.freeze({

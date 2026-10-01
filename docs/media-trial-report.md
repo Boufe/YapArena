@@ -73,3 +73,14 @@ The failed-recording page and Egress status fixes passed CI and were deployed to
 ## Recommendation
 
 **Do not build Work Package 5 on this media design yet.** Later staging trials confirmed automatic speaker reconnect, capture shutdown at End, a completed R2 recording with a playable published replay, prompt first-turn microphone activation after `e1e545a`, and both speakers audible through turn changes. Complete a measured full trial on desktop and mobile, then choose latency and reliability budgets and expected audience size before selecting the design for production. Test webhook loss, worker restart, accessibility, and audience load as separate release gates.
+
+## Work Package 5 readiness gate
+
+The qualitative staging trials above support building media-independent community features.
+They do **not** close the media design gate. The record still lacks measured join, first-audio,
+turn-change, reconnect, replay-start, and full-playback times on desktop and mobile; viewer
+refresh, captions, accessibility, webhook loss, worker restart, and audience load also remain
+unverified. Record device/browser versions, UTC times, event and deployed commit, redacted
+logs, and a full replay check using the trial procedure above. Set latency and reliability
+budgets from those observations and review the remaining risks before declaring Work Package 5
+production ready. No such measured trial is claimed by the community implementation branch.

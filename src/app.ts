@@ -2,7 +2,7 @@ import cookieParser from "cookie-parser";
 import express from "express";
 import { fileURLToPath } from "node:url";
 import helmet from "helmet";
-import type { ErrorRequestHandler } from "express";
+import type { ErrorRequestHandler, Request } from "express";
 import type { Logger } from "pino";
 import type { createMessageRepository } from "./features/messages/repository.ts";
 import type { createDiscoveryRepository } from "./features/discovery/repository.ts";
@@ -10,6 +10,7 @@ import type { createIdentityRepository } from "./features/identity/repository.ts
 import type { createMatchingRepository } from "./features/matching/repository.ts";
 import type { createMediaRepository } from "./features/media/repository.ts";
 import type { createMediaProvider } from "./features/media/provider.ts";
+import type { createCommunityRepository } from "./features/community/repository.ts";
 import type { createUserRepository } from "./platform/auth/users.ts";
 import type { createSessionRepository } from "./platform/auth/sessions.ts";
 import type { createWalletRepository } from "./platform/auth/wallets.ts";
@@ -18,6 +19,7 @@ import { createMessageRouter } from "./features/messages/router.ts";
 import { createDiscoveryRouter } from "./features/discovery/router.ts";
 import { createIdentityRouter } from "./features/identity/router.ts";
 import { createMatchingRouter } from "./features/matching/router.ts";
+import { createCommunityRouter } from "./features/community/router.ts";
 import {
   createMediaRouter,
   createMediaWebhookRouter,
@@ -69,6 +71,7 @@ export function createApp({
   matching,
   media,
   mediaProvider,
+  community,
   users,
   sessions,
   wallets,
@@ -90,6 +93,7 @@ export function createApp({
   matching?: ReturnType<typeof createMatchingRepository>;
   media?: ReturnType<typeof createMediaRepository>;
   mediaProvider?: ReturnType<typeof createMediaProvider>;
+  community?: ReturnType<typeof createCommunityRepository>;
   users: ReturnType<typeof createUserRepository>;
   sessions: ReturnType<typeof createSessionRepository>;
   wallets?: ReturnType<typeof createWalletRepository>;
@@ -129,8 +133,24 @@ export function createApp({
         })
       : helmet(),
   );
+  const liveRead = (request: Request) =>
+    request.method === "GET" &&
+    /^\/api\/(?:media\/events\/[0-9a-f-]{36}|community\/events\/[0-9a-f-]{36}(?:\/my-like|\/chat\/sync)?)$/i.test(
+      request.path,
+    );
   app.use(
-    createApiRateLimiter({ windowMs: rateLimitWindowMs, limit: apiRateLimit }),
+    createApiRateLimiter({
+      windowMs: 60_000,
+      limit: 600,
+      skip: (request) => !liveRead(request),
+    }),
+  );
+  app.use(
+    createApiRateLimiter({
+      windowMs: rateLimitWindowMs,
+      limit: apiRateLimit,
+      skip: liveRead,
+    }),
   );
   if (media && mediaProvider) {
     app.use(
@@ -222,6 +242,16 @@ export function createApp({
         matching,
         identity,
         requireAuth: createRequireAuthentication({ sessions, environment }),
+      }),
+    );
+  }
+  if (community && identity) {
+    app.use(
+      createCommunityRouter({
+        community,
+        identity,
+        requireAuth: createRequireAuthentication({ sessions, environment }),
+        applicationOrigin: applicationOrigin ?? "http://localhost:3000",
       }),
     );
   }

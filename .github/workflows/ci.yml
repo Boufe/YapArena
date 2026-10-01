@@ -107,6 +107,10 @@ jobs:
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
             app node scripts/verify-matching.js
 
+          docker compose run --rm \
+            --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
+            app node scripts/verify-community.js
+
           curl --fail --silent --show-error http://localhost:3000/ \
             | grep --fixed-strings 'can-ai-make-us-more-creative'
           curl --fail --silent --show-error \

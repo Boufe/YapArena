@@ -74,6 +74,15 @@ jobs:
       - name: Download repository
         uses: actions/checkout@v7
 
+      - name: Set up Node.js for browser and smoke checks
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install browser test dependencies
+        run: npm ci
+
       - name: Create local test configuration
         run: cp .env.example .env
 
@@ -110,6 +119,10 @@ jobs:
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
             app node scripts/verify-community.js
 
+          docker compose run --rm \
+            --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
+            app node scripts/verify-measurement.js
+
           curl --fail --silent --show-error http://localhost:3000/ \
             | grep --fixed-strings 'can-ai-make-us-more-creative'
           curl --fail --silent --show-error \
@@ -120,6 +133,26 @@ jobs:
             | grep --fixed-strings '.site-header'
           curl --fail --silent --show-error http://localhost:3000/match \
             | grep --fixed-strings 'DEBATE MATCHING'
+
+      - name: Verify backup and isolated restore
+        env:
+          BACKUP_VERIFY_LOCAL: "1"
+        run: bash scripts/verify-backup-restore.sh
+
+      - name: Smoke test the running app
+        env:
+          SMOKE_BASE_URL: http://localhost:3000
+        run: node scripts/smoke-staging.js
+
+      - name: Verify desktop and mobile browser journeys and accessibility
+        env:
+          BROWSER_BASE_URL: http://localhost:3000
+          BROWSER_DATABASE_PORT: "5433"
+          BROWSER_ARTIFACT_DIR: /tmp/yaparena-browser
+        run: |
+          export BROWSER_CHROME_PATH="$(command -v google-chrome || command -v chromium)"
+          node --env-file=.env scripts/verify-measurement-browser.js
+          node --env-file=.env scripts/verify-community-browser.js
 
       - name: Verify persisted API request
         run: |

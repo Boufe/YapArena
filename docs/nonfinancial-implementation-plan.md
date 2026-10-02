@@ -184,6 +184,12 @@ open; passing code checks alone does not approve a production rollout.
 
 ## Work package 6 — Measurement and operating readiness
 
+Implementation is in progress on `feature/measurement-operating-readiness`. The
+[measurement contract and proposed metric](measurement-operations.md) records product approval of
+the 28-day returning participant **definition only**. The 30% threshold and use as a launch gate
+remain unapproved. The [operating trial record](operating-readiness-trial.md) distinguishes CI and local evidence
+from open staging, provider, physical-device, and media/community release gates.
+
 **Build** consent-aware, low-cardinality product events for public discovery, watch time,
 matching, debate completion, replay, follows, reports, and return visits. Segment founder and
 independent activity. Do not equate wallets with unique people or count market activity before

@@ -15,6 +15,7 @@ const browser = await chromium.launch({
   args: ["--no-sandbox"],
 });
 const timings = [];
+const pages = [];
 try {
   for (const viewport of [
     { width: 1280, height: 800 },
@@ -22,6 +23,7 @@ try {
   ]) {
     const context = await browser.newContext({ viewport, bypassCSP: true });
     const page = await context.newPage();
+    pages.push(page);
     const started = performance.now();
     await page.goto(base);
     await page
@@ -59,6 +61,7 @@ try {
     );
     assert.equal(after.consented, true);
     await page.goto(`${base}/debates`);
+    await page.waitForFunction(() => window.yapMeasurement?.consented === true);
     await page.getByRole("button", { name: "Measurement settings" }).click();
     await page
       .getByRole("button", { name: "Turn off and delete data" })
@@ -102,5 +105,14 @@ try {
   }
   console.log(JSON.stringify({ at: new Date().toISOString(), base, timings }));
 } finally {
+  for (const page of pages) {
+    try {
+      await page.evaluate(() =>
+        fetch("/api/measurement/consent", { method: "DELETE" }),
+      );
+    } catch {
+      // Best-effort cleanup when a page or network failed mid-trial.
+    }
+  }
   await browser.close();
 }

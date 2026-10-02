@@ -21,6 +21,12 @@ The consent browser trial was repeated at 19:54 UTC with the visible choice pane
 
 GitHub's active `Protect main` ruleset requires a pull request and the `quality / check`, `container`, `integration`, `monitoring`, and `deployment` checks with up-to-date status before merge. The Work Package 6 CI integration job now runs measurement PostgreSQL verification, an isolated backup/restore, smoke checks, and desktop/mobile Chrome plus axe journeys. Passing that ruleset is still only one release input.
 
+## Render staging repeat — 2026-10-02
+
+Owner: implementation maintainer. Render service `yaparena-staging-web`, Ohio Free instance; Supabase PostgreSQL through the existing session-pooler connection; deployed branch `feature/measurement-operating-readiness`, commit `ddc9ed47f2437d6067e3dbc7d56137145a47da67`, deploy `dep-db00rbnf3r2c73ajl00g` live at 20:02:33 UTC. All five PR checks passed. At 20:03:15 UTC, the staging smoke returned expected responses: `/ready`, homepage, debates, measurement asset and anonymous consent 200; anonymous dashboard/API 401. Single-response observations ranged from 60 to 162 ms on this warm instance. `/metrics` returned `yaparena_product_snapshot_fresh 1` from the separate product aggregate; the two unclassified discovery events visible during this check included synthetic staging browser activity, not independent users.
+
+At 20:03 UTC the first staging Chrome check stopped after navigation because the test clicked the settings control before the page's consent fetch had resolved. The test now waits for consent state on the new page and withdraws consent in cleanup even if an assertion fails. The repeat at 20:04:31 UTC passed desktop 1280 × 800 and emulated phone 390 × 844 consent, withdrawal, no-overflow, anonymous authorization and axe WCAG A/AA checks. Full scripted flow times were 1,318 ms and 1,265 ms. The first failed trial left one anonymous synthetic consented browser event because its browser context closed before withdrawal; it remains unclassified and expires under the 90-day raw-event policy. Future browser runs use cleanup. This remains an emulated viewport on a Mac, not a physical mobile trial.
+
 ## Candidate service objectives to validate in staging
 
 These are **trial hypotheses**, derived from the observed journeys and intended “shortly after send” chat experience. They are not approved release targets. Repeat at least 30 samples per device/network and at expected audience load before proposing a gate.

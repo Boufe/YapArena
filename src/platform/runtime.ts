@@ -8,6 +8,7 @@ import type { createMatchingRepository } from "../features/matching/repository.t
 import type { createMediaRepository } from "../features/media/repository.ts";
 import type { createMediaProvider } from "../features/media/provider.ts";
 import type { createCommunityRepository } from "../features/community/repository.ts";
+import type { createMeasurementRepository } from "../features/measurement/repository.ts";
 import type { createWalletRepository } from "./auth/wallets.ts";
 import type { loadConfig } from "./config.ts";
 
@@ -18,6 +19,7 @@ export function createRuntime({
   identity,
   matching,
   community,
+  measurement,
   media,
   mediaProvider,
   wallets,
@@ -42,6 +44,10 @@ export function createRuntime({
   >;
   community?: Pick<
     ReturnType<typeof createCommunityRepository>,
+    "pruneExpired"
+  >;
+  measurement?: Pick<
+    ReturnType<typeof createMeasurementRepository>,
     "pruneExpired"
   >;
   media?: Pick<
@@ -138,6 +144,13 @@ export function createRuntime({
         await community.pruneExpired();
       } catch (error) {
         logger.error({ error }, "community retention cleanup failed");
+      }
+    }
+    if (measurement) {
+      try {
+        await measurement.pruneExpired();
+      } catch (error) {
+        logger.error({ error }, "product measurement retention cleanup failed");
       }
     }
   }

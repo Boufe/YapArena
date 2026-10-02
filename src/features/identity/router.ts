@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { NextFunction, Request, Response } from "express";
 import type { createIdentityRepository } from "./repository.ts";
+import type { ProductActionRecorder } from "../measurement/router.ts";
 
 type Repository = ReturnType<typeof createIdentityRepository>;
 const handlePattern = /^[a-z0-9][a-z0-9-]{2,39}$/;
@@ -99,7 +100,13 @@ function isUniqueViolation(error: unknown) {
   );
 }
 
-export function createIdentityRouter({ identity }: { identity: Repository }) {
+export function createIdentityRouter({
+  identity,
+  recordProductAction,
+}: {
+  identity: Repository;
+  recordProductAction?: ProductActionRecorder;
+}) {
   const router = Router();
   const requireParticipant = createRequireRole(identity, ["participant"]);
   router.use((_request, response, next) => {
@@ -203,6 +210,12 @@ export function createIdentityRouter({ identity }: { identity: Repository }) {
           return response
             .status(409)
             .json({ error: "cannot follow your own profile" });
+        if (result === "created")
+          await recordProductAction?.(request, {
+            type: "follow_created",
+            targetType: type,
+            slug,
+          });
         return response.status(result === "created" ? 201 : 204).end();
       },
     );

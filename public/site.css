@@ -1303,3 +1303,47 @@ h3 {
     inset: auto 12px 12px;
   }
 }
+
+.measurement-choice {
+  position: fixed;
+  z-index: 100;
+  inset: auto 16px 16px;
+  max-width: 760px;
+  margin: auto;
+  padding: 18px;
+  border: 2px solid var(--acid);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 10px 36px rgb(0 0 0 / 45%);
+}
+.measurement-choice[hidden] {
+  display: none;
+}
+.measurement-choice p {
+  margin: 0 0 12px;
+}
+.measurement-choice > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.measurement-settings {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--acid);
+  text-decoration: underline;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table-scroll th,
+.table-scroll td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}

@@ -6,6 +6,7 @@ import { createMatchingRepository } from "./features/matching/repository.ts";
 import { createMediaRepository } from "./features/media/repository.ts";
 import { createMediaProvider } from "./features/media/provider.ts";
 import { createCommunityRepository } from "./features/community/repository.ts";
+import { createMeasurementRepository } from "./features/measurement/repository.ts";
 import { createSessionRepository } from "./platform/auth/sessions.ts";
 import { createWalletRepository } from "./platform/auth/wallets.ts";
 import { createUserRepository } from "./platform/auth/users.ts";
@@ -23,6 +24,7 @@ const discovery = createDiscoveryRepository(database);
 const identity = createIdentityRepository(database);
 const matching = createMatchingRepository(database);
 const community = createCommunityRepository(database);
+const measurement = createMeasurementRepository(database);
 const media = config.media ? createMediaRepository(database) : undefined;
 const mediaProvider = config.media
   ? createMediaProvider(config.media)
@@ -38,6 +40,7 @@ const app = createApp({
   media,
   mediaProvider,
   community,
+  measurement,
   users,
   sessions,
   wallets,
@@ -60,6 +63,7 @@ const runtime = createRuntime({
   identity,
   matching,
   community,
+  measurement,
   media,
   mediaProvider,
   wallets,

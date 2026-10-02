@@ -244,6 +244,39 @@ describe("service runtime", () => {
     assert.deepEqual(events, ["pruned", "retention unavailable"]);
   });
 
+  it("prunes consented measurement and logs a failed retention run", async () => {
+    const events = [];
+    let cleanup;
+    let runs = 0;
+    const runtime = createRuntime({
+      database: { end: async () => {} },
+      sessions: { deleteExpired: async () => 0 },
+      measurement: {
+        pruneExpired: async () => {
+          runs += 1;
+          if (runs === 1) events.push("pruned");
+          else throw new Error("measurement retention unavailable");
+        },
+      },
+      logger: {
+        info: () => {},
+        error: ({ error }) => events.push(error.message),
+      },
+      config: { port: 3000, host: "127.0.0.1" },
+      verifyDatabase: async () => {},
+      setIntervalFn: (callback) => {
+        cleanup = callback;
+        return { unref: () => {} };
+      },
+      clearIntervalFn: () => {},
+    });
+    await runtime.start();
+    await cleanup();
+    await cleanup();
+    await runtime.stop();
+    assert.deepEqual(events, ["pruned", "measurement retention unavailable"]);
+  });
+
   it("advances media turns and stops recordings independently of session cleanup", async () => {
     const events = [];
     const callbacks = new Map();

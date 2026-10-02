@@ -11,6 +11,7 @@ import type { createMatchingRepository } from "./features/matching/repository.ts
 import type { createMediaRepository } from "./features/media/repository.ts";
 import type { createMediaProvider } from "./features/media/provider.ts";
 import type { createCommunityRepository } from "./features/community/repository.ts";
+import type { createMeasurementRepository } from "./features/measurement/repository.ts";
 import type { createUserRepository } from "./platform/auth/users.ts";
 import type { createSessionRepository } from "./platform/auth/sessions.ts";
 import type { createWalletRepository } from "./platform/auth/wallets.ts";
@@ -20,6 +21,10 @@ import { createDiscoveryRouter } from "./features/discovery/router.ts";
 import { createIdentityRouter } from "./features/identity/router.ts";
 import { createMatchingRouter } from "./features/matching/router.ts";
 import { createCommunityRouter } from "./features/community/router.ts";
+import {
+  createMeasurementRouter,
+  createProductActionRecorder,
+} from "./features/measurement/router.ts";
 import {
   createMediaRouter,
   createMediaWebhookRouter,
@@ -72,6 +77,7 @@ export function createApp({
   media,
   mediaProvider,
   community,
+  measurement,
   users,
   sessions,
   wallets,
@@ -94,6 +100,7 @@ export function createApp({
   media?: ReturnType<typeof createMediaRepository>;
   mediaProvider?: ReturnType<typeof createMediaProvider>;
   community?: ReturnType<typeof createCommunityRepository>;
+  measurement?: ReturnType<typeof createMeasurementRepository>;
   users: ReturnType<typeof createUserRepository>;
   sessions: ReturnType<typeof createSessionRepository>;
   wallets?: ReturnType<typeof createWalletRepository>;
@@ -116,6 +123,8 @@ export function createApp({
     : undefined;
 
   app.disable("x-powered-by");
+  if (measurement)
+    metrics.setProductSummaryProvider(() => measurement.summary());
   app.set("trust proxy", trustProxy);
   app.use(createHttpLogger(logger));
   app.use(metrics.middleware);
@@ -180,6 +189,10 @@ export function createApp({
 
   app.get("/metrics", metrics.handler);
 
+  const recordProductAction = measurement
+    ? createProductActionRecorder({ measurement, environment })
+    : undefined;
+
   if (discovery) {
     app.get("/sw.js", (_request, response) => {
       response
@@ -223,14 +236,14 @@ export function createApp({
     app.use(
       "/api/me",
       createRequireAuthentication({ sessions, environment }),
-      createIdentityRouter({ identity }),
+      createIdentityRouter({ identity, recordProductAction }),
     );
   }
   if (matching && identity) {
     app.use(
       "/api/matching",
       createRequireAuthentication({ sessions, environment }),
-      createMatchingRouter({ matching, identity, media }),
+      createMatchingRouter({ matching, identity, media, recordProductAction }),
     );
   }
   if (media && mediaProvider && matching && identity) {
@@ -252,6 +265,18 @@ export function createApp({
         identity,
         requireAuth: createRequireAuthentication({ sessions, environment }),
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",
+        recordProductAction,
+      }),
+    );
+  }
+  if (measurement && identity) {
+    app.use(
+      createMeasurementRouter({
+        measurement,
+        sessions,
+        identity,
+        requireAuth: createRequireAuthentication({ sessions, environment }),
+        environment,
       }),
     );
   }

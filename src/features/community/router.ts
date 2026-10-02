@@ -15,6 +15,7 @@ import {
 } from "./repository.ts";
 import { createRequireRole } from "../identity/router.ts";
 import { renderModeration, renderMyModeration, renderOverlay } from "./web.ts";
+import type { ProductActionRecorder } from "../measurement/router.ts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const integer = /^[1-9]\d{0,18}$/;
@@ -80,11 +81,13 @@ export function createCommunityRouter({
   identity,
   requireAuth,
   applicationOrigin,
+  recordProductAction,
 }: {
   community: ReturnType<typeof createCommunityRepository>;
   identity: Pick<ReturnType<typeof createIdentityRepository>, "getRoles">;
   requireAuth: RequestHandler;
   applicationOrigin: string;
+  recordProductAction?: ProductActionRecorder;
 }) {
   const router = Router();
   const participant = createRequireRole(identity, ["participant"]);
@@ -228,14 +231,20 @@ export function createCommunityRouter({
         return response.status(400).json({ error: "invalid report fields" });
       return attempt(
         response,
-        () =>
-          community.report(
+        async () => {
+          const result = await community.report(
             request.user!.id,
             targetType,
             targetId,
             reasonCode,
             detail,
-          ),
+          );
+          await recordProductAction?.(request, {
+            type: "report_submitted",
+            caseId: result.id,
+          });
+          return result;
+        },
         201,
       );
     },

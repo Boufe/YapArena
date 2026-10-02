@@ -30,6 +30,15 @@ activity. Do not use this environment for promised live events or real user data
 
 ## Deploy the web service
 
+For the Work Package 6 trial, the existing Render service tracks
+`feature/measurement-operating-readiness` while its PR is reviewed. No new environment variables
+are required for measurement: it uses the existing PostgreSQL connection and browser consent.
+After merging, return the Render service to `main` and verify the deployed commit. The branch
+selection alone does not deploy unpushed work. Follow the
+[measurement release sequence](measurement-operations.md#release-and-rollback-sequence) and
+[operating trial record](operating-readiness-trial.md) for migration, smoke, backup/restore, and
+open media/community gates.
+
 1. Commit and push `main`. Validate `render.yaml` with `render blueprints validate render.yaml`.
 2. In Render, use **New → Blueprint**, connect `Boufe/YapArena`, and select `main`. The existing
    `yaparena-staging-web` service also tracks `main`. Review the preview: it should create only

@@ -99,22 +99,26 @@ Sanitized artifacts, containing catalog metadata rather than application rows or
 - `/tmp/yaparena-f04-hosted-evidence.eBMNQf/safe-settings.json`
 - `/tmp/yaparena-f04-hosted-evidence.eBMNQf/inspection-summary.json`
 
-The connector has no Data API configuration-read method. No management token or usable dashboard
-browser is available. No `authenticator` schema override was found in SQL settings; this does not
+The operator subsequently reported that **Enable Data API is OFF** in the confirmed project's
+dashboard, while the integration is marked installed. This is operator-reported dashboard evidence;
+the connector has no Data API configuration-read method, and no management token or usable dashboard
+browser is available for independent inspection. Exposed schemas and automatic table exposure
+remain unrecorded. No `authenticator` schema override was found in SQL settings; this does not
 prove the hosted Data API toggle or exposed-schema configuration. No hosted API keys, user JWTs,
 application rows or mutation probes were requested or used. No disposable hosted branch exists.
 
-| Hosted fact                                                                      | Status                                                                     |
-| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Correct staging project mapping                                                  | VERIFIED: operator reference and actual Render pooler mapping agree        |
-| Actual Data API enabled/disabled state and exposed schemas                       | UNVERIFIED: dashboard evidence required                                    |
-| Hosted privilege/RLS inventory before hardening                                  | COLLECTED; FAIL: broad browser grants and privileged runtime remain        |
-| Dedicated runtime/migration identities and private schemas                       | FAIL: absent from the deployed database                                    |
-| GraphQL extension, Realtime publication and Edge Functions                       | Catalog/config inventory collected; complete alternate-path review PENDING |
-| Render runtime-only secrets, linked groups/mounts and separate migration process | FAIL for current login; remaining environment inspection PENDING           |
-| Real hardened runtime session-pooler login/TLS                                   | NOT RUN: hardening has not been deployed                                   |
-| Valid anonymous and authenticated HTTP identity access probes                    | NOT RUN; require authorized disposable staging clone with synthetic data   |
-| Hosted migration/privilege changes or credential rotation                        | NOT PERFORMED; require separate authorization                              |
+| Hosted fact                                                                      | Status                                                                                          |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Correct staging project mapping                                                  | VERIFIED: operator reference and actual Render pooler mapping agree                             |
+| Actual Data API enabled/disabled state                                           | OFF: operator-reported dashboard confirmation; independent inspection/HTTP verification pending |
+| Exposed schemas and automatic table exposure                                     | UNRECORDED: dashboard evidence still required                                                   |
+| Hosted privilege/RLS inventory before hardening                                  | COLLECTED; FAIL: broad browser grants and privileged runtime remain                             |
+| Dedicated runtime/migration identities and private schemas                       | FAIL: absent from the deployed database                                                         |
+| GraphQL extension, Realtime publication and Edge Functions                       | Catalog/config inventory collected; complete alternate-path review PENDING                      |
+| Render runtime-only secrets, linked groups/mounts and separate migration process | FAIL for current login; remaining environment inspection PENDING                                |
+| Real hardened runtime session-pooler login/TLS                                   | NOT RUN: hardening has not been deployed                                                        |
+| Valid anonymous and authenticated HTTP identity access probes                    | NOT RUN; require authorized disposable staging clone with synthetic data                        |
+| Hosted migration/privilege changes or credential rotation                        | NOT PERFORMED; require separate authorization                                                   |
 
 ## Required operator actions
 

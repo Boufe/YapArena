@@ -8,15 +8,27 @@ export interface PublicUser {
 
 export interface StoredUser extends PublicUser {
   passwordHash: string | null;
+  authGeneration: string;
+}
+
+export interface AuthenticationUser extends PublicUser {
+  authGeneration: string;
+}
+
+export function publicUser(user: PublicUser): PublicUser {
+  return { id: user.id, email: user.email, createdAt: user.createdAt };
 }
 
 export function createUserRepository(database: Pool) {
   return Object.freeze({
-    async create(email: string, passwordHash: string): Promise<PublicUser> {
-      const result = await database.query<PublicUser>(
+    async create(
+      email: string,
+      passwordHash: string,
+    ): Promise<AuthenticationUser> {
+      const result = await database.query<AuthenticationUser>(
         `INSERT INTO users (email, password_hash)
          VALUES ($1, $2)
-         RETURNING id, email, created_at AS "createdAt"`,
+         RETURNING id, email, created_at AS "createdAt", auth_generation AS "authGeneration"`,
         [email, passwordHash],
       );
 
@@ -27,7 +39,7 @@ export function createUserRepository(database: Pool) {
     async findByEmail(email: string): Promise<StoredUser | null> {
       const result = await database.query<StoredUser>(
         `SELECT id, email, password_hash AS "passwordHash",
-                created_at AS "createdAt"
+                created_at AS "createdAt", auth_generation AS "authGeneration"
          FROM users
          WHERE email = $1`,
         [email],

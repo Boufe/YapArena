@@ -68,7 +68,13 @@ valid session (password-update rollback and one protected upgrade journey). The 
 rollback test, full PostgreSQL suite, fresh/upgrade harness rerun and final full gate passed.
 No assertion or coverage threshold was weakened. Explicit restored-session-row and account
 generation assertions were added to the rollback test. Preserve these observations during
-independent integration review; investigate if either recurs.
+independent integration review; investigate if either recurs. Ten subsequent consecutive
+coverage-instrumented runs on `fc1c427` passed all 150 PostgreSQL scenarios without reproducing
+the 401. This does not establish a cause; it bounds the actual local observations.
+
+A final audit-attribution review adds the executing database role to session-revocation
+events. Owner controls still identify their authenticated actor; administrative incident
+revocation does not misleadingly identify the affected account as the operator.
 
 ## Agent coordination and remaining release evidence
 

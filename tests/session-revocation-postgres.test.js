@@ -197,6 +197,11 @@ describe(
       );
       assert.equal(audit.rows[0].metadata.actorUserId, user.id);
       assert.equal(audit.rows[0].metadata.outcome, "success");
+      if (process.env.REVOCATION_TEST_RUNTIME_URL)
+        assert.equal(
+          audit.rows[0].metadata.actorDatabaseRole,
+          "yaparena_runtime",
+        );
       assert.ok(audit.rows[0].metadata.requestId);
       assert.doesNotMatch(
         JSON.stringify(audit.rows),
@@ -440,6 +445,16 @@ describe(
         });
         await client.query("COMMIT");
         await rejected;
+        const incident = await owner.query(
+          "SELECT metadata FROM identity_audit_events WHERE user_id=$1 AND event_type='sessions.incident'",
+          [user.id],
+        );
+        assert.equal(
+          incident.rows[0].metadata.actorUserId,
+          undefined,
+          "operator incidents must not attribute the action to the affected owner",
+        );
+        assert.ok(incident.rows[0].metadata.actorDatabaseRole);
       } finally {
         await client.query("ROLLBACK");
         client.release();

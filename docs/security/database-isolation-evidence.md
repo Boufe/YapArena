@@ -57,6 +57,15 @@ tested by inspecting resulting effective privileges. The local migration fixture
 inherited production NODE_ENV and correctly rejected demo seeding; its development environment was
 made explicit without changing the production migration job.
 
+During coordinated F02/F03 review, local HTTP tests intermittently reached an unexpected service;
+one response was an SSH banner. Installed Supertest binds an IPv6 listener by default but builds
+an IPv4 URL. A controlled regression with separate IPv6 and IPv4 servers on the same port proved
+the unadapted client reached the foreign server. The shared `scripts/test-http-request.js` adapter
+uses the actual listener's address family while preserving cookie-jar origins. The regression
+verifies both ordinary and agent requests. With this adapter, the F04 full gate passed **234 tests,
+zero skips**, retaining the coverage above. This establishes the transport condition and fix;
+it does not retrospectively prove the cause of every earlier unexpected 401.
+
 ## Hosted observations
 
 The operator confirmed the staging project reference, and Render's actual database pooler username

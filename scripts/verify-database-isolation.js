@@ -6,7 +6,7 @@ import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import pino from "pino";
-import supertest from "supertest";
+import supertest from "./test-http-request.js";
 import { runner } from "node-pg-migrate";
 import { privateKeyToAccount } from "viem/accounts";
 import { provisionDatabase } from "./provision-database.js";

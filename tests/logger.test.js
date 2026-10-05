@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { Writable } from "node:stream";
 import { describe, it } from "node:test";
 import express from "express";
-import request from "supertest";
+import request from "../scripts/test-http-request.js";
 import { privateKeyToAccount } from "viem/accounts";
 
 import { createApp } from "../dist/app.js";

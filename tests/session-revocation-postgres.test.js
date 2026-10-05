@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
-import request from "supertest";
+import request from "../scripts/test-http-request.js";
 import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "../dist/app.js";
 import { verifyRuntimeIdentity } from "../dist/platform/database.js";

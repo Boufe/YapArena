@@ -126,14 +126,21 @@ async function loadWallets() {
     button.className = "small-button";
     button.textContent = "Unlink";
     button.addEventListener("click", async () => {
-      if (!window.confirm("Unlink this wallet from your account?")) return;
+      if (
+        !window.confirm(
+          "Unlink this wallet? All sessions, including this device, will be signed out. Sign in again with a remaining credential.",
+        )
+      )
+        return;
       try {
         await api(
           `/api/auth/wallets/${encodeURIComponent(wallet.id)}`,
           "DELETE",
         );
-        say("Wallet unlinked.");
-        await loadWallets();
+        await loadAccount();
+        say(
+          "Wallet unlinked. All sessions signed out. Sign in with a remaining credential.",
+        );
       } catch (error) {
         say(error.message);
       }

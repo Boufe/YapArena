@@ -80,6 +80,18 @@ unavailable API, a 5xx rate above 5%, and p95 latency above 500 ms. Connect
 Prometheus to an Alertmanager in a deployed environment to route notifications;
 the local stack intentionally does not send them.
 
+## Account credential and session incidents
+
+Use the [account session revocation procedure](security/account-session-revocation.md) for
+owner logout-all/logout-others, wallet compromise and operator password credential updates.
+It defines account-first transaction locks, audit and generation checks. These operations
+allow a fresh sign-in with a retained credential; they are not account suspension. Existing
+LiveKit grants and connections need separate provider containment.
+
+Deploy the auth fixes with a coordinated restart. The additive F03 migration signs out all
+legacy sessions and consumes pending challenges. Its schema guards must stay installed
+through application rollback; restored session rows must be retired before reopening traffic.
+
 ## Diagnose an incident
 
 1. Check container state and health: `docker compose ps`.

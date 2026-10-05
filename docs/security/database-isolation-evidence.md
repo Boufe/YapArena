@@ -1,8 +1,8 @@
 # F04 verification record
 
 Date: **2026-10-05 UTC**. Repository work: `fix/f04-database-isolation`, additive migration
-`1791158400000_isolate_server_database`. Status: **local implementation verified; hosted isolation
-UNVERIFIED; F04 remains open as a P0 deployment gate**. No hosted configuration, credential rotation,
+`1791158400000_isolate_server_database`. Status: **local implementation verified; hosted SQL boundary
+NOT HARDENED; hosted API exposure UNVERIFIED; F04 remains open as a P0 deployment gate**. No hosted configuration, credential rotation,
 production privileges or deployment were changed.
 
 ## Local observations
@@ -57,33 +57,97 @@ tested by inspecting resulting effective privileges. The local migration fixture
 inherited production NODE_ENV and correctly rejected demo seeding; its development environment was
 made explicit without changing the production migration job.
 
+During coordinated F02/F03 review, local HTTP tests intermittently reached an unexpected service;
+one response was an SSH banner. Installed Supertest binds an IPv6 listener by default but builds
+an IPv4 URL. A controlled regression with separate IPv6 and IPv4 servers on the same port proved
+the unadapted client reached the foreign server. The shared `scripts/test-http-request.js` adapter
+uses the actual listener's address family while preserving cookie-jar origins. The regression
+verifies both ordinary and agent requests. With this adapter, the F04 full gate passed **234 tests,
+zero skips**, retaining the coverage above. This establishes the transport condition and fix;
+it does not retrospectively prove the cause of every earlier unexpected 401.
+
 ## Hosted observations
 
-Read-only Supabase connector `list_projects` and `get_project` returned a candidate project
-with status **INACTIVE** and PostgreSQL `17.6.1.155` (engine 17), on 2026-10-05. Identifying
-account/project metadata is retained in controlled local evidence rather than this public-repository
-record. This candidate has not been established as the currently deployed YapArena staging
-environment; project mapping remains pending. No connection string was exported.
+The operator confirmed the staging project reference, and Render's actual database pooler username
+maps to that same project. Read-only `get_project` confirmed **ACTIVE_HEALTHY** and PostgreSQL
+`17.6.1.171` (engine 17). The earlier inactive connector candidate was unrelated; its timeout is not
+evidence about staging. Identifying account/project metadata is retained in controlled local
+evidence rather than this public-repository record. No connection string was exported.
 
-A read-only query for database/current user/server version timed out with **Connection terminated
-due to connection timeout**. No SQL catalog or data result was obtained. The project was not resumed.
-No hosted API keys, user JWTs or mutation probes were requested or used.
+The read-only catalog snapshot at **2026-10-05 16:13:18 UTC** covers all eight non-system schemas,
+role attributes/memberships, ownership, effective privileges, creator defaults, routines, RLS and
+publications. It confirms the existing deployment has not adopted the repository hardening:
 
-| Hosted fact                                                                       | Status                                                                   |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Correct staging/production project mapping                                        | PENDING operator confirmation                                            |
-| Actual Data API enabled/disabled state and exposed schemas                        | UNVERIFIED                                                               |
-| Actual REST/GraphQL, Realtime, Storage, Edge Function and custom routine surfaces | UNVERIFIED                                                               |
-| Hosted role attributes/memberships, owners, ACLs/defaults and RLS evidence        | UNVERIFIED                                                               |
-| Real runtime session-pooler login/TLS and separate migration job secrets          | UNVERIFIED                                                               |
-| Valid anonymous and authenticated HTTP identity access probes                     | NOT RUN; require authorized disposable staging clone with synthetic data |
-| Hosted migration/privilege changes or credential rotation                         | NOT PERFORMED; require separate authorization                            |
+- Render is configured to connect as `postgres`. This login has BYPASSRLS, CREATEDB, CREATEROLE and REPLICATION,
+  inherits `pg_read_all_data`, and owns all 32 application tables plus `public.pgmigrations`.
+- Both browser roles have broad effective application-table privileges. Nineteen application
+  tables and migration metadata lack RLS; thirteen community/measurement tables enable RLS with
+  no policies. No application table has FORCE RLS.
+- Both browser roles have USAGE/SELECT/UPDATE on all twelve public sequences and EXECUTE on all
+  three application trigger routines. Two routines also grant PUBLIC EXECUTE; their search paths
+  are not fixed. Public-schema creator defaults continue granting browser table/sequence/routine
+  privileges. Catalog grants do not establish HTTP reachability or direct trigger-call capability.
+- The private application/migration schemas and dedicated owner/runtime roles are absent. The
+  latest recorded application migration predates F04.
+- No public application views or catalog-recorded external view/parsed-routine dependencies on
+  application tables were found. Dynamic routine bodies and alternate provider access still need
+  a separate review.
+- `pg_graphql` is not installed, the Realtime publication has no relations and is not FOR ALL
+  TABLES, and no Edge Functions are deployed. These observations do not establish every service's
+  routing, broadcast/presence, Storage or administrative access configuration.
+
+Actual Render metadata still identifies the measurement branch with automatic deployment enabled
+and the pre-hardening application commit. Of sixteen direct service environment entries, only
+`DATABASE_URL` is the only `DATABASE_` variable, and its login is the privileged `postgres` role.
+Read-only Render metadata at **16:23:32 UTC** found no workspace/linked environment groups, service
+secret files or persistent disks, with no remaining pagination. This does not inspect the running
+container filesystem, image layers, historical secrets or credentials under unrelated variable
+names. No real hosted login using the configured credential was attempted, and no separate
+owner/runtime credential deployment has been verified.
+
+The inventory also covers provider schemas without changing them. No policies or FORCE RLS tables
+were present in any inspected schema. All eight Storage tables enable RLS; Realtime messages enable
+RLS while its subscription/migration tables do not. Sixteen of twenty-seven provider Auth tables
+enable RLS. Browser roles have no inherited memberships or schema CREATE; they have schema USAGE
+on seven inspected schemas but not `vault`. The two provider SECURITY DEFINER routines are in
+`vault`, with empty search paths and no browser EXECUTE grant. Provider service access and dynamic
+routine paths still require review; these catalog observations do not prove HTTP isolation.
+
+Sanitized artifacts, containing catalog metadata rather than application rows or credentials, are:
+
+- `/tmp/yaparena-f04-hosted-evidence.eBMNQf/catalog-inventory.json`
+- `/tmp/yaparena-f04-hosted-evidence.eBMNQf/safe-settings.json`
+- `/tmp/yaparena-f04-hosted-evidence.eBMNQf/inspection-summary.json`
+- `/tmp/yaparena-f04-hosted-evidence.eBMNQf/render-credential-metadata.json`
+- `/tmp/yaparena-f04-hosted-evidence.eBMNQf/schema-summary.json`
+- `/tmp/yaparena-f04-hosted-evidence.eBMNQf/operator-reported-data-api.json`
+
+The operator subsequently reported that **Enable Data API is OFF** in the confirmed project's
+dashboard, while the integration is marked installed. This is operator-reported dashboard evidence;
+the connector has no Data API configuration-read method, and no management token or usable dashboard
+browser is available for independent inspection. Exposed schemas and automatic table exposure
+remain unrecorded. No `authenticator` schema override was found in SQL settings; this does not
+prove the hosted Data API toggle or exposed-schema configuration. No hosted API keys, user JWTs,
+application rows or mutation probes were requested or used. No disposable hosted branch exists.
+
+| Hosted fact                                                                      | Status                                                                                          |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Correct staging project mapping                                                  | VERIFIED: operator reference and actual Render pooler mapping agree                             |
+| Actual Data API enabled/disabled state                                           | OFF: operator-reported dashboard confirmation; independent inspection/HTTP verification pending |
+| Exposed schemas and automatic table exposure                                     | UNRECORDED: dashboard evidence still required                                                   |
+| Hosted privilege/RLS inventory before hardening                                  | COLLECTED; FAIL: broad browser grants and privileged runtime remain                             |
+| Dedicated runtime/migration identities and private schemas                       | FAIL: absent from the deployed database                                                         |
+| GraphQL extension, Realtime publication and Edge Functions                       | Catalog/config inventory collected; complete alternate-path review PENDING                      |
+| Render runtime-only secrets, linked groups/mounts and separate migration process | FAIL: privileged configured login; groups/secret files/disks absent; cutover/process unverified |
+| Real hardened runtime session-pooler login/TLS                                   | NOT RUN: hardening has not been deployed                                                        |
+| Valid anonymous and authenticated HTTP identity access probes                    | NOT RUN; require authorized disposable staging clone with synthetic data                        |
+| Hosted migration/privilege changes or credential rotation                        | NOT PERFORMED; require separate authorization                                                   |
 
 ## Required operator actions
 
 Follow the exact [hosted checklist](database-isolation.md#hosted-operator-checklist--required-to-close-f04)
-and [Render Free release sequence](../render-staging.md#deploy-the-web-service). Confirm the project,
-collect Dashboard API/schema evidence and read-only SQL inventory, review indirect provider access,
+and [Render Free release sequence](../render-staging.md#deploy-the-web-service). Retain the confirmed
+project mapping and pre-change inventory, collect Dashboard API/schema evidence, review indirect provider access,
 authorize a disposable clone, and test valid anonymous/authenticated API identities and actual
 runtime pooler/backend flows. Then authorize the separate provisioning/migration/deployment and
 old-credential rotation sequence. Keep owner/admin secrets outside all web/worker environments.

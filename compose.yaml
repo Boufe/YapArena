@@ -18,7 +18,7 @@ services:
       AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-10}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
       SESSION_DURATION_MS: ${SESSION_DURATION_MS:-604800000}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-yaparena}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-yaparena}
+      DATABASE_URL: postgresql://yaparena_runtime:${DATABASE_RUNTIME_PASSWORD:?Set DATABASE_RUNTIME_PASSWORD in .env}@db:5432/${POSTGRES_DB:-yaparena}
     ports:
       - "${HOST_PORT:-3000}:3000"
     init: true
@@ -44,6 +44,35 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
+    depends_on:
+      db:
+        condition: service_healthy
+
+  provision:
+    build:
+      context: .
+      target: production
+    image: ${LOCAL_IMAGE:-yaparena:local}
+    profiles: [release]
+    command: [node, scripts/provision-database.js]
+    environment:
+      DATABASE_ADMIN_URL: postgresql://${POSTGRES_USER:-yaparena}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-yaparena}
+      DATABASE_OWNER_PASSWORD: ${DATABASE_OWNER_PASSWORD:?Set DATABASE_OWNER_PASSWORD in .env}
+      DATABASE_RUNTIME_PASSWORD: ${DATABASE_RUNTIME_PASSWORD:?Set DATABASE_RUNTIME_PASSWORD in .env}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  migrate:
+    build:
+      context: .
+      target: production
+    image: ${LOCAL_IMAGE:-yaparena:local}
+    profiles: [release]
+    command: [node, scripts/migrate-database.js]
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://yaparena_owner:${DATABASE_OWNER_PASSWORD:?Set DATABASE_OWNER_PASSWORD in .env}@db:5432/${POSTGRES_DB:-yaparena}
     depends_on:
       db:
         condition: service_healthy

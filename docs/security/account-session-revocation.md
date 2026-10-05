@@ -122,7 +122,9 @@ transactions and PostgreSQL will abort a participant. Trigger rollback preserves
 The revocation guarantees do not establish recovery ownership or authorize arbitrary SQL.
 
 Audit records use the existing 90-day identity audit mechanism. Account-wide events include
-actor account/session ID, request correlation, action, outcome and generation; credential
+actor account/session ID for owner controls, database role, request correlation, action,
+outcome and generation. Operator incident actions record the database actor and do not
+attribute the action to the affected account owner; credential
 triggers include database actor role, credential subject, outcome/generation and optional
 `yaparena.request_id`. They contain no raw cookies, token hashes, passwords or signatures.
 Existing insert/delete events remain available for lifecycle correlation. Monitor unexpected

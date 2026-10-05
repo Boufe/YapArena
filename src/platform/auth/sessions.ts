@@ -76,9 +76,12 @@ export async function revokeAccountSessions(
     requestId?: string;
   },
 ) {
-  const result = await client.query<{ authGeneration: string }>(
+  const result = await client.query<{
+    authGeneration: string;
+    actorDatabaseRole: string;
+  }>(
     `UPDATE users SET auth_generation = auth_generation + 1 WHERE id = $1
-     RETURNING auth_generation AS "authGeneration"`,
+     RETURNING auth_generation AS "authGeneration", current_user AS "actorDatabaseRole"`,
     [userId],
   );
   if (!result.rows[0])
@@ -101,7 +104,9 @@ export async function revokeAccountSessions(
       userId,
       options.action,
       JSON.stringify({
-        actorUserId: userId,
+        actorUserId:
+          options.action === "sessions.incident" ? undefined : userId,
+        actorDatabaseRole: result.rows[0].actorDatabaseRole,
         actorSessionId: options.actorSessionId,
         requestId: options.requestId,
         outcome: "success",

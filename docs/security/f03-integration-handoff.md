@@ -9,15 +9,36 @@ No deployment, hosted probes, production accounts or PR merges were performed.
 - Branch: `fix/f03-account-revocation`.
 - Starting commit: `bc3e92f42aa067c08e4834301a99602323db395a`, clean dedicated worktree.
 - Shared F04 checkout was not edited. F04 was merged only into this dedicated worktree,
-  with coordinator authorization; latest implementation dependency is `365ced3`.
+  with coordinator authorization; latest implementation/test dependency is `8904fad`.
 - F03 prerequisite: `ed790ff` — account generation, migration, shared transaction helpers.
 - F03 issuance/revocation: `9e66b8a` — guarded password issuance, atomic wallet completion,
   explicit logout controls, least-privilege follow-up, Node/PostgreSQL tests.
 - F03 account UI/operating contract: `ad9a28d`.
 - F01/F04 integration fixture adaptation: `858555c`.
+- Operator-versus-owner incident audit attribution: `d68a838`.
+- Verified listener-family test dependency: F04 `8904fad`, merged as `98f1ec5`.
 - The final evidence commit adds this handoff, the reproducible browser script, screenshots,
   private-runtime privilege assertions and explicit legacy-session/challenge upgrade checks.
   Obtain its immutable identifier from the branch tip supplied in the integration message.
+
+## F03-owned changed files
+
+- Authentication: `src/platform/auth/sessions.ts`, `users.ts`, `wallets.ts`, `router.ts`.
+- Additive migrations: `migrations/1791158500000_account_session_revocation.js` and
+  `migrations/1791158501000_limit_revocation_privileges.js`.
+- Account experience: `src/features/discovery/web.ts`, `public/account.js`,
+  `public/account-sessions.js`.
+- Tests: `tests/account-sessions.test.js`, `auth.test.js`, `logger.test.js`,
+  `session-revocation-postgres.test.js`, `sessions.test.js`, `wallet-repository.test.js`.
+- Verification: `scripts/verify-database-isolation.js`, `verify-identity-social.js`,
+  `verify-session-controls-browser.js`, and the `test:revocation` package script.
+- Documentation: `README.md`, `docs/decisions/0002-identity-and-social.md`,
+  `docs/operations.md`, this handoff, `docs/security/account-session-revocation.md` and
+  the three PNGs in `docs/security/evidence/f03/`.
+
+The branch also includes the coordinated F01/F04 dependencies and shared transport helper;
+those are reviewed in their own changes. F02's final credential routes/UI and corresponding
+fixture adaptations replace the legacy wallet portions during one-way integration.
 
 ## Implemented guarantees and contracts
 
@@ -48,7 +69,7 @@ not committed and are not production connections.
 
 | Command                                                                                              | Actual result                                                                                                                                                                                                                                                                                                                                                                        |
 | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `npm run check`, with `REVOCATION_TEST_DATABASE_URL` owner and `REVOCATION_TEST_RUNTIME_URL` runtime | **256/256 passed, zero skips**. Lint, format and strict types passed. Coverage **97.38% lines / 90.25% branches / 98.06% functions**, with the original 90% gates.                                                                                                                                                                                                                   |
+| `npm run check`, with `REVOCATION_TEST_DATABASE_URL` owner and `REVOCATION_TEST_RUNTIME_URL` runtime | **257/257 passed, zero skips**. Lint, format and strict types passed. Coverage **97.42% lines / 90.32% branches / 98.06% functions**, with the original 90% gates.                                                                                                                                                                                                                   |
 | `npm run test:revocation`, same private owner/runtime connections                                    | **15/15 passed** on PostgreSQL 18.4. Two separate Express instances/pools; both cookies revoked by logout-all; current retained by logout-others; single logout preserves another session; credential change/unlink/relink, stale password and wallet proofs, both lock-wait orderings, rollback, precommit successor invisibility, legacy-binary denial and least-privilege checks. |
 | `npm run verify:database-isolation`                                                                  | **Fresh and legacy upgrade passed** on disposable PostgreSQL 18.4 bookworm. Browser-role SQL denial, actual runtime backend journeys and worker cleanup, explicit legacy session/challenge retirement, repeated provisioning/migration, trigger behavior, future defaults, provider-schema preservation.                                                                             |
 | `node scripts/verify-session-controls-browser.js` against local port 53023                           | **Passed** with fresh headless Chrome profiles, two contexts and the actual runtime-backed account page. Logout-others rejected the second context on reload and retained the first; logout-all rejected the first and displayed sign-in; reload remained signed out.                                                                                                                |
@@ -70,7 +91,16 @@ No assertion or coverage threshold was weakened. Explicit restored-session-row a
 generation assertions were added to the rollback test. Preserve these observations during
 independent integration review; investigate if either recurs. Ten subsequent consecutive
 coverage-instrumented runs on `fc1c427` passed all 150 PostgreSQL scenarios without reproducing
-the 401. This does not establish a cause; it bounds the actual local observations.
+the 401. This did not establish a cause; it bounded the actual local observations.
+
+The coordinator subsequently reproduced a concrete transport failure: Supertest bound an
+IPv6 listener but connected to a different IPv4 service on the same port, returning its 401.
+An additional F02 run received an SSH banner on an intended HTTP request. Commit `8904fad`
+adds a deterministic competing-listener regression and maps test connections to their actual
+listener family while preserving the cookie-jar origin. F03 imports that shared helper for
+its PostgreSQL requests. The precise listener involved in each historical 401 was not
+captured, so those observations are retained; the verified failure mode and corrected
+transport are now part of the required gate.
 
 A final audit-attribution review adds the executing database role to session-revocation
 events. Owner controls still identify their authenticated actor; administrative incident

@@ -24,8 +24,13 @@ export async function verifyRuntimeIdentity(database: Pick<pg.Pool, "query">) {
     SELECT current_user = 'yaparena_runtime' AND session_user = 'yaparena_runtime'
       AND NOT r.rolsuper AND NOT r.rolbypassrls AND NOT r.rolcreatedb
       AND NOT r.rolcreaterole AND NOT r.rolreplication
-      AND NOT EXISTS (SELECT 1 FROM pg_auth_members
-        WHERE member = r.oid OR roleid = r.oid)
+      AND NOT EXISTS (SELECT 1 FROM pg_auth_members m
+        WHERE m.member = r.oid OR (m.roleid = r.oid AND NOT EXISTS (SELECT 1 FROM pg_roles administrator
+            WHERE administrator.oid = m.member AND administrator.rolname = 'postgres'
+              AND (administrator.rolsuper OR administrator.rolcreaterole)
+              AND m.admin_option
+              AND NOT COALESCE((to_jsonb(m)->>'inherit_option')::boolean, true)
+              AND NOT COALESCE((to_jsonb(m)->>'set_option')::boolean, true))))
       AND NOT EXISTS (SELECT 1 FROM pg_shdepend WHERE refclassid = 'pg_authid'::regclass
         AND refobjid = r.oid AND deptype = 'o'
         AND dbid IN (0, (SELECT oid FROM pg_database WHERE datname = current_database())))

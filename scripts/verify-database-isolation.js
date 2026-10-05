@@ -626,6 +626,10 @@ async function scenario(database, upgrade) {
       await admin.query(
         "INSERT INTO users(email,password_hash) VALUES ('legacy@isolation.test','synthetic-legacy-hash')",
       );
+      await admin.query(`INSERT INTO sessions(user_id,token_hash,expires_at)
+        SELECT id,repeat('a',64),CURRENT_TIMESTAMP+INTERVAL '7 days' FROM users WHERE email='legacy@isolation.test'`);
+      await admin.query(`INSERT INTO wallet_challenges(address,chain_id,purpose,message,expires_at)
+        VALUES('0x' || repeat('a',40),1,'login','Synthetic legacy challenge',CURRENT_TIMESTAMP+INTERVAL '5 minutes')`);
       await admin.query(
         "GRANT ALL ON ALL TABLES IN SCHEMA public TO anon,authenticated,legacy_reader",
       );
@@ -693,6 +697,23 @@ async function scenario(database, upgrade) {
         ).rows[0].n,
         1,
       );
+    if (upgrade) {
+      assert.equal(
+        (await owner.query("SELECT count(*)::int AS n FROM sessions")).rows[0]
+          .n,
+        0,
+        "legacy session cookies must be retired on upgrade",
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int AS n FROM wallet_challenges WHERE consumed_at IS NULL",
+          )
+        ).rows[0].n,
+        0,
+        "legacy unbound challenges must be retired on upgrade",
+      );
+    }
     const inventory = Object.fromEntries(
       (await admin.query(inventorySql)).rows.map(({ section, evidence }) => [
         section,

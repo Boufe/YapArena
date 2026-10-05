@@ -113,14 +113,15 @@ Start PostgreSQL and apply pending migrations:
 
 ```sh
 docker compose up --detach --wait db
-docker compose run --rm --build app node node_modules/node-pg-migrate/bin/node-pg-migrate.js up
+docker compose --profile release run --rm --build provision
+docker compose --profile release run --rm migrate
 ```
 
 - `docker compose up --detach --wait db` downloads the PostgreSQL image if needed, creates the local
   database container, leaves it running in the background, and waits until its health check passes.
   Its data remains in a Docker volume between restarts.
-- `docker compose run --rm --build app ... up` builds the application image, starts a temporary
-  application container, and applies every database migration that has not run yet. A migration is a
+- `provision` creates/adopts separate owner and runtime identities in a one-off administrative
+  container. `migrate` applies pending migrations in a different container using only the owner login. A migration is a
   versioned code change that creates or alters database tables. `--rm` removes only the temporary
   migration container after it exits; it does not remove the database or its stored data.
 
@@ -130,7 +131,9 @@ Start the API with automatic reload:
 npm run dev
 ```
 
-This starts the TypeScript API directly with Node.js, loads `.env`, and automatically restarts when source files
+Create a separate ignored `.env.runtime` file with only the runtime `DATABASE_URL` and application
+settings from `.env.example`; omit all operator passwords, fixture and migration URLs.
+`npm run dev` starts the TypeScript API directly with Node.js, loads `.env.runtime`, and automatically restarts when source files
 change. `npm run build` compiles production JavaScript into the ignored `dist/` directory. PostgreSQL must still be running in Docker. Open <http://localhost:3000/ready> to confirm the
 API can reach the database. Press `Ctrl-C` to stop the API; the database container keeps running until
 you run `docker compose down`.
@@ -219,26 +222,26 @@ protected environment file, never in Git.
 An environment variable is a named setting read when a process starts. Changing `.env` does not edit
 source code, and a running process or container must be restarted before it sees a changed value.
 
-| Setting                              | Local default                      | Meaning                                                                                                                         |
-| ------------------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                           | `development`                      | Selects development or production security and error behavior.                                                                  |
-| `HOST` / `PORT`                      | `0.0.0.0` / `3000`                 | Select the network interface and port used by `npm run dev`; normally keep the local defaults.                                  |
-| `HOST_PORT`                          | `3000`                             | Selects the host port used to reach the API when it runs through Docker Compose.                                                |
-| `LOG_LEVEL`                          | `debug`                            | Controls how much structured log detail the application emits.                                                                  |
-| `APP_ORIGIN`                         | `http://localhost:3000`            | Identifies the browser origin allowed to make cookie-authenticated write requests.                                              |
-| `SIWE_RPC_URLS`                      | `{}`                               | Maps EVM chain IDs to trusted RPC URLs for contract-wallet signature verification.                                              |
-| `TRUST_PROXY`                        | `false`                            | Trusts no reverse proxy locally; production must use the exact trusted proxy-hop count.                                         |
-| `REQUEST_BODY_LIMIT`                 | `10kb`                             | Rejects JSON request bodies larger than this amount.                                                                            |
-| `API_RATE_LIMIT`                     | `300`                              | Limits general API requests from one client during each rate-limit window.                                                      |
-| `AUTH_RATE_LIMIT`                    | `10`                               | Applies a stricter limit to registration and login attempts during the same window.                                             |
-| `RATE_LIMIT_WINDOW_MS`               | `900000` (15 minutes)              | Defines the time window, in milliseconds, for both request limits.                                                              |
-| `SESSION_DURATION_MS`                | `604800000` (7 days)               | Defines how long a signed-in server-side session remains valid.                                                                 |
-| `POSTGRES_DB` / `POSTGRES_USER`      | project-specific                   | Name the local PostgreSQL database and its application user.                                                                    |
-| `POSTGRES_PASSWORD`                  | `local-development-only`           | Authenticates the local PostgreSQL user; never reuse this example password outside local development.                           |
-| `POSTGRES_PORT`                      | `5433`                             | Exposes PostgreSQL on this host port while PostgreSQL continues to use port `5432` in its container.                            |
-| `DATABASE_URL`                       | project-specific PostgreSQL URL    | Gives Node.js a complete database connection string; its user, password, port, and database must match the PostgreSQL settings. |
-| `PROMETHEUS_PORT` / `GRAFANA_PORT`   | `9090` / `3001`                    | Expose the optional local monitoring interfaces on these host ports.                                                            |
-| `GRAFANA_ADMIN_USER` / `...PASSWORD` | `admin` / `local-development-only` | Provide local Grafana sign-in credentials; replace them in every nonlocal environment.                                          |
+| Setting                              | Local default                      | Meaning                                                                                                                                  |
+| ------------------------------------ | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                           | `development`                      | Selects development or production security and error behavior.                                                                           |
+| `HOST` / `PORT`                      | `0.0.0.0` / `3000`                 | Select the network interface and port used by `npm run dev`; normally keep the local defaults.                                           |
+| `HOST_PORT`                          | `3000`                             | Selects the host port used to reach the API when it runs through Docker Compose.                                                         |
+| `LOG_LEVEL`                          | `debug`                            | Controls how much structured log detail the application emits.                                                                           |
+| `APP_ORIGIN`                         | `http://localhost:3000`            | Identifies the browser origin allowed to make cookie-authenticated write requests.                                                       |
+| `SIWE_RPC_URLS`                      | `{}`                               | Maps EVM chain IDs to trusted RPC URLs for contract-wallet signature verification.                                                       |
+| `TRUST_PROXY`                        | `false`                            | Trusts no reverse proxy locally; production must use the exact trusted proxy-hop count.                                                  |
+| `REQUEST_BODY_LIMIT`                 | `10kb`                             | Rejects JSON request bodies larger than this amount.                                                                                     |
+| `API_RATE_LIMIT`                     | `300`                              | Limits general API requests from one client during each rate-limit window.                                                               |
+| `AUTH_RATE_LIMIT`                    | `10`                               | Applies a stricter limit to registration and login attempts during the same window.                                                      |
+| `RATE_LIMIT_WINDOW_MS`               | `900000` (15 minutes)              | Defines the time window, in milliseconds, for both request limits.                                                                       |
+| `SESSION_DURATION_MS`                | `604800000` (7 days)               | Defines how long a signed-in server-side session remains valid.                                                                          |
+| `POSTGRES_DB` / `POSTGRES_USER`      | project-specific                   | Name the local PostgreSQL database and its bootstrap administrator, separate from runtime.                                               |
+| `POSTGRES_PASSWORD`                  | `local-development-only`           | Authenticates the local PostgreSQL user; never reuse this example password outside local development.                                    |
+| `POSTGRES_PORT`                      | `5433`                             | Exposes PostgreSQL on this host port while PostgreSQL continues to use port `5432` in its container.                                     |
+| `DATABASE_URL`                       | project-specific PostgreSQL URL    | Gives Node.js a complete database connection string; it must use the dedicated `yaparena_runtime` login, never the owner/admin identity. |
+| `PROMETHEUS_PORT` / `GRAFANA_PORT`   | `9090` / `3001`                    | Expose the optional local monitoring interfaces on these host ports.                                                                     |
+| `GRAFANA_ADMIN_USER` / `...PASSWORD` | `admin` / `local-development-only` | Provide local Grafana sign-in credentials; replace them in every nonlocal environment.                                                   |
 
 See `.env.example` for local ports and monitoring settings, and the
 [operations runbook](docs/operations.md#release-and-deploy-an-image) for production values.
@@ -408,3 +411,7 @@ trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed yaparena:l
 
 The production stage removes npm, Yarn, and Corepack after installing dependencies. Development and
 test stages retain those tools.
+
+Database provisioning, privilege inventory, backend RLS policies, fresh/upgrade verification and
+hosted isolation gates are documented in the [F04 database runbook](docs/security/database-isolation.md).
+Run `npm run verify:database-isolation` separately from `npm run check` with Docker available.

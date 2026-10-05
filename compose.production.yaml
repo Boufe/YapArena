@@ -46,13 +46,10 @@ services:
   migrate:
     image: ${APP_IMAGE:?Set APP_IMAGE to an immutable ghcr.io image digest}
     profiles: [release]
-    command:
-      - node
-      - node_modules/node-pg-migrate/bin/node-pg-migrate.js
-      - up
+    command: [node, scripts/migrate-database.js]
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the production PostgreSQL connection string}
+      DATABASE_URL: ${DATABASE_MIGRATION_URL:-}
     read_only: true
     tmpfs:
       - /tmp

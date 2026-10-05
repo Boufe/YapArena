@@ -7,10 +7,13 @@ import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import pino from "pino";
 import supertest from "./test-http-request.js";
-import { runner } from "node-pg-migrate";
+import { runner, MigrationBuilder } from "node-pg-migrate";
 import { privateKeyToAccount } from "viem/accounts";
 import { provisionDatabase } from "./provision-database.js";
-import { runtimeGrants } from "../migrations/1791158400000_isolate_server_database.js";
+import {
+  runtimeGrants,
+  up as isolationMigrationUp,
+} from "../migrations/1791158400000_isolate_server_database.js";
 import { createApp } from "../dist/app.js";
 import {
   createDatabase,
@@ -42,6 +45,7 @@ if (!/^postgres:(17|18)(\.\d+)?-bookworm$/.test(postgresImage))
   );
 const secret = () => randomBytes(24).toString("hex");
 const adminPassword = secret();
+const bootstrapPassword = secret();
 const passwords = { yaparena_owner: secret(), yaparena_runtime: secret() };
 const logger = pino({ level: "silent" });
 const inventorySql = await readFile(
@@ -53,7 +57,12 @@ let started = false;
 const url = (database, role = "postgres") => {
   const connection = new URL(`postgresql://127.0.0.1:${port}/${database}`);
   connection.username = role;
-  connection.password = role === "postgres" ? adminPassword : passwords[role];
+  connection.password =
+    role === "fixture_admin"
+      ? bootstrapPassword
+      : role === "postgres"
+        ? adminPassword
+        : passwords[role];
   return connection.href;
 };
 async function connect(database, role = "postgres") {
@@ -154,6 +163,197 @@ async function browserChecks(admin) {
     } finally {
       await admin.query("ROLLBACK");
     }
+  }
+}
+
+async function membershipChecks(database, admin, owner) {
+  const bootstrap = await connect(database, "fixture_admin");
+  const login = await connect(database, "yaparena_runtime");
+  let phase;
+  const results = [];
+  try {
+    const creator = await admin.query(
+      "SELECT pg_get_userbyid(member) AS member, admin_option, inherit_option, set_option FROM pg_auth_members WHERE roleid='yaparena_runtime'::regrole",
+    );
+    assert.deepEqual(creator.rows, [
+      {
+        member: "postgres",
+        admin_option: true,
+        inherit_option: false,
+        set_option: false,
+      },
+    ]);
+    const identity = (
+      await admin.query(
+        "SELECT rolsuper, rolcreaterole FROM pg_roles WHERE rolname=current_user",
+      )
+    ).rows[0];
+    assert.deepEqual(identity, { rolsuper: false, rolcreaterole: true });
+    const builder = new MigrationBuilder(
+      {
+        query() {
+          throw new Error("Offline guard compilation");
+        },
+      },
+      {},
+      false,
+      quiet,
+    );
+    isolationMigrationUp(builder);
+    const guard = builder.getSqlSteps()[0];
+    await owner.query(guard);
+    await verifyRuntimeIdentity(login);
+    const negative = async (name, install, undo) => {
+      phase = name;
+      await bootstrap.query(install);
+      try {
+        await assert.rejects(
+          provisionDatabase(admin),
+          /Unsafe pre-existing database identities/,
+        );
+        await assert.rejects(verifyRuntimeIdentity(login), /violates/);
+        await assert.rejects(
+          owner.query(guard),
+          (error) => error.code === "P0001",
+        );
+        results.push({
+          case: name,
+          pass: true,
+          guards: ["provision", "migration", "runtime"],
+        });
+      } finally {
+        await bootstrap.query(undo);
+      }
+      await verifyRuntimeIdentity(login);
+    };
+    await negative(
+      "deny outbound runtime membership regardless of flags",
+      "GRANT yaparena_owner TO yaparena_runtime WITH ADMIN FALSE, INHERIT FALSE, SET FALSE",
+      "REVOKE yaparena_owner FROM yaparena_runtime",
+    );
+    await negative(
+      "deny browser inbound delegation even with no inherit or set",
+      "GRANT yaparena_runtime TO anon WITH ADMIN FALSE, INHERIT FALSE, SET FALSE",
+      "REVOKE yaparena_runtime FROM anon",
+    );
+    await negative(
+      "deny unrelated inbound member",
+      "GRANT yaparena_runtime TO outside_reader WITH ADMIN FALSE, INHERIT FALSE, SET FALSE",
+      "REVOKE yaparena_runtime FROM outside_reader",
+    );
+    await negative(
+      "deny postgres inbound SET grant",
+      "GRANT yaparena_runtime TO postgres WITH ADMIN TRUE, INHERIT FALSE, SET TRUE",
+      "REVOKE SET OPTION FOR yaparena_runtime FROM postgres",
+    );
+    await negative(
+      "deny postgres inbound INHERIT grant",
+      "GRANT yaparena_runtime TO postgres WITH ADMIN TRUE, INHERIT TRUE, SET FALSE",
+      "REVOKE INHERIT OPTION FOR yaparena_runtime FROM postgres",
+    );
+    await negative(
+      "deny inbound grant lacking administrative status",
+      "GRANT yaparena_runtime TO postgres WITH ADMIN FALSE, INHERIT FALSE, SET FALSE",
+      "GRANT yaparena_runtime TO postgres WITH ADMIN TRUE, INHERIT FALSE, SET FALSE",
+    );
+    await negative(
+      "deny other privileged administrator inbound grant",
+      "GRANT yaparena_runtime TO outside_admin WITH ADMIN TRUE, INHERIT FALSE, SET FALSE",
+      "REVOKE yaparena_runtime FROM outside_admin",
+    );
+    const mediatorNegative = async (name, install, undo) => {
+      phase = name;
+      await bootstrap.query(install);
+      try {
+        await assert.rejects(
+          provisionDatabase(admin),
+          /Browser\/API role has an unsafe administrative membership|Unsafe pre-existing database identities/,
+        );
+        results.push({
+          case: name,
+          pass: true,
+          guard: "provision",
+          surface: "mediator",
+        });
+      } finally {
+        await bootstrap.query(undo);
+      }
+      await provisionDatabase(admin);
+      await verifyRuntimeIdentity(login);
+    };
+    results.push({
+      case: "standard authenticator direct provider grants accepted",
+      pass: true,
+    });
+    await mediatorNegative(
+      "deny anon service-role escalation",
+      "GRANT service_role TO anon WITH ADMIN FALSE, INHERIT FALSE, SET FALSE",
+      "REVOKE service_role FROM anon",
+    );
+    await mediatorNegative(
+      "deny authenticated service-role escalation",
+      "GRANT service_role TO authenticated WITH ADMIN FALSE, INHERIT FALSE, SET FALSE",
+      "REVOKE service_role FROM authenticated",
+    );
+    await mediatorNegative(
+      "deny mediator ADMIN delegation",
+      "GRANT service_role TO authenticator WITH ADMIN TRUE, INHERIT FALSE, SET TRUE",
+      "REVOKE ADMIN OPTION FOR service_role FROM authenticator",
+    );
+    await mediatorNegative(
+      "deny mediator service-role inheritance",
+      "GRANT service_role TO authenticator WITH ADMIN FALSE, INHERIT TRUE, SET TRUE",
+      "REVOKE INHERIT OPTION FOR service_role FROM authenticator",
+    );
+    await mediatorNegative(
+      "deny mediator service-role grant without SET",
+      "GRANT service_role TO authenticator WITH ADMIN FALSE, INHERIT FALSE, SET FALSE",
+      "GRANT service_role TO authenticator WITH ADMIN FALSE, INHERIT FALSE, SET TRUE",
+    );
+    await mediatorNegative(
+      "deny mediator role-level inheritance",
+      "ALTER ROLE authenticator INHERIT",
+      "ALTER ROLE authenticator NOINHERIT",
+    );
+    await mediatorNegative(
+      "deny mediator owner membership",
+      "GRANT yaparena_owner TO authenticator WITH ADMIN FALSE, INHERIT FALSE, SET FALSE",
+      "REVOKE yaparena_owner FROM authenticator",
+    );
+    await mediatorNegative(
+      "deny mediator runtime membership",
+      "GRANT yaparena_runtime TO authenticator WITH ADMIN FALSE, INHERIT FALSE, SET FALSE",
+      "REVOKE yaparena_runtime FROM authenticator",
+    );
+    await mediatorNegative(
+      "deny mediator postgres membership",
+      "GRANT postgres TO authenticator WITH ADMIN FALSE, INHERIT FALSE, SET FALSE",
+      "REVOKE postgres FROM authenticator",
+    );
+    await mediatorNegative(
+      "deny malformed privileged service target",
+      "ALTER ROLE service_role CREATEROLE",
+      "ALTER ROLE service_role NOCREATEROLE",
+    );
+    await mediatorNegative(
+      "deny alternate indirect service-role route",
+      "GRANT service_role TO mediator_proxy WITH ADMIN FALSE, INHERIT FALSE, SET FALSE; GRANT mediator_proxy TO authenticator WITH ADMIN FALSE, INHERIT FALSE, SET TRUE",
+      "REVOKE mediator_proxy FROM authenticator; REVOKE service_role FROM mediator_proxy",
+    );
+
+    console.log(
+      "Creator and API mediator membership guards: " +
+        results.length +
+        " denial/acceptance cases PASS.",
+    );
+  } catch (error) {
+    throw new Error(
+      "Role membership fixture failed at " + (phase ?? "initialization"),
+      { cause: error },
+    );
+  } finally {
+    await login.end();
+    await bootstrap.end();
   }
 }
 
@@ -714,6 +914,7 @@ async function scenario(database, upgrade) {
         "legacy unbound challenges must be retired on upgrade",
       );
     }
+    await membershipChecks(database, admin, owner);
     const inventory = Object.fromEntries(
       (await admin.query(inventorySql)).rows.map(({ section, evidence }) => [
         section,
@@ -789,7 +990,9 @@ try {
     "--name",
     container,
     "--env",
-    `POSTGRES_PASSWORD=${adminPassword}`,
+    "POSTGRES_USER=fixture_admin",
+    "--env",
+    `POSTGRES_PASSWORD=${bootstrapPassword}`,
     "--publish",
     "127.0.0.1::5432",
     postgresImage,
@@ -800,7 +1003,7 @@ try {
   let admin;
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
-      admin = await connect("postgres");
+      admin = await connect("postgres", "fixture_admin");
       break;
     } catch {
       await delay(500);
@@ -808,11 +1011,22 @@ try {
   }
   assert.ok(admin, "disposable PostgreSQL must become ready");
   try {
+    const role = await admin.query(
+      "SELECT format('CREATE ROLE postgres LOGIN NOSUPERUSER CREATEROLE CREATEDB BYPASSRLS NOREPLICATION PASSWORD %L', $1::text) AS sql",
+      [adminPassword],
+    );
+    await admin.query(role.rows[0].sql);
     await admin.query(
-      "CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE legacy_reader NOLOGIN; GRANT legacy_reader TO anon,authenticated",
+      "CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE legacy_reader NOLOGIN; CREATE ROLE outside_reader NOLOGIN; CREATE ROLE outside_admin NOLOGIN CREATEROLE; CREATE ROLE service_role NOLOGIN BYPASSRLS; CREATE ROLE authenticator LOGIN NOINHERIT; CREATE ROLE mediator_proxy NOLOGIN; GRANT legacy_reader TO anon,authenticated",
+    );
+    await admin.query(
+      "GRANT anon,authenticated TO postgres WITH ADMIN TRUE, INHERIT TRUE, SET TRUE",
+    );
+    await admin.query(
+      "GRANT anon,authenticated,service_role TO authenticator WITH ADMIN FALSE, INHERIT FALSE, SET TRUE",
     );
     for (const database of ["isolation_fresh", "isolation_upgrade"])
-      await admin.query(`CREATE DATABASE ${database}`);
+      await admin.query(`CREATE DATABASE ${database} OWNER postgres`);
   } finally {
     await admin.end();
   }

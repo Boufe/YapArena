@@ -1,0 +1,149 @@
+{
+  "dateUtc": "2026-10-05T18:12:42.311842+00:00",
+  "finding": "F04",
+  "status": "temporary hosted verification passed; staging release gate OPEN",
+  "testScope": {
+    "provider": "Supabase",
+    "version": "PostgreSQL 17.11.0.002",
+    "region": "us-east-2",
+    "syntheticOnly": true,
+    "stagingMutated": false,
+    "costQuoteMonthlyUsd": 0,
+    "cleanupProjectDeletion": "operator agreed to delete; not performed by connector"
+  },
+  "source": {
+    "combinedBaseCommit": "70cc35886e98b491e39d11c0df42d1bde7c48e27",
+    "candidateChanges": [
+      "administrator-only creator membership",
+      "canonical provider API broker grant",
+      "private schema before ownership transfer"
+    ],
+    "operatorSqlSha256": "290fb9d6b3646f86c32c8f988c8a4764493137106301e9b4904ddb1d38996f7e"
+  },
+  "catalog": {
+    "fresh": {
+      "nonSystemSchemas": 12,
+      "privateApplicationTables": 33,
+      "futureProbeTables": 1,
+      "allPrivateApplicationTablesRls": true,
+      "browserPrivateRelationPrivileges": 0,
+      "browserPrivateSequencePrivileges": 0,
+      "browserPrivateRoutineExecute": 0,
+      "runtimeDatabaseTemporary": [true]
+    },
+    "legacy-before": {
+      "nonSystemSchemas": 10,
+      "privateApplicationTables": 0,
+      "futureProbeTables": 0,
+      "allPrivateApplicationTablesRls": null,
+      "browserPrivateRelationPrivileges": 0,
+      "browserPrivateSequencePrivileges": 0,
+      "browserPrivateRoutineExecute": 0,
+      "runtimeDatabaseTemporary": [true],
+      "publicApplicationTables": 32,
+      "publicApplicationTablesRlsEnabled": 13
+    },
+    "upgrade": {
+      "nonSystemSchemas": 12,
+      "privateApplicationTables": 33,
+      "futureProbeTables": 1,
+      "allPrivateApplicationTablesRls": true,
+      "browserPrivateRelationPrivileges": 0,
+      "browserPrivateSequencePrivileges": 0,
+      "browserPrivateRoutineExecute": 0,
+      "runtimeDatabaseTemporary": [true]
+    }
+  },
+  "fresh": {
+    "ownerMigrations": "actual repository runner with genuine owner login and verified TLS",
+    "runtime": {
+      "passed": true,
+      "identity": {
+        "current_user": "yaparena_runtime",
+        "session_user": "yaparena_runtime",
+        "search_path": "pg_catalog,yaparena,pg_temp"
+      },
+      "tlsVerified": true,
+      "sourceCommit": "70cc35886e98b491e39d11c0df42d1bde7c48e27",
+      "candidateFix": "admin-only creator membership",
+      "browserExecution": "separate MCP probes required",
+      "flows": [
+        "register",
+        "password login",
+        "wallet login/link/unlink",
+        "matching",
+        "community chat/moderation/appeal",
+        "measurement consent/events",
+        "media state/cleanup",
+        "scheduled workers",
+        "DDL and privilege denial",
+        "future object defaults"
+      ]
+    },
+    "browserSqlDenials": 374,
+    "restRpcDenials": 552,
+    "graphql": "enabled extension; both identities accepted against synthetic control; application query/mutation fields absent"
+  },
+  "upgrade": {
+    "legacyFixtureBefore": [
+      {
+        "role": "anon",
+        "status": 200,
+        "knownSyntheticCredentialFixtureReadable": true,
+        "rawFixtureNotExported": true
+      },
+      {
+        "role": "authenticated",
+        "status": 200,
+        "knownSyntheticCredentialFixtureReadable": true,
+        "rawFixtureNotExported": true
+      }
+    ],
+    "ownerMigrations": "real owner runner after administrative adoption of compiled legacy synthetic schema",
+    "runtime": {
+      "passed": true,
+      "identity": {
+        "current_user": "yaparena_runtime",
+        "session_user": "yaparena_runtime",
+        "search_path": "pg_catalog,yaparena,pg_temp"
+      },
+      "tlsVerified": true,
+      "sourceCommit": "70cc35886e98b491e39d11c0df42d1bde7c48e27",
+      "candidateFix": "admin-only creator membership",
+      "browserExecution": "separate MCP probes required",
+      "flows": [
+        "register",
+        "password login",
+        "wallet login/link/unlink",
+        "matching",
+        "community chat/moderation/appeal",
+        "measurement consent/events",
+        "media state/cleanup",
+        "scheduled workers",
+        "DDL and privilege denial",
+        "future object defaults"
+      ]
+    },
+    "browserSqlDenials": 374,
+    "restRpcDenials": 552,
+    "graphql": "both identities accepted against synthetic control; application query/mutation fields absent",
+    "syntheticLegacyAccountPreserved": true,
+    "syntheticLegacySessionRemoved": true,
+    "legacyChallengeFixturePreserved": true
+  },
+  "temporaryDdl": {
+    "runtimeTemporaryDdlAllowed": true,
+    "source": "PUBLIC database TEMPORARY privilege",
+    "persistentSchemaDdlDenied": true,
+    "strictNoDdlAcceptance": "pending scoped database privilege review"
+  },
+  "remainingReleaseGates": [
+    "actual staging hardening and runtime credential cutover",
+    "dashboard evidence for Data API state, exposed schemas, automatic exposure",
+    "disabled-service HTTP proof",
+    "strict no-DDL requirement: inherited PUBLIC TEMPORARY still allows temporary objects",
+    "Realtime/Storage/Edge and dynamic provider routine path review",
+    "actual deployed image and full staging journeys"
+  ],
+  "rawSecretsOrAppRowsExported": false
+}

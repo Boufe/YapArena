@@ -215,6 +215,22 @@ describe(
   { skip: !runtimeUrl || !ownerUrl },
   () => {
     before(async () => {
+      const runtime = new URL(runtimeUrl);
+      const owner = new URL(ownerUrl);
+      for (const url of [runtime, owner]) {
+        assert.ok(
+          ["localhost", "127.0.0.1"].includes(url.hostname),
+          "only a loopback test database is allowed",
+        );
+        assert.match(
+          url.pathname,
+          /^\/(?:yaparena_f02|revocation_test)[a-z0-9_]*$/,
+        );
+      }
+      assert.equal(
+        runtime.host + runtime.pathname,
+        owner.host + owner.pathname,
+      );
       pool = new pg.Pool({
         connectionString: runtimeUrl,
         max: 10,
@@ -345,6 +361,14 @@ describe(
         () =>
           issue(f, {
             target: unlinkTarget(f),
+            credential: { type: "wallet", walletId: f.wallets[0].id },
+          }),
+        (e) => e.status === 403,
+      );
+      await assert.rejects(
+        () =>
+          issue(f, {
+            target: { ...f.target, address: f.wallets[0].address },
             credential: { type: "wallet", walletId: f.wallets[0].id },
           }),
         (e) => e.status === 403,
@@ -633,10 +657,22 @@ describe(
       other.target = f.target;
       const one = await issue(f),
         two = await issue(other);
-      const result = await Promise.allSettled([
-        finish(f, one),
-        finish(other, two),
+      const blockers = await ownerPool.connect();
+      await blockers.query("BEGIN");
+      await blockers.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+        `${f.chainId}:${f.target.address}`,
       ]);
+      const label = `f02-conflict-${randomUUID()}`;
+      const racing = await blockedPool(label);
+      const repository = createWalletOperationRepository(racing);
+      const pending = Promise.allSettled([
+        finish(f, one, {}, repository),
+        finish(other, two, {}, repository),
+      ]);
+      await waitForLock(label, 2);
+      await blockers.query("COMMIT");
+      blockers.release();
+      const result = await pending;
       assert.equal(result.filter((x) => x.status === "fulfilled").length, 1);
       assert.ok(
         result.find((x) => x.status === "rejected").reason instanceof
@@ -682,6 +718,35 @@ describe(
       assert.equal(results.filter((x) => x.status === "fulfilled").length, 1);
       assert.equal((await counts(f)).wallets, 1);
       assert.equal((await counts(f)).notifications, 1);
+    });
+    it("an approval expiring while verification waits cannot commit", async () => {
+      const f = await fixture();
+      const op = await issue(f);
+      const blockers = await barrier(f);
+      const label = `f02-approval-expiry-${randomUUID()}`;
+      const racing = await blockedPool(label);
+      const result = finish(
+        f,
+        op,
+        {},
+        createWalletOperationRepository(racing),
+      ).then(
+        (value) => ({ value }),
+        (error) => ({ error }),
+      );
+      await waitForLock(label);
+      await blockers.query(
+        "UPDATE wallet_operations SET expires_at=clock_timestamp()-INTERVAL '1 second' WHERE id=$1",
+        [op.id],
+      );
+      await blockers.query("COMMIT");
+      blockers.release();
+      assert.equal((await result).error.status, 410);
+      assert.deepEqual(await counts(f), {
+        wallets: 1,
+        notifications: 0,
+        sessions: 1,
+      });
     });
     it("an expired session after lock waiting and a late failure roll back mutation/audit/notification", async () => {
       const f = await fixture();

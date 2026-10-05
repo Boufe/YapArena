@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
 import type { AuthenticationUser } from "./users.ts";
-import { lockAccount, insertSession, assertActiveSession } from "./sessions.ts";
+import { lockAccount, insertSession } from "./sessions.ts";
 import { createWalletOperationRepository } from "./wallet-operations.ts";
 export { WalletAlreadyLinkedError } from "./wallet-operations.ts";
 

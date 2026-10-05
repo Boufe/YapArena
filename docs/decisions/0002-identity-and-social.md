@@ -11,7 +11,12 @@ Status: implemented for the nonfinancial preview, 2026-09-29.
   never authorizes a transaction. Wallet connection alone does not sign in. An existing email
   account can link a wallet after signing in; a wallet already linked to another account cannot
   be moved or used to merge profiles automatically.
-- A link challenge is bound to the current server session and account. Changing or losing a
+- Each wallet link or unlink requires a fresh current-password proof or a purpose-specific
+  signature from an existing linked wallet that will remain available. A five-minute, one-use
+  operation binds this approval to the current account/session and exact target address/chain.
+  Linking also requires separate proof of the proposed wallet. Session rotation, audit and an
+  in-app notification commit with the mutation. See the
+  [credential-change authorization design](../security/wallet-authorization.md). Changing or losing a
   wallet does not move a profile, follow history, or future debate rights. A wallet-only account
   cannot unlink its final sign-in method. There is no automatic recovery for a lost sole wallet;
   a future recovery method needs a separate security design.
@@ -38,7 +43,7 @@ participation is designed.
 ## Retention, export, and deletion policy for this preview
 
 - Keep account, profile, linked-wallet, and follow records until an account deletion request is
-  fulfilled. Expired SIWE challenges are purged after one day; identity audit entries are purged
+  fulfilled. Expired SIWE challenges and wallet operations are purged after one day; identity audit entries are purged
   after 90 days by scheduled cleanup. A session expires after the configured duration (seven
   days by default) and expired sessions are purged by the existing cleanup task. Backups follow
   the operations runbook's retention and restore policy.

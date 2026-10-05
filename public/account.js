@@ -24,7 +24,17 @@ async function api(path, method = "GET", body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (response.status === 204) return null;
-  const data = await response.json();
+  const json = response.headers
+    .get("Content-Type")
+    ?.includes("application/json");
+  const data = json
+    ? await response.json()
+    : {
+        error:
+          response.status === 429
+            ? "Too many attempts. Wait before starting a new wallet approval."
+            : "Request failed. Please try again.",
+      };
   if (!response.ok) {
     const error = new Error(data.error || "Request failed. Please try again.");
     error.status = response.status;
@@ -336,7 +346,13 @@ function updateCredentialChoice() {
   document.querySelector("#current-password-label").hidden = !password;
   changeForm.elements.password.required = password;
   changeForm.elements.password.value = "";
-  document.querySelector("#existing-wallet-help").hidden = password;
+  const help = document.querySelector("#existing-wallet-help");
+  help.hidden = password;
+  const wallet = linkedWallets.find(
+    (entry) => entry.id === changeForm.elements.credential.value,
+  );
+  if (wallet)
+    help.textContent = `Switch your wallet extension to existing wallet ${wallet.address} on chain ${wallet.chainId} before continuing. A new wallet cannot approve its own addition.`;
 }
 
 async function signForWallet(message, address, chainId) {
@@ -460,6 +476,12 @@ document
       );
       await finishWalletChange(signature);
     } catch (error) {
+      if (error.status) {
+        const target = pendingChange?.target;
+        resetWalletChange();
+        pendingChange = { target };
+        updateCredentialChoice();
+      }
       changeNotice.textContent =
         error?.message ||
         "Signature rejected. Try again before approval expires.";

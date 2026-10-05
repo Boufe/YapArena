@@ -110,8 +110,9 @@ export async function verifyChallengeSignature({
   if (!rpcUrl) return false;
   try {
     const client = createPublicClient({
-      transport: http(rpcUrl, { timeout: 3_000 }),
+      transport: http(rpcUrl, { timeout: 3_000, retryCount: 0 }),
     });
+    if ((await client.getChainId()) !== Number(challenge.chainId)) return false;
     return await client.verifySiweMessage({
       message: challenge.message,
       signature: signature as `0x${string}`,

@@ -339,3 +339,34 @@ store `DATABASE_URL`, registry tokens, or other production secrets in the reposi
 This Compose flow is a single-host reference, not universal CD. A hosted product should translate the
 same contract—digest, migration, health gate, and rollback digest—into its platform's deployment
 mechanism and protect production with environment approvals or an equivalent control.
+
+## Wallet credential-change gate
+
+Apply F04 private-schema isolation, then F03 account revocation migrations, then F02
+`1791158600000_wallet_operation_authorization.js` with the owner identity. Stop old instances
+before migrating; deploy compatible authentication code and account assets together. Existing
+sessions are retired by F03. Keep its generation guards if rolling back application code.
+
+The [wallet authorization design](security/wallet-authorization.md) defines lock order,
+operation expiry, notifications and containment. The historical auth audit remains unchanged.
+A successful wallet change creates identity activity and an in-app account notification in the
+same transaction. Inspect those records by account using the supported owner process; never
+capture passwords, signatures, cookies or operation proofs in incident artifacts.
+
+Run the regression gate against a **disposable local** database provisioned as owner/runtime:
+
+```sh
+WALLET_TEST_DATABASE_URL="$AUTH_TEST_RUNTIME_URL" \
+WALLET_TEST_OWNER_DATABASE_URL="$AUTH_TEST_OWNER_URL" \
+REVOCATION_TEST_DATABASE_URL="$AUTH_TEST_OWNER_URL" \
+REVOCATION_TEST_RUNTIME_URL="$AUTH_TEST_RUNTIME_URL" npm run check
+```
+
+Use a database named `yaparena_f02...` or `revocation_test...` and loopback URLs. Keep operator
+connection values in the local shell/secret store. PostgreSQL tests create unique synthetic
+accounts; do not point them at shared development, staging or production data. Without the
+explicit URLs those integration suites are skipped; that is not race-safety evidence. CI's
+quality job provisions a disposable PostgreSQL service and includes both suites under coverage.
+The browser trial is `node scripts/verify-wallet-browser.js` with `BROWSER_BASE_URL` and
+`WALLET_TEST_OWNER_DATABASE_URL` for the same isolated instance. It uses synthetic wallets,
+cleans its fixtures and writes PNG evidence to `BROWSER_ARTIFACT_DIR`.

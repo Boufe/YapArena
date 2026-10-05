@@ -23,7 +23,6 @@ import {
 } from "./wallets.ts";
 import { createApiRateLimiter } from "../security.ts";
 import { WalletOperationError } from "./wallet-operations.ts";
-import { SessionUnavailableError } from "./sessions.ts";
 
 const dummyPasswordHash =
   "$argon2id$v=19$m=19456,p=1,t=2$lyjbixDyiZIjLayIBjKzug$XkfmwNfqtaLsRnC6LtyIEGEQ5pApGzGiypF/XpcVboI";

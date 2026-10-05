@@ -1,4 +1,10 @@
 import assert from "node:assert/strict";
+import { hashPassword } from "../dist/platform/auth/passwords.js";
+import { createSessionRepository } from "../dist/platform/auth/sessions.js";
+import {
+  createSessionToken,
+  hashSessionToken,
+} from "../dist/platform/auth/session-tokens.js";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { privateKeyToAccount } from "viem/accounts";
@@ -17,6 +23,8 @@ if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const identity = createIdentityRepository(pool);
 const wallets = createWalletRepository(pool);
+const sessions = createSessionRepository(pool);
+const password = "Synthetic identity trial password";
 const suffix = randomUUID().slice(0, 8);
 const email = `verify-${suffix}@example.test`;
 const handle = `verify-person-${suffix}`;
@@ -26,8 +34,8 @@ const challengeIds = [];
 
 try {
   const created = await pool.query(
-    "INSERT INTO users (email, password_hash) VALUES ($1, 'verification-only') RETURNING id",
-    [email],
+    `INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, auth_generation AS "authGeneration"`,
+    [email, await hashPassword(password)],
   );
   const userId = created.rows[0].id;
   userIds.push(userId);
@@ -59,7 +67,14 @@ try {
 
   const account = privateKeyToAccount(`0x${"31".repeat(32)}`);
   const origin = "http://localhost:3000";
-  const sessionTokenHash = "a".repeat(64);
+  const session = createSessionToken();
+  await sessions.create(
+    userId,
+    session.tokenHash,
+    new Date(Date.now() + 60000),
+    { authGeneration: created.rows[0].authGeneration },
+  );
+  let sessionTokenHash = session.tokenHash;
   const issue = async (purpose) => {
     const { message, expiresAt } = createChallengeMessage({
       address: account.address,
@@ -92,11 +107,33 @@ try {
     "INSERT INTO sessions(user_id,token_hash,expires_at,auth_generation) SELECT id,$2,CURRENT_TIMESTAMP+INTERVAL '10 minutes',auth_generation FROM users WHERE id=$1",
     [userId, sessionTokenHash],
   );
-  const linked = await issue("link");
-  assert.equal(
-    (await wallets.completeLink(linked.id, userId, sessionTokenHash)).address,
-    account.address.toLowerCase(),
-  );
+  const walletTarget = {
+    purpose: "link",
+    address: account.address.toLowerCase(),
+    chainId: 1,
+  };
+  const linked = await wallets.operations.create({
+    ...walletTarget,
+    credential: { type: "password" },
+    userId,
+    sessionTokenHash,
+    origin,
+  });
+  const completed = await wallets.operations.complete({
+    ...walletTarget,
+    id: linked.id,
+    password,
+    proposedSignature: await account.signMessage({
+      message: linked.proposedMessage,
+    }),
+    userId,
+    sessionTokenHash,
+    origin,
+    rpcUrls: {},
+    sessionDurationMs: 60000,
+  });
+  assert.equal(completed.wallet.address, walletTarget.address);
+  sessionTokenHash = hashSessionToken(completed.token);
   assert.equal((await wallets.listWallets(userId)).length, 1);
   const login = await issue("login");
   assert.equal(
@@ -122,13 +159,30 @@ try {
     ),
     true,
   );
-  assert.equal(
-    await wallets.unlinkWallet(
-      userId,
-      (await wallets.listWallets(userId))[0].id,
-    ),
-    "removed",
-  );
+  const wallet = (await wallets.listWallets(userId))[0];
+  const unlinkTarget = {
+    purpose: "unlink",
+    address: wallet.address,
+    chainId: Number(wallet.chainId),
+    targetWalletId: wallet.id,
+  };
+  const unlink = await wallets.operations.create({
+    ...unlinkTarget,
+    credential: { type: "password" },
+    userId,
+    sessionTokenHash,
+    origin,
+  });
+  await wallets.operations.complete({
+    ...unlinkTarget,
+    id: unlink.id,
+    password,
+    userId,
+    sessionTokenHash,
+    origin,
+    rpcUrls: {},
+    sessionDurationMs: 60000,
+  });
   await identity.unfollow(userId, "topic", topicSlug);
   assert.equal(await identity.isFollowing(userId, "topic", topicSlug), false);
   console.log("PostgreSQL identity, follow, audit, and SIWE linkage verified.");

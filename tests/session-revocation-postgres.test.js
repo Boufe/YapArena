@@ -120,7 +120,7 @@ function barrier() {
 async function waitForLock(applicationName) {
   const deadline = Date.now() + 5000;
   while (Date.now() < deadline) {
-    const result = await owner.query(
+    const result = await firstPool.query(
       "SELECT 1 FROM pg_stat_activity WHERE application_name = $1 AND wait_event_type = 'Lock'",
       [applicationName],
     );
@@ -140,7 +140,7 @@ describe(
       const url = new URL(connectionString);
       assert.match(
         url.pathname,
-        /^\/(?:yaparena_f03|revocation_test)[a-z0-9_]*$/,
+        /^\/(?:yaparena_f03|yaparena_f02|revocation_test)[a-z0-9_]*$/,
       );
       owner = new pg.Pool({ connectionString });
       firstPool = new pg.Pool({
@@ -258,12 +258,25 @@ describe(
       });
       assert.equal(response.status, 200);
       const walletCookie = cookieOf(response);
-      const removed = await request(appA)
-        .delete(`/api/auth/wallets/${walletId}`)
-        .set("Origin", origin)
-        .set("Cookie", passwordCookie);
-      assert.equal(removed.status, 204);
-      assert.match(removed.headers["set-cookie"][0], /^__Host-session=;/);
+      const target = {
+        purpose: "unlink",
+        address: signers[0].address.toLowerCase(),
+        chainId: 1,
+        targetWalletId: walletId,
+      };
+      const operation = await post(
+        appA,
+        "wallet/operations",
+        passwordCookie,
+      ).send({ ...target, credential: { type: "password" } });
+      assert.equal(operation.status, 201);
+      const removed = await post(
+        appA,
+        `wallet/operations/${operation.body.id}/complete`,
+        passwordCookie,
+      ).send({ ...target, password });
+      assert.equal(removed.status, 200);
+      assert.equal((await me(appA, cookieOf(removed))).status, 200);
       assert.equal((await me(appB, passwordCookie)).status, 401);
       assert.equal((await me(appA, walletCookie)).status, 401);
       assert.equal((await me(appB, await login(user))).body.user.id, user.id);
@@ -275,13 +288,31 @@ describe(
       accounts.push(newAccount.id);
       assert.notEqual(newAccount.id, user.id);
       const [newWallet] = await wallets.listWallets(newAccount.id);
+      const foreignTarget = {
+        purpose: "unlink",
+        address: newWallet.address,
+        chainId: Number(newWallet.chainId),
+        targetWalletId: newWallet.id,
+      };
+      const currentCookie = await login(user);
       assert.equal(
-        await wallets.unlinkWallet(user.id, newWallet.id),
-        "missing",
+        (
+          await post(appA, "wallet/operations", currentCookie).send({
+            ...foreignTarget,
+            credential: { type: "password" },
+          })
+        ).status,
+        404,
       );
+      const soleCookie = "__Host-session=fresh-wallet-account";
       assert.equal(
-        await wallets.unlinkWallet(newAccount.id, newWallet.id),
-        "last_credentials",
+        (
+          await post(appA, "wallet/operations", soleCookie).send({
+            ...foreignTarget,
+            credential: { type: "wallet", walletId: newWallet.id },
+          })
+        ).status,
+        403,
       );
     });
 

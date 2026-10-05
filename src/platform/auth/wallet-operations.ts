@@ -351,13 +351,6 @@ export function createWalletOperationRepository(database: Pool) {
           if (!removed.rows[0]) unavailable();
           wallet = removed.rows[0];
         }
-        const consumed = await client.query(
-          `UPDATE wallet_operations SET consumed_at = clock_timestamp()
-           WHERE id = $1 AND consumed_at IS NULL AND expires_at > clock_timestamp()
-           AND $2::timestamptz > clock_timestamp() RETURNING id`,
-          [operation.id, session.expiresAt],
-        );
-        if (!consumed.rows[0]) unavailable();
         const { token, tokenHash } = createSessionToken();
         const current = (await lockAccount(client, input.userId))!;
         await insertSession(
@@ -392,6 +385,13 @@ export function createWalletOperationRepository(database: Pool) {
             }),
           ],
         );
+        const consumed = await client.query(
+          `UPDATE wallet_operations SET consumed_at = clock_timestamp()
+           WHERE id = $1 AND consumed_at IS NULL AND expires_at > clock_timestamp()
+           AND $2::timestamptz > clock_timestamp() RETURNING id`,
+          [operation.id, session.expiresAt],
+        );
+        if (!consumed.rows[0]) unavailable();
         return { wallet, token };
       });
     },

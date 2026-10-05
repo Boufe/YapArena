@@ -296,6 +296,13 @@ async function runtimeChecks(database, owner, admin) {
       .expect(200);
     const linked = (await wallets.listWallets(alice.id))[0];
     assert.equal(await wallets.unlinkWallet(alice.id, linked.id), "removed");
+    await agents[0]
+      .post("/api/auth/login")
+      .send({
+        email: alice.email,
+        password: "Synthetic local verification passphrase",
+      })
+      .expect(200);
     assert.ok(
       (await identity.listActivity(alice.id, 100, 0)).items.some(
         (item) => item.eventType === "wallet_identities.insert",
@@ -471,6 +478,7 @@ async function runtimeChecks(database, owner, admin) {
       alice.id,
       "b".repeat(64),
       new Date(Date.now() - 60_000),
+      { authGeneration: (await users.findByEmail(alice.email)).authGeneration },
     );
     assert.equal(await sessions.deleteExpired(), 1);
     const expiredWallet = await wallets.createChallenge({

@@ -190,6 +190,18 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is required");
   }
+  if (
+    environment.DATABASE_MIGRATION_URL ||
+    environment.DATABASE_ADMIN_URL ||
+    environment.DATABASE_OWNER_PASSWORD ||
+    environment.DATABASE_RUNTIME_PASSWORD ||
+    environment.DATABASE_FIXTURE_URL ||
+    environment.DATABASE_INSPECTION_URL
+  ) {
+    throw new Error(
+      "runtime must not receive database provisioning or migration secrets",
+    );
+  }
 
   if (!logLevels.has(logLevel)) {
     throw new Error("LOG_LEVEL is invalid");

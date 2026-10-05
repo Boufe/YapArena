@@ -27,8 +27,8 @@ container, migration, image, digest, and deployment terms used below.
 ```sh
 cp .env.example .env
 docker compose up --detach --wait db
-docker compose run --rm --build app \
-  node node_modules/node-pg-migrate/bin/node-pg-migrate.js up
+docker compose --profile release run --rm --build provision
+docker compose --profile release run --rm migrate
 docker compose up --detach --build --wait app
 docker compose ps
 ```
@@ -36,9 +36,9 @@ docker compose ps
 - `cp .env.example .env` creates the local configuration file from development defaults. If `.env`
   already exists, inspect it instead of overwriting local ports, passwords, or other changes.
 - `docker compose up --detach --wait db` starts PostgreSQL and waits until it is healthy.
-- `docker compose run ... up` builds a temporary app container and applies pending migrations, which
-  are versioned changes to the database schema. `--rm` removes the temporary container afterward, not
-  the PostgreSQL data volume.
+- `provision` is the separate administrative operator container that creates/adopts the private
+  schemas and identities. `migrate` applies node-pg-migrate changes using only the owner login.
+  The app receives only runtime credentials. `--rm` removes these one-off containers, not data.
 - `docker compose up --detach --build --wait app` builds and starts the API, then waits for health.
 - `docker compose ps` shows service state and health.
 
@@ -96,7 +96,42 @@ the local stack intentionally does not send them.
    Replace `REQUEST_ID` with the identifier from the failed HTTP response or log entry. This filters
    application logs for that one request so its events can be followed together.
 
-Logs redact authorization and cookie headers, but should still be access-controlled.
+Logs redact incoming Authorization/Cookie headers and the entire outgoing Set-Cookie field.
+Keep log access restricted. Error fields (`error`, `err`, `permissionError`, `pauseError`,
+`stopError`) contain a fixed redacted summary: raw messages, stacks, nested causes and provider
+diagnostics can include credentials. Diagnose using fixed event messages, request IDs, status,
+timing and safe structured context. Field redaction does not sanitize arbitrary free-text log
+messages; do not interpolate credentials or raw errors into messages or other context fields.
+
+### Credential logging follow-up (F01)
+
+Before this fix, successful registration, password login, SIWE login and measurement consent
+responses could write bearer cookies into HTTP completion logs. Hosted log permissions and
+historical access have not been inspected; this finding does not establish a production compromise.
+Local regressions verify the code with real Pino 10.3.1 / pino-http 11.0.0 output, isolated streams
+and synthetic accounts. The registration regression failed against the original logging configuration
+(with destination injection only) and passed after redaction. Deployed verification is separate.
+
+**Pending operator actions; none performed by this local fix:**
+
+1. Restrict read/export access to affected application logs and connected log drains; review who
+   could access them.
+2. Establish the historical exposure period from deployed versions and log retention. Inventory
+   retained copies, exports, drains and backups; assess access using restricted incident procedures.
+   Do not paste bearer values into tickets or diagnostics. Historical-log changes require separate
+   authorization.
+3. Determine the affected session scope and actual expiry configuration. Obtain separate authorization
+   and execute session revocation; consider revoking all outstanding sessions if exposure cannot be
+   bounded. Review exposed measurement credentials as well. Record the scope and counts without tokens.
+   Deploying this patch alone does not invalidate previously issued credentials.
+4. Obtain deployment authorization, release the fix, then verify the deployed application and every
+   logging destination/drain with synthetic registration, password/SIWE login, logout and consent
+   grant/withdrawal. Check incoming headers, multiple cookies and explicit/automatic errors. Compare
+   returned bearer values to captured output in memory, reporting only pass/fail; never print cookies,
+   signatures, passwords or provider secrets. Confirm usable client cookies, redacted Set-Cookie,
+   correlated request IDs, status, timing, levels and monitoring exclusions.
+5. Record the deployed commit/image, UTC verification time, reviewer, exposure assessment and
+   revocation decision as sanitized incident evidence. Retain access restrictions until follow-up is complete.
 
 ## Apply migrations
 
@@ -110,11 +145,13 @@ Back up the database before a risky schema change. Apply migrations once as a re
 sending traffic to code that requires the new schema:
 
 ```sh
-docker compose run --rm --build app \
-  node node_modules/node-pg-migrate/bin/node-pg-migrate.js up
+docker compose --profile release run --rm --build migrate
 ```
 
-This builds a temporary app container and applies pending schema changes.
+This starts a one-off migration container with the owner identity; it does not give that credential
+to the running app. See [database isolation](security/database-isolation.md) for fresh/upgrade
+provisioning, grants/RLS maintenance, inventory, hosted checks and recovery. Keep migration/admin
+secrets out of web and worker environments, mounts and shared secret groups.
 
 “Pending” means migration files present in the application image that are not yet recorded as applied
 in that database. Do not run two release migration jobs concurrently. The advisory lock protects this
@@ -168,11 +205,14 @@ docker compose exec -T db sh -c \
   < /secure/location/yaparena.dump
 
 docker compose exec db sh -c \
-  'psql -U "$POSTGRES_USER" -d restore_test -c "SELECT count(*) FROM messages;"'
+  'psql -U "$POSTGRES_USER" -d restore_test -c "SELECT count(*) FROM yaparena.messages;"'
 ```
 
 - `createdb` creates an isolated database for the restore test.
-- `pg_restore` loads the backup without restoring ownership or privileges.
+- `pg_restore` loads data without restoring ownership or privileges. This checks data restoration
+  only; it does not restore the server-only database boundary. Before any runtime promotion,
+  restore reviewed owners/ACLs/policies and repeat the database isolation checks. See the
+  [isolation recovery instructions](security/database-isolation.md#future-migrations-and-recovery).
 - `psql ... SELECT count(*)` verifies that restored message data is queryable.
 
 After verification, remove only the throwaway database:
@@ -249,7 +289,7 @@ an access-controlled environment file. Apply migrations as a separate release st
 
 ```dotenv
 APP_IMAGE=ghcr.io/OWNER/REPOSITORY@sha256:IMMUTABLE_DIGEST
-DATABASE_URL=postgresql://USER:PASSWORD@DATABASE_HOST:5432/DATABASE
+DATABASE_URL=postgresql://yaparena_runtime:RUNTIME_PASSWORD@DATABASE_HOST:5432/DATABASE
 APP_ORIGIN=https://service.example.com
 TRUST_PROXY=1
 LOG_LEVEL=info
@@ -270,8 +310,14 @@ and restrict who can read it. It is separate from the local `.env` file and must
 
 ```sh
 docker compose --env-file /secure/yaparena.env \
+  --env-file /secure/yaparena-migration.env \
   --file compose.production.yaml --profile release run --rm migrate
 ```
+
+The separate protected `/secure/yaparena-migration.env` supplies `DATABASE_MIGRATION_URL` with the
+owner identity to the one-off service. Do not mount either operator file in app/worker containers;
+the Compose environment mapping passes only the runtime URL to `app`. Do not print full Compose
+configuration containing secrets; use `config --quiet` for validation.
 
 The `release` profile enables only the one-off `migrate` service. A zero exit status means the schema
 update completed; any nonzero status must stop the deployment until the failure is understood.

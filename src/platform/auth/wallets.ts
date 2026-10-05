@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
-import type { PublicUser } from "./users.ts";
+import type { AuthenticationUser } from "./users.ts";
+import { lockAccount, insertSession, assertActiveSession } from "./sessions.ts";
 
 export interface WalletChallenge {
   id: string;
@@ -10,6 +11,9 @@ export interface WalletChallenge {
   userId: string | null;
   sessionTokenHash: string | null;
   expiresAt: Date;
+  accountId: string | null;
+  walletId: string | null;
+  authGeneration: string | null;
 }
 
 export interface LinkedWallet {
@@ -35,11 +39,16 @@ export function createWalletRepository(database: Pool) {
     }): Promise<WalletChallenge> {
       const result = await database.query<WalletChallenge>(
         `INSERT INTO wallet_challenges
-           (address, chain_id, purpose, message, user_id, session_token_hash, expires_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+           (address, chain_id, purpose, message, user_id, session_token_hash, expires_at,
+            account_id, wallet_id, auth_generation)
+         SELECT $1, $2, $3, $4, $5, $6, $7, u.id, w.id, u.auth_generation
+         FROM (SELECT 1) seed
+         LEFT JOIN wallet_identities w ON w.address = $1 AND w.chain_id = $2
+         LEFT JOIN users u ON u.id = COALESCE($5::bigint, w.user_id)
          RETURNING id, address, chain_id AS "chainId", purpose, message,
            user_id AS "userId", session_token_hash AS "sessionTokenHash",
-           expires_at AS "expiresAt"`,
+           expires_at AS "expiresAt", account_id AS "accountId", wallet_id AS "walletId",
+           auth_generation AS "authGeneration"`,
         [
           input.address,
           input.chainId,
@@ -59,7 +68,8 @@ export function createWalletRepository(database: Pool) {
       const result = await database.query<WalletChallenge>(
         `SELECT id, address, chain_id AS "chainId", purpose, message,
            user_id AS "userId", session_token_hash AS "sessionTokenHash",
-           expires_at AS "expiresAt"
+           expires_at AS "expiresAt", account_id AS "accountId", wallet_id AS "walletId",
+           auth_generation AS "authGeneration"
          FROM wallet_challenges
          WHERE id = $1 AND consumed_at IS NULL AND expires_at > CURRENT_TIMESTAMP`,
         [id],
@@ -67,48 +77,84 @@ export function createWalletRepository(database: Pool) {
       return result.rows[0] ?? null;
     },
 
-    async completeLogin(id: string): Promise<PublicUser> {
+    async completeLogin(
+      id: string,
+      issuance: { tokenHash: string; expiresAt: Date },
+    ): Promise<AuthenticationUser> {
       const client = await database.connect();
       try {
         await client.query("BEGIN");
-        const consumed = await client.query<{
-          address: string;
-          chainId: string;
-        }>(
-          `UPDATE wallet_challenges SET consumed_at = CURRENT_TIMESTAMP
-           WHERE id = $1 AND purpose = 'login' AND consumed_at IS NULL
-             AND expires_at > CURRENT_TIMESTAMP
-           RETURNING address, chain_id AS "chainId"`,
+        const pending = await client.query<WalletChallenge>(
+          `SELECT id, address, chain_id AS "chainId", account_id AS "accountId",
+             wallet_id AS "walletId", auth_generation AS "authGeneration"
+           FROM wallet_challenges WHERE id = $1 AND purpose = 'login'
+             AND consumed_at IS NULL AND expires_at > CURRENT_TIMESTAMP`,
           [id],
         );
-        const challenge = consumed.rows[0];
+        const challenge = pending.rows[0];
         if (!challenge)
           throw new ChallengeUnavailableError("challenge is unavailable");
+        let account = challenge.accountId
+          ? await lockAccount(client, challenge.accountId)
+          : null;
+        if (
+          challenge.accountId &&
+          (!account || account.authGeneration !== challenge.authGeneration)
+        )
+          throw new ChallengeUnavailableError("authentication state changed");
+        // Existing accounts are locked first. An unknown wallet has no account to
+        // lock; its advisory lock serializes only new account provisioning.
         await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
           `${challenge.chainId}:${challenge.address}`,
         ]);
-        const found = await client.query<PublicUser>(
-          `SELECT u.id, u.email, u.created_at AS "createdAt"
-           FROM wallet_identities w JOIN users u ON u.id = w.user_id
-           WHERE w.chain_id = $1 AND w.address = $2`,
+        const found = await client.query<{ id: string; userId: string }>(
+          `SELECT id, user_id AS "userId" FROM wallet_identities WHERE chain_id = $1 AND address = $2`,
           [challenge.chainId, challenge.address],
         );
-        let user = found.rows[0];
-        if (!user) {
-          const created = await client.query<PublicUser>(
-            `INSERT INTO users (email, password_hash) VALUES (NULL, NULL)
-             RETURNING id, email, created_at AS "createdAt"`,
+        const wallet = found.rows[0];
+        if (
+          (challenge.accountId &&
+            (wallet?.id !== challenge.walletId ||
+              wallet.userId !== challenge.accountId)) ||
+          (!challenge.accountId && wallet)
+        )
+          throw new ChallengeUnavailableError(
+            "wallet ownership changed; request a fresh challenge",
           );
-          user = created.rows[0];
+        const consumed = await client.query(
+          `UPDATE wallet_challenges SET consumed_at = CURRENT_TIMESTAMP WHERE id = $1 AND consumed_at IS NULL
+             AND expires_at > CURRENT_TIMESTAMP RETURNING id`,
+          [id],
+        );
+        if (!consumed.rows[0])
+          throw new ChallengeUnavailableError("challenge is unavailable");
+        if (!account) {
+          const created = await client.query<AuthenticationUser>(
+            `INSERT INTO users (email, password_hash) VALUES (NULL, NULL)
+             RETURNING id, email, created_at AS "createdAt", auth_generation AS "authGeneration"`,
+          );
+          const user = created.rows[0];
           if (!user) throw new Error("created wallet user was not returned");
           await client.query(
-            `INSERT INTO wallet_identities (user_id, chain_id, address)
-             VALUES ($1, $2, $3)`,
+            `INSERT INTO wallet_identities (user_id, chain_id, address) VALUES ($1, $2, $3)`,
             [user.id, challenge.chainId, challenge.address],
           );
+          account = { ...user, passwordHash: null };
         }
+        await insertSession(
+          client,
+          account.id,
+          issuance.tokenHash,
+          issuance.expiresAt,
+          account.authGeneration,
+        );
         await client.query("COMMIT");
-        return user;
+        return {
+          id: account.id,
+          email: account.email,
+          createdAt: account.createdAt,
+          authGeneration: account.authGeneration,
+        };
       } catch (error) {
         await client.query("ROLLBACK");
         throw error;
@@ -125,6 +171,10 @@ export function createWalletRepository(database: Pool) {
       const client = await database.connect();
       try {
         await client.query("BEGIN");
+        const account = await lockAccount(client, userId);
+        if (!account)
+          throw new ChallengeUnavailableError("account is unavailable");
+        await assertActiveSession(client, userId, sessionTokenHash);
         const consumed = await client.query<{
           address: string;
           chainId: string;
@@ -132,9 +182,9 @@ export function createWalletRepository(database: Pool) {
           `UPDATE wallet_challenges SET consumed_at = CURRENT_TIMESTAMP
            WHERE id = $1 AND purpose = 'link' AND user_id = $2
              AND session_token_hash = $3 AND consumed_at IS NULL
-             AND expires_at > CURRENT_TIMESTAMP
+             AND auth_generation = $4 AND expires_at > clock_timestamp()
            RETURNING address, chain_id AS "chainId"`,
-          [id, userId, sessionTokenHash],
+          [id, userId, sessionTokenHash, account.authGeneration],
         );
         const challenge = consumed.rows[0];
         if (!challenge)
@@ -196,10 +246,7 @@ export function createWalletRepository(database: Pool) {
       const client = await database.connect();
       try {
         await client.query("BEGIN");
-        const user = await client.query<{ email: string | null }>(
-          "SELECT email FROM users WHERE id = $1 FOR UPDATE",
-          [userId],
-        );
+        const user = await lockAccount(client, userId);
         const target = await client.query(
           "SELECT id FROM wallet_identities WHERE id = $1 AND user_id = $2",
           [walletId, userId],
@@ -212,7 +259,7 @@ export function createWalletRepository(database: Pool) {
           "SELECT count(*)::text AS count FROM wallet_identities WHERE user_id = $1",
           [userId],
         );
-        if (!user.rows[0]?.email && Number(count.rows[0]?.count ?? 0) <= 1) {
+        if (!user?.email && Number(count.rows[0]?.count ?? 0) <= 1) {
           await client.query("COMMIT");
           return "last_credentials";
         }

@@ -37,7 +37,7 @@ export async function assertActiveSession(
     `SELECT s.id, s.user_id AS "userId", s.expires_at AS "expiresAt",
        s.created_at AS "createdAt" FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.user_id = $1 AND s.token_hash = $2
-       AND s.auth_generation = u.auth_generation AND s.expires_at > CURRENT_TIMESTAMP
+       AND s.auth_generation = u.auth_generation AND s.expires_at > clock_timestamp()
      FOR UPDATE OF s`,
     [userId, tokenHash],
   );
@@ -96,7 +96,7 @@ export async function revokeAccountSessions(
   }
   await client.query(
     `INSERT INTO identity_audit_events (user_id, event_type, subject_id, metadata)
-     VALUES ($1, $2, $1::text, $3::jsonb)`,
+     VALUES ($1::bigint, $2, $1::bigint::text, $3::jsonb)`,
     [
       userId,
       options.action,
@@ -166,7 +166,7 @@ export function createSessionRepository(database: Pool) {
          INNER JOIN users ON users.id = sessions.user_id
          WHERE sessions.token_hash = $1
            AND sessions.auth_generation = users.auth_generation
-           AND sessions.expires_at > CURRENT_TIMESTAMP`,
+           AND sessions.expires_at > clock_timestamp()`,
         [tokenHash],
       );
       return result.rows[0] ?? null;

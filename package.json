@@ -6,6 +6,7 @@
     "build": "tsc --project tsconfig.json && esbuild public/media-entry.js --bundle --minify --format=iife --outfile=public/media.bundle.js",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.js",
+    "test:revocation": "npm run build && node --test tests/session-revocation-postgres.test.js",
     "test:coverage": "npm run build && node --test --experimental-test-coverage --test-coverage-exclude=scripts/** --test-coverage-exclude=tests/** --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 tests/*.test.js",
     "start": "node dist/server.js",
     "start:worker": "node dist/worker.js",

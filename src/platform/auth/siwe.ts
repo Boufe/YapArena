@@ -1,7 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { createPublicClient, getAddress, http, verifyMessage } from "viem";
 import { createSiweMessage, parseSiweMessage } from "viem/siwe";
-import type { WalletChallenge } from "./wallets.ts";
 
 export class WalletVerificationUnavailableError extends Error {}
 
@@ -24,15 +23,25 @@ export function createChallengeMessage({
   origin,
   purpose,
   now = new Date(),
+  operationId,
+  target,
 }: {
   address: string;
   chainId: number;
   origin: string;
-  purpose: "login" | "link";
+  purpose: "login" | "link" | "approve-link" | "approve-unlink";
+  operationId?: string;
+  target?: { address: string; chainId: number };
   now?: Date;
 }) {
   const site = new URL(origin);
   const expiresAt = new Date(now.getTime() + 5 * 60 * 1_000);
+  const action = purpose === "approve-unlink" ? "unlink" : "link";
+  const statement = purpose.startsWith("approve-")
+    ? `Authorize ${action} of wallet ${target!.address} on chain ${target!.chainId} for your YAP Arena account. This does not authorize a transaction.`
+    : purpose === "link"
+      ? "Prove control of this new wallet for linking to your YAP Arena account. This does not authorize a transaction."
+      : "Sign in to YAP Arena. This does not authorize a transaction.";
   const message = createSiweMessage({
     address: getAddress(address),
     chainId,
@@ -43,10 +52,8 @@ export function createChallengeMessage({
     issuedAt: now,
     expirationTime: expiresAt,
     scheme: site.protocol.slice(0, -1),
-    statement:
-      purpose === "link"
-        ? "Link this wallet to your YAP Arena account. This does not authorize a transaction."
-        : "Sign in to YAP Arena. This does not authorize a transaction.",
+    statement,
+    ...(operationId ? { requestId: operationId } : {}),
   });
   return { message, expiresAt };
 }
@@ -57,7 +64,12 @@ export async function verifyChallengeSignature({
   origin,
   rpcUrls,
 }: {
-  challenge: WalletChallenge;
+  challenge: {
+    address: string;
+    chainId: string;
+    message: string;
+    expiresAt: Date;
+  };
   signature: string;
   origin: string;
   rpcUrls: Readonly<Record<string, string>>;
@@ -72,6 +84,11 @@ export async function verifyChallengeSignature({
     parsed.address?.toLowerCase() !== challenge.address ||
     parsed.version !== "1" ||
     !parsed.nonce ||
+    parsed.scheme !== site.protocol.slice(0, -1) ||
+    !parsed.issuedAt ||
+    parsed.issuedAt.getTime() > Date.now() ||
+    parsed.expirationTime?.getTime() !==
+      new Date(challenge.expiresAt).getTime() ||
     new Date(challenge.expiresAt).getTime() <= Date.now()
   )
     return false;

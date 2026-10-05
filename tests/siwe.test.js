@@ -10,10 +10,7 @@ import {
   validChainId,
   verifyChallengeSignature,
 } from "../dist/platform/auth/siwe.js";
-import {
-  ChallengeUnavailableError,
-  WalletAlreadyLinkedError,
-} from "../dist/platform/auth/wallets.js";
+import { ChallengeUnavailableError } from "../dist/platform/auth/wallets.js";
 import { createLogger } from "../dist/platform/logger.js";
 
 const owner = privateKeyToAccount(`0x${"11".repeat(32)}`);
@@ -105,10 +102,8 @@ describe("SIWE proof", () => {
 
 function walletApp({
   signedIn = false,
-  conflict = false,
   challengeMissing = false,
   completeLoginError = false,
-  unlinkOutcome = "last_credentials",
 } = {}) {
   const records = new Map();
   let used = false;
@@ -131,13 +126,7 @@ function walletApp({
       used = true;
       return user;
     },
-    completeLink: async () => {
-      if (conflict) throw new WalletAlreadyLinkedError();
-      used = true;
-      return { id, address: owner.address.toLowerCase(), chainId: "1" };
-    },
     listWallets: async () => [],
-    unlinkWallet: async () => unlinkOutcome,
   };
   const sessions = {
     create: async () => ({}),
@@ -214,69 +203,6 @@ describe("wallet authentication routes", () => {
     );
   });
 
-  it("binds link challenges to an authenticated session", async () => {
-    const { app, records } = walletApp({ signedIn: true });
-    assert.equal(
-      (
-        await request(app)
-          .post("/api/auth/wallet/link/challenge")
-          .send({ address: owner.address, chainId: 1 })
-      ).status,
-      401,
-    );
-    const issued = await request(app)
-      .post("/api/auth/wallet/link/challenge")
-      .set("Cookie", "session=active")
-      .send({ address: owner.address, chainId: 1 });
-    assert.equal(issued.status, 201);
-    const signature = await owner.signMessage({ message: issued.body.message });
-    assert.equal(
-      (
-        await request(app)
-          .post("/api/auth/wallet/link/verify")
-          .set("Cookie", "session=different")
-          .send({ challengeId: id, signature })
-      ).status,
-      410,
-    );
-    assert.ok(records.get(id).sessionTokenHash);
-    assert.equal(
-      (
-        await request(app)
-          .post("/api/auth/wallet/link/verify")
-          .set("Cookie", "session=active")
-          .send({ challengeId: id, signature })
-      ).status,
-      200,
-    );
-    assert.equal(
-      (
-        await request(app)
-          .delete(`/api/auth/wallets/${id}`)
-          .set("Cookie", "session=active")
-      ).status,
-      409,
-    );
-  });
-
-  it("rejects linking a wallet held by another account", async () => {
-    const { app } = walletApp({ signedIn: true, conflict: true });
-    const issued = await request(app)
-      .post("/api/auth/wallet/link/challenge")
-      .set("Cookie", "session=active")
-      .send({ address: owner.address, chainId: 1 });
-    const signature = await owner.signMessage({ message: issued.body.message });
-    assert.equal(
-      (
-        await request(app)
-          .post("/api/auth/wallet/link/verify")
-          .set("Cookie", "session=active")
-          .send({ challengeId: id, signature })
-      ).status,
-      409,
-    );
-  });
-
   it("validates challenge requests and refuses stale verification", async () => {
     const { app } = walletApp({ challengeMissing: true });
     assert.equal(
@@ -319,139 +245,6 @@ describe("wallet authentication routes", () => {
             challengeId: id,
             signature: await owner.signMessage({ message: fresh.body.message }),
           })
-      ).status,
-      410,
-    );
-  });
-
-  it("keeps wallet inventory scoped to the current account", async () => {
-    const { app } = walletApp({ signedIn: true, unlinkOutcome: "missing" });
-    assert.equal(
-      (
-        await request(app)
-          .get("/api/auth/wallets")
-          .set("Cookie", "session=active")
-      ).status,
-      200,
-    );
-    assert.equal(
-      (
-        await request(app)
-          .delete(`/api/auth/wallets/${id}`)
-          .set("Cookie", "session=active")
-      ).status,
-      404,
-    );
-    const removable = walletApp({ signedIn: true, unlinkOutcome: "removed" });
-    assert.equal(
-      (
-        await request(removable.app)
-          .delete(`/api/auth/wallets/${id}`)
-          .set("Cookie", "session=active")
-      ).status,
-      204,
-    );
-    assert.equal(
-      (
-        await request(removable.app)
-          .delete("/api/auth/wallets/bad")
-          .set("Cookie", "session=active")
-      ).status,
-      404,
-    );
-  });
-
-  it("rejects malformed wallet requests and enforces login and link session boundaries", async () => {
-    const signedIn = walletApp({ signedIn: true });
-    const issued = await request(signedIn.app)
-      .post("/api/auth/wallet/login/challenge")
-      .send({ address: owner.address, chainId: 1 });
-    const signature = await owner.signMessage({ message: issued.body.message });
-    assert.equal(
-      (
-        await request(signedIn.app)
-          .post("/api/auth/wallet/login/verify")
-          .set("Cookie", "session=active")
-          .send({ challengeId: id, signature })
-      ).status,
-      409,
-    );
-    for (const body of [
-      null,
-      [],
-      {},
-      { address: owner.address, chainId: "1" },
-    ]) {
-      assert.equal(
-        (
-          await request(signedIn.app)
-            .post("/api/auth/wallet/link/challenge")
-            .set("Cookie", "session=active")
-            .send(body)
-        ).status,
-        400,
-      );
-    }
-    for (const body of [
-      null,
-      [],
-      {},
-      { challengeId: id, signature: "x".repeat(8195) },
-    ]) {
-      assert.equal(
-        (
-          await request(signedIn.app)
-            .post("/api/auth/wallet/link/verify")
-            .set("Cookie", "session=active")
-            .send(body)
-        ).status,
-        400,
-      );
-    }
-    assert.equal(
-      (
-        await request(signedIn.app)
-          .post("/api/auth/wallet/link/verify")
-          .set("Cookie", "session=active")
-          .send({ challengeId: id, signature })
-      ).status,
-      410,
-    );
-  });
-
-  it("rejects a link proof with the wrong signature or a consumed challenge", async () => {
-    const { app } = walletApp({ signedIn: true });
-    const issued = await request(app)
-      .post("/api/auth/wallet/link/challenge")
-      .set("Cookie", "session=active")
-      .send({ address: owner.address, chainId: 1 });
-    assert.equal(issued.status, 201);
-    const wrong = await stranger.signMessage({ message: issued.body.message });
-    assert.equal(
-      (
-        await request(app)
-          .post("/api/auth/wallet/link/verify")
-          .set("Cookie", "session=active")
-          .send({ challengeId: id, signature: wrong })
-      ).status,
-      401,
-    );
-    const signature = await owner.signMessage({ message: issued.body.message });
-    assert.equal(
-      (
-        await request(app)
-          .post("/api/auth/wallet/link/verify")
-          .set("Cookie", "session=active")
-          .send({ challengeId: id, signature })
-      ).status,
-      200,
-    );
-    assert.equal(
-      (
-        await request(app)
-          .post("/api/auth/wallet/link/verify")
-          .set("Cookie", "session=active")
-          .send({ challengeId: id, signature })
       ).status,
       410,
     );

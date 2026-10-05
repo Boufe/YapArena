@@ -1347,3 +1347,20 @@ h3 {
   border-bottom: 1px solid var(--line);
   text-align: left;
 }
+
+#wallet-change {
+  color: var(--text);
+  width: min(640px, calc(100% - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+#wallet-change::backdrop {
+  background: rgb(0 0 0 / 75%);
+}
+#wallet-change [hidden] {
+  display: none;
+}
+#wallet-change .button-secondary {
+  margin-top: 20px;
+}

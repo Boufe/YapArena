@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 
 import {
   ChallengeUnavailableError,
-  WalletAlreadyLinkedError,
   createWalletRepository,
 } from "../dist/platform/auth/wallets.js";
 
@@ -134,65 +133,11 @@ describe("wallet repository atomic identity changes", () => {
     assert.ok(calls.some(({ sql }) => sql === "ROLLBACK"));
   });
 
-  it("links only to the intended owner and rejects an occupied wallet", async () => {
-    const newLink = fakePool();
-    const linked = await createWalletRepository(newLink.pool).completeLink(
-      "challenge",
-      "7",
-      "hash",
-    );
-    assert.equal(linked.address, address);
-    assert.deepEqual(
-      newLink.calls.find(({ sql }) => sql.includes("UPDATE wallet_challenges"))
-        .values,
-      ["challenge", "7", "hash"],
-    );
-    const same = fakePool({ linkedTo: "7" });
-    assert.equal(
-      (
-        await createWalletRepository(same.pool).completeLink(
-          "challenge",
-          "7",
-          "hash",
-        )
-      ).id,
-      wallet.id,
-    );
-    const occupied = fakePool({ linkedTo: "8" });
-    await assert.rejects(
-      () =>
-        createWalletRepository(occupied.pool).completeLink(
-          "challenge",
-          "7",
-          "hash",
-        ),
-      WalletAlreadyLinkedError,
-    );
-    assert.ok(occupied.calls.some(({ sql }) => sql === "ROLLBACK"));
-  });
-
-  it("preserves the last login method during unlink", async () => {
-    const repository = (options) =>
-      createWalletRepository(fakePool(options).pool);
-    assert.equal(
-      await repository({ walletMissing: true }).unlinkWallet("7", wallet.id),
-      "missing",
-    );
-    assert.equal(
-      await repository({}).unlinkWallet("7", wallet.id),
-      "last_credentials",
-    );
-    assert.equal(
-      await repository({ email: "me@example.com" }).unlinkWallet(
-        "7",
-        wallet.id,
-      ),
-      "removed",
-    );
-    assert.equal(
-      await repository({ walletCount: 2 }).unlinkWallet("7", wallet.id),
-      "removed",
-    );
-    assert.equal((await repository({}).listWallets("7"))[0].id, wallet.id);
+  it("keeps wallet inventory scoped and exposes only gated mutations", async () => {
+    const repository = createWalletRepository(fakePool().pool);
+    assert.equal((await repository.listWallets("7"))[0].id, wallet.id);
+    assert.equal(repository.completeLink, undefined);
+    assert.equal(repository.unlinkWallet, undefined);
+    assert.equal(typeof repository.operations.complete, "function");
   });
 });

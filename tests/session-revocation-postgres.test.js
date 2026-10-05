@@ -5,6 +5,7 @@ import pg from "pg";
 import request from "supertest";
 import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "../dist/app.js";
+import { verifyRuntimeIdentity } from "../dist/platform/database.js";
 import { createLogger } from "../dist/platform/logger.js";
 import { createUserRepository } from "../dist/platform/auth/users.js";
 import { hashPassword } from "../dist/platform/auth/passwords.js";
@@ -332,6 +333,25 @@ describe(
           [user.id, replacementHash],
         );
         await client.query("ROLLBACK");
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT count(*)::int AS n FROM sessions WHERE user_id=$1",
+              [user.id],
+            )
+          ).rows[0].n,
+          2,
+          "credential rollback restores both session rows",
+        );
+        assert.equal(
+          (
+            await owner.query("SELECT auth_generation FROM users WHERE id=$1", [
+              user.id,
+            ])
+          ).rows[0].auth_generation,
+          "0",
+          "credential rollback restores the generation",
+        );
         assert.equal((await me(appB, a)).status, 200);
         assert.equal(
           (await users.findByEmail(user.email)).passwordHash,
@@ -623,6 +643,31 @@ describe(
         ]),
         /cannot decrease/,
       );
+    });
+    it("runtime role can revoke but cannot edit credentials or execute trigger functions directly", async () => {
+      if (!process.env.REVOCATION_TEST_RUNTIME_URL) return;
+      await verifyRuntimeIdentity(firstPool);
+      const user = await account();
+      await assert.rejects(
+        firstPool.query(
+          "UPDATE users SET password_hash='forbidden' WHERE id=$1",
+          [user.id],
+        ),
+        { code: "42501" },
+      );
+      await assert.rejects(
+        firstPool.query(
+          "UPDATE users SET email='forbidden@example.test' WHERE id=$1",
+          [user.id],
+        ),
+        { code: "42501" },
+      );
+      const result = await firstPool.query(
+        "SELECT has_function_privilege(current_user, 'enforce_session_generation()', 'EXECUTE') AS executable",
+      );
+      assert.equal(result.rows[0].executable, false);
+      const cookie = await login(user);
+      assert.equal((await post(appB, "logout-all", cookie)).status, 204);
     });
   },
 );

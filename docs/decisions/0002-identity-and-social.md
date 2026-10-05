@@ -29,6 +29,21 @@ Status: implemented for the nonfinancial preview, 2026-09-29.
   role-grant endpoint. Each future challenge or moderation action must check its own role and
   ownership rules before it ships.
 
+## Account session revocation
+
+Opaque server-side sessions retain independent sign-ins and single-device logout. Owners can
+sign out every session, including this device, or sign out other sessions while retaining this
+device and its original expiry. Credential removal or replacement atomically advances one
+account authentication generation and revokes every preexisting session. A fresh sign-in
+through a retained credential is still allowed. F02 may issue a successor only after fresh
+retained-credential proof, with its cookie published after the mutation commits.
+
+The [revocation operating contract](../security/account-session-revocation.md) documents
+transaction locking, stale authentication rejection, audit, owner controls, operator password
+updates, rollout and rollback. Revoking application sessions does not terminate existing
+LiveKit connections or external bearer grants. Password recovery and account suspension
+remain separate capabilities; no new recovery endpoint is implied.
+
 ## Profile and participation data
 
 Profiles start as private drafts and are published by an explicit account action. Handles cannot

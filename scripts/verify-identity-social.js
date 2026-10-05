@@ -88,6 +88,10 @@ try {
     );
     return issued;
   };
+  await pool.query(
+    "INSERT INTO sessions(user_id,token_hash,expires_at,auth_generation) SELECT id,$2,CURRENT_TIMESTAMP+INTERVAL '10 minutes',auth_generation FROM users WHERE id=$1",
+    [userId, sessionTokenHash],
+  );
   const linked = await issue("link");
   assert.equal(
     (await wallets.completeLink(linked.id, userId, sessionTokenHash)).address,
@@ -95,9 +99,21 @@ try {
   );
   assert.equal((await wallets.listWallets(userId)).length, 1);
   const login = await issue("login");
-  assert.equal((await wallets.completeLogin(login.id)).id, userId);
+  assert.equal(
+    (
+      await wallets.completeLogin(login.id, {
+        tokenHash: "b".repeat(64),
+        expiresAt: new Date(Date.now() + 600000),
+      })
+    ).id,
+    userId,
+  );
   await assert.rejects(
-    () => wallets.completeLogin(login.id),
+    () =>
+      wallets.completeLogin(login.id, {
+        tokenHash: "b".repeat(64),
+        expiresAt: new Date(Date.now() + 600000),
+      }),
     ChallengeUnavailableError,
   );
   assert.equal(

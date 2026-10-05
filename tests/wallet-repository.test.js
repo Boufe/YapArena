@@ -6,7 +6,12 @@ import {
   createWalletRepository,
 } from "../dist/platform/auth/wallets.js";
 
-const user = { id: "7", email: null, createdAt: new Date("2026-09-01") };
+const user = {
+  id: "7",
+  email: null,
+  authGeneration: "0",
+  createdAt: new Date("2026-09-01"),
+};
 const address = `0x${"a".repeat(40)}`;
 const wallet = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -24,11 +29,25 @@ function fakePool(options = {}) {
       return {
         rows: [{ id: "challenge", address, chainId: "1", purpose: "login" }],
       };
+    if (sql.includes("FROM users WHERE id"))
+      return { rows: [{ ...user, email: options.email ?? null }] };
+    if (sql.includes("INSERT INTO sessions") || sql.includes("FROM sessions s"))
+      return { rows: [{ id: "1", userId: "7" }] };
     if (sql.includes("FROM wallet_challenges") && sql.includes("SELECT id"))
       return {
         rows: options.challengeMissing
           ? []
-          : [{ id: "challenge", address, chainId: "1", purpose: "login" }],
+          : [
+              {
+                id: "challenge",
+                address,
+                chainId: "1",
+                purpose: "login",
+                accountId: options.existingLogin ? "7" : null,
+                walletId: options.existingLogin ? wallet.id : null,
+                authGeneration: "0",
+              },
+            ],
       };
     if (sql.includes("UPDATE wallet_challenges"))
       return {
@@ -37,6 +56,8 @@ function fakePool(options = {}) {
     if (sql.includes("FROM wallet_identities w JOIN users"))
       return { rows: options.existingLogin ? [user] : [] };
     if (sql.includes("INSERT INTO users")) return { rows: [user] };
+    if (sql.includes('SELECT id, user_id AS "userId" FROM wallet_identities'))
+      return { rows: options.existingLogin ? [wallet] : [] };
     if (sql.includes("FROM wallet_identities WHERE chain_id"))
       return {
         rows:
@@ -101,6 +122,7 @@ describe("wallet repository atomic identity changes", () => {
     const first = fakePool();
     const created = await createWalletRepository(first.pool).completeLogin(
       "challenge",
+      { tokenHash: "hash", expiresAt: new Date("2026-10-01") },
     );
     assert.equal(created.id, "7");
     assert.ok(first.calls.some(({ sql }) => sql.includes("INSERT INTO users")));
@@ -115,8 +137,12 @@ describe("wallet repository atomic identity changes", () => {
     assert.ok(first.calls.some(({ sql }) => sql === "COMMIT"));
     const existing = fakePool({ existingLogin: true });
     assert.equal(
-      (await createWalletRepository(existing.pool).completeLogin("challenge"))
-        .id,
+      (
+        await createWalletRepository(existing.pool).completeLogin("challenge", {
+          tokenHash: "hash",
+          expiresAt: new Date("2026-10-01"),
+        })
+      ).id,
       "7",
     );
     assert.ok(
@@ -127,7 +153,11 @@ describe("wallet repository atomic identity changes", () => {
   it("rolls back a replayed challenge", async () => {
     const { pool, calls } = fakePool({ challengeMissing: true });
     await assert.rejects(
-      () => createWalletRepository(pool).completeLogin("challenge"),
+      () =>
+        createWalletRepository(pool).completeLogin("challenge", {
+          tokenHash: "hash",
+          expiresAt: new Date("2026-10-01"),
+        }),
       ChallengeUnavailableError,
     );
     assert.ok(calls.some(({ sql }) => sql === "ROLLBACK"));

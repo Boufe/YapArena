@@ -1,6 +1,8 @@
  # syntax=docker/dockerfile:1
 
   FROM node:24-bookworm-slim AS base
+  RUN apt-get update && apt-get upgrade -y && \
+      rm -rf /var/lib/apt/lists/*
   WORKDIR /app
 
   FROM base AS development

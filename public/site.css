@@ -1380,3 +1380,8 @@ h3 {
     flex-wrap: wrap;
   }
 }
+
+#wallet-change button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

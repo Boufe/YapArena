@@ -120,6 +120,10 @@ try {
     ])
   ).rows[0];
   await form.locator("select[name=credential]").selectOption(linked.id);
+  await page.screenshot({
+    path: `${artifactDir}/retained-wallet-approval-desktop.png`,
+    fullPage: false,
+  });
   await form.locator("button[type=submit]").click();
   await form.locator("button[type=submit]:not([disabled])").waitFor();
   await notice.getByText("Switch your wallet", { exact: false }).waitFor();
@@ -134,10 +138,6 @@ try {
   await page.locator("#sign-new-wallet").click();
   await page.locator("#sign-new-wallet:not([disabled])").waitFor();
   await notice.getByText("Switch your wallet", { exact: false }).waitFor();
-  await page.screenshot({
-    path: `${artifactDir}/retained-wallet-approval-desktop.png`,
-    fullPage: false,
-  });
   activeSigner = signers[1];
   await page.locator("#sign-new-wallet").click();
   await change.waitFor({ state: "hidden" });
@@ -227,8 +227,9 @@ try {
   await change.waitFor({ state: "visible" });
   assert.equal(await form.locator("button[type=submit]").isDisabled(), true);
   await notice
-    .getByText("cannot remove your last method", { exact: false })
+    .getByText("cannot remove your last sign-in method", { exact: false })
     .waitFor();
+  assert.equal(await page.locator("#existing-wallet-help").isVisible(), false);
   await page.screenshot({
     path: `${artifactDir}/sole-wallet-protection-mobile.png`,
     fullPage: false,

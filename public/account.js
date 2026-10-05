@@ -334,9 +334,12 @@ function openWalletChange(target) {
   }
   changeForm.querySelector('button[type="submit"]').disabled =
     !select.options.length;
+  select.disabled = !select.options.length;
   if (!select.options.length)
     changeNotice.textContent =
-      "You need another retained sign-in method. You cannot remove your last method or use the new wallet to approve its own addition.";
+      target.purpose === "unlink"
+        ? "You need another retained sign-in method to unlink this wallet. You cannot remove your last sign-in method."
+        : "This wallet cannot approve its own addition. Use your current password or another linked wallet.";
   updateCredentialChoice();
   changeDialog.showModal();
 }
@@ -347,12 +350,13 @@ function updateCredentialChoice() {
   changeForm.elements.password.required = password;
   changeForm.elements.password.value = "";
   const help = document.querySelector("#existing-wallet-help");
-  help.hidden = password;
   const wallet = linkedWallets.find(
     (entry) => entry.id === changeForm.elements.credential.value,
   );
-  if (wallet)
-    help.textContent = `Switch your wallet extension to existing wallet ${wallet.address} on chain ${wallet.chainId} before continuing. A new wallet cannot approve its own addition.`;
+  help.hidden = password || !wallet;
+  help.textContent = wallet
+    ? `Switch your wallet extension to existing wallet ${wallet.address} on chain ${wallet.chainId} before continuing.`
+    : "";
 }
 
 async function signForWallet(message, address, chainId) {

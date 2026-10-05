@@ -32,6 +32,7 @@ import { createMeasurementRepository } from "../dist/features/measurement/reposi
 // This harness creates its own isolated Docker cluster. It accepts no external URL,
 // never reads .env, mounts no data volume, and uses only synthetic random credentials.
 const exec = promisify(execFile);
+const applicationTables = [...Object.keys(runtimeGrants), "wallet_operations"];
 const container = `yaparena-isolation-${randomUUID().slice(0, 8)}`;
 const evidenceDirectory = `/tmp/${container}-evidence`;
 const postgresImage =
@@ -89,7 +90,7 @@ async function browserChecks(admin) {
   for (const role of ["anon", "authenticated"]) {
     await admin.query(`SET ROLE ${role}`);
     try {
-      for (const table of Object.keys(runtimeGrants)) {
+      for (const table of applicationTables) {
         await denied(admin, `SELECT * FROM yaparena.${table}`);
         await denied(admin, `INSERT INTO yaparena.${table} DEFAULT VALUES`);
         await denied(admin, `DELETE FROM yaparena.${table}`);
@@ -745,7 +746,7 @@ async function scenario(database, upgrade) {
       inventory.relations.filter(
         (r) => r.schema === "yaparena" && r.kind === "r",
       ).length,
-      Object.keys(runtimeGrants).length,
+      applicationTables.length,
     );
     assert.ok(
       inventory.policies

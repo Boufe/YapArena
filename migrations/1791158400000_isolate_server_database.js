@@ -50,8 +50,14 @@ export const up = (pgm) => {
     END IF;
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'yaparena_runtime'
       AND (rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication))
-      OR EXISTS (SELECT 1 FROM pg_auth_members WHERE
-        member = 'yaparena_runtime'::regrole OR roleid = 'yaparena_runtime'::regrole) THEN
+      OR EXISTS (SELECT 1 FROM pg_auth_members m WHERE
+        m.member = 'yaparena_runtime'::regrole OR
+        (m.roleid = 'yaparena_runtime'::regrole AND NOT EXISTS (SELECT 1 FROM pg_roles administrator
+            WHERE administrator.oid = m.member AND administrator.rolname = 'postgres'
+              AND (administrator.rolsuper OR administrator.rolcreaterole)
+              AND m.admin_option
+              AND NOT COALESCE((to_jsonb(m)->>'inherit_option')::boolean, true)
+              AND NOT COALESCE((to_jsonb(m)->>'set_option')::boolean, true)))) THEN
       RAISE EXCEPTION 'Runtime role attributes or memberships are unsafe';
     END IF;
     IF EXISTS (SELECT 1 FROM pg_roles b WHERE b.rolname IN ('anon','authenticated','authenticator')

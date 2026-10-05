@@ -12,8 +12,12 @@ creates it; ordinary migrations cannot create roles. Only a controlled administr
 be a member of this role. Never grant it to runtime, browser roles, `authenticator`, or a shared
 application group.
 
-`yaparena_runtime` is a distinct login with no elevated attributes, object ownership or memberships
-in either direction. Startup checks the real session/current user, ownership, membership, schema
+`yaparena_runtime` is a distinct login with no elevated attributes, object ownership or membership
+in another role. PostgreSQL 16+ gives its creator an inbound ADMIN-only membership. Provisioning,
+migration and startup accept this only for the existing `postgres` administrator, with ADMIN true
+and INHERIT/SET explicitly false. Every other inbound grant and every outbound runtime grant is
+rejected. Missing option fields on older PostgreSQL versions fail closed.
+Startup checks the real session/current user, ownership, membership, schema
 CREATE, and read-only migration metadata access before accepting traffic. Web and worker processes
 receive **only this identity's `DATABASE_URL`**. They reject known provisioning, migration,
 inspection and fixture secrets in their environment. This guard does not discover arbitrary secret
@@ -32,11 +36,24 @@ only the explicit repository manifest. Unexpected duplicates, object kinds or ex
 dependencies stop provisioning for review. Inventory first; resolve ambiguous or extra application
 objects explicitly rather than extending this script to every object owned by `postgres`.
 
+Provisioning preserves Supabase's standard `authenticator` broker grant to `service_role`: a direct
+SET-only grant with ADMIN/INHERIT disabled, a NOINHERIT broker, and the normal non-login service
+role attributes. Browser `anon`/`authenticated` escalation and broker access to owner/runtime or
+other privileged roles remain rejected. Extra indirect routes or altered grant flags stop the
+operation. Existing tables and routines move to their private schema before ownership transfer;
+the migration owner never needs CREATE in `public`.
+
 Runtime table grants follow actual repository queries in the migration's `runtimeGrants` manifest.
 They exclude TRUNCATE, REFERENCES, TRIGGER, grant options and arbitrary DDL. `users` grants UPDATE
 only on `id` because wallet unlink uses `SELECT FOR UPDATE`; password/email changes are not granted.
 `sponsors` currently has no runtime grant. Sequence USAGE supports generated IDs without permitting
 `setval`. Runtime can only SELECT migration metadata and cannot use its sequence.
+
+The current database-level PUBLIC TEMPORARY grant still permits runtime to create temporary
+objects. Persistent application/schema/role DDL is denied, but this is not an absolute DDL ban.
+Before closing the strict no-DDL acceptance item, review a scoped database-level TEMPORARY change
+and explicit grants needed by provider identities. Do not revoke a shared provider database grant
+without reviewing its operational effects.
 
 All application tables have RLS enabled. Existing community/measurement RLS remains enabled.
 Policies explicitly target `yaparena_runtime`, with USING and WITH CHECK permitting the backend's
@@ -128,6 +145,9 @@ passwords, wallets, event IDs and replay keys are synthetic. It exercises a fres
 an upgrade from every pre-F04 migration, including legacy PUBLIC/browser/inherited/column grants,
 unsafe defaults, views and a SECURITY DEFINER probe. It verifies provider fixture grants/defaults
 remain intact, and external view dependencies block adoption rather than being silently rewritten.
+Administrative provisioning uses a genuine non-superuser `postgres` creator and canonical provider
+broker grants. Creator/broker regression cases test safe management grants and reject unsafe
+delegation, inheritance, SET access and indirect escalation routes in both fresh and upgrade runs.
 
 Browser SQL probes run as both `anon` and `authenticated`, including supplemental schema-USAGE
 probes to distinguish schema denial from object ACL denial. They test every application table,
@@ -175,6 +195,15 @@ the staging journeys before promotion. Rotate any previously shared owner creden
 authorization and invalidate old deployment copies; runtime must never receive its replacement.
 
 ## Hosted operator checklist — required to close F04
+
+[Temporary hosted verification](evidence/f04-hosted-verification.json) records synthetic fresh and
+legacy-upgrade trials on Supabase PostgreSQL 17.11, verified owner/runtime TLS logins, normal backend
+journeys, catalog evidence for every non-system schema, and valid anonymous/authenticated REST,
+RPC and GraphQL controls/denials. It found and corrected three defects hidden by superuser-only
+provisioning tests. The F04 migration is still unreleased and absent from the actual staging
+migration history; its pending guard was corrected before deployment. No applied hosted migration
+was rewritten. These trials do not establish the actual staging cutover or close the remaining
+service/configuration and TEMPORARY gates. F04 remains open.
 
 Record each item with project/environment identifier, UTC date, reviewed commit/image digest and
 operator. Hosted changes and probes are separate authorization scopes from this local task.

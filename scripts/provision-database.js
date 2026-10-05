@@ -37,12 +37,19 @@ export async function provisionDatabase(client, passwords = {}) {
         await client.query(command.rows[0].sql);
       }
     }
+    // PostgreSQL 16+ gives the role creator an ADMIN-only grant. It grants no
+    // privileges to runtime; accept only postgres with INHERIT and SET disabled.
     const unsafe = await client.query(`SELECT rolname FROM pg_roles
       WHERE rolname IN ('yaparena_owner', 'yaparena_runtime')
         AND (rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication OR NOT rolcanlogin)
-      UNION ALL SELECT 'membership' FROM pg_auth_members
-        WHERE member IN ('yaparena_runtime'::regrole, 'yaparena_owner'::regrole)
-          OR roleid = 'yaparena_runtime'::regrole`);
+      UNION ALL SELECT 'membership' FROM pg_auth_members m
+        WHERE m.member IN ('yaparena_runtime'::regrole, 'yaparena_owner'::regrole)
+          OR (m.roleid = 'yaparena_runtime'::regrole AND NOT EXISTS (SELECT 1 FROM pg_roles administrator
+            WHERE administrator.oid = m.member AND administrator.rolname = 'postgres'
+              AND (administrator.rolsuper OR administrator.rolcreaterole)
+              AND m.admin_option
+              AND NOT COALESCE((to_jsonb(m)->>'inherit_option')::boolean, true)
+              AND NOT COALESCE((to_jsonb(m)->>'set_option')::boolean, true)))`);
     if (unsafe.rowCount)
       throw new Error(
         "Unsafe pre-existing database identities; inspect inventory first",
@@ -63,7 +70,19 @@ export async function provisionDatabase(client, passwords = {}) {
         EXISTS (SELECT 1 FROM pg_roles privileged WHERE
           (privileged.rolname IN ('yaparena_owner','yaparena_runtime') OR
             privileged.rolsuper OR privileged.rolbypassrls OR privileged.rolcreaterole)
-          AND b.oid <> privileged.oid AND pg_has_role(b.oid,privileged.oid,'MEMBER')))
+          AND b.oid <> privileged.oid AND pg_has_role(b.oid,privileged.oid,'MEMBER')
+          AND NOT (b.rolname = 'authenticator' AND NOT b.rolinherit
+            AND privileged.rolname = 'service_role' AND privileged.rolbypassrls
+            AND NOT privileged.rolsuper AND NOT privileged.rolcreaterole
+            AND NOT privileged.rolcreatedb AND NOT privileged.rolreplication AND NOT privileged.rolcanlogin
+            AND EXISTS (SELECT 1 FROM pg_auth_members mediator
+              WHERE mediator.member = b.oid AND mediator.roleid = privileged.oid
+                AND NOT mediator.admin_option
+                AND NOT COALESCE((to_jsonb(mediator)->>'inherit_option')::boolean, true)
+                AND COALESCE((to_jsonb(mediator)->>'set_option')::boolean, false))
+            AND NOT EXISTS (SELECT 1 FROM pg_auth_members indirect
+              WHERE indirect.member = b.oid AND indirect.roleid <> privileged.oid
+                AND pg_has_role(indirect.roleid, privileged.oid, 'MEMBER')))))
     `);
     if (browserEscalation.rowCount)
       throw new Error(
@@ -99,13 +118,14 @@ export async function provisionDatabase(client, passwords = {}) {
       if (found.rows[0].relkind !== "r")
         throw new Error("Unexpected application object kind");
       const source = identifier(found.rows[0].nspname);
-      await client.query(
-        `ALTER TABLE ${source}.${table} OWNER TO yaparena_owner`,
-      );
+      // Move first so the new owner needs CREATE only in its private schema.
       if (found.rows[0].nspname !== target)
         await client.query(
           `ALTER TABLE ${source}.${table} SET SCHEMA ${target}`,
         );
+      await client.query(
+        `ALTER TABLE ${target}.${table} OWNER TO yaparena_owner`,
+      );
     }
     for (const routine of applicationRoutines) {
       const found = await client.query(
@@ -117,13 +137,13 @@ export async function provisionDatabase(client, passwords = {}) {
       if (found.rowCount > 1) throw new Error("Ambiguous application routine");
       if (!found.rowCount) continue;
       const source = identifier(found.rows[0].nspname);
-      await client.query(
-        `ALTER FUNCTION ${source}.${routine}() OWNER TO yaparena_owner`,
-      );
       if (found.rows[0].nspname !== "yaparena")
         await client.query(
           `ALTER FUNCTION ${source}.${routine}() SET SCHEMA yaparena`,
         );
+      await client.query(
+        `ALTER FUNCTION yaparena.${routine}() OWNER TO yaparena_owner`,
+      );
       await client.query(
         `ALTER FUNCTION yaparena.${routine}() SET search_path = pg_catalog, yaparena, pg_temp`,
       );

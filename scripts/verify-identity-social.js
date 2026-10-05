@@ -103,10 +103,6 @@ try {
     );
     return issued;
   };
-  await pool.query(
-    "INSERT INTO sessions(user_id,token_hash,expires_at,auth_generation) SELECT id,$2,CURRENT_TIMESTAMP+INTERVAL '10 minutes',auth_generation FROM users WHERE id=$1",
-    [userId, sessionTokenHash],
-  );
   const walletTarget = {
     purpose: "link",
     address: account.address.toLowerCase(),

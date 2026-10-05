@@ -7,6 +7,9 @@ import pg from "pg";
 import { privateKeyToAccount } from "viem/accounts";
 
 const base = process.env.BROWSER_BASE_URL ?? "http://127.0.0.1:53502";
+const browserUrl = new URL(base);
+assert.ok(["localhost", "127.0.0.1"].includes(browserUrl.hostname));
+assert.ok(["http:", "https:"].includes(browserUrl.protocol));
 const artifactDir =
   process.env.BROWSER_ARTIFACT_DIR ?? "/private/tmp/yaparena-f02-browser";
 const databaseUrl = new URL(process.env.WALLET_TEST_OWNER_DATABASE_URL);

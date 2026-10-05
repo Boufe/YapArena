@@ -106,3 +106,14 @@ informs fresh authenticator binding, one-use state and lifecycle invalidation. I
 notification guidance exceeds the preview's supported in-app channel; no AAL or standards
 compliance is claimed. [ERC-4361](https://eips.ethereum.org/EIPS/eip-4361)
 defines SIWE message and verification requirements.
+
+## Verified integration evidence
+
+The [F02 handoff](f02-integration-handoff.md) records the exact combined PostgreSQL, quality,
+migration, browser and production-image checks, dependency commits and remaining release trials.
+The account flow was inspected at desktop and mobile widths with fictional local accounts:
+
+- [Current-password approval](evidence/f02/password-approval-desktop.png).
+- [Existing-wallet approval](evidence/f02/retained-wallet-approval-desktop.png).
+- [Retained-wallet unlink on mobile](evidence/f02/unlink-approval-mobile.png).
+- [Sole-wallet protection on mobile](evidence/f02/sole-wallet-protection-mobile.png).

@@ -69,7 +69,7 @@ The read-only catalog snapshot at **2026-10-05 16:13:18 UTC** covers all eight n
 role attributes/memberships, ownership, effective privileges, creator defaults, routines, RLS and
 publications. It confirms the existing deployment has not adopted the repository hardening:
 
-- Render connects as `postgres`. This login has BYPASSRLS, CREATEDB, CREATEROLE and REPLICATION,
+- Render is configured to connect as `postgres`. This login has BYPASSRLS, CREATEDB, CREATEROLE and REPLICATION,
   inherits `pg_read_all_data`, and owns all 32 application tables plus `public.pgmigrations`.
 - Both browser roles have broad effective application-table privileges. Nineteen application
   tables and migration metadata lack RLS; thirteen community/measurement tables enable RLS with
@@ -89,15 +89,29 @@ publications. It confirms the existing deployment has not adopted the repository
 
 Actual Render metadata still identifies the measurement branch with automatic deployment enabled
 and the pre-hardening application commit. Of sixteen direct service environment entries, only
-`DATABASE_URL` is a database credential variable, and its login is the privileged `postgres` role.
-Linked environment groups and secret files/mounts have not yet been inspected. No separate
+`DATABASE_URL` is the only `DATABASE_` variable, and its login is the privileged `postgres` role.
+Read-only Render metadata at **16:23:32 UTC** found no workspace/linked environment groups, service
+secret files or persistent disks, with no remaining pagination. This does not inspect the running
+container filesystem, image layers, historical secrets or credentials under unrelated variable
+names. No real hosted login using the configured credential was attempted, and no separate
 owner/runtime credential deployment has been verified.
+
+The inventory also covers provider schemas without changing them. No policies or FORCE RLS tables
+were present in any inspected schema. All eight Storage tables enable RLS; Realtime messages enable
+RLS while its subscription/migration tables do not. Sixteen of twenty-seven provider Auth tables
+enable RLS. Browser roles have no inherited memberships or schema CREATE; they have schema USAGE
+on seven inspected schemas but not `vault`. The two provider SECURITY DEFINER routines are in
+`vault`, with empty search paths and no browser EXECUTE grant. Provider service access and dynamic
+routine paths still require review; these catalog observations do not prove HTTP isolation.
 
 Sanitized artifacts, containing catalog metadata rather than application rows or credentials, are:
 
 - `/tmp/yaparena-f04-hosted-evidence.eBMNQf/catalog-inventory.json`
 - `/tmp/yaparena-f04-hosted-evidence.eBMNQf/safe-settings.json`
 - `/tmp/yaparena-f04-hosted-evidence.eBMNQf/inspection-summary.json`
+- `/tmp/yaparena-f04-hosted-evidence.eBMNQf/render-credential-metadata.json`
+- `/tmp/yaparena-f04-hosted-evidence.eBMNQf/schema-summary.json`
+- `/tmp/yaparena-f04-hosted-evidence.eBMNQf/operator-reported-data-api.json`
 
 The operator subsequently reported that **Enable Data API is OFF** in the confirmed project's
 dashboard, while the integration is marked installed. This is operator-reported dashboard evidence;
@@ -115,7 +129,7 @@ application rows or mutation probes were requested or used. No disposable hosted
 | Hosted privilege/RLS inventory before hardening                                  | COLLECTED; FAIL: broad browser grants and privileged runtime remain                             |
 | Dedicated runtime/migration identities and private schemas                       | FAIL: absent from the deployed database                                                         |
 | GraphQL extension, Realtime publication and Edge Functions                       | Catalog/config inventory collected; complete alternate-path review PENDING                      |
-| Render runtime-only secrets, linked groups/mounts and separate migration process | FAIL for current login; remaining environment inspection PENDING                                |
+| Render runtime-only secrets, linked groups/mounts and separate migration process | FAIL: privileged configured login; groups/secret files/disks absent; cutover/process unverified |
 | Real hardened runtime session-pooler login/TLS                                   | NOT RUN: hardening has not been deployed                                                        |
 | Valid anonymous and authenticated HTTP identity access probes                    | NOT RUN; require authorized disposable staging clone with synthetic data                        |
 | Hosted migration/privilege changes or credential rotation                        | NOT PERFORMED; require separate authorization                                                   |

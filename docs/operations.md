@@ -96,7 +96,42 @@ the local stack intentionally does not send them.
    Replace `REQUEST_ID` with the identifier from the failed HTTP response or log entry. This filters
    application logs for that one request so its events can be followed together.
 
-Logs redact authorization and cookie headers, but should still be access-controlled.
+Logs redact incoming Authorization/Cookie headers and the entire outgoing Set-Cookie field.
+Keep log access restricted. Error fields (`error`, `err`, `permissionError`, `pauseError`,
+`stopError`) contain a fixed redacted summary: raw messages, stacks, nested causes and provider
+diagnostics can include credentials. Diagnose using fixed event messages, request IDs, status,
+timing and safe structured context. Field redaction does not sanitize arbitrary free-text log
+messages; do not interpolate credentials or raw errors into messages or other context fields.
+
+### Credential logging follow-up (F01)
+
+Before this fix, successful registration, password login, SIWE login and measurement consent
+responses could write bearer cookies into HTTP completion logs. Hosted log permissions and
+historical access have not been inspected; this finding does not establish a production compromise.
+Local regressions verify the code with real Pino 10.3.1 / pino-http 11.0.0 output, isolated streams
+and synthetic accounts. The registration regression failed against the original logging configuration
+(with destination injection only) and passed after redaction. Deployed verification is separate.
+
+**Pending operator actions; none performed by this local fix:**
+
+1. Restrict read/export access to affected application logs and connected log drains; review who
+   could access them.
+2. Establish the historical exposure period from deployed versions and log retention. Inventory
+   retained copies, exports, drains and backups; assess access using restricted incident procedures.
+   Do not paste bearer values into tickets or diagnostics. Historical-log changes require separate
+   authorization.
+3. Determine the affected session scope and actual expiry configuration. Obtain separate authorization
+   and execute session revocation; consider revoking all outstanding sessions if exposure cannot be
+   bounded. Review exposed measurement credentials as well. Record the scope and counts without tokens.
+   Deploying this patch alone does not invalidate previously issued credentials.
+4. Obtain deployment authorization, release the fix, then verify the deployed application and every
+   logging destination/drain with synthetic registration, password/SIWE login, logout and consent
+   grant/withdrawal. Check incoming headers, multiple cookies and explicit/automatic errors. Compare
+   returned bearer values to captured output in memory, reporting only pass/fail; never print cookies,
+   signatures, passwords or provider secrets. Confirm usable client cookies, redacted Set-Cookie,
+   correlated request IDs, status, timing, levels and monitoring exclusions.
+5. Record the deployed commit/image, UTC verification time, reviewer, exposure assessment and
+   revocation decision as sanitized incident evidence. Retain access restrictions until follow-up is complete.
 
 ## Apply migrations
 

@@ -78,6 +78,12 @@ expiry. A configured RPC must answer on the expected chain; timeouts fail closed
 verification remains through the existing viem implementation. Synthetic EOA/browser tests
 and local unavailable-RPC checks do not establish representative live ERC-1271 behavior.
 
+The browser encodes the exact server-issued message as UTF-8 hex bytes before `personal_sign`,
+for login, retained-wallet authorization and the new-wallet proof. This preserves the signed
+message while supporting providers that require hex input, as in the
+[Coinbase Wallet example](https://github.com/coinbase/coinbase-wallet-sdk#basic-usage).
+The synthetic browser provider enforces that format and signs the decoded bytes.
+
 ## Migration and release
 
 Apply F04 `1791158400000`, F03 `1791158500000` and `1791158501000`, then F02

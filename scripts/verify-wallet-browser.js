@@ -49,9 +49,10 @@ try {
       if (method === "eth_requestAccounts") return [activeSigner.address];
       if (method === "eth_chainId") return `0x${activeChain.toString(16)}`;
       if (method === "personal_sign") {
+        assert.match(params[0], /^0x(?:[0-9a-f]{2})+$/i);
         if (rejectSignature)
           throw new Error("Synthetic user rejected signature");
-        return activeSigner.signMessage({ message: params[0] });
+        return activeSigner.signMessage({ message: { raw: params[0] } });
       }
       throw new Error("Unsupported synthetic wallet request");
     },

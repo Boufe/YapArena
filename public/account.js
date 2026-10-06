@@ -54,6 +54,14 @@ function item(text, href) {
   return row;
 }
 
+function walletMessageHex(message) {
+  const bytes = new TextEncoder().encode(message);
+  return (
+    "0x" +
+    Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")
+  );
+}
+
 async function walletAction(purpose) {
   const provider = window.ethereum;
   if (!provider?.request) {
@@ -86,7 +94,7 @@ async function walletAction(purpose) {
     );
     const signature = await provider.request({
       method: "personal_sign",
-      params: [challenge.message, address],
+      params: [walletMessageHex(challenge.message), address],
     });
     await api(`${base}/verify`, "POST", {
       challengeId: challenge.id,
@@ -377,7 +385,7 @@ async function signForWallet(message, address, chainId) {
     );
   return provider.request({
     method: "personal_sign",
-    params: [message, address],
+    params: [walletMessageHex(message), address],
   });
 }
 

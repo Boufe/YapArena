@@ -110,7 +110,8 @@ h3 {
   min-height: 78px;
   display: flex;
   align-items: center;
-  gap: 4rem;
+  flex-wrap: wrap;
+  gap: 12px 4rem;
 }
 .brand {
   font-size: 1.32rem;
@@ -136,6 +137,7 @@ h3 {
 }
 .nav nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 2rem;
   font-size: 0.9rem;
   font-weight: 600;
@@ -1030,8 +1032,8 @@ h3 {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: 640px;
-  padding: 18px;
+  height: auto;
+  padding: 14px;
   border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--panel);
@@ -1068,6 +1070,7 @@ h3 {
   font-weight: 700;
 }
 .live-chat form {
+  flex: 0 0 auto;
   display: grid;
   gap: 8px;
   margin-top: 12px;
@@ -1079,7 +1082,8 @@ h3 {
 }
 .live-chat textarea {
   width: 100%;
-  min-height: 58px;
+  min-height: 54px;
+  max-height: 160px;
   resize: vertical;
   border: 1px solid #676b67;
   border-radius: 3px;
@@ -1163,6 +1167,12 @@ h3 {
 .community-grid {
   grid-template-columns: minmax(0, 680px);
 }
+.community-grid p a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding-block: 4px;
+}
 .community-grid > section,
 .community-review-grid > section,
 .community-case {
@@ -1204,8 +1214,10 @@ h3 {
   justify-self: start;
 }
 .community-messages {
-  min-height: 0;
-  flex: 1;
+  overflow-anchor: none;
+  min-height: 120px;
+  height: clamp(120px, 35dvh, 360px);
+  flex: 0 0 auto;
   overflow: auto;
   list-style: none;
   padding: 0;
@@ -1213,31 +1225,85 @@ h3 {
   border-block: 1px solid var(--line);
 }
 .community-message {
-  padding: 12px 0;
+  padding: 6px 2px;
   border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
-.community-message-heading {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 0.84rem;
+.community-message-content {
+  margin: 0;
 }
-.community-message-heading strong {
-  color: var(--text);
+.community-message-author {
+  color: var(--acid);
+  margin-inline-end: 4px;
 }
-.community-message p {
-  margin: 7px 0;
+.community-message-body {
   white-space: pre-wrap;
 }
-.community-message > button {
+.community-message-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 0.75rem;
+  color: #adb2ac;
+}
+.community-message-delivery {
+  overflow-wrap: anywhere;
+}
+.community-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-inline-start: auto;
+}
+.community-message-actions button {
+  min-width: 24px;
+  min-height: 28px;
   border: 0;
-  padding: 3px 0;
+  border-radius: 3px;
+  padding: 4px 6px;
+  font: inherit;
   background: transparent;
-  color: var(--orange);
+  color: #c6cbbf;
   text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.community-message-actions button:hover {
+  color: var(--acid);
+  background: #252d1a;
+}
+.community-message-actions button:disabled {
+  color: #adb2ac;
+  cursor: default;
+}
+.live-chat :focus-visible {
+  outline: 2px solid var(--acid);
+  outline-offset: 3px;
+}
+.community-message[data-delivery="sending"] {
+  border-inline-start: 2px solid #adb2ac;
+  padding-inline-start: 6px;
+}
+.community-message[data-delivery="unconfirmed"],
+.community-message[data-delivery="rejected"],
+.community-message[data-delivery="cooldown"] {
+  border-inline-start: 2px solid var(--orange);
+  padding-inline-start: 6px;
+}
+.live-chat [data-community-cooldown] {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--acid);
+}
+@media (pointer: coarse) {
+  .community-grid p a,
+  .community-message-actions button {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 .community-case {
   margin: 16px 0;
@@ -1288,7 +1354,7 @@ h3 {
 }
 @media (max-width: 760px) {
   .live-chat {
-    height: min(560px, 75vh);
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
   .community-grid,
   .community-review-grid {
@@ -1384,4 +1450,16 @@ h3 {
 #wallet-change button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }

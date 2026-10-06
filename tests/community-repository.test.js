@@ -63,6 +63,8 @@ const chat = {
   body: "Hello",
   state: "visible",
   createdAt: now,
+  clientMessageId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  revision: "0",
 };
 const rows = (items = []) => ({ rows: items, rowCount: items.length });
 
@@ -102,6 +104,8 @@ function fake(options = {}) {
           chatState: value("chatState", "open"),
         },
       ]);
+    if (sql.includes("m.client_message_id = $3"))
+      return rows(value("accepted", []));
     if (sql.includes("m.id > $2") && sql.includes("FROM event_chat_messages m"))
       return rows(value("newChatRows", [chat]));
     if (sql.includes("m.id = ANY($2::bigint[])"))
@@ -117,7 +121,7 @@ function fake(options = {}) {
     )
       return rows(value("restricted", false) ? [{}] : []);
     if (sql.includes("FROM public_profiles WHERE user_id"))
-      return rows(value("hasProfile", true) ? [{}] : []);
+      return rows(value("hasProfile", true) ? [{ authorName: "Alice" }] : []);
     if (sql.includes("SELECT state FROM event_chat_controls"))
       return rows([{ state: value("chatState", "open") }]);
     if (sql.includes("AS recent") && sql.includes("AS hourly"))
@@ -125,6 +129,8 @@ function fake(options = {}) {
         {
           recent: String(value("recent", 0)),
           hourly: String(value("hourly", 0)),
+          retryAfterSeconds: value("retryAfterSeconds", 10),
+          retryAt: now,
         },
       ]);
     if (sql.includes("INSERT INTO event_chat_messages")) return rows([chat]);
@@ -290,6 +296,143 @@ describe("community repository policy", () => {
         () => fake(options).community.postChat(eventId, "1", "Hello"),
         error,
       );
+  });
+
+  it("acknowledges accepted keys before new-write eligibility and never consumes quota", async () => {
+    for (const options of [
+      { restricted: true },
+      { hasProfile: false },
+      { eventStatus: "ended" },
+      { chatState: "paused" },
+      { hourly: 30 },
+    ]) {
+      const { community, queries } = fake({ ...options, accepted: [chat] });
+      const ack = await community.postChat(
+        eventId,
+        "1",
+        " Hello ",
+        chat.clientMessageId,
+        false,
+      );
+      assert.deepEqual(
+        ack,
+        (await community.listChat(eventId, undefined, "1")).items[0],
+      );
+      assert.equal(ack.id, "10");
+      assert.equal("authorUserId" in ack, false);
+      assert.ok(
+        !queries.some(
+          ([sql]) =>
+            sql.includes("INSERT INTO event_chat_messages") ||
+            sql.includes("AS recent"),
+        ),
+      );
+      assert.ok(
+        queries.some(
+          ([sql, params]) =>
+            sql.includes("m.client_message_id = $3") && params[1] === "1",
+        ),
+      );
+    }
+    await assert.rejects(
+      () =>
+        fake({ accepted: [chat] }).community.postChat(
+          eventId,
+          "1",
+          "Different",
+          chat.clientMessageId,
+        ),
+      (error) => error.code === "CHAT_PAYLOAD_CONFLICT",
+    );
+    await assert.rejects(
+      () =>
+        fake({ accepted: [chat], missing: true }).community.postChat(
+          eventId,
+          "1",
+          "Hello",
+          chat.clientMessageId,
+        ),
+      CommunityNotFoundError,
+    );
+    await assert.rejects(
+      () =>
+        fake().community.postChat(
+          eventId,
+          "1",
+          "Hello",
+          chat.clientMessageId,
+          false,
+        ),
+      CommunityForbiddenError,
+    );
+  });
+
+  it("redacts removed acknowledgments and limits correlation to the authenticated owner", async () => {
+    const removed = { ...chat, state: "removed", revision: "1" };
+    const { community } = fake({
+      accepted: [removed],
+      watchedChatRows: [removed],
+    });
+    const ack = await community.postChat(
+      eventId,
+      "1",
+      "Hello",
+      chat.clientMessageId,
+    );
+    assert.equal(ack.body, null);
+    assert.equal(ack.state, "removed");
+    assert.equal(ack.revision, "1");
+    assert.equal(
+      (await community.listChat(eventId)).items[0].clientMessageId,
+      null,
+    );
+    assert.equal(
+      (await community.listChat(eventId, undefined, "2")).items[0]
+        .clientMessageId,
+      null,
+    );
+    const sync = await community.syncChat(eventId, "10", ["10"], "1");
+    assert.deepEqual(sync.watched, []);
+    assert.deepEqual(sync.removed, [ack]);
+    assert.equal(
+      (await community.syncChat(eventId, "0", [])).removed.length,
+      0,
+    );
+  });
+
+  it("returns server timing for both posting windows and binds new keys to the insert", async () => {
+    for (const options of [
+      { recent: 1 },
+      { hourly: 30 },
+      { recent: 1, hourly: 30 },
+    ]) {
+      await assert.rejects(
+        () =>
+          fake(options).community.postChat(
+            eventId,
+            "1",
+            "Hello",
+            chat.clientMessageId,
+          ),
+        (error) => {
+          assert.equal(error.retryAfterSeconds, 10);
+          assert.equal(error.retryAt, now);
+          assert.equal(
+            error.code,
+            options.hourly ? "CHAT_HOURLY_LIMIT" : "CHAT_COOLDOWN",
+          );
+          return true;
+        },
+      );
+    }
+    const { community, queries } = fake();
+    await community.postChat(eventId, "1", "Hello", chat.clientMessageId);
+    assert.deepEqual(
+      queries.find(([sql]) =>
+        sql.includes("INSERT INTO event_chat_messages"),
+      )[1],
+      [eventId, "1", "Hello", chat.clientMessageId],
+    );
   });
 
   it("makes likes idempotent and refuses restricted writes", async () => {

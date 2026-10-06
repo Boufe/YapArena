@@ -6,14 +6,24 @@ import {
   CommunityConflictError,
   CommunityForbiddenError,
   CommunityRateError,
+  CommunityNotFoundError,
 } from "../dist/features/community/repository.js";
 
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString:
+    process.env.DATABASE_FIXTURE_URL ?? process.env.DATABASE_URL,
+  options: "-c search_path=pg_catalog,yaparena,pg_temp",
   max: 8,
 });
-const community = createCommunityRepository(pool);
+const runtimePool = process.env.COMMUNITY_RUNTIME_URL
+  ? new pg.Pool({
+      connectionString: process.env.COMMUNITY_RUNTIME_URL,
+      max: 8,
+      options: "-c search_path=pg_catalog,yaparena,pg_temp",
+    })
+  : pool;
+const community = createCommunityRepository(runtimePool);
 const suffix = randomUUID().slice(0, 8);
 const eventId = randomUUID();
 let topicId;
@@ -62,18 +72,152 @@ try {
     `community-event-${suffix}`,
   );
 
-  const attempts = await Promise.allSettled([
-    community.postChat(eventId, author, "First message"),
-    community.postChat(eventId, author, "Concurrent message"),
+  const clientMessageId = randomUUID();
+  const identical = await Promise.all(
+    Array.from({ length: 8 }, () =>
+      community.postChat(eventId, author, " First message ", clientMessageId),
+    ),
+  );
+  assert.equal(new Set(identical.map((item) => item.id)).size, 1);
+  assert.equal(identical[0].clientMessageId, clientMessageId);
+  const acceptedCount = await pool.query(
+    "SELECT COUNT(*)::int AS count FROM event_chat_messages WHERE author_user_id = $1",
+    [author],
+  );
+  assert.equal(
+    acceptedCount.rows[0].count,
+    1,
+    "eight identical requests consume one allowance",
+  );
+  const conflicts = await Promise.allSettled(
+    Array.from({ length: 3 }, () =>
+      community.postChat(eventId, author, "Changed text", clientMessageId),
+    ),
+  );
+  assert.ok(
+    conflicts.every(
+      (result) =>
+        result.status === "rejected" &&
+        result.reason.code === "CHAT_PAYLOAD_CONFLICT",
+    ),
+  );
+  const next = await Promise.allSettled(
+    Array.from({ length: 3 }, () =>
+      community.postChat(
+        eventId,
+        author,
+        "Different logical submission",
+        randomUUID(),
+      ),
+    ),
+  );
+  assert.ok(
+    next.every(
+      (result) =>
+        result.status === "rejected" &&
+        result.reason instanceof CommunityRateError &&
+        result.reason.retryAfterSeconds >= 1 &&
+        result.reason.retryAfterSeconds <= 10,
+    ),
+  );
+  assert.deepEqual(
+    await community.postChat(eventId, author, "First message", clientMessageId),
+    identical[0],
+  );
+  const owned = (await community.listChat(eventId, undefined, author)).items[0];
+  assert.deepEqual(
+    owned,
+    identical[0],
+    "POST and history share the same message shape",
+  );
+  assert.deepEqual(
+    (await community.syncChat(eventId, "0", [], author)).items[0],
+    owned,
+  );
+  const collisionUser = await person("key-scope");
+  const scoped = await community.postChat(
+    eventId,
+    collisionUser,
+    "Other account same key",
+    clientMessageId,
+  );
+  assert.notEqual(
+    scoped.id,
+    owned.id,
+    "keys are scoped to authenticated account and event",
+  );
+  assert.equal(
+    (await community.listChat(eventId, undefined, author)).items.find(
+      (item) => item.id === scoped.id,
+    ).clientMessageId,
+    null,
+  );
+  await pool.query("DELETE FROM event_chat_messages WHERE id = $1", [
+    scoped.id,
+  ]);
+
+  // Competing payloads for a previously unseen key choose one binding atomically.
+  const competingUser = await person("competing");
+  const competingKey = randomUUID();
+  const competing = await Promise.allSettled([
+    community.postChat(eventId, competingUser, "Payload A", competingKey),
+    community.postChat(eventId, competingUser, "Payload B", competingKey),
   ]);
   assert.equal(
-    attempts.filter((result) => result.status === "fulfilled").length,
+    competing.filter((item) => item.status === "fulfilled").length,
+    1,
+  );
+  assert.equal(
+    competing.find((item) => item.status === "rejected").reason.code,
+    "CHAT_PAYLOAD_CONFLICT",
+  );
+  await pool.query(
+    "DELETE FROM event_chat_messages WHERE author_user_id = $1",
+    [competingUser],
+  );
+
+  const distinctUser = await person("distinct-keys");
+  const distinct = await Promise.allSettled([
+    community.postChat(eventId, distinctUser, "New submission A", randomUUID()),
+    community.postChat(eventId, distinctUser, "New submission B", randomUUID()),
+  ]);
+  assert.equal(
+    distinct.filter((item) => item.status === "fulfilled").length,
     1,
   );
   assert.ok(
-    attempts.find((result) => result.status === "rejected").reason instanceof
+    distinct.find((item) => item.status === "rejected").reason instanceof
       CommunityRateError,
+    "concurrent distinct keys cannot bypass the account allowance",
   );
+  await pool.query("DELETE FROM event_chat_messages WHERE author_user_id=$1", [
+    distinctUser,
+  ]);
+
+  const hourlyUser = await person("hourly");
+  await pool.query(
+    `INSERT INTO event_chat_messages (debate_id, author_user_id, body, created_at)
+    SELECT $1, $2, 'Hourly synthetic ' || n, clock_timestamp() - (20 + n * 10) * INTERVAL '1 second' FROM generate_series(1, 30) n`,
+    [eventId, hourlyUser],
+  );
+  await assert.rejects(
+    () =>
+      community.postChat(
+        eventId,
+        hourlyUser,
+        "Over hourly quota",
+        randomUUID(),
+      ),
+    (error) =>
+      error.code === "CHAT_HOURLY_LIMIT" &&
+      error.retryAfterSeconds > 3200 &&
+      error.retryAfterSeconds <= 3600,
+  );
+  await pool.query(
+    "DELETE FROM event_chat_messages WHERE author_user_id = $1",
+    [hourlyUser],
+  );
+
   const first = (await community.listChat(eventId)).items[0];
   assert.equal(first.body.length > 0, true);
   assert.equal("authorUserId" in first, false);
@@ -141,6 +285,19 @@ try {
     "Removing unsafe content",
   );
   assert.equal((await community.listChat(eventId)).items.length, 0);
+  const removedAck = await community.postChat(
+    eventId,
+    author,
+    "First message",
+    clientMessageId,
+  );
+  assert.equal(removedAck.body, null);
+  assert.equal(removedAck.state, "removed");
+  assert.equal(removedAck.revision, "1");
+  assert.deepEqual(
+    (await community.syncChat(eventId, "0", [first.id], author)).removed,
+    [removedAck],
+  );
   assert.deepEqual(
     (await community.syncChat(eventId, first.id, [first.id])).watched,
     [],
@@ -222,6 +379,38 @@ try {
       ),
     CommunityForbiddenError,
   );
+  const restrictedAck = await community.postChat(
+    eventId,
+    author,
+    "First message",
+    clientMessageId,
+  );
+  assert.equal(restrictedAck.id, first.id);
+  assert.equal(
+    restrictedAck.revision,
+    "2",
+    "restoration increments the moderation revision",
+  );
+  await pool.query(
+    "UPDATE public_profiles SET publication_state='draft' WHERE user_id=$1",
+    [author],
+  );
+  assert.equal(
+    (
+      await community.postChat(
+        eventId,
+        author,
+        "First message",
+        clientMessageId,
+      )
+    ).id,
+    first.id,
+    "unpublishing the author profile still allows acknowledgment",
+  );
+  await pool.query(
+    "UPDATE public_profiles SET publication_state='published' WHERE user_id=$1",
+    [author],
+  );
   const restrictionAppeal = await community.appeal(
     restrictionReport.id,
     author,
@@ -232,6 +421,17 @@ try {
     moderatorB,
     "overturned",
     "Restriction is not justified",
+  );
+  assert.equal(
+    (
+      await community.postChat(
+        eventId,
+        author,
+        "First message",
+        clientMessageId,
+      )
+    ).id,
+    first.id,
   );
   assert.equal((await community.setLike(eventId, author, true)).liked, true);
 
@@ -250,6 +450,60 @@ try {
     "Pause for active moderation",
   );
   assert.equal((await community.summary(eventId)).chatState, "paused");
+  assert.equal(
+    (
+      await community.postChat(
+        eventId,
+        author,
+        "First message",
+        clientMessageId,
+        false,
+      )
+    ).id,
+    first.id,
+    "pause and revoked posting role still permit acknowledgment",
+  );
+  await pool.query("UPDATE debates SET status = 'ended' WHERE id = $1", [
+    eventId,
+  ]);
+  assert.equal(
+    (
+      await community.postChat(
+        eventId,
+        author,
+        "First message",
+        clientMessageId,
+      )
+    ).id,
+    first.id,
+  );
+  await assert.rejects(
+    () => community.postChat(eventId, author, "Closed new write", randomUUID()),
+    CommunityConflictError,
+  );
+  await pool.query(
+    "UPDATE debates SET publication_state = 'draft' WHERE id = $1",
+    [eventId],
+  );
+  await assert.rejects(
+    () => community.postChat(eventId, author, "First message", clientMessageId),
+    CommunityNotFoundError,
+  );
+  await pool.query(
+    "UPDATE debates SET status = 'live', publication_state = 'published' WHERE id = $1",
+    [eventId],
+  );
+  await pool.query("UPDATE topics SET publication_state='draft' WHERE id=$1", [
+    topicId,
+  ]);
+  await assert.rejects(
+    () => community.postChat(eventId, author, "First message", clientMessageId),
+    CommunityNotFoundError,
+  );
+  await pool.query(
+    "UPDATE topics SET publication_state='published' WHERE id=$1",
+    [topicId],
+  );
   await assert.rejects(
     () => community.postChat(eventId, author, "Paused"),
     CommunityConflictError,
@@ -304,6 +558,7 @@ try {
         "Sixth report is limited",
       ),
     CommunityRateError,
+    CommunityNotFoundError,
   );
   const after = await pool.query(
     "SELECT status, rules_snapshot FROM debates WHERE id = $1",
@@ -335,6 +590,7 @@ try {
     for (const id of users)
       await pool.query("DELETE FROM users WHERE id = $1", [id]);
   } finally {
+    if (runtimePool !== pool) await runtimePool.end();
     await pool.end();
   }
 }

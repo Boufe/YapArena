@@ -26,6 +26,68 @@ it will not provide their review UI. Do not drop the migration as a rollback ste
 discovery code may display legacy sponsor data; keep sponsor records empty while sponsor
 identification is deferred.
 
+## Chat submission migration and rollout
+
+`1791244800000_add_chat_submissions.js` is additive and must run after
+`1791158400000_isolate_server_database.js`, as the owner through `scripts/migrate-database.js`.
+Follow the [database isolation runbook](security/database-isolation.md),
+[image release procedure](operations.md#release-and-deploy-an-image), and
+[staging deployment sequence](render-staging.md#deploy-the-web-service). Apply migrations before
+serving the new reviewed server/assets. The first F04 schema transition still requires traffic and
+workers stopped; this chat migration does not relax that requirement. Do not run migration or
+fixture credentials in web/worker processes.
+
+F04 code is already merged in PR #20. For a target already running that migration, use the existing
+owner/runtime identities and apply only pending migrations; do not repeat initial provisioning or
+the F04 schema move. Confirm the target's applied migration list separately from Git merge status.
+
+The migration adds nullable UUID submission keys, a partial account/event/key unique index, and a
+non-null bigint moderation revision defaulting to zero. Existing text is untouched. Its private
+SECURITY INVOKER trigger uses `pg_catalog, yaparena, pg_temp` and has no public, browser or callable
+runtime EXECUTE grant. Existing query-specific table grants and backend RLS remain in effect; no
+new table or Data API access is added. Index creation takes a table lock: schedule the migration
+for an appropriate quiet/maintenance window on a large chat table and observe migration duration.
+
+Older schema-compatible server images and already-open older clients can still insert keyless rows;
+those requests receive the usual allowance checks and cannot be deduplicated. During mixed-server
+rollout new clients require the new message protocol. Promote the matching server and assets
+together; do not route new keyed writes to an old server which would silently ignore their key.
+On app rollback retain this migration and its keys. Pause live chat through the moderation workflow
+before rolling back to a server without submission support, and require clients to refresh before
+resuming legacy posting. Otherwise retrying a new client's pending request against old code could
+create a second acceptance. Prefer a compatible forward fix. Migration `down` refuses to discard
+keys. Acknowledgment/recovery UI on already-open new pages is not supported by an older server.
+
+Monitor bounded HTTP statuses/latency and redacted request IDs. Keep payloads, submission UUIDs and
+drafts out of logs and analytics. Acknowledge a stored key even if chat ended/paused, posting roles or profiles changed, or
+an account was restricted; verify current sign-in and event/topic publication first. Private
+acceptance lookup is scoped to the account from its session. A payload conflict needs explicit user
+review, never an automatic new key. Removed acknowledgments expose no removed text.
+
+Keys expire only with the existing 365-day message purge and applicable moderation holds. After
+purge, reuse is a new submission and can produce a new message if writes are eligible. This adds no
+independent receipt archive or extra retention job. Reload recovery is intentionally unsupported:
+recoverable submissions and drafts stay in page memory, not local storage, offline cache or logs.
+Keep the page open when delivery is unconfirmed. **Retry unchanged** resends the original text/key;
+**Recover to draft** appends text, never replaces later typing, and does not send it. Sending an unchanged recovered draft retries the original key; editing or appending to existing
+text creates a new logical submission; an earlier uncertain message may still arrive.
+
+Chat 429 responses identify `CHAT_COOLDOWN` or `CHAT_HOURLY_LIMIT`, provide server-computed
+`retryAfterSeconds`/`retryAt`, and send `Retry-After` in seconds. The longer remaining interval wins
+when both one-per-ten-seconds and thirty-per-hour windows apply across events. Removed messages
+still count in these windows. Countdown and disabled controls guide the user; direct API requests
+are always checked again. A successful send keeps the next draft editable and a later rejection
+never clears it. HTTP 400/401/403/404/409 indicate rejection; HTTP 408, 5xx, lost/invalid responses
+and transport timeouts indicate uncertainty. No reconnect event retries a submission or sends a
+draft. An accepted unchanged retry returns the original ID without charging either window.
+
+The feed keeps at most 500 visible server rows and watches up to 1,000 IDs for moderation changes.
+Unconfirmed/rejected local rows remain recoverable for the page lifetime. Catch-up drains bounded
+poll pages; the cursor advances from initial/read polling data, never POST or earlier-history
+loads. When retention evicts the latest tail while a reader stays in history, **Jump to latest**
+reloads current history. Confirming a pending row reuses its DOM row and does not add unread count.
+Connection messages announce changes once, and feed announcements report brief new-message counts.
+
 ## Participant and moderator journeys
 
 1. Open a published event page. Guests can read visible chat, copy the canonical event link,
@@ -38,8 +100,9 @@ identification is deferred.
    The feed sits beside the watch view on desktop and directly below it on mobile. New messages
    are checked every two seconds while the page is visible. The client keeps an ordered cursor,
    drains missed pages after reconnect, avoids duplicate IDs, and preserves the reader's scroll
-   position until they choose **Jump to latest**. A failed send leaves the draft in place with
-   an inline error. Pauses and removals appear without a page refresh.
+   position until they choose **Jump to latest**. A submitted message appears immediately with its delivery state. The composer
+   remains editable; uncertain or rejected submissions offer explicit unchanged retry and draft
+   recovery. Recovery appends to later typing rather than replacing it. Pauses and removals appear without a page refresh.
 3. A participant reports a chat message or event with a reason and context. The report is
    private and appears in `/account/moderation`. Repeat reports for the same target return a
    conflict; more than five reports in 24 hours return HTTP 429. More than ten actual like-state
@@ -90,6 +153,30 @@ the local `DATABASE_URL` set. The exercise creates and removes synthetic users a
 event. It checks concurrent posts and likes, report limits, removal, preserved private evidence,
 restriction, pause/resume, appeal independence, and no change to event status or rule snapshot.
 
+A self-contained synthetic trial builds on separate owner/runtime logins and verifies an existing
+keyless row through the new migration, eight concurrent identical submissions, competing payloads,
+quota preservation, both posting windows, private correlation, access denial and moderation
+revisions. After `npm run build`, use Node.js 24 and run:
+
+```sh
+node scripts/verify-community-local.js
+```
+
+It creates and removes a volume-free PostgreSQL 18.4 Docker cluster, runs `verify-community.js` with
+runtime queries and owner-only fixture setup/cleanup, starts the runtime server, then runs browser
+journeys and `verify-chat-client.js`. It never reads `.env` or accepts hosted database URLs. If
+Docker is unavailable and PostgreSQL 17/18 tools are installed, the same isolated trial supports:
+
+```sh
+COMMUNITY_POSTGRES_MODE=host node scripts/verify-community-local.js
+```
+
+The host mode creates a temporary SCRAM-authenticated cluster and stops/removes it afterward;
+it never changes an existing database. `COMMUNITY_CLIENT_ONLY=1` selects the deterministic browser
+portion after SQL verification. Screenshots go to a unique `/tmp/yaparena-chat-*-evidence` directory
+or `BROWSER_ARTIFACT_DIR`. Chrome must be installed or selected by `BROWSER_CHROME_PATH`. These runs
+exercise local synthetic behavior; they do not establish hosted isolation or audience capacity.
+
 For a local browser trial, start the app and run:
 
 ```sh
@@ -100,8 +187,9 @@ Set `BROWSER_BASE_URL`, `BROWSER_DATABASE_PORT`, `BROWSER_CHROME_PATH`, and
 `BROWSER_ARTIFACT_DIR` if your local ports or Chrome path differ. The script refuses a nonlocal
 database, registers synthetic test accounts, grants temporary moderator roles, exercises chat,
 likes, reports, removal, appeal, and restoration, scans the new UI with axe-core, checks mobile
-overflow, and removes its fixture. It saves screenshots to `/private/tmp` by default. It tests
-responsive layout at a phone-sized viewport; it does not stand in for physical-device media,
+overflow, and removes its fixture. It saves screenshots to `/private/tmp` by default. It additionally tests deterministic POST/feed races, ambiguous delivery, immutable retries,
+new draft preservation, IME/focus, history/cursor/retention, zoom, narrow and reduced-height viewports.
+It tests responsive layout at a phone-sized viewport; it does not stand in for physical-device media,
 touch, screen-reader, caption, or replay testing.
 
 The [local browser trial record](community-trial-report.md) contains the observed results and

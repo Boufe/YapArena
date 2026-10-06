@@ -18,7 +18,11 @@ import { renderModeration, renderMyModeration, renderOverlay } from "./web.ts";
 import type { ProductActionRecorder } from "../measurement/router.ts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const submissionUuid =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const integer = /^[1-9]\d{0,18}$/;
+const validCursor = (value: string) =>
+  integer.test(value) && BigInt(value) <= 9223372036854775807n;
 const slug = /^[a-z0-9][a-z0-9-]{2,99}$/;
 const reasons = new Set<ReasonCode>([
   "harassment",
@@ -52,9 +56,19 @@ function problem(response: Response, error: unknown) {
   if (error instanceof CommunityForbiddenError)
     return response.status(403).json({ error: error.message });
   if (error instanceof CommunityConflictError)
-    return response.status(409).json({ error: error.message });
-  if (error instanceof CommunityRateError)
-    return response.status(429).json({ error: error.message });
+    return response
+      .status(409)
+      .json({ error: error.message, code: error.code });
+  if (error instanceof CommunityRateError) {
+    if (error.retryAfterSeconds !== undefined)
+      response.set("Retry-After", String(error.retryAfterSeconds));
+    return response.status(429).json({
+      error: error.message,
+      code: error.code,
+      retryAfterSeconds: error.retryAfterSeconds,
+      retryAt: error.retryAt,
+    });
+  }
   if (
     typeof error === "object" &&
     error &&
@@ -92,6 +106,9 @@ export function createCommunityRouter({
   const router = Router();
   const participant = createRequireRole(identity, ["participant"]);
   const moderator = createRequireRole(identity, ["moderator"]);
+  // Guests keep public reads; authenticated authors opt into private correlation.
+  const ownRead: RequestHandler = (request, response, next) =>
+    request.query.own === "1" ? requireAuth(request, response, next) : next();
   const origin = applicationOrigin.replace(/\/$/, "");
   router.use((_request, response, next) => {
     response.set("Cache-Control", "no-store");
@@ -135,21 +152,26 @@ export function createCommunityRouter({
     if (!id) return response.status(404).json({ error: "event not found" });
     return attempt(response, () => community.summary(id));
   });
-  router.get("/api/community/events/:id/chat", async (request, response) => {
-    const id = pathId(request);
-    if (!id) return response.status(404).json({ error: "event not found" });
-    const before = request.query.before;
-    if (
-      before !== undefined &&
-      (typeof before !== "string" || !integer.test(before))
-    )
-      return response.status(400).json({ error: "invalid chat cursor" });
-    return attempt(response, () =>
-      community.listChat(id, before as string | undefined),
-    );
-  });
+  router.get(
+    "/api/community/events/:id/chat",
+    ownRead,
+    async (request, response) => {
+      const id = pathId(request);
+      if (!id) return response.status(404).json({ error: "event not found" });
+      const before = request.query.before;
+      if (
+        before !== undefined &&
+        (typeof before !== "string" || !validCursor(before))
+      )
+        return response.status(400).json({ error: "invalid chat cursor" });
+      return attempt(response, () =>
+        community.listChat(id, before as string | undefined, request.user?.id),
+      );
+    },
+  );
   router.get(
     "/api/community/events/:id/chat/sync",
+    ownRead,
     async (request, response) => {
       const id = pathId(request);
       if (!id) return response.status(404).json({ error: "event not found" });
@@ -157,10 +179,10 @@ export function createCommunityRouter({
       const watch = request.query.watch ?? "";
       if (
         typeof after !== "string" ||
-        (after !== "0" && !integer.test(after)) ||
+        (after !== "0" && !validCursor(after)) ||
         typeof watch !== "string" ||
         watch.length > 4000 ||
-        (watch && !watch.split(",").every((value) => integer.test(value)))
+        (watch && !watch.split(",").every((value) => validCursor(value)))
       )
         return response.status(400).json({ error: "invalid chat cursor" });
       const watchedIds = watch ? [...new Set(watch.split(","))] : [];
@@ -169,7 +191,9 @@ export function createCommunityRouter({
           .status(400)
           .json({ error: "too many watched messages" });
       response.set("Cache-Control", "no-store");
-      return attempt(response, () => community.syncChat(id, after, watchedIds));
+      return attempt(response, () =>
+        community.syncChat(id, after, watchedIds, request.user?.id),
+      );
     },
   );
   router.get(
@@ -184,18 +208,35 @@ export function createCommunityRouter({
   router.post(
     "/api/community/events/:id/chat",
     requireAuth,
-    participant,
     async (request, response) => {
       const id = pathId(request);
       if (!id) return response.status(404).json({ error: "event not found" });
       const body = text(request.body?.body, 1, 500);
       if (!body)
-        return response
-          .status(400)
-          .json({ error: "chat must be 1–500 characters" });
+        return response.status(400).json({
+          error: "chat must be 1–500 characters",
+          code: "CHAT_INVALID_BODY",
+        });
+      const key = request.body?.clientMessageId;
+      if (
+        key !== undefined &&
+        (typeof key !== "string" || !submissionUuid.test(key))
+      )
+        return response.status(400).json({
+          error: "clientMessageId must be a random UUID v4",
+          code: "CHAT_INVALID_KEY",
+        });
+      const roles = await identity.getRoles(request.user!.id);
       return attempt(
         response,
-        () => community.postChat(id, request.user!.id, body),
+        () =>
+          community.postChat(
+            id,
+            request.user!.id,
+            body,
+            key?.toLowerCase(),
+            roles.includes("participant"),
+          ),
         201,
       );
     },

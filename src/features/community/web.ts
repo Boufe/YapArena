@@ -16,7 +16,7 @@ const escape = (value: string) =>
   );
 
 function shell(title: string, content: string) {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(title)} · YAP Arena</title><link rel="stylesheet" href="/assets/site.css"><script defer src="/assets/community.js"></script></head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><div class="container nav"><a class="brand" href="/">YAP ARENA</a><nav aria-label="Main navigation"><a href="/debates">Debates</a><a href="/account">Account</a></nav></div></header><main id="main" class="container section">${content}</main><footer class="site-footer"><div class="container footer-inner">Community preview · No financial activity</div></footer></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(title)} · YAP Arena</title><link rel="stylesheet" href="/assets/site.css"><script type="module" src="/assets/community.js"></script></head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><div class="container nav"><a class="brand" href="/">YAP ARENA</a><nav aria-label="Main navigation"><a href="/debates">Debates</a><a href="/account">Account</a></nav></div></header><main id="main" class="container section">${content}</main><footer class="site-footer"><div class="container footer-inner">Community preview · No financial activity</div></footer></body></html>`;
 }
 
 export function renderMyModeration() {

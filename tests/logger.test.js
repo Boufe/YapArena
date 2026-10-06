@@ -107,8 +107,8 @@ function fixture({ environment = "development", ...overrides } = {}) {
     messages: { isReady: async () => {} },
     users: {
       create: async (email, passwordHash) => {
-        registered = { ...user, email, passwordHash };
-        return { ...user, email };
+        registered = { ...user, email, passwordHash, authGeneration: "0" };
+        return { ...user, email, authGeneration: "0" };
       },
       findByEmail: async () => registered ?? null,
     },
@@ -127,7 +127,10 @@ function fixture({ environment = "development", ...overrides } = {}) {
         return challenge;
       },
       getChallenge: async () => challenge,
-      completeLogin: async () => user,
+      completeLogin: async (_id, issuance) => {
+        sessionRecords.set(issuance.tokenHash, user);
+        return { ...user, authGeneration: "0" };
+      },
     },
     measurement: {
       grant: async (hash) => consents.add(hash),

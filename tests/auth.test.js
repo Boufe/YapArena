@@ -13,7 +13,11 @@ const publicUser = { id: "1", email: "user@example.com", createdAt };
 
 function createAuthenticationApp({
   users = {
-    create: mock.fn(async (email) => ({ ...publicUser, email })),
+    create: mock.fn(async (email) => ({
+      ...publicUser,
+      email,
+      authGeneration: "0",
+    })),
     findByEmail: mock.fn(async () => null),
   },
   sessions = {
@@ -94,7 +98,11 @@ describe("authentication API", () => {
     const passwordHash = await hashPassword("a secure passphrase");
     const users = {
       create: async () => publicUser,
-      findByEmail: mock.fn(async () => ({ ...publicUser, passwordHash })),
+      findByEmail: mock.fn(async () => ({
+        ...publicUser,
+        passwordHash,
+        authGeneration: "0",
+      })),
     };
     const { app, sessions } = createAuthenticationApp({ users });
     const response = await request(app).post("/api/auth/login").send({

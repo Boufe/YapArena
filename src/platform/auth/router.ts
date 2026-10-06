@@ -1,6 +1,9 @@
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
-import type { PublicUser } from "./users.ts";
+import { publicUser } from "./users.ts";
+import type { PublicUser, AuthenticationUser } from "./users.ts";
+import { SessionUnavailableError } from "./sessions.ts";
+import type { AuthenticationSnapshot } from "./sessions.ts";
 import type { createUserRepository } from "./users.ts";
 import type { createSessionRepository } from "./sessions.ts";
 import type { createWalletRepository } from "./wallets.ts";
@@ -134,11 +137,15 @@ export function createAuthRouter({
     next();
   });
 
-  async function startSession(user: PublicUser, response: Response) {
+  async function startSession(
+    user: AuthenticationUser,
+    response: Response,
+    expected: AuthenticationSnapshot = { authGeneration: user.authGeneration },
+  ) {
     const { token, tokenHash } = createSessionToken();
     const expiresAt = new Date(now() + sessionDurationMs);
 
-    await sessions.create(user.id, tokenHash, expiresAt);
+    await sessions.create(user.id, tokenHash, expiresAt, expected);
     response.cookie(cookie.name, token, {
       ...cookie.options,
       maxAge: sessionDurationMs,
@@ -175,7 +182,7 @@ export function createAuthRouter({
 
     await startSession(user, response);
 
-    return response.status(201).json({ user });
+    return response.status(201).json({ user: publicUser(user) });
   });
 
   router.post("/login", authLimiter, async (request, response) => {
@@ -197,15 +204,18 @@ export function createAuthRouter({
       return response.status(401).json(invalidCredentials);
     }
 
-    const publicUser = {
-      id: user.id,
-      email: user.email,
-      createdAt: user.createdAt,
-    };
-
-    await startSession(publicUser, response);
-
-    return response.json({ user: publicUser });
+    try {
+      await startSession(user, response, {
+        authGeneration: user.authGeneration,
+        passwordHash: user.passwordHash!,
+        email,
+      });
+    } catch (error) {
+      if (error instanceof SessionUnavailableError)
+        return response.status(401).json(invalidCredentials);
+      throw error;
+    }
+    return response.json({ user: publicUser(user) });
   });
 
   router.get("/me", requireAuthentication, (request, response) => {
@@ -222,6 +232,40 @@ export function createAuthRouter({
     response.clearCookie(cookie.name, cookie.options);
     return response.status(204).end();
   });
+
+  for (const [path, retainCurrent] of [
+    ["/logout-all", false],
+    ["/logout-other-sessions", true],
+  ] as const) {
+    router.post(
+      path,
+      authLimiter,
+      requireAuthentication,
+      async (request, response) => {
+        // No account/session selector is accepted. Ownership comes from the live cookie.
+        if (request.body && Object.keys(request.body).length)
+          return response.status(400).json({
+            error: "this operation accepts no account or session selectors",
+          });
+        try {
+          await sessions.revoke(
+            request.user!.id,
+            hashSessionToken(request.cookies[cookie.name]),
+            retainCurrent,
+            String(request.id),
+          );
+        } catch (error) {
+          if (error instanceof SessionUnavailableError)
+            return response
+              .status(401)
+              .json({ error: "authentication required" });
+          throw error;
+        }
+        if (!retainCurrent) response.clearCookie(cookie.name, cookie.options);
+        return response.status(204).end();
+      },
+    );
+  }
 
   if (wallets) {
     const walletRepository = wallets;
@@ -349,9 +393,16 @@ export function createAuthRouter({
           throw error;
         }
         try {
-          const user = await walletRepository.completeLogin(challenge.id);
-          await startSession(user, response);
-          return response.json({ user });
+          const { token, tokenHash } = createSessionToken();
+          const user = await walletRepository.completeLogin(challenge.id, {
+            tokenHash,
+            expiresAt: new Date(now() + sessionDurationMs),
+          });
+          response.cookie(cookie.name, token, {
+            ...cookie.options,
+            maxAge: sessionDurationMs,
+          });
+          return response.json({ user: publicUser(user) });
         } catch (error) {
           if (error instanceof ChallengeUnavailableError)
             return response
@@ -464,6 +515,7 @@ export function createAuthRouter({
           return response
             .status(409)
             .json({ error: "cannot remove the last sign-in method" });
+        response.clearCookie(cookie.name, cookie.options);
         return response.status(204).end();
       },
     );

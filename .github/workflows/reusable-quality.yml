@@ -9,6 +9,18 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_DB: revocation_test_ci
+          POSTGRES_USER: auth_test_admin
+          POSTGRES_PASSWORD: ci-admin-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U auth_test_admin -d revocation_test_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - name: Download repository
         uses: actions/checkout@v7
@@ -19,5 +31,20 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
-      - name: Check formatting, types, and tests
+      - name: Provision isolated authentication test identities
+        env:
+          DATABASE_ADMIN_URL: postgresql://auth_test_admin:ci-admin-only@127.0.0.1:5432/revocation_test_ci
+          DATABASE_OWNER_PASSWORD: ci-owner-only
+          DATABASE_RUNTIME_PASSWORD: ci-runtime-only
+        run: node scripts/provision-database.js
+      - name: Apply authentication test migrations as owner
+        env:
+          DATABASE_URL: postgresql://yaparena_owner:ci-owner-only@127.0.0.1:5432/revocation_test_ci
+        run: node scripts/migrate-database.js
+      - name: Check formatting, types, coverage, and PostgreSQL races
+        env:
+          WALLET_TEST_DATABASE_URL: postgresql://yaparena_runtime:ci-runtime-only@127.0.0.1:5432/revocation_test_ci
+          WALLET_TEST_OWNER_DATABASE_URL: postgresql://yaparena_owner:ci-owner-only@127.0.0.1:5432/revocation_test_ci
+          REVOCATION_TEST_DATABASE_URL: postgresql://yaparena_owner:ci-owner-only@127.0.0.1:5432/revocation_test_ci
+          REVOCATION_TEST_RUNTIME_URL: postgresql://yaparena_runtime:ci-runtime-only@127.0.0.1:5432/revocation_test_ci
         run: npm run check

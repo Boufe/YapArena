@@ -31,6 +31,55 @@ if (root) {
   let preparedMicrophone;
   let serverOffset = 0;
   let currentState;
+  let watchSession;
+  let watchStarting = false;
+  const activeLiveVideo = () =>
+    Array.from(videos.querySelectorAll("video")).some(
+      (item) => !item.paused && item.readyState >= 2,
+    );
+  const watchMode = () => {
+    if (document.hidden || !window.yapMeasurement?.consented) return null;
+    if (!video.hidden && !video.paused && video.readyState >= 2)
+      return "replay";
+    if (room && !side && eventStatus === "live" && activeLiveVideo())
+      return "live";
+    return null;
+  };
+  function endWatch() {
+    const previous = watchSession;
+    watchSession = undefined;
+    if (previous)
+      void window.yapMeasurement?.progressWatch(
+        id,
+        previous.mode,
+        previous.id,
+        "end",
+      );
+  }
+  async function tickWatch() {
+    const mode = watchMode();
+    if (!mode) {
+      endWatch();
+      return;
+    }
+    if (watchSession?.mode === mode) {
+      void window.yapMeasurement.progressWatch(id, mode, watchSession.id);
+      return;
+    }
+    if (watchStarting) return;
+    endWatch();
+    watchStarting = true;
+    const sessionId = window.crypto.randomUUID();
+    try {
+      if (
+        (await window.yapMeasurement.startWatch(id, mode, sessionId)) &&
+        watchMode() === mode
+      )
+        watchSession = { id: sessionId, mode };
+    } finally {
+      watchStarting = false;
+    }
+  }
   const say = (message) => {
     status.textContent = message;
   };
@@ -155,6 +204,7 @@ if (root) {
     );
     nextRoom.on(RoomEvent.Disconnected, () => {
       if (room !== nextRoom) return;
+      endWatch();
       mediaTracks.clear();
       stopPreparedMicrophone();
       side = undefined;
@@ -180,6 +230,7 @@ if (root) {
       const grant = await request("/viewer-token", { method: "POST" });
       await connect(grant.token, grant.url);
       say("Watching live debate.");
+      void tickWatch();
     } catch (error) {
       say(error.message);
     } finally {
@@ -250,6 +301,7 @@ if (root) {
       video.hidden = false;
       replay.hidden = true;
       await video.play();
+      void tickWatch();
     } catch (error) {
       say(error.message);
     }
@@ -317,6 +369,7 @@ if (root) {
       for (const button of operator.querySelectorAll("[data-media-action]"))
         button.hidden = !presentation.actions[button.dataset.mediaAction];
       if (["ended", "replay", "finalized", "cancelled"].includes(eventStatus)) {
+        endWatch();
         cancelReconnect();
         rememberSpeaker(false);
         if (room) await disconnectRoom();
@@ -405,6 +458,7 @@ if (root) {
     clock.textContent = `${currentState.activeSide} · ${Math.ceil(remaining / 1000)}s`;
   }
   document.addEventListener("visibilitychange", () => {
+    void tickWatch();
     if (!document.hidden) {
       void refresh();
       if (!speakerConnected) scheduleReconnect();
@@ -413,6 +467,11 @@ if (root) {
   window.addEventListener("online", () => {
     if (!speakerConnected) scheduleReconnect();
   });
+  window.addEventListener("yap-measurement-changed", () => void tickWatch());
+  video.addEventListener("playing", () => void tickWatch());
+  video.addEventListener("pause", endWatch);
+  video.addEventListener("ended", endWatch);
+  window.setInterval(() => void tickWatch(), 10_000);
   fetch("/api/me/roles", { credentials: "same-origin" })
     .then((response) => (response.ok ? response.json() : null))
     .then((data) => {

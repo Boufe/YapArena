@@ -27,6 +27,7 @@ const eventSlug = `community-browser-${suffix}`;
 const accounts = [];
 let topicId;
 let browser;
+const timings = {};
 
 async function axeViolations(page, selector) {
   await page.evaluate((source) => {
@@ -148,10 +149,17 @@ try {
   await author.page
     .locator("[data-community-chat-form] textarea")
     .fill("A useful public comment");
+  const firstMessageAt = performance.now();
   await author.page.locator("[data-community-chat-form] button").click();
   await author.page.getByText("A useful public comment").waitFor();
   await reporter.page.getByText("A useful public comment").waitFor();
+  timings.desktopChatDeliveryMs = Math.round(
+    performance.now() - firstMessageAt,
+  );
   await mobilePage.getByText("A useful public comment").waitFor();
+  timings.mobileViewportChatDeliveryMs = Math.round(
+    performance.now() - firstMessageAt,
+  );
   assert.equal(
     await reporter.page
       .locator("[data-community-messages] [data-message-id]")
@@ -171,8 +179,10 @@ try {
     .fill("Arrived while disconnected");
   await author.page.locator("[data-community-chat-form] button").click();
   await mobilePage.getByText("Arrived while disconnected").waitFor();
+  const reconnectAt = performance.now();
   await reporter.context.setOffline(false);
   await reporter.page.getByText("Arrived while disconnected").waitFor();
+  timings.reconnectCatchupMs = Math.round(performance.now() - reconnectAt);
   assert.deepEqual(
     await reporter.page
       .locator("[data-community-messages] [data-message-id] p")
@@ -395,10 +405,12 @@ try {
   await oldCase.locator("select").first().selectOption("remove_chat");
   await oldCase.locator("select").nth(1).selectOption("spam");
   await oldCase.locator("textarea").fill("Remove older reported chat message");
+  const removalAt = performance.now();
   await oldCase.getByRole("button", { name: "Save decision" }).click();
   await archivePage
     .getByText("Backlog 1", { exact: true })
     .waitFor({ state: "hidden" });
+  timings.moderationRemovalMs = Math.round(performance.now() - removalAt);
   const overlay = await mobilePage.goto(`${base}/overlay/${eventSlug}`);
   assert.equal(overlay.status(), 200);
   assert.equal(
@@ -411,7 +423,13 @@ try {
   assert.equal(qr.status(), 200);
   assert.match(qr.headers()["content-type"], /image\/svg\+xml/);
   console.log(
-    "Community browser journeys verified at desktop and mobile sizes",
+    JSON.stringify({
+      at: new Date().toISOString(),
+      base,
+      viewport: { desktop: "1280x720 or default", mobile: "390x844 emulation" },
+      timings,
+      result: "Community browser journeys verified at desktop and mobile sizes",
+    }),
   );
 } finally {
   if (browser) await browser.close();

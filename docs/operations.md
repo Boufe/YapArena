@@ -100,6 +100,12 @@ Logs redact authorization and cookie headers, but should still be access-control
 
 ## Apply migrations
 
+The Work Package 6 measurement release adds two additive migrations. Its deploy, smoke,
+consent/retention review, and rollback sequence is in
+[measurement operations](measurement-operations.md#release-and-rollback-sequence). CI runs an
+isolated backup/restore check against disposable local PostgreSQL; repeat a provider restore
+verification in staging before treating backups as operational evidence.
+
 Back up the database before a risky schema change. Apply migrations once as a release step, before
 sending traffic to code that requires the new schema:
 

@@ -1,0 +1,91 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "max(yaparena_product_snapshot_fresh)",
+          "legendFormat": "1 = current aggregate snapshot",
+          "refId": "A"
+        }
+      ],
+      "title": "Product snapshot freshness (0 means unavailable)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "max by (affiliation) (yaparena_product_events_28d{event_type=\"discovery_view\"})",
+          "legendFormat": "{{affiliation}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Discovery views, trailing 28 days",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "h" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "max by (mode, affiliation) (yaparena_product_watch_seconds_28d) / 3600",
+          "legendFormat": "{{mode}} · {{affiliation}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Active watch hours, trailing 28 days",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "max by (event_type, affiliation) (yaparena_product_events_28d{event_type=~\"match_requested|match_accepted|debate_completed\"})",
+          "legendFormat": "{{event_type}} · {{affiliation}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Match and finish, trailing 28 days",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "max by (event_type, affiliation) (yaparena_product_events_28d{event_type=~\"replay_started|return_visit|follow_created|report_submitted\"})",
+          "legendFormat": "{{event_type}} · {{affiliation}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Replay, return, and community, trailing 28 days",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 41,
+  "tags": ["yaparena", "product-measurement"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "timezone": "browser",
+  "title": "YapArena product measurement",
+  "uid": "yaparena-product",
+  "version": 1
+}

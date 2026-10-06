@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import type { createMatchingRepository } from "./repository.ts";
 import type { createIdentityRepository } from "../identity/repository.ts";
 import type { createMediaRepository } from "../media/repository.ts";
+import type { ProductActionRecorder } from "../measurement/router.ts";
 import { MediaConflictError } from "../media/repository.ts";
 import { createRequireRole } from "../identity/router.ts";
 import { MatchConflictError, MatchNotFoundError } from "./repository.ts";
@@ -138,10 +139,12 @@ export function createMatchingRouter({
   matching,
   identity,
   media,
+  recordProductAction,
 }: {
   matching: Repository;
   identity: ReturnType<typeof createIdentityRepository>;
   media?: ReturnType<typeof createMediaRepository>;
+  recordProductAction?: ProductActionRecorder;
 }) {
   const router = Router();
   const participant = createRequireRole(identity, ["participant"]);
@@ -194,8 +197,13 @@ export function createMatchingRouter({
     if (!input)
       return response.status(400).json({ error: "invalid debate request" });
     try {
+      const created = await matching.createRequest(request.user!.id, input);
+      await recordProductAction?.(request, {
+        type: "match_requested",
+        requestId: created.id,
+      });
       return response.status(201).json({
-        request: await matching.createRequest(request.user!.id, input),
+        request: created,
       });
     } catch (error) {
       return errorResponse(response, error);
@@ -208,9 +216,12 @@ export function createMatchingRouter({
       const id = idFrom(request);
       if (!id) return response.status(404).json({ error: "request not found" });
       try {
-        return response
-          .status(201)
-          .json({ event: await matching.acceptRequest(request.user!.id, id) });
+        const event = await matching.acceptRequest(request.user!.id, id);
+        await recordProductAction?.(request, {
+          type: "match_accepted",
+          debateId: event.id,
+        });
+        return response.status(201).json({ event });
       } catch (error) {
         return errorResponse(response, error);
       }
@@ -221,9 +232,12 @@ export function createMatchingRouter({
     if (!id)
       return response.status(404).json({ error: "queue entry not found" });
     try {
-      return response
-        .status(201)
-        .json({ event: await matching.joinQueue(request.user!.id, id) });
+      const event = await matching.joinQueue(request.user!.id, id);
+      await recordProductAction?.(request, {
+        type: "match_accepted",
+        debateId: event.id,
+      });
+      return response.status(201).json({ event });
     } catch (error) {
       return errorResponse(response, error);
     }

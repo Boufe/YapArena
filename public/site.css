@@ -1347,3 +1347,41 @@ h3 {
   border-bottom: 1px solid var(--line);
   text-align: left;
 }
+
+#wallet-change {
+  color: var(--text);
+  width: min(640px, calc(100% - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+#wallet-change::backdrop {
+  background: rgb(0 0 0 / 75%);
+}
+#wallet-change [hidden] {
+  display: none;
+}
+#wallet-change .button-secondary {
+  margin-top: 20px;
+}
+
+.account-heading > div {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.account-heading > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 760px) {
+  .account-heading {
+    flex-wrap: wrap;
+  }
+}
+
+#wallet-change button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

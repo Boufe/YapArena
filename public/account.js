@@ -4,6 +4,13 @@ const signedOut = document.querySelector("#signed-out");
 const signedIn = document.querySelector("#signed-in");
 const profileForm = document.querySelector("#profile-form");
 let currentProfile = null;
+let linkedWallets = [];
+let passwordAvailable = false;
+let pendingChange = null;
+let expiryTimer;
+const changeDialog = document.querySelector("#wallet-change");
+const changeForm = document.querySelector("#wallet-change-form");
+const changeNotice = document.querySelector("#wallet-change-notice");
 
 function say(message) {
   notice.textContent = message;
@@ -17,9 +24,22 @@ async function api(path, method = "GET", body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (response.status === 204) return null;
-  const data = await response.json();
-  if (!response.ok)
-    throw new Error(data.error || "Request failed. Please try again.");
+  const json = response.headers
+    .get("Content-Type")
+    ?.includes("application/json");
+  const data = json
+    ? await response.json()
+    : {
+        error:
+          response.status === 429
+            ? "Too many attempts. Wait before starting a new wallet approval."
+            : "Request failed. Please try again.",
+      };
+  if (!response.ok) {
+    const error = new Error(data.error || "Request failed. Please try again.");
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }
 
@@ -52,8 +72,11 @@ async function walletAction(purpose) {
       throw new Error(
         "Your wallet did not provide a valid account and network.",
       );
-    const base =
-      purpose === "link" ? "/api/auth/wallet/link" : "/api/auth/wallet/login";
+    if (purpose === "link") {
+      openWalletChange({ purpose, address: address.toLowerCase(), chainId });
+      return;
+    }
+    const base = "/api/auth/wallet/login";
     const challenge = await api(`${base}/challenge`, "POST", {
       address,
       chainId,
@@ -116,6 +139,7 @@ async function loadWallets() {
   const list = document.querySelector("#wallet-list");
   list.replaceChildren();
   const wallets = (await api("/api/auth/wallets")).wallets;
+  linkedWallets = wallets;
   if (!wallets.length) list.append(item("No wallet linked yet."));
   for (const wallet of wallets) {
     const row = item(
@@ -125,26 +149,14 @@ async function loadWallets() {
     button.type = "button";
     button.className = "small-button";
     button.textContent = "Unlink";
-    button.addEventListener("click", async () => {
-      if (
-        !window.confirm(
-          "Unlink this wallet? All sessions, including this device, will be signed out. Sign in again with a remaining credential.",
-        )
-      )
-        return;
-      try {
-        await api(
-          `/api/auth/wallets/${encodeURIComponent(wallet.id)}`,
-          "DELETE",
-        );
-        await loadAccount();
-        say(
-          "Wallet unlinked. All sessions signed out. Sign in with a remaining credential.",
-        );
-      } catch (error) {
-        say(error.message);
-      }
-    });
+    button.addEventListener("click", () =>
+      openWalletChange({
+        purpose: "unlink",
+        address: wallet.address,
+        chainId: Number(wallet.chainId),
+        targetWalletId: wallet.id,
+      }),
+    );
     row.append(button);
     list.append(row);
   }
@@ -180,6 +192,7 @@ async function loadCollection(path, selector, render) {
 async function loadAccount() {
   try {
     const { user } = await api("/api/auth/me");
+    passwordAvailable = Boolean(user.email);
     signedOut.hidden = true;
     signedIn.hidden = false;
     document.querySelector("#account-name").textContent =
@@ -187,6 +200,7 @@ async function loadAccount() {
     await Promise.all([
       loadProfile(),
       loadWallets(),
+      loadNotifications(),
       loadCollection("/api/me/follows", "#follow-list", (entry) =>
         item(
           `${entry.targetType === "topic" ? "Topic" : "Person"}: ${entry.title}`,
@@ -276,5 +290,208 @@ profileForm.addEventListener("submit", async (event) => {
     say(error.message);
   }
 });
+
+async function loadNotifications() {
+  const list = document.querySelector("#account-notifications");
+  list.replaceChildren();
+  const { notifications } = await api("/api/matching/notifications");
+  if (!notifications.length) list.append(item("No account notifications."));
+  for (const notification of notifications)
+    list.append(item(notification.message));
+}
+
+function resetWalletChange() {
+  window.clearTimeout(expiryTimer);
+  pendingChange = null;
+  changeForm.reset();
+  changeForm.hidden = false;
+  document.querySelector("#new-wallet-proof").hidden = true;
+}
+
+function openWalletChange(target) {
+  resetWalletChange();
+  pendingChange = { target };
+  changeNotice.textContent =
+    "Verify an existing sign-in method for this change. Approval expires in five minutes.";
+  document.querySelector("#wallet-change-target").textContent =
+    `${target.purpose === "link" ? "Link" : "Unlink"} ${target.address} on chain ${target.chainId}`;
+  const select = changeForm.elements.credential;
+  select.replaceChildren();
+  function option(value, label) {
+    const element = document.createElement("option");
+    element.value = value;
+    element.textContent = label;
+    select.append(element);
+  }
+  if (passwordAvailable) option("password", "Current password");
+  for (const wallet of linkedWallets) {
+    if (
+      wallet.address === target.address &&
+      Number(wallet.chainId) === target.chainId
+    )
+      continue;
+    option(wallet.id, `${wallet.address} · chain ${wallet.chainId}`);
+  }
+  changeForm.querySelector('button[type="submit"]').disabled =
+    !select.options.length;
+  select.disabled = !select.options.length;
+  if (!select.options.length)
+    changeNotice.textContent =
+      target.purpose === "unlink"
+        ? "You need another retained sign-in method to unlink this wallet. You cannot remove your last sign-in method."
+        : "This wallet cannot approve its own addition. Use your current password or another linked wallet.";
+  updateCredentialChoice();
+  changeDialog.showModal();
+}
+
+function updateCredentialChoice() {
+  const password = changeForm.elements.credential.value === "password";
+  document.querySelector("#current-password-label").hidden = !password;
+  changeForm.elements.password.required = password;
+  changeForm.elements.password.value = "";
+  const help = document.querySelector("#existing-wallet-help");
+  const wallet = linkedWallets.find(
+    (entry) => entry.id === changeForm.elements.credential.value,
+  );
+  help.hidden = password || !wallet;
+  help.textContent = wallet
+    ? `Switch your wallet extension to existing wallet ${wallet.address} on chain ${wallet.chainId} before continuing.`
+    : "";
+}
+
+async function signForWallet(message, address, chainId) {
+  const provider = window.ethereum;
+  if (!provider?.request)
+    throw new Error("Open your wallet extension to sign this approval.");
+  const accounts = await provider.request({ method: "eth_requestAccounts" });
+  const currentChain = Number.parseInt(
+    await provider.request({ method: "eth_chainId" }),
+    16,
+  );
+  if (
+    accounts?.[0]?.toLowerCase() !== address.toLowerCase() ||
+    currentChain !== Number(chainId)
+  )
+    throw new Error(
+      `Switch your wallet to ${address} on chain ${chainId}, then try again.`,
+    );
+  return provider.request({
+    method: "personal_sign",
+    params: [message, address],
+  });
+}
+
+async function finishWalletChange(proposedSignature) {
+  const change = pendingChange;
+  await api(
+    `/api/auth/wallet/operations/${change.operation.id}/complete`,
+    "POST",
+    {
+      ...change.target,
+      password: change.password,
+      authorizationSignature: change.authorizationSignature,
+      proposedSignature,
+    },
+  );
+  const action = change.target.purpose;
+  changeDialog.close();
+  resetWalletChange();
+  await loadAccount();
+  say(
+    action === "link"
+      ? "Wallet linked. Your session was renewed."
+      : "Wallet unlinked. Other sessions were signed out and your session was renewed.",
+  );
+}
+
+changeForm.elements.credential.addEventListener(
+  "change",
+  updateCredentialChoice,
+);
+changeDialog.addEventListener("close", resetWalletChange);
+changeDialog.addEventListener("cancel", resetWalletChange);
+document
+  .querySelector("#cancel-wallet-change")
+  .addEventListener("click", () => changeDialog.close());
+changeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = changeForm.querySelector('button[type="submit"]');
+  button.disabled = true;
+  try {
+    const target = pendingChange.target;
+    const value = changeForm.elements.credential.value;
+    const credential =
+      value === "password"
+        ? { type: "password" }
+        : { type: "wallet", walletId: value };
+    const operation = await api("/api/auth/wallet/operations", "POST", {
+      ...target,
+      credential,
+    });
+    pendingChange.operation = operation;
+    pendingChange.password =
+      value === "password" ? changeForm.elements.password.value : undefined;
+    changeForm.elements.password.value = "";
+    if (operation.authorizationMessage)
+      pendingChange.authorizationSignature = await signForWallet(
+        operation.authorizationMessage,
+        operation.authorizingAddress,
+        operation.authorizingChainId,
+      );
+    if (target.purpose === "unlink") {
+      await finishWalletChange();
+      return;
+    }
+    changeForm.hidden = true;
+    document.querySelector("#new-wallet-proof").hidden = false;
+    changeNotice.textContent = `Now switch to the NEW wallet ${target.address} on chain ${target.chainId}. Sign its separate proof to finish linking. Neither signature approves spending.`;
+    expiryTimer = window.setTimeout(
+      () => {
+        changeDialog.close();
+        resetWalletChange();
+        say(
+          "Wallet operation expired. Start again to verify an existing credential.",
+        );
+      },
+      Math.max(0, new Date(operation.expiresAt).getTime() - Date.now()),
+    );
+  } catch (error) {
+    if (pendingChange) {
+      delete pendingChange.password;
+      delete pendingChange.authorizationSignature;
+    }
+    changeNotice.textContent =
+      error?.message || "Approval rejected. Start again when ready.";
+  } finally {
+    button.disabled = false;
+  }
+});
+document
+  .querySelector("#sign-new-wallet")
+  .addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const change = pendingChange;
+      const signature = await signForWallet(
+        change.operation.proposedMessage,
+        change.target.address,
+        change.target.chainId,
+      );
+      await finishWalletChange(signature);
+    } catch (error) {
+      if (error.status) {
+        const target = pendingChange?.target;
+        resetWalletChange();
+        pendingChange = { target };
+        updateCredentialChoice();
+      }
+      changeNotice.textContent =
+        error?.message ||
+        "Signature rejected. Try again before approval expires.";
+    } finally {
+      button.disabled = false;
+    }
+  });
 
 loadAccount();

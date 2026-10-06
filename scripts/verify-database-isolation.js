@@ -35,6 +35,7 @@ import { createMeasurementRepository } from "../dist/features/measurement/reposi
 // This harness creates its own isolated Docker cluster. It accepts no external URL,
 // never reads .env, mounts no data volume, and uses only synthetic random credentials.
 const exec = promisify(execFile);
+const applicationTables = [...Object.keys(runtimeGrants), "wallet_operations"];
 const container = `yaparena-isolation-${randomUUID().slice(0, 8)}`;
 const evidenceDirectory = `/tmp/${container}-evidence`;
 const postgresImage =
@@ -98,7 +99,7 @@ async function browserChecks(admin) {
   for (const role of ["anon", "authenticated"]) {
     await admin.query(`SET ROLE ${role}`);
     try {
-      for (const table of Object.keys(runtimeGrants)) {
+      for (const table of applicationTables) {
         await denied(admin, `SELECT * FROM yaparena.${table}`);
         await denied(admin, `INSERT INTO yaparena.${table} DEFAULT VALUES`);
         await denied(admin, `DELETE FROM yaparena.${table}`);
@@ -481,28 +482,44 @@ async function runtimeChecks(database, owner, admin) {
     await walletAgent.get("/api/auth/me").expect(200);
     assert.equal(walletLogin.body.user.email, null);
     const linkAccount = privateKeyToAccount(`0x${"32".repeat(32)}`);
+    const linkTarget = {
+      purpose: "link",
+      address: linkAccount.address,
+      chainId: 1,
+    };
     const link = await agents[0]
-      .post("/api/auth/wallet/link/challenge")
-      .send({ address: linkAccount.address, chainId: 1 })
+      .post("/api/auth/wallet/operations")
+      .send({ ...linkTarget, credential: { type: "password" } })
       .expect(201);
     await agents[0]
-      .post("/api/auth/wallet/link/verify")
+      .post(`/api/auth/wallet/operations/${link.body.id}/complete`)
       .send({
-        challengeId: link.body.id,
-        signature: await linkAccount.signMessage({
-          message: link.body.message,
+        ...linkTarget,
+        password: "Synthetic local verification passphrase",
+        proposedSignature: await linkAccount.signMessage({
+          message: link.body.proposedMessage,
         }),
       })
       .expect(200);
     const linked = (await wallets.listWallets(alice.id))[0];
-    assert.equal(await wallets.unlinkWallet(alice.id, linked.id), "removed");
+    const unlinkTarget = {
+      purpose: "unlink",
+      address: linked.address,
+      chainId: Number(linked.chainId),
+      targetWalletId: linked.id,
+    };
+    const unlink = await agents[0]
+      .post("/api/auth/wallet/operations")
+      .send({ ...unlinkTarget, credential: { type: "password" } })
+      .expect(201);
     await agents[0]
-      .post("/api/auth/login")
+      .post(`/api/auth/wallet/operations/${unlink.body.id}/complete`)
       .send({
-        email: alice.email,
+        ...unlinkTarget,
         password: "Synthetic local verification passphrase",
       })
       .expect(200);
+
     assert.ok(
       (await identity.listActivity(alice.id, 100, 0)).items.some(
         (item) => item.eventType === "wallet_identities.insert",
@@ -678,7 +695,7 @@ async function runtimeChecks(database, owner, admin) {
       alice.id,
       "b".repeat(64),
       new Date(Date.now() - 60_000),
-      { authGeneration: (await users.findByEmail(alice.email)).authGeneration },
+      await users.findByEmail(alice.email),
     );
     assert.equal(await sessions.deleteExpired(), 1);
     const expiredWallet = await wallets.createChallenge({
@@ -930,7 +947,7 @@ async function scenario(database, upgrade) {
       inventory.relations.filter(
         (r) => r.schema === "yaparena" && r.kind === "r",
       ).length,
-      Object.keys(runtimeGrants).length,
+      applicationTables.length,
     );
     assert.ok(
       inventory.policies

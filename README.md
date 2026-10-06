@@ -170,7 +170,11 @@ See the [revocation contract](docs/security/account-session-revocation.md) for p
 replacement, incident response and deployment requirements.
 Creating a profile starts a private draft; choose Public and save to publish it. Public people
 and topic pages have follow controls. The account page shows linked wallets, follows, and
-recent identity activity. Signing in and linking wallets do not authorize a transaction.
+recent identity activity and account notifications. Linking or unlinking requires your current
+password or a fresh signature from an existing wallet that remains linked. Linking also requires
+a separate signature from the new wallet. Approval expires after five minutes, and a successful
+change renews the current session. Signing never authorizes a transaction. See the
+[wallet authorization design](docs/security/wallet-authorization.md) for API and rollout details.
 
 `APP_ORIGIN` must exactly match the browser origin, including the port, for SIWE challenges and
 cookie-authenticated writes. EOA wallets work without RPC configuration. To verify contract

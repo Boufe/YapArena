@@ -1,6 +1,8 @@
 import type { Pool } from "pg";
 import type { AuthenticationUser } from "./users.ts";
-import { lockAccount, insertSession, assertActiveSession } from "./sessions.ts";
+import { lockAccount, insertSession } from "./sessions.ts";
+import { createWalletOperationRepository } from "./wallet-operations.ts";
+export { WalletAlreadyLinkedError } from "./wallet-operations.ts";
 
 export interface WalletChallenge {
   id: string;
@@ -24,10 +26,10 @@ export interface LinkedWallet {
 }
 
 export class ChallengeUnavailableError extends Error {}
-export class WalletAlreadyLinkedError extends Error {}
 
 export function createWalletRepository(database: Pool) {
   return Object.freeze({
+    operations: createWalletOperationRepository(database),
     async createChallenge(input: {
       address: string;
       chainId: number;
@@ -163,73 +165,6 @@ export function createWalletRepository(database: Pool) {
       }
     },
 
-    async completeLink(
-      id: string,
-      userId: string,
-      sessionTokenHash: string,
-    ): Promise<LinkedWallet> {
-      const client = await database.connect();
-      try {
-        await client.query("BEGIN");
-        const account = await lockAccount(client, userId);
-        if (!account)
-          throw new ChallengeUnavailableError("account is unavailable");
-        await assertActiveSession(client, userId, sessionTokenHash);
-        const consumed = await client.query<{
-          address: string;
-          chainId: string;
-        }>(
-          `UPDATE wallet_challenges SET consumed_at = CURRENT_TIMESTAMP
-           WHERE id = $1 AND purpose = 'link' AND user_id = $2
-             AND session_token_hash = $3 AND consumed_at IS NULL
-             AND auth_generation = $4 AND expires_at > clock_timestamp()
-           RETURNING address, chain_id AS "chainId"`,
-          [id, userId, sessionTokenHash, account.authGeneration],
-        );
-        const challenge = consumed.rows[0];
-        if (!challenge)
-          throw new ChallengeUnavailableError("challenge is unavailable");
-        await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
-          `${challenge.chainId}:${challenge.address}`,
-        ]);
-        const existing = await client.query<LinkedWallet & { userId: string }>(
-          `SELECT id, user_id AS "userId", address, chain_id AS "chainId",
-             created_at AS "createdAt"
-           FROM wallet_identities WHERE chain_id = $1 AND address = $2`,
-          [challenge.chainId, challenge.address],
-        );
-        const existingWallet = existing.rows[0];
-        if (existingWallet && existingWallet.userId !== userId) {
-          throw new WalletAlreadyLinkedError(
-            "wallet belongs to another account",
-          );
-        }
-        let wallet: LinkedWallet | undefined = existingWallet;
-        if (!wallet) {
-          const created = await client.query<LinkedWallet>(
-            `INSERT INTO wallet_identities (user_id, chain_id, address)
-             VALUES ($1, $2, $3)
-             RETURNING id, address, chain_id AS "chainId", created_at AS "createdAt"`,
-            [userId, challenge.chainId, challenge.address],
-          );
-          wallet = created.rows[0];
-        }
-        if (!wallet) throw new Error("linked wallet was not returned");
-        await client.query("COMMIT");
-        return {
-          id: wallet.id,
-          address: wallet.address,
-          chainId: wallet.chainId,
-          createdAt: wallet.createdAt,
-        };
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
-      } finally {
-        client.release();
-      }
-    },
-
     async listWallets(userId: string): Promise<LinkedWallet[]> {
       const result = await database.query<LinkedWallet>(
         `SELECT id, address, chain_id AS "chainId", created_at AS "createdAt"
@@ -239,45 +174,8 @@ export function createWalletRepository(database: Pool) {
       return result.rows;
     },
 
-    async unlinkWallet(
-      userId: string,
-      walletId: string,
-    ): Promise<"removed" | "missing" | "last_credentials"> {
-      const client = await database.connect();
-      try {
-        await client.query("BEGIN");
-        const user = await lockAccount(client, userId);
-        const target = await client.query(
-          "SELECT id FROM wallet_identities WHERE id = $1 AND user_id = $2",
-          [walletId, userId],
-        );
-        if (!target.rows[0]) {
-          await client.query("COMMIT");
-          return "missing";
-        }
-        const count = await client.query<{ count: string }>(
-          "SELECT count(*)::text AS count FROM wallet_identities WHERE user_id = $1",
-          [userId],
-        );
-        if (!user?.email && Number(count.rows[0]?.count ?? 0) <= 1) {
-          await client.query("COMMIT");
-          return "last_credentials";
-        }
-        await client.query(
-          "DELETE FROM wallet_identities WHERE id = $1 AND user_id = $2",
-          [walletId, userId],
-        );
-        await client.query("COMMIT");
-        return "removed";
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
-      } finally {
-        client.release();
-      }
-    },
-
     async deleteExpiredChallenges() {
+      await createWalletOperationRepository(database).deleteExpired();
       const result = await database.query(
         "DELETE FROM wallet_challenges WHERE expires_at < CURRENT_TIMESTAMP - INTERVAL '1 day'",
       );

@@ -67,6 +67,10 @@ function fixture({
     postChat: async (...args) => {
       calls.push(["postChat", ...args]);
       if (failure) throw failure;
+      if (!args[4])
+        throw new CommunityForbiddenError(
+          "participant role is required to chat",
+        );
       return { id: "2", body: args[2] };
     },
     setLike: async (...args) => {
@@ -211,6 +215,85 @@ describe("community API and share surfaces", () => {
     assert.equal((await request(app).get("/health")).status, 429);
   });
 
+  it("validates UUID v4 keys, normalizes them, and opts into owner correlation", async () => {
+    const { auth, calls, app } = fixture();
+    const path = `/api/community/events/${eventId}/chat`;
+    for (const key of [
+      null,
+      1,
+      {},
+      "",
+      "bad",
+      eventId.replace("-4111-", "-1111-"),
+    ]) {
+      const invalid = await auth("post", path).send({
+        body: "Hello",
+        clientMessageId: key,
+      });
+      assert.equal(invalid.status, 400);
+      assert.equal(invalid.body.code, "CHAT_INVALID_KEY");
+    }
+    const key = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA";
+    await auth("post", path)
+      .send({ body: " Hello ", clientMessageId: key })
+      .expect(201);
+    assert.deepEqual(calls.at(-1), [
+      "postChat",
+      eventId,
+      "7",
+      "Hello",
+      key.toLowerCase(),
+      true,
+    ]);
+    await auth("get", `${path}?own=1`).expect(200);
+    assert.equal(
+      (await request(fixture({ signedIn: false }).app).get(`${path}?own=1`))
+        .status,
+      401,
+    );
+    for (const query of [
+      "before=9223372036854775808",
+      "before=9999999999999999999",
+    ])
+      await request(app).get(`${path}?${query}`).expect(400);
+    await request(app)
+      .get(`${path}/sync?after=9223372036854775808`)
+      .expect(400);
+  });
+
+  it("returns machine codes and Retry-After for account cooldown and payload conflicts", async () => {
+    for (const code of ["CHAT_COOLDOWN", "CHAT_HOURLY_LIMIT"]) {
+      const { auth } = fixture({
+        failure: new CommunityRateError(
+          "wait",
+          123,
+          code,
+          new Date("2026-10-06T12:00:00Z"),
+        ),
+      });
+      const result = await auth(
+        "post",
+        `/api/community/events/${eventId}/chat`,
+      ).send({ body: "Hello", clientMessageId: eventId });
+      assert.equal(result.status, 429);
+      assert.equal(result.headers["retry-after"], "123");
+      assert.equal(result.body.code, code);
+      assert.equal(result.body.retryAfterSeconds, 123);
+    }
+    const { auth } = fixture({
+      failure: new CommunityConflictError(
+        "different text",
+        "CHAT_PAYLOAD_CONFLICT",
+      ),
+    });
+    const result = await auth(
+      "post",
+      `/api/community/events/${eventId}/chat`,
+    ).send({ body: "Hello", clientMessageId: eventId });
+    assert.equal(result.status, 409);
+    assert.equal(result.body.code, "CHAT_PAYLOAD_CONFLICT");
+  });
+
   it("posts chat and uses idempotent like methods with server-bound account identity", async () => {
     const { auth, calls } = fixture();
     assert.equal(
@@ -221,7 +304,14 @@ describe("community API and share surfaces", () => {
       ).status,
       201,
     );
-    assert.deepEqual(calls.at(-1), ["postChat", eventId, "7", "Hello"]);
+    assert.deepEqual(calls.at(-1), [
+      "postChat",
+      eventId,
+      "7",
+      "Hello",
+      undefined,
+      true,
+    ]);
     assert.equal(
       (await auth("put", `/api/community/events/${eventId}/like`)).body.liked,
       true,

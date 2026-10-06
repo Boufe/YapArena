@@ -45,6 +45,51 @@ reviewer must be a different moderator from the initial reviewer and cannot be t
 Event chat pauses are operational and may be resumed by a moderator with a case note; they do
 not create an individual appeal right. Case and appeal decisions append immutable audit events.
 
+## Immediate chat feedback and submission identity — 2026-10-06
+
+A new logical submission uses a random UUID v4 `clientMessageId`. The backend binds that key to
+trimmed plain text for the authenticated account and event. A partial unique index and the existing
+transaction/account lock serialize identical and competing requests. Accepted retries return the
+original message ID and acceptance time before new-write role, profile, restriction, live/pause,
+and posting-limit checks; they never write or charge another allowance. Authentication, ownership
+and current published event/topic access still apply. A different payload returns HTTP 409
+`CHAT_PAYLOAD_CONFLICT`. A removed acceptance returns `state: removed` and `body: null`; acknowledging
+it cannot restore it. Restoration remains an independent moderator appeal decision.
+
+The public message shape is `id`, `debateId`, `authorName`, `body`, `state`, `createdAt`, `revision`,
+and `clientMessageId`. IDs and moderation revisions remain decimal strings. `createdAt` records
+acceptance, not a retry. History and polling normally return `clientMessageId: null`; authenticated
+reads with `own=1` expose it only on the requester's messages. No private author account ID is
+returned. Pending rows reconcile by this owner-only correlation or an already bound server ID,
+never text, time or author name. Polling remains the transport. POST acknowledgment never advances
+the read cursor. A state-change trigger increments `revision`, including changes made by older
+server code. Lower revisions cannot reverse a removal; restoration requires a newer revision.
+Polling returns visible `watched` rows and separate redacted `removed` tombstones, so already-open
+legacy clients continue hiding messages absent from `watched`.
+
+Keys stay with their message throughout its existing 365-day retention period, extended by the
+existing open-case/appeal holds. They expire only when that message is purged; no additional body,
+receipt or hash archive is retained. After purge a reused key is a new write subject to all checks
+and allowances. Idempotency is therefore guaranteed while the stored acceptance remains, not
+forever. Legacy requests without a key remain accepted during transition but have no deduplication
+guarantee. Invalid supplied keys, including null, are rejected; new clients always supply a key.
+
+The browser captures an immutable submission and clears its captured composer value synchronously.
+Later typing stays independent. Sending, confirmed, delivery-unconfirmed, rejected and cooldown
+states have row-level feedback. Network failure, timeout, invalid acknowledgments, HTTP 408 and 5xx
+mean uncertain delivery. Explicit unchanged retries reuse the key; recovering text appends to an
+existing draft and requires an explicit send. An unchanged recovered draft reuses its original key;
+editing or appending to other text creates a new submission and key. Recovery does not automatically send
+on reconnect. Recoverable submissions live in page memory; reload/navigation recovery is outside
+this change. Confirmed records can be discarded with bounded feed retention once their transport
+settles. Chat text and drafts never enter product analytics or application request logs.
+
+The changed chat interface targets WCAG 2.2 AA. Status regions announce connection changes and
+brief outcomes, rather than reading the entire feed. Countdown ticks are not live announcements.
+Keyboard sending respects Shift+Enter and IME composition; asynchronous responses do not move
+focus to the composer. Automated accessibility and viewport checks supplement physical-device,
+assistive-technology and staging review; they cannot close those release gates.
+
 ## Abuse, retention, and release
 
 Server-side account locks serialize community writes, including concurrent requests. Chat is
@@ -68,6 +113,6 @@ official event support. QR generation is server-side from the canonical event UR
 from a caller-supplied URL.
 
 Before production use, finish the measured desktop/mobile trial in the media report, test
-moderation operations with real browsers, review privacy retention with counsel, and set an
-accessibility target. Staging may use test accounts and non-sensitive test content while these
+moderation operations with real browsers, review privacy retention with counsel, and verify the
+changed chat interface against its WCAG 2.2 AA target. Staging may use test accounts and non-sensitive test content while these
 gates remain open.

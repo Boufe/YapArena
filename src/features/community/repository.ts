@@ -1,9 +1,25 @@
 import type { Pool, PoolClient } from "pg";
 
 export class CommunityNotFoundError extends Error {}
-export class CommunityConflictError extends Error {}
+export class CommunityConflictError extends Error {
+  constructor(
+    message: string,
+    readonly code = "COMMUNITY_CONFLICT",
+  ) {
+    super(message);
+  }
+}
 export class CommunityForbiddenError extends Error {}
-export class CommunityRateError extends Error {}
+export class CommunityRateError extends Error {
+  constructor(
+    message: string,
+    readonly retryAfterSeconds?: number,
+    readonly code = "COMMUNITY_RATE_LIMIT",
+    readonly retryAt?: Date,
+  ) {
+    super(message);
+  }
+}
 
 export type ReasonCode =
   "harassment" | "hate" | "threat" | "spam" | "privacy" | "other";
@@ -25,6 +41,8 @@ interface ChatRow {
   body: string;
   state: "visible" | "removed";
   createdAt: Date;
+  clientMessageId: string | null;
+  revision: string;
 }
 interface CaseRow {
   id: string;
@@ -55,6 +73,29 @@ interface AppealRow {
   decisionNote: string | null;
   decidedAt: Date | null;
   createdAt: Date;
+}
+
+const chatFields = `m.id, m.debate_id AS "debateId",
+  m.author_user_id AS "authorUserId",
+  COALESCE(p.display_name, 'Participant') AS "authorName",
+  m.body, m.state, m.created_at AS "createdAt",
+  m.client_message_id AS "clientMessageId", m.revision::text AS revision`;
+const chatJoin = `FROM event_chat_messages m
+  LEFT JOIN public_profiles p ON p.user_id = m.author_user_id
+    AND p.publication_state = 'published'`;
+
+function publicMessage(item: ChatRow, viewerId?: string) {
+  return {
+    id: item.id,
+    debateId: item.debateId,
+    authorName: item.authorName,
+    body: item.state === "removed" ? null : item.body,
+    state: item.state,
+    createdAt: item.createdAt,
+    revision: item.revision,
+    clientMessageId:
+      viewerId === item.authorUserId ? item.clientMessageId : null,
+  };
 }
 
 const caseFields = `c.id, c.reporter_user_id AS "reporterUserId",
@@ -96,7 +137,8 @@ async function lockAccount(client: PoolClient, userId: string) {
 async function eventFor(client: PoolClient, id: string, lock = false) {
   const result = await client.query<EventRow>(
     `SELECT id, slug, status, publication_state AS "publicationState",
-       is_demo AS "isDemo" FROM debates WHERE id = $1${lock ? " FOR SHARE" : ""}`,
+       is_demo AS "isDemo" FROM debates WHERE id = $1 AND EXISTS (SELECT 1 FROM topics
+         WHERE topics.id = debates.topic_id AND publication_state = 'published')${lock ? " FOR SHARE" : ""}`,
     [id],
   );
   const event = result.rows[0];
@@ -217,17 +259,11 @@ export function createCommunityRepository(database: Pool) {
       };
     },
 
-    async listChat(id: string, before?: string) {
+    async listChat(id: string, before?: string, viewerId?: string) {
       const event = await this.publicEvent(id);
       if (!event) throw new CommunityNotFoundError("event not found");
       const result = await database.query<ChatRow>(
-        `SELECT m.id, m.debate_id AS "debateId",
-          m.author_user_id AS "authorUserId",
-          COALESCE(p.display_name, 'Participant') AS "authorName",
-          m.body, m.state, m.created_at AS "createdAt"
-         FROM event_chat_messages m
-         LEFT JOIN public_profiles p ON p.user_id = m.author_user_id
-           AND p.publication_state = 'published'
+        `SELECT ${chatFields} ${chatJoin}
          WHERE m.debate_id = $1 AND m.state = 'visible'
            AND ($2::bigint IS NULL OR m.id < $2)
          ORDER BY m.id DESC LIMIT 51`,
@@ -237,74 +273,91 @@ export function createCommunityRepository(database: Pool) {
         items: result.rows
           .slice(0, 50)
           .reverse()
-          .map((item) => ({
-            id: item.id,
-            debateId: item.debateId,
-            authorName: item.authorName,
-            body: item.body,
-            createdAt: item.createdAt,
-          })),
+          .map((item) => publicMessage(item, viewerId)),
         hasMore: result.rows.length > 50,
       };
     },
 
-    async syncChat(id: string, after: string, watchedIds: string[]) {
+    async syncChat(
+      id: string,
+      after: string,
+      watchedIds: string[],
+      viewerId?: string,
+    ) {
       const event = await this.publicEvent(id);
       if (!event) throw new CommunityNotFoundError("event not found");
       const [newMessages, watched] = await Promise.all([
         database.query<ChatRow>(
-          `SELECT m.id, m.debate_id AS "debateId",
-            m.author_user_id AS "authorUserId",
-            COALESCE(p.display_name, 'Participant') AS "authorName",
-            m.body, m.state, m.created_at AS "createdAt"
-           FROM event_chat_messages m
-           LEFT JOIN public_profiles p ON p.user_id = m.author_user_id
-             AND p.publication_state = 'published'
+          `SELECT ${chatFields} ${chatJoin}
            WHERE m.debate_id = $1 AND m.state = 'visible' AND m.id > $2
            ORDER BY m.id ASC LIMIT 51`,
           [id, after],
         ),
         watchedIds.length
           ? database.query<ChatRow>(
-              `SELECT m.id, m.debate_id AS "debateId",
-                m.author_user_id AS "authorUserId",
-                COALESCE(p.display_name, 'Participant') AS "authorName",
-                m.body, m.state, m.created_at AS "createdAt"
-               FROM event_chat_messages m
-               LEFT JOIN public_profiles p ON p.user_id = m.author_user_id
-                 AND p.publication_state = 'published'
-               WHERE m.debate_id = $1 AND m.state = 'visible'
-                 AND m.id = ANY($2::bigint[])
+              `SELECT ${chatFields} ${chatJoin}
+               WHERE m.debate_id = $1 AND m.id = ANY($2::bigint[])
                ORDER BY m.id ASC`,
               [id, watchedIds],
             )
           : Promise.resolve({ rows: [] as ChatRow[] }),
       ]);
-      const publicMessage = (item: ChatRow) => ({
-        id: item.id,
-        debateId: item.debateId,
-        authorName: item.authorName,
-        body: item.body,
-        createdAt: item.createdAt,
-      });
       return {
-        items: newMessages.rows.slice(0, 50).map(publicMessage),
+        items: newMessages.rows
+          .slice(0, 50)
+          .map((item) => publicMessage(item, viewerId)),
         hasMore: newMessages.rows.length > 50,
-        watched: watched.rows.map(publicMessage),
+        // Legacy clients use absence from watched to hide moderated messages.
+        watched: watched.rows
+          .filter((item) => item.state === "visible")
+          .map((item) => publicMessage(item, viewerId)),
+        removed: watched.rows
+          .filter((item) => item.state === "removed")
+          .map((item) => publicMessage(item, viewerId)),
       };
     },
 
-    async postChat(id: string, userId: string, body: string) {
+    async postChat(
+      id: string,
+      userId: string,
+      body: string,
+      clientMessageId?: string,
+      canPost = true,
+    ) {
+      body = body.trim();
       return transaction(database, async (client) => {
         await lockAccount(client, userId);
-        await assertWritable(client, userId);
+        // Access is always checked, even for an acknowledgment of an earlier write.
         const event = await eventFor(client, id, true);
+        if (clientMessageId) {
+          const accepted = await client.query<ChatRow>(
+            `SELECT ${chatFields} ${chatJoin}
+             WHERE m.debate_id = $1 AND m.author_user_id = $2 AND m.client_message_id = $3
+             FOR SHARE OF m`,
+            [id, userId, clientMessageId],
+          );
+          const original = accepted.rows[0];
+          if (original) {
+            if (original.body !== body)
+              throw new CommunityConflictError(
+                "submission key was already accepted with different text",
+                "CHAT_PAYLOAD_CONFLICT",
+              );
+            return publicMessage(original, userId);
+          }
+        }
+        if (!canPost)
+          throw new CommunityForbiddenError(
+            "participant role is required to chat",
+          );
+        await assertWritable(client, userId);
         if (event.status !== "live")
           throw new CommunityConflictError(
             "chat is available only during a live event",
+            "CHAT_CLOSED",
           );
-        const profile = await client.query(
-          `SELECT 1 FROM public_profiles WHERE user_id = $1
+        const profile = await client.query<{ authorName: string }>(
+          `SELECT display_name AS "authorName" FROM public_profiles WHERE user_id = $1
              AND publication_state = 'published' AND is_demo = false`,
           [userId],
         );
@@ -322,28 +375,50 @@ export function createCommunityRepository(database: Pool) {
           [id],
         );
         if (control.rows[0]?.state !== "open")
-          throw new CommunityConflictError("event chat is paused");
-        const limits = await client.query<{ recent: string; hourly: string }>(
-          `SELECT
-            COUNT(*) FILTER (WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '10 seconds')::text AS recent,
-            COUNT(*) FILTER (WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '1 hour')::text AS hourly
-           FROM event_chat_messages WHERE author_user_id = $1
-             AND created_at > CURRENT_TIMESTAMP - INTERVAL '1 hour'`,
+          throw new CommunityConflictError(
+            "event chat is paused",
+            "CHAT_PAUSED",
+          );
+        const limits = await client.query<{
+          recent: string;
+          hourly: string;
+          retryAt: Date | null;
+          retryAfterSeconds: number;
+        }>(
+          `SELECT recent, hourly, "retryAt",
+             GREATEST(0, CEIL(EXTRACT(EPOCH FROM ("retryAt" - clock_timestamp()))))::int AS "retryAfterSeconds"
+           FROM (SELECT
+             COUNT(*) FILTER (WHERE created_at > clock_timestamp() - INTERVAL '10 seconds')::text AS recent,
+             COUNT(*)::text AS hourly,
+             GREATEST(MAX(created_at) + INTERVAL '10 seconds',
+               CASE WHEN COUNT(*) >= 30 THEN
+                 (array_agg(created_at ORDER BY created_at DESC))[30] + INTERVAL '1 hour'
+               END) AS "retryAt"
+             FROM event_chat_messages WHERE author_user_id = $1
+               AND created_at > clock_timestamp() - INTERVAL '1 hour') allowance`,
           [userId],
         );
-        if (
-          Number(limits.rows[0]!.recent) > 0 ||
-          Number(limits.rows[0]!.hourly) >= 30
-        )
-          throw new CommunityRateError("chat limit reached; try again later");
+        const allowance = limits.rows[0]!;
+        if (Number(allowance.recent) > 0 || Number(allowance.hourly) >= 30)
+          throw new CommunityRateError(
+            "chat limit reached; wait before retrying",
+            allowance.retryAfterSeconds,
+            Number(allowance.hourly) >= 30
+              ? "CHAT_HOURLY_LIMIT"
+              : "CHAT_COOLDOWN",
+            allowance.retryAt ?? undefined,
+          );
         const result = await client.query<ChatRow>(
-          `INSERT INTO event_chat_messages (debate_id, author_user_id, body)
-           VALUES ($1, $2, $3)
+          `INSERT INTO event_chat_messages (debate_id, author_user_id, body, client_message_id, created_at)
+           VALUES ($1, $2, $3, $4, clock_timestamp())
            RETURNING id, debate_id AS "debateId", author_user_id AS "authorUserId",
-             body, state, created_at AS "createdAt"`,
-          [id, userId, body],
+             body, state, created_at AS "createdAt", client_message_id AS "clientMessageId", revision::text AS revision`,
+          [id, userId, body, clientMessageId ?? null],
         );
-        return result.rows[0]!;
+        return publicMessage(
+          { ...result.rows[0]!, authorName: profile.rows[0]!.authorName },
+          userId,
+        );
       });
     },
 

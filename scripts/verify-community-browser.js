@@ -5,6 +5,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright-core";
 import axe from "axe-core";
 import pg from "pg";
+import { verifyChatClient } from "./verify-chat-client.js";
 
 const base = process.env.BROWSER_BASE_URL ?? "http://localhost:53000";
 const chromePath =
@@ -39,7 +40,7 @@ async function axeViolations(page, selector) {
     const result = await window.axe.run(document.querySelector(target), {
       runOnly: {
         type: "tag",
-        values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"],
+        values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
       },
     });
     return result.violations.map((violation) => ({
@@ -187,7 +188,9 @@ try {
   timings.reconnectCatchupMs = Math.round(performance.now() - reconnectAt);
   assert.deepEqual(
     await reporter.page
-      .locator("[data-community-messages] [data-message-id] p")
+      .locator(
+        "[data-community-messages] [data-message-id] .community-message-body",
+      )
       .allTextContents(),
     ["A useful public comment", "Arrived while disconnected"],
   );
@@ -199,6 +202,17 @@ try {
     .locator("[data-community-send-status]")
     .getByText("chat limit reached", { exact: false })
     .waitFor();
+  assert.equal(
+    await author.page
+      .locator("[data-community-chat-form] textarea")
+      .inputValue(),
+    "",
+  );
+  await author.page
+    .locator(".community-message")
+    .filter({ hasText: "Too soon" })
+    .getByRole("button", { name: "Recover to draft" })
+    .click();
   assert.equal(
     await author.page
       .locator("[data-community-chat-form] textarea")
@@ -273,11 +287,11 @@ try {
   await eventCase.getByRole("button", { name: "Save decision" }).click();
   await eventCase.waitFor({ state: "hidden" });
   await reporter.page
-    .locator("[data-community-chat-form]")
-    .waitFor({ state: "hidden" });
+    .locator('[data-community-chat-form] button[type="submit"]:disabled')
+    .waitFor({ state: "visible" });
   await mobilePage
-    .locator("[data-community-chat-form]")
-    .waitFor({ state: "hidden" });
+    .locator('[data-community-chat-form] button[type="submit"]:disabled')
+    .waitFor({ state: "visible" });
   await moderatorA.page
     .locator("[data-community-case-filter]")
     .selectOption("actioned");
@@ -288,7 +302,7 @@ try {
   await pausedCase.locator("textarea").fill("Review is complete, resume chat");
   await pausedCase.getByRole("button", { name: "Resume event chat" }).click();
   await reporter.page
-    .locator("[data-community-chat-form]")
+    .locator('[data-community-chat-form] button[type="submit"]:enabled')
     .waitFor({ state: "visible" });
 
   await author.page.goto(`${base}/account/moderation`);
@@ -329,6 +343,19 @@ try {
   assert.ok(overflow <= 1, `mobile horizontal overflow: ${overflow}px`);
   assert.deepEqual(await axeViolations(mobilePage, ".detail-grid"), []);
   assert.deepEqual(await axeViolations(mobilePage, ".community-section"), []);
+  const touchTargets = await mobilePage
+    .locator(".community-message-actions button")
+    .evaluateAll((buttons) =>
+      buttons.map((button) => ({
+        width: button.getBoundingClientRect().width,
+        height: button.getBoundingClientRect().height,
+      })),
+    );
+  assert.ok(
+    touchTargets.length > 0 &&
+      touchTargets.every((target) => target.width >= 44 && target.height >= 44),
+    "mobile emulation uses 44px message actions",
+  );
   await mobilePage.screenshot({
     path: `${artifactDir}/community-mobile.png`,
     fullPage: true,
@@ -342,7 +369,9 @@ try {
   await reporter.context.setOffline(false);
   await reporter.page.getByText("Backlog 55", { exact: true }).waitFor();
   const backlog = await reporter.page
-    .locator("[data-community-messages] [data-message-id] p")
+    .locator(
+      "[data-community-messages] [data-message-id] .community-message-body",
+    )
     .allTextContents();
   assert.deepEqual(
     backlog.filter((text) => text.startsWith("Backlog ")),
@@ -424,6 +453,7 @@ try {
   const qr = await mobilePage.goto(`${base}/debates/${eventSlug}/qr.svg`);
   assert.equal(qr.status(), 200);
   assert.match(qr.headers()["content-type"], /image\/svg\+xml/);
+  await verifyChatClient({ browser, base, eventSlug, eventId, artifactDir });
   console.log(
     JSON.stringify({
       at: new Date().toISOString(),

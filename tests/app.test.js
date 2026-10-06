@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
-import request from "supertest";
+import request from "../scripts/test-http-request.js";
 
 import { createApp, handleError } from "../dist/app.js";
 import { createLogger } from "../dist/platform/logger.js";

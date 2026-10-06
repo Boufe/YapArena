@@ -16,8 +16,8 @@ describe("database migration verification", () => {
   it("accepts a connected, current database", async () => {
     const database = {
       query: mock.fn(async (sql) =>
-        sql === "SELECT 1"
-          ? { rows: [] }
+        sql.includes("AS safe FROM pg_roles")
+          ? { rows: [{ safe: true }] }
           : { rows: [{ name: "100_create-users" }] },
       ),
     };
@@ -28,12 +28,26 @@ describe("database migration verification", () => {
 
   it("rejects a database with pending migrations", async () => {
     const database = {
-      query: async (sql) => (sql === "SELECT 1" ? {} : { rows: [] }),
+      query: async (sql) =>
+        sql.includes("AS safe FROM pg_roles")
+          ? { rows: [{ safe: true }] }
+          : { rows: [] },
     };
 
     await assert.rejects(
       verifyDatabaseState(database, await migrationDirectory()),
       /database migrations are pending: 100_create-users/,
     );
+  });
+  it("rejects an unsafe or unrecognized runtime identity before serving traffic", async () => {
+    for (const rows of [[{ safe: false }], []]) {
+      await assert.rejects(
+        verifyDatabaseState(
+          { query: async () => ({ rows }) },
+          await migrationDirectory(),
+        ),
+        /runtime identity violates/,
+      );
+    }
   });
 });

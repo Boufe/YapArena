@@ -19,8 +19,8 @@ docker compose exec -T db pg_restore --list < "$archive" >/dev/null
 docker compose exec -T db sh -c 'createdb -U "$POSTGRES_USER" "$1"' sh "$database"
 docker compose exec -T db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$1" --no-owner --no-privileges' sh "$database" < "$archive"
 
-original="$(docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM product_measurement_consents"')"
-restored="$(docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$1" -Atc "SELECT count(*) FROM product_measurement_consents"' sh "$database")"
+original="$(docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM yaparena.product_measurement_consents"')"
+restored="$(docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$1" -Atc "SELECT count(*) FROM yaparena.product_measurement_consents"' sh "$database")"
 [[ "$original" == "$restored" ]]
-docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$1" -Atc "SELECT count(*) FROM pgmigrations WHERE name LIKE '\''%add_product_measurement'\''"' sh "$database" | grep -qx '1'
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$1" -Atc "SELECT count(*) FROM yaparena_migrations.pgmigrations WHERE name LIKE '\''%add_product_measurement'\''"' sh "$database" | grep -qx '1'
 echo "Backup and isolated restore verified: measurement consent counts match ($original) and migration recorded."

@@ -36,6 +36,8 @@ COPY --from=production-dependencies /app/node_modules ./node_modules
 COPY --chown=node:node package.json ./
 COPY --chown=node:node migrations ./migrations
 COPY --chown=node:node scripts/start-staging.sh ./scripts/start-staging.sh
+COPY --chown=node:node scripts/migrate-database.js ./scripts/migrate-database.js
+COPY --chown=node:node scripts/provision-database.js ./scripts/provision-database.js
 COPY --chown=node:node scripts/check-media-storage.js ./scripts/check-media-storage.js
 COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/dist ./dist

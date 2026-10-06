@@ -102,6 +102,23 @@ describe("configuration", () => {
     assert.throws(() => loadConfig({}), /DATABASE_URL is required/);
   });
 
+  it("rejects provisioning and migration secrets in the runtime environment", () => {
+    for (const name of [
+      "DATABASE_MIGRATION_URL",
+      "DATABASE_ADMIN_URL",
+      "DATABASE_OWNER_PASSWORD",
+      "DATABASE_RUNTIME_PASSWORD",
+      "DATABASE_FIXTURE_URL",
+      "DATABASE_INSPECTION_URL",
+    ]) {
+      assert.throws(
+        () =>
+          loadConfig({ DATABASE_URL: databaseUrl, [name]: "synthetic-secret" }),
+        /runtime must not receive/,
+      );
+    }
+  });
+
   it("rejects an invalid log level", () => {
     assert.throws(
       () => loadConfig({ DATABASE_URL: databaseUrl, LOG_LEVEL: "verbose" }),

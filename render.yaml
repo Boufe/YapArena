@@ -7,7 +7,8 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     dockerCommand: /bin/sh /app/scripts/start-staging.sh
-    autoDeployTrigger: checksPass
+    # Operator migrates the reviewed commit separately, then manually deploys it.
+    autoDeployTrigger: off
     healthCheckPath: /ready
     envVars:
       - key: NODE_ENV

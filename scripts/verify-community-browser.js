@@ -13,7 +13,9 @@ const chromePath =
 const artifactDir = process.env.BROWSER_ARTIFACT_DIR ?? "/private/tmp";
 if (!process.env.DATABASE_URL)
   throw new Error("DATABASE_URL is required for the local fixture");
-const databaseUrl = new URL(process.env.DATABASE_URL);
+const databaseUrl = new URL(
+  process.env.DATABASE_FIXTURE_URL ?? process.env.DATABASE_URL,
+);
 if (process.env.BROWSER_DATABASE_PORT)
   databaseUrl.port = process.env.BROWSER_DATABASE_PORT;
 if (!["localhost", "127.0.0.1"].includes(databaseUrl.hostname))

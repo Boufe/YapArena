@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-node node_modules/node-pg-migrate/bin/node-pg-migrate.js up
+# Migrations run in a separate operator/job process before this service is deployed.
 if [ -n "${MEDIA_S3_ENDPOINT:-}" ]; then
   node scripts/check-media-storage.js || true
 fi

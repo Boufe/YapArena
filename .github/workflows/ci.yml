@@ -62,7 +62,8 @@ jobs:
       - name: Validate production Compose configuration
         env:
           APP_IMAGE: ghcr.io/example/service@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          DATABASE_URL: postgresql://yaparena:placeholder@database.example/yaparena
+          DATABASE_URL: postgresql://yaparena_runtime:placeholder@database.example/yaparena
+          DATABASE_MIGRATION_URL: postgresql://yaparena_owner:placeholder@database.example/yaparena
           APP_ORIGIN: https://service.example.com
         run: docker compose --file compose.production.yaml --profile release config --quiet
 
@@ -89,10 +90,14 @@ jobs:
       - name: Start PostgreSQL
         run: docker compose up --detach --wait db
 
-      - name: Apply database migrations
-        run: >-
-          docker compose run --rm --build app
-          node node_modules/node-pg-migrate/bin/node-pg-migrate.js up
+      - name: Verify database isolation with fresh and upgraded schemas
+        run: npm run verify:database-isolation
+
+      - name: Provision separate database identities
+        run: docker compose --profile release run --rm --build provision
+
+      - name: Apply database migrations with the migration identity
+        run: docker compose --profile release run --rm migrate
 
       - name: Start application
         run: docker compose up --detach --build --wait app
@@ -101,27 +106,27 @@ jobs:
         run: |
           docker compose run --rm \
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
-            app node scripts/seed-discovery.js
+            migrate node scripts/seed-discovery.js
 
           docker compose run --rm \
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
-            app node scripts/verify-discovery.js
+            migrate node scripts/verify-discovery.js
 
           docker compose run --rm \
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
-            app node scripts/verify-identity-social.js
+            migrate node scripts/verify-identity-social.js
 
           docker compose run --rm \
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
-            app node scripts/verify-matching.js
+            migrate node scripts/verify-matching.js
 
           docker compose run --rm \
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
-            app node scripts/verify-community.js
+            migrate node scripts/verify-community.js
 
           docker compose run --rm \
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
-            app node scripts/verify-measurement.js
+            migrate node scripts/verify-measurement.js
 
           curl --fail --silent --show-error http://localhost:3000/ \
             | grep --fixed-strings 'can-ai-make-us-more-creative'

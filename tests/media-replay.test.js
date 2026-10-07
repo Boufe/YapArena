@@ -377,3 +377,15 @@ it("cancels access pending at suspension without consuming a fresh resume grant"
   assert.equal(f.video.paused, false);
   f.player.destroy();
 });
+it("ignores old HLS manifest and failure callbacks while a cached page is suspended", async () => {
+  const f = fixture({ native: false });
+  await f.player.prepare();
+  await f.player.start();
+  const hls = f.instances[0];
+  f.player.suspend();
+  hls.emit("manifest");
+  hls.emit("error", { fatal: true });
+  assert.equal(hls.stopped, true);
+  assert.equal(f.jobs.size, 0);
+  f.player.destroy();
+});

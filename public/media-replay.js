@@ -140,16 +140,30 @@ export function createReplayPlayer({
       });
       const activePlayer = player;
       player.on(Hls.Events.MANIFEST_PARSED, () => {
-        if (player !== activePlayer) return;
+        if (player !== activePlayer || epoch !== generation || suspended)
+          return;
         prepared = preload;
         // At most the first low rendition fragment is requested for preparation.
         player.startLoad(previous.time);
       });
       player.on(Hls.Events.FRAG_BUFFERED, () => {
-        if (preload && !wanted && player === activePlayer) player.stopLoad();
+        if (
+          preload &&
+          !wanted &&
+          !suspended &&
+          epoch === generation &&
+          player === activePlayer
+        )
+          player.stopLoad();
       });
       player.on(Hls.Events.ERROR, (_event, data) => {
-        if (player === activePlayer && data.fatal) recover();
+        if (
+          player === activePlayer &&
+          epoch === generation &&
+          !suspended &&
+          data.fatal
+        )
+          recover();
       });
       player.attachMedia(video);
       player.loadSource(access.url);
@@ -201,7 +215,14 @@ export function createReplayPlayer({
   }
   function recover() {
     waiting();
-    if (destroyed || !wanted || retryTimer !== undefined || !online()) return;
+    if (
+      destroyed ||
+      suspended ||
+      !wanted ||
+      retryTimer !== undefined ||
+      !online()
+    )
+      return;
     if (attempts >= 5) {
       wanted = false;
       diagnostics.finish("technical_failure");

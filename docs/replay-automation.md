@@ -177,6 +177,26 @@ validation; these local results belong to the isolated packaging checkpoint.
 
 ## Rollout, rollback and diagnosis
 
+Immutable object transfers also have bounded recovery: at most three attempts per object,
+fresh/closed file streams, 150/300 ms backoff with 25% jitter and the enclosing job's abort
+deadline. A lost PUT acknowledgement is accepted only after HEAD verifies exact length,
+SHA metadata and a unique nonce from that same upload invocation. A confirmed PUT with a
+failed HEAD retries verification alone. Initial duplicate 412, foreign/mismatched proof and
+authorization failures fail closed; recovery never overwrites an existing object. The ready
+marker uses the same checks after the lease check and all media objects. This closes the
+non-retryable SDK streaming failure observed in the actual staging R2 trial.
+
+The repeatable actual-storage procedure is `node --env-file=.env.runtime
+scripts/verify-replay-storage.js` after building; see [delivery controls](media-delivery-controls.md)
+for its explicit synthetic scope, environment and exact-prefix cleanup. The successful
+2026-10-07 17:11 UTC trial on application commit `a1e67f6` recovered three SDK streaming
+failures, converted a six-second no-caption source in 584 ms, and uploaded/HEAD-verified
+13 files/3,063,201 bytes in 6,054 ms. Real conditional writes, pinned-source mismatch,
+ready-marker ordering, unsigned 403 and all three edge renditions passed. All 15 owned
+R2 objects were deleted and zero remained. Two earlier TLS failures and one trial-parser
+failure are retained as failed attempts. This is local encoding with actual staging R2/edge,
+not hosted-worker publication, browser playback, cache-hit or capacity evidence.
+
 Apply the additive migration before starting the integrated encoder. Leave packaging
 disabled until the image, runtime identity, private bucket permissions, edge signature
 checks and source completion reconciliation are available. Then use synthetic eligible

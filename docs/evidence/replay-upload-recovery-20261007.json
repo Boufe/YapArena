@@ -1,0 +1,84 @@
+{
+  "applicationCommit": "a1e67f603089ec7eea793df9a193672fa6cde286",
+  "environment": {
+    "node": "24.19.0",
+    "ffmpeg": "9.0.2",
+    "encoderHost": "macOS 15.7.5 local",
+    "storage": "existing staging private R2",
+    "edge": "existing staging private Workers route",
+    "data": "fresh UUID-scoped synthetic objects"
+  },
+  "commands": [
+    "npm run check",
+    "REPLAY_POSTGRES_MODE=host npm run verify:replay-pipeline",
+    "node --env-file=.env.runtime scripts/verify-replay-storage.js"
+  ],
+  "credentialSource": "Actual operator read existing Render runtime storage settings and ignored deployment replay signing secret into memory; no values or signed URLs recorded.",
+  "quality": {
+    "tests": 385,
+    "passed": 385,
+    "failed": 0,
+    "coverage": { "lines": 94.88, "branches": 92.25, "functions": 94.4 }
+  },
+  "postgresReplayRepeat": {
+    "result": "PASS",
+    "postgres": "17.10 Homebrew",
+    "sourceSeconds": 6,
+    "conversionSeconds": 0.669,
+    "sampledEncoderRssMiB": 97.8,
+    "nodePeakRssMiB": 103.63,
+    "files": 13,
+    "bytes": 3059441,
+    "stalledHeartbeatShutdownMs": 1523.21,
+    "deadlineMs": 8000,
+    "objectAdapter": "synthetic in-memory adapter"
+  },
+  "actualStorage": {
+    "at": "2026-10-07T17:11:00.027Z",
+    "result": "PASS",
+    "sourceSeconds": 6,
+    "files": 13,
+    "bytes": 3063201,
+    "conversionMs": 584,
+    "uploadAndHeadVerificationMs": 6054,
+    "sdkStreamingFailureWarningsRecovered": 3,
+    "initialDuplicateUploadDenied": true,
+    "pinnedDownloadMismatchRejected": true,
+    "readyMarkerLast": true,
+    "unsignedRequestStatus": 403,
+    "missingCaptionsStatus": 404,
+    "edgeRenditionsDelivered": ["240", "480", "720"],
+    "objectsRemoved": 15,
+    "remainingOwnedObjects": 0
+  },
+  "earlierFailedAttempts": [
+    {
+      "at": "2026-10-07T16:37:55.772Z",
+      "phase": "source upload",
+      "failure": "TLS BAD_RECORD_MAC",
+      "cleanup": "PASS",
+      "remainingOwnedObjects": 0
+    },
+    {
+      "at": "2026-10-07T16:39:45.125Z",
+      "phase": "immutable upload",
+      "failure": "TLS BAD_RECORD_MAC before per-object recovery",
+      "objectsRemoved": 8,
+      "cleanup": "PASS",
+      "remainingOwnedObjects": 0
+    },
+    {
+      "at": "2026-10-07T17:09:13.822Z",
+      "phase": "edge trial parser",
+      "failure": "Trial expected relative segment names; edge correctly returned signed absolute URLs. Parser corrected with same-origin/path checks; no edge change.",
+      "objectsRemoved": 15,
+      "cleanup": "PASS",
+      "remainingOwnedObjects": 0
+    }
+  ],
+  "limitations": [
+    "No new hosted encoder or application deployment, hosted migration, billing/plan change or production data modification.",
+    "No hosted automatic DB publication, browser playback, cache-hit provenance, full-duration encoding, cloud media load or physical-device acceptance established by this storage trial.",
+    "The original visibility/replay and financial release gates remain in force."
+  ]
+}

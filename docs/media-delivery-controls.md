@@ -197,8 +197,17 @@ p95 264 ms, reconnect 587 ms, restart 889 ms, peak RSS 129.89 MiB/growth 57.67 M
 Desktop/mobile-emulation chat delivery was 998/1,000 ms, reconnect catch-up 81 ms and
 moderation removal 473 ms. Mobile emulation is not physical-device acceptance.
 
+After upload recovery commit `a1e67f603089ec7eea793df9a193672fa6cde286`, the full local
+quality gate passed 385 tests (94.88% lines/92.25% branches/94.40% functions). The real
+PostgreSQL replay repeat passed again, including 0.669 s conversion/97.8 MiB sampled
+encoder RSS and 1,523.21 ms shutdown during a DB-heartbeat stall. Actual R2/private-edge
+verification at 17:11 UTC passed conditional-write protection, pinned download mismatch,
+marker-last validation and 240p/480p/720p delivery without captions. Three SDK streaming
+failures recovered; all 15 synthetic objects were removed with zero remaining. Encoding
+took 584 ms and upload/HEAD validation 6,054 ms. Earlier TLS/parser failures remain recorded.
+
 Hosted acceptance still requires a paid-worker canary using synthetic recordings with
-actual R2 immutable uploads/HEAD checks, private edge delivery, automatic publication,
+actual R2 automatic publication from the deployed encoder,
 restart and removal/renewal. Then measure full-duration encoding, a longer hosted soak,
 browser/acoustic/physical-device behavior and the declared media load. Existing privacy,
 financial, project review/merge and production replay-domain gates remain open.

@@ -163,17 +163,19 @@ try {
     (error) => error.code === "upload_conflict" || failureStatus(412)(error),
   );
   const access = createReplayAccess(packageKey, edge, secret);
-  phase = "private_edge";
+  phase = "edge_unsigned";
   const unsigned = new URL(access.url);
   unsigned.search = "";
   const denied = await request(unsigned);
   assert.equal(denied.status, 403);
   await denied.text();
+  phase = "edge_master";
   const master = await request(access.url);
   assert.equal(master.status, 200);
   assert.match(await master.text(), /#EXTM3U/);
   const delivered = [];
   for (const rendition of ["240", "480", "720"]) {
+    phase = "edge_playlist";
     const playlistUrl = new URL(`${rendition}/index.m3u8`, access.url);
     playlistUrl.search = new URL(access.url).search;
     const playlist = await request(playlistUrl);
@@ -181,15 +183,22 @@ try {
     const text = await playlist.text();
     const segment = text
       .split("\n")
-      .find((line) => /^segment\d+[.]ts$/.test(line));
+      .find((line) => line.trim() && !line.startsWith("#"));
     assert.ok(segment);
     const segmentUrl = new URL(segment, playlistUrl);
+    assert.equal(segmentUrl.origin, playlistUrl.origin);
+    assert.equal(
+      segmentUrl.pathname,
+      playlistUrl.pathname.replace(/index[.]m3u8$/, "segment00000.ts"),
+    );
     segmentUrl.search = playlistUrl.search;
+    phase = "edge_segment";
     const response = await request(segmentUrl);
     assert.equal(response.status, 200);
     assert.ok((await response.arrayBuffer()).byteLength > 0);
     delivered.push(rendition);
   }
+  phase = "edge_absent_captions";
   const absentCaptions = await request(access.captionsUrl);
   assert.equal(absentCaptions.status, 404);
   await absentCaptions.text();

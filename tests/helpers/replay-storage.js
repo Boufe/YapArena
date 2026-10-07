@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
 import { createReplayStorage } from "../../dist/features/media/replay-storage.js";
 
-export function replayStorageFixture(onCommand = async () => {}) {
+export function replayStorageFixture(onCommand = async () => {}, retry = {}) {
   const objects = new Map();
   const commands = [];
   let closed = false;
@@ -22,7 +22,10 @@ export function replayStorageFixture(onCommand = async () => {}) {
       const object = objects.get(Key);
       switch (command.constructor.name) {
         case "HeadObjectCommand":
-          if (!object) throw new Error("synthetic missing object");
+          if (!object)
+            throw Object.assign(new Error("synthetic missing object"), {
+              $metadata: { httpStatusCode: 404 },
+            });
           return {
             ContentLength: object.body.length,
             ETag: object.etag,
@@ -34,7 +37,9 @@ export function replayStorageFixture(onCommand = async () => {}) {
           return { Body: Readable.from([object.body]) };
         case "PutObjectCommand": {
           if (objects.has(Key))
-            throw new Error("synthetic immutable precondition");
+            throw Object.assign(new Error("synthetic immutable precondition"), {
+              $metadata: { httpStatusCode: 412 },
+            });
           const chunks = [];
           if (typeof Body === "string") chunks.push(Buffer.from(Body));
           else for await (const chunk of Body) chunks.push(chunk);
@@ -68,6 +73,7 @@ export function replayStorageFixture(onCommand = async () => {}) {
       secretKey: "synthetic",
     },
     client,
+    retry,
   );
   return {
     storage,

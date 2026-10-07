@@ -1,8 +1,9 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { lstat, open } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Readable } from "node:stream";
+import { setTimeout as delay } from "node:timers/promises";
 import {
   DeleteObjectsCommand,
   GetObjectCommand,
@@ -32,6 +33,41 @@ function prefixOf(key: string) {
   if (!validRecordingKey(key)) throw new ReplayFailure("invalid_key", false);
   return `${key.slice(0, -4)}/hls/`;
 }
+function statusOf(error: unknown) {
+  return (error as { $metadata?: { httpStatusCode?: number } } | null)
+    ?.$metadata?.httpStatusCode;
+}
+function transient(error: unknown) {
+  const value = error as {
+    code?: string;
+    name?: string;
+    cause?: { code?: string };
+  } | null;
+  const status = statusOf(error);
+  const code = value?.code ?? value?.cause?.code ?? "";
+  return (
+    status === 408 ||
+    status === 429 ||
+    (status !== undefined && status >= 500 && status <= 599) ||
+    [
+      "ECONNRESET",
+      "ECONNREFUSED",
+      "EPIPE",
+      "ETIMEDOUT",
+      "EAI_AGAIN",
+      "ENETUNREACH",
+      "EHOSTUNREACH",
+    ].includes(code) ||
+    /^ERR_SSL_.*(?:BAD_RECORD_MAC|DECRYPTION_FAILED)/.test(code) ||
+    ["TimeoutError", "NetworkingError", "RequestTimeout", "SlowDown"].includes(
+      value?.name ?? "",
+    )
+  );
+}
+export type ReplayUploadRetry = {
+  pause?: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
+  random?: () => number;
+};
 export function createReplayStorage(
   config: ReplayStorageConfig,
   client: Pick<S3Client, "send"> &
@@ -52,7 +88,96 @@ export function createReplayStorage(
       socketTimeout: 30_000,
     },
   }),
+  {
+    pause = async (milliseconds, signal) => {
+      await delay(milliseconds, undefined, { signal });
+    },
+    random = Math.random,
+  }: ReplayUploadRetry = {},
 ) {
+  async function putImmutable(
+    key: string,
+    object: {
+      bytes: number;
+      sha256: string;
+      contentType: string;
+      body: () => string | ReturnType<typeof createReadStream>;
+    },
+    signal?: AbortSignal,
+  ) {
+    // Each invocation has private provenance. An identical preexisting object
+    // from another invocation is still a conflict, never a resumed upload.
+    const uploadId = randomUUID();
+    let uncertain = false,
+      confirmed = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      checkReplaySignal(signal);
+      if (!confirmed) {
+        const body = object.body();
+        try {
+          await client.send(
+            new PutObjectCommand({
+              Bucket: config.bucket,
+              Key: key,
+              Body: body,
+              ContentLength: object.bytes,
+              ContentType: object.contentType,
+              Metadata: { sha256: object.sha256, "upload-id": uploadId },
+              IfNoneMatch: "*",
+            }),
+            { abortSignal: signal },
+          );
+          confirmed = true;
+        } catch (error) {
+          checkReplaySignal(signal);
+          if (statusOf(error) === 412) {
+            if (!uncertain) throw new ReplayFailure("upload_conflict", false);
+          } else if (!transient(error))
+            throw new ReplayFailure("upload_failed", false);
+          uncertain = true;
+        } finally {
+          if (typeof body !== "string" && !body.closed)
+            await new Promise<void>((done) => {
+              body.once("close", done);
+              // The request promise carries the failure; consume a late abort
+              // event too and wait for the owned file descriptor to close.
+              body.on("error", () => {});
+              body.destroy();
+            });
+        }
+      }
+      // A lost PUT acknowledgment may still have committed. Verify exact bytes,
+      // digest metadata AND this invocation's nonce before accepting it. A 404
+      // permits another conditional PUT; an unknown HEAD failure proves nothing.
+      try {
+        const head = await client.send(
+          new HeadObjectCommand({ Bucket: config.bucket, Key: key }),
+          { abortSignal: signal },
+        );
+        if (
+          head.ContentLength !== object.bytes ||
+          head.Metadata?.sha256 !== object.sha256 ||
+          head.Metadata?.["upload-id"] !== uploadId
+        )
+          throw new ReplayFailure("upload_verification_failed", false);
+        return;
+      } catch (error) {
+        checkReplaySignal(signal);
+        if (error instanceof ReplayFailure) throw error;
+        if (statusOf(error) !== 404 && !transient(error))
+          throw new ReplayFailure("upload_verification_failed", false);
+      }
+      if (attempt < 2) {
+        try {
+          await pause(150 * 2 ** attempt * (0.75 + random() * 0.5), signal);
+        } catch {
+          checkReplaySignal(signal);
+          throw new ReplayFailure("upload_retry_exhausted");
+        }
+      }
+    }
+    throw new ReplayFailure("upload_retry_exhausted");
+  }
   return Object.freeze({
     async download(
       sourceKey: string,
@@ -147,35 +272,16 @@ export function createReplayStorage(
           (await fileDigest(path, signal)) !== file.sha256
         )
           throw new ReplayFailure("output_changed", false);
-        const body = createReadStream(path, signal ? { signal } : undefined);
-        try {
-          await client.send(
-            new PutObjectCommand({
-              Bucket: config.bucket,
-              Key: prefix + file.path,
-              Body: body,
-              ContentLength: file.bytes,
-              ContentType: file.contentType,
-              Metadata: { sha256: file.sha256 },
-              IfNoneMatch: "*",
-            }),
-            { abortSignal: signal },
-          );
-        } finally {
-          body.destroy();
-        }
-        const uploaded = await client.send(
-          new HeadObjectCommand({
-            Bucket: config.bucket,
-            Key: prefix + file.path,
-          }),
-          { abortSignal: signal },
+        await putImmutable(
+          prefix + file.path,
+          {
+            bytes: file.bytes,
+            sha256: file.sha256,
+            contentType: file.contentType,
+            body: () => createReadStream(path, signal ? { signal } : undefined),
+          },
+          signal,
         );
-        if (
-          uploaded.ContentLength !== file.bytes ||
-          uploaded.Metadata?.sha256 !== file.sha256
-        )
-          throw new ReplayFailure("upload_verification_failed");
       }
       checkReplaySignal(signal);
       await beforeReady();
@@ -183,25 +289,26 @@ export function createReplayStorage(
       const manifestDigest = createHash("sha256")
         .update(JSON.stringify(manifest))
         .digest("hex");
-      await client.send(
-        new PutObjectCommand({
-          Bucket: config.bucket,
-          Key: prefix + "ready.json",
-          IfNoneMatch: "*",
-          Body: JSON.stringify({
-            version: 1,
-            renditions: renditions.map((r) => r.name),
-            reviewedCaptions: manifest.captionsSha256 !== null,
-            manifestDigest,
-            sourceSha256: manifest.sourceSha256,
-            captionsSha256: manifest.captionsSha256,
-            files: manifest.files.length,
-            bytes: manifest.bytes,
-            durationSeconds: manifest.durationSeconds,
-          }),
-          ContentType: "application/json",
-        }),
-        { abortSignal: signal },
+      const marker = JSON.stringify({
+        version: 1,
+        renditions: renditions.map((r) => r.name),
+        reviewedCaptions: manifest.captionsSha256 !== null,
+        manifestDigest,
+        sourceSha256: manifest.sourceSha256,
+        captionsSha256: manifest.captionsSha256,
+        files: manifest.files.length,
+        bytes: manifest.bytes,
+        durationSeconds: manifest.durationSeconds,
+      });
+      await putImmutable(
+        prefix + "ready.json",
+        {
+          bytes: Buffer.byteLength(marker),
+          sha256: createHash("sha256").update(marker).digest("hex"),
+          contentType: "application/json",
+          body: () => marker,
+        },
+        signal,
       );
       return manifestDigest;
     },

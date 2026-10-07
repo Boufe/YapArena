@@ -321,14 +321,18 @@ test("storage pins a bounded source, verifies immutable files, publishes marker 
   assert.equal(checked, true);
   assert.match(digest, /^[a-f0-9]{64}$/);
   const markerKey = packageKey.slice(0, -4) + "/hls/ready.json";
-  assert.equal(s.commands.at(-1).input.Key, markerKey);
+  assert.equal(
+    s.commands.filter((c) => c.constructor.name === "PutObjectCommand").at(-1)
+      .input.Key,
+    markerKey,
+  );
   assert.equal(
     JSON.parse(s.objects.get(markerKey).body).reviewedCaptions,
     false,
   );
   await assert.rejects(
     s.storage.upload(f.output, manifest, packageKey),
-    /immutable precondition/,
+    errorCode("upload_conflict"),
   );
   assert.equal(await s.storage.removePackage(packageKey), 8);
   assert.equal(s.objects.size, 1);

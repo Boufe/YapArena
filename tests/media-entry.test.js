@@ -362,6 +362,66 @@ it("prepares without joining or capturing and rejoins viewers only after termina
   f.listeners.get("pagehide")();
   assert.equal(f.jobs.size, 0);
 });
+
+it("suspends viewer polling offline and in background, and resumes one poll chain after return", async () => {
+  const f = fixture();
+  await f.start();
+  assert.equal([...f.jobs.values()].filter((job) => job.ms === 3000).length, 1);
+  f.document.hidden = true;
+  f.listeners.get("visibilitychange")();
+  assert.equal(
+    [...f.jobs.values()].some((job) => job.ms === 3000),
+    false,
+  );
+  f.document.hidden = false;
+  f.listeners.get("visibilitychange")();
+  f.listeners.get("visibilitychange")();
+  await settle();
+  assert.equal([...f.jobs.values()].filter((job) => job.ms === 3000).length, 1);
+  f.navigator.onLine = false;
+  f.listeners.get("offline")();
+  assert.equal(
+    [...f.jobs.values()].some((job) => job.ms === 3000),
+    false,
+  );
+  f.navigator.onLine = true;
+  f.listeners.get("online")();
+  await settle();
+  assert.equal([...f.jobs.values()].filter((job) => job.ms === 3000).length, 1);
+  f.listeners.get("pagehide")({ persisted: true });
+  f.listeners.get("pageshow")({ persisted: true });
+  await settle();
+  assert.equal([...f.jobs.values()].filter((job) => job.ms === 3000).length, 1);
+  f.listeners.get("pagehide")();
+});
+
+it("does not let older lifecycle HTTP results restore ended media, including large revisions", async () => {
+  const f = fixture();
+  await f.start();
+  f.setStateResponse(
+    f.response({
+      streamRevision: "9007199254740993",
+      eventStatus: "ended",
+      state: { revision: 2, state: "ended" },
+      serverNow: new Date().toISOString(),
+    }),
+  );
+  await f.timer(3000);
+  assert.equal(f.element("viewer").hidden, true);
+  for (const streamRevision of ["9007199254740992", "bad"]) {
+    f.setStateResponse(
+      f.response({
+        streamRevision,
+        eventStatus: "live",
+        state: { revision: 3, state: "running" },
+        serverNow: new Date().toISOString(),
+      }),
+    );
+    await f.timer(3000);
+    assert.equal(f.element("viewer").hidden, true);
+  }
+  f.listeners.get("pagehide")();
+});
 it("preserves speaker rejoin and mute intent through SDK navigation while releasing page resources", async () => {
   const f = fixture();
   f.speaker();

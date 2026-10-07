@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import { createSharedRead } from "../../platform/shared-read.ts";
 
 export class MediaConflictError extends Error {}
 export class MediaNotFoundError extends Error {}
@@ -68,7 +69,46 @@ function timing(rules: Rules) {
 }
 
 export function createMediaRepository(db: Pool) {
+  const readSnapshot = createSharedRead<{
+    state: Pick<
+      MediaState,
+      | "debateId"
+      | "state"
+      | "activeSide"
+      | "turnNumber"
+      | "turnDeadlineAt"
+      | "remainingMs"
+      | "activeMs"
+      | "lastResumedAt"
+      | "revision"
+      | "recordingStatus"
+      | "hasCaptions"
+    > | null;
+    eventStatus: string;
+    streamRevision: string;
+    serverNow: Date;
+  } | null>();
   return Object.freeze({
+    getPublicSnapshot(debateId: string) {
+      return readSnapshot(debateId, async () => {
+        const result = await db.query<
+          Exclude<Awaited<ReturnType<typeof readSnapshot>>, null>
+        >(
+          `SELECT d.status AS "eventStatus",
+          COALESCE(r.cursor::text, '0') AS "streamRevision", clock_timestamp() AS "serverNow",
+          CASE WHEN m.debate_id IS NULL THEN NULL ELSE json_build_object(
+            'debateId',m.debate_id,'state',m.state,'activeSide',m.active_side,
+            'turnNumber',m.turn_number,'turnDeadlineAt',m.turn_deadline_at,
+            'remainingMs',m.remaining_ms,'activeMs',m.active_ms,'lastResumedAt',m.last_resumed_at,
+            'revision',m.revision,'recordingStatus',m.recording_status,'hasCaptions',m.captions_vtt IS NOT NULL) END AS state
+          FROM debates d JOIN topics t ON t.id=d.topic_id
+          LEFT JOIN debate_media m ON m.debate_id=d.id LEFT JOIN community_rooms r ON r.room_id=d.id
+          WHERE d.id=$1 AND d.publication_state='published' AND t.publication_state='published'`,
+          [debateId],
+        );
+        return result.rows[0] ?? null;
+      });
+    },
     async get(debateId: string) {
       const result = await db.query<MediaState>(
         `SELECT ${fields} FROM debate_media WHERE debate_id = $1`,
@@ -82,8 +122,9 @@ export function createMediaRepository(db: Pool) {
         publicationState: string;
         rulesSnapshot: Rules;
       }>(
-        `SELECT status, publication_state AS "publicationState", rules_snapshot AS "rulesSnapshot"
-         FROM debates WHERE id = $1`,
+        `SELECT d.status, d.publication_state AS "publicationState", d.rules_snapshot AS "rulesSnapshot"
+         FROM debates d JOIN topics t ON t.id=d.topic_id WHERE d.id = $1
+         AND t.publication_state='published'`,
         [debateId],
       );
       return result.rows[0] ?? null;
@@ -244,7 +285,7 @@ export function createMediaRepository(db: Pool) {
       const due = await db.query<{
         debateId: string;
       }>(`SELECT debate_id AS "debateId" FROM debate_media
-        WHERE state = 'running' AND turn_deadline_at <= CURRENT_TIMESTAMP LIMIT 50`);
+        WHERE state = 'running' AND turn_deadline_at <= CURRENT_TIMESTAMP ORDER BY turn_deadline_at, debate_id LIMIT 50`);
       const turns: Array<{ debateId: string; side: "A" | "B" }> = [];
       const ended: string[] = [];
       for (const { debateId } of due.rows) {
@@ -258,8 +299,10 @@ export function createMediaRepository(db: Pool) {
           );
           const event = eventResult.rows[0];
           if (!event || event.status !== "live") return;
-          const stateResult = await client.query<MediaState>(
-            `SELECT ${fields} FROM debate_media WHERE debate_id = $1 FOR UPDATE`,
+          const stateResult = await client.query<
+            MediaState & { databaseNow: Date }
+          >(
+            `SELECT ${fields}, clock_timestamp() AS "databaseNow" FROM debate_media WHERE debate_id = $1 FOR UPDATE`,
             [debateId],
           );
           const state = stateResult.rows[0];
@@ -267,13 +310,18 @@ export function createMediaRepository(db: Pool) {
             !state ||
             state.state !== "running" ||
             !state.turnDeadlineAt ||
-            new Date(state.turnDeadlineAt).getTime() > Date.now()
+            new Date(state.turnDeadlineAt).getTime() >
+              new Date(state.databaseNow).getTime()
           )
             return;
           const { turnMs, maximumMs } = timing(event.rulesSnapshot);
           const elapsed = Math.min(
             state.remainingMs ?? turnMs,
-            Math.max(0, Date.now() - new Date(state.lastResumedAt!).getTime()),
+            Math.max(
+              0,
+              new Date(state.databaseNow).getTime() -
+                new Date(state.lastResumedAt!).getTime(),
+            ),
           );
           const activeMs = state.activeMs + elapsed;
           if (activeMs >= maximumMs) {
@@ -344,6 +392,23 @@ export function createMediaRepository(db: Pool) {
           WHERE debate_id = $1 AND state = 'ended' AND recording_status = 'processing'`,
         [debateId],
       );
+    },
+    async pendingRecordingResults(
+      after = "00000000-0000-0000-0000-000000000000",
+    ) {
+      const result = await db.query<{
+        debateId: string;
+        egressId: string;
+        key: string;
+      }>(
+        `SELECT debate_id AS "debateId",egress_id AS "egressId",recording_key AS key FROM debate_media
+        WHERE state='ended' AND recording_status='processing' AND egress_id IS NOT NULL AND recording_key IS NOT NULL
+          AND debate_id > $1
+          AND updated_at < clock_timestamp()-INTERVAL '10 seconds'
+        ORDER BY debate_id LIMIT 5`,
+        [after],
+      );
+      return result.rows;
     },
     async recordingEnded(
       egressId: string,

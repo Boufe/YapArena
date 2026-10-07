@@ -205,8 +205,11 @@ The optional media stack uses LiveKit, an Egress recording worker, Redis, and S3
 storage. Start it with `docker compose -f compose.yaml -f compose.media.yaml` and apply migrations
 before starting the app; see the [media decision](docs/decisions/0004-live-debate-replay.md) for the
 exact commands, controls, and validation limits. Local keys in the Compose override are development
-only. A recording must be complete and verified in object storage before an operator can publish
-replay. Captions are reviewed WebVTT text uploaded by an operator. Extensions remain disabled.
+only. A recording must be complete and verified in object storage before replay is eligible.
+When enabled, the [automatic replay pipeline](docs/replay-automation.md) creates and validates
+240p/480p/720p HLS, retries failed work and publishes eligible replay without a person approving
+each recording. Optional reviewed captions accompany the package; absent captions never block
+publication. Extensions remain disabled.
 
 The [playback runbook](docs/media-playback-operations.md) describes connection preparation,
 bounded recovery, HLS packaging, private authenticated edge delivery, telemetry and rollback.
@@ -214,6 +217,15 @@ The [proposed acceptance scope](docs/media-playback-requirements.md) and
 [local trial record](docs/media-playback-trial.md) distinguish implementation checks from
 physical-device and deployed performance evidence. Run `npm run verify:media-packaging`
 with FFmpeg installed to verify the synthetic adaptive recording ladder.
+
+The separate encoder starts with `npm run start:replay-worker` after building, applying the
+additive migration, configuring the private replay edge and enabling
+`MEDIA_REPLAY_PACKAGING_ENABLED=true`. Runtime credentials alone belong in its environment.
+For native disposable PostgreSQL checks, run `REPLAY_POSTGRES_MODE=host npm run verify:replay-pipeline`;
+the default verifier uses disposable Docker PostgreSQL. See
+[delivery controls](docs/media-delivery-controls.md) for shared-IP budgets, clock ownership,
+local evidence and hosted gates. On Render the encoder needs separate paid worker compute;
+it never runs inside the web request process.
 
 Run the quality gate:
 

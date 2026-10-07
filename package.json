@@ -10,6 +10,7 @@
     "test:coverage": "npm run build && node --test --experimental-test-coverage --test-coverage-exclude=scripts/** --test-coverage-exclude=tests/** --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 tests/*.test.js",
     "start": "node dist/server.js",
     "start:worker": "node dist/worker.js",
+    "start:replay-worker": "node dist/replay-worker.js",
     "dev": "node --env-file-if-exists=.env.runtime --watch src/server.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -22,6 +23,7 @@
     "initialize": "node scripts/initialize-project.js",
     "verify:community-delivery": "npm run build && COMMUNITY_DURABLE_TRIAL=1 node scripts/verify-community-local.js",
     "verify:media-packaging": "node scripts/verify-media-packaging.js",
+    "verify:replay-pipeline": "npm run build && node scripts/verify-replay-pipeline.js",
     "report:playback": "node scripts/report-playback.js"
   },
   "keywords": [],

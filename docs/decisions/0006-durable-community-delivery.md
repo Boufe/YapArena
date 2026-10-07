@@ -12,8 +12,10 @@ recovery independent of notification reliability and native EventSource received
 Keep personal state and private moderation data outside shared delivery. Public likes remain
 visible interest. Chat closure follows event lifecycle and chat pause; no financial participation
 closure, official support, winner or settlement state is introduced. Existing media behavior remains
-separate. Community fanout can cross processes; the current media clock and abuse controls still
-prevent treating that as whole-app multi-instance release approval.
+separate. Community fanout can cross processes. Subsequent
+[media delivery controls](../media-delivery-controls.md) coordinate clock advancement
+and provider repair, but process-local abuse counters and remaining hosted acceptance
+still prevent treating this as whole-app multi-instance release approval.
 
 The [delivery operating guide](../community-delivery.md) defines the protocol allowlists, lock order,
 writer inventory, retention, limits, rollback and repeatable hosted procedure. It extends decision

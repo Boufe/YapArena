@@ -62,16 +62,22 @@ and releases timers. Explicit Leave, terminal removal and event end still clear 
 Connection messages are independent from periodic event presentation so polling does
 not announce healthy playback during a known disconnect. Room closure stops capture
 and detaches media elements. Pagehide releases timers and observers. Existing server
-clock ownership, webhook delivery and permission reconciliation remain deployment gates;
-browser recovery does not repair a failed server permission change or resume a paused
+clock ownership, webhook delivery and permission reconciliation are addressed by the
+[delivery controls](media-delivery-controls.md); hosted acceptance remains a gate.
+Browser recovery does not repair a failed server permission change or resume a paused
 debate. The operator still owns deliberate incident resume.
 
 ## Produce and publish replay
 
+The [automatic replay worker](replay-automation.md) handles source discovery, conversion,
+validation, retries and eligible replay publication when enabled. It requires no routine
+operator or caption review to advance. Deploy its separate encoder using
+[delivery controls](media-delivery-controls.md). The commands below remain the legacy
+manual/repair procedure while automatic packaging is disabled.
+
 Egress continues producing the verified private MP4 source. An operator runs the explicit
-packaging command for a completed recording before publishing adaptive replay. Packaging
-is not yet a managed transcoding queue: assign an operator/worker owner and do not put
-FFmpeg in the web request path. Inspect/repair a failed package before another upload;
+packaging command for a completed recording before publishing adaptive replay in legacy
+mode. Keep FFmpeg outside the web request path. Inspect/repair a failed package before another upload;
 conditional writes reject overwriting an existing rendition. Use a new recording/package
 identity for re-encoding, or remove only a failed unpublished package through reviewed
 storage operations. Never overwrite segments that may be cached.

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 import { S3Client } from "@aws-sdk/client-s3";
+import { EgressStatus } from "@livekit/protocol";
 import {
   EgressClient,
   RoomServiceClient,
@@ -146,4 +147,163 @@ it("issues subscribe-only viewer grants and permits microphone only to the curre
     event: "synthetic",
   }));
   assert.equal((await provider.webhook("{}", "synthetic")).event, "synthetic");
+});
+
+it("recovers missed recording webhooks only from matching successful egress and completed private bytes", async (t) => {
+  let result = [];
+  let bytes = 25;
+  t.mock.method(EgressClient.prototype, "listEgress", async (options) => {
+    assert.equal(options.egressId, "fixture-egress");
+    return result;
+  });
+  t.mock.method(S3Client.prototype, "send", async (command) => {
+    assert.equal(command.input.Key, recording);
+    return { ContentLength: bytes };
+  });
+  const provider = createMediaProvider(config);
+  assert.equal(
+    await provider.recordingResult("fixture-egress", recording),
+    null,
+  );
+  for (const status of [
+    EgressStatus.EGRESS_STARTING,
+    EgressStatus.EGRESS_ACTIVE,
+    EgressStatus.EGRESS_ENDING,
+  ]) {
+    result = [{ egressId: "fixture-egress", status }];
+    assert.equal(
+      await provider.recordingResult("fixture-egress", recording),
+      null,
+    );
+  }
+  for (const status of [
+    EgressStatus.EGRESS_FAILED,
+    EgressStatus.EGRESS_ABORTED,
+    EgressStatus.EGRESS_LIMIT_REACHED,
+  ]) {
+    result = [{ egressId: "fixture-egress", status, fileResults: [] }];
+    assert.deepEqual(
+      await provider.recordingResult("fixture-egress", recording),
+      { success: false, key: null },
+    );
+  }
+  result = [
+    {
+      egressId: "fixture-egress",
+      status: EgressStatus.EGRESS_COMPLETE,
+      fileResults: [{ filename: recording, size: 25n }],
+    },
+  ];
+  assert.deepEqual(
+    await provider.recordingResult("fixture-egress", recording),
+    { success: true, key: recording },
+  );
+  bytes = 24;
+  await assert.rejects(
+    provider.recordingResult("fixture-egress", recording),
+    /verified completion/,
+  );
+  bytes = 0;
+  await assert.rejects(
+    provider.recordingResult("fixture-egress", recording),
+    /verified completion/,
+  );
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(
+    provider.recordingResult("fixture-egress", recording, controller.signal),
+    { name: "AbortError" },
+  );
+  result[0].fileResults[0].filename = "other-source.mp4";
+  assert.deepEqual(
+    await provider.recordingResult("fixture-egress", recording),
+    { success: false, key: null },
+  );
+});
+it("avoids repeating provider updates when current permissions already match the durable turn", async (t) => {
+  t.mock.method(RoomServiceClient.prototype, "listParticipants", async () => [
+    {
+      identity: "speaker-1",
+      metadata: '{"side":"A"}',
+      permission: {
+        canPublish: true,
+        canSubscribe: true,
+        canPublishData: false,
+        canPublishSources: [1, 2],
+      },
+    },
+  ]);
+  const update = t.mock.method(
+    RoomServiceClient.prototype,
+    "updateParticipant",
+    async () => {},
+  );
+  await createMediaProvider(config).setTurn(id, "A");
+  assert.equal(update.mock.callCount(), 0);
+});
+it("never grants a microphone for null or malformed speaker metadata while paused", async (t) => {
+  const updates = [];
+  t.mock.method(RoomServiceClient.prototype, "listParticipants", async () =>
+    ["null", "{}", '{"side":null}', '{"side":"invalid"}', "malformed"].map(
+      (metadata, i) => ({ identity: `speaker-${i}`, metadata }),
+    ),
+  );
+  t.mock.method(
+    RoomServiceClient.prototype,
+    "updateParticipant",
+    async (_room, _identity, update) => updates.push(update),
+  );
+  await createMediaProvider(config).setTurn(id, null);
+  assert.equal(updates.length, 5);
+  assert.ok(
+    updates.every(
+      (update) => JSON.stringify(update.permission.canPublishSources) === "[1]",
+    ),
+  );
+});
+
+it("authorizes only the current immutable package, and keeps MP4 available during packaging", async (t) => {
+  const commands = [];
+  t.mock.method(S3Client.prototype, "send", async (command) => {
+    commands.push(command);
+    return {};
+  });
+  let packaged = {
+    packageKey: `debates/${id}/package-new.mp4`,
+    hasCaptions: false,
+  };
+  const provider = createMediaProvider(
+    {
+      ...config,
+      replayEdgeUrl: "https://edge.example",
+      replaySigningSecret: "synthetic-replay-secret-32-characters",
+    },
+    async (key) => {
+      assert.equal(key, recording);
+      return packaged;
+    },
+  );
+  const access = await provider.replayAccess(recording);
+  assert.equal(access.type, "hls");
+  assert.match(access.url, /package-new\/hls\/master/);
+  assert.equal(access.captionsUrl, undefined);
+  assert.match(commands.at(-1).input.Key, /package-new\/hls\/ready.json/);
+  const count = commands.length;
+  await provider.publishCaptions(recording, "WEBVTT\n");
+  assert.equal(
+    commands.length,
+    count,
+    "managed captions must never overwrite a published package",
+  );
+  packaged.hasCaptions = true;
+  assert.match(
+    (await provider.replayAccess(recording)).captionsUrl,
+    /package-new\/hls\/captions/,
+  );
+  packaged = null;
+  assert.equal((await provider.replayAccess(recording)).type, "mp4");
+  assert.deepEqual(provider.playbackOrigins, [
+    "https://edge.example",
+    "https://storage.example",
+  ]);
 });

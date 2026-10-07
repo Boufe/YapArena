@@ -22,6 +22,17 @@ function fixture(overrides = {}) {
     recordingKey: `debates/${id}/recording.mp4`,
   };
   const media = {
+    async getPublicSnapshot() {
+      const current = await this.getPublicEvent();
+      return current?.publicationState === "published"
+        ? {
+            state: await this.get(),
+            eventStatus: current.status,
+            serverNow: new Date().toISOString(),
+            streamRevision: "1",
+          }
+        : null;
+    },
     async get() {
       calls.push("get");
       return state;

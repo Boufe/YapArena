@@ -79,14 +79,11 @@ export function createMediaRouter({
   router.get("/events/:id", async (request, response) => {
     const id = idOf(request);
     if (!id) return response.status(404).json({ error: "event not found" });
-    const event = await media.getPublicEvent(id);
-    if (!event || event.publicationState !== "published")
+    const snapshot = await media.getPublicSnapshot(id);
+    if (!snapshot)
       return response.status(404).json({ error: "event not found" });
-    const state = await media.get(id);
     return response.json({
-      state,
-      eventStatus: event.status,
-      serverNow: new Date().toISOString(),
+      ...snapshot,
       extensionsEnabled: false,
       preparationUrl: provider.publicUrl,
     });

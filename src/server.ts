@@ -5,6 +5,8 @@ import { createIdentityRepository } from "./features/identity/repository.ts";
 import { createMatchingRepository } from "./features/matching/repository.ts";
 import { createMediaRepository } from "./features/media/repository.ts";
 import { createMediaProvider } from "./features/media/provider.ts";
+import { createMediaOperations } from "./features/media/operations.ts";
+import { createReplayJobs } from "./features/media/replay-jobs.ts";
 import { createCommunityRepository } from "./features/community/repository.ts";
 import { createMeasurementRepository } from "./features/measurement/repository.ts";
 import { createSessionRepository } from "./platform/auth/sessions.ts";
@@ -40,9 +42,28 @@ const matching = createMatchingRepository(database);
 const community = createCommunityRepository(database);
 const measurement = createMeasurementRepository(database);
 const media = config.media ? createMediaRepository(database) : undefined;
-const mediaProvider = config.media
-  ? createMediaProvider(config.media)
+const replayJobs = config.replayPackaging.enabled
+  ? createReplayJobs(database)
   : undefined;
+const baseMediaProvider = config.media
+  ? createMediaProvider(
+      config.media,
+      replayJobs
+        ? (key) => replayJobs.ready(key.split("/")[1]!, key)
+        : undefined,
+    )
+  : undefined;
+const mediaOperations =
+  media && baseMediaProvider
+    ? createMediaOperations({
+        database,
+        media,
+        provider: baseMediaProvider,
+        logger,
+        count: (kind) => metrics.mediaControl.inc({ kind }),
+      })
+    : undefined;
+const mediaProvider = mediaOperations?.provider;
 const users = createUserRepository(database);
 const sessions = createSessionRepository(database);
 const wallets = createWalletRepository(database);
@@ -53,6 +74,7 @@ const app = createApp({
   matching,
   media,
   mediaProvider,
+  mediaAdmissionSecret: config.media?.livekitSecret,
   community,
   communityStreams,
   metrics,
@@ -83,6 +105,7 @@ const runtime = createRuntime({
   measurement,
   media,
   mediaProvider,
+  mediaOperations,
   wallets,
   logger,
   config,

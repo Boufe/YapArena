@@ -14,6 +14,18 @@ describe("configuration", () => {
     heartbeatMs: 15000,
     bufferBytes: 65536,
   };
+  const replayPackaging = {
+    enabled: false,
+    concurrency: 1,
+    pollMs: 5000,
+    leaseMs: 60000,
+    heartbeatMs: 15000,
+    maxJobMs: 1800000,
+    maxInputBytes: 2147483648,
+    maxOutputBytes: 4294967296,
+    maxDurationSeconds: 7200,
+    maxFiles: 11000,
+  };
   it("requires session-compatible streaming credentials and bounded capacities", () => {
     const value = loadConfig({
       DATABASE_URL: databaseUrl,
@@ -51,6 +63,7 @@ describe("configuration", () => {
       sessionDurationMs: 604800000,
       siweRpcUrls: {},
       media: undefined,
+      replayPackaging,
       backgroundJobs: true,
       communityStream,
     });
@@ -87,6 +100,7 @@ describe("configuration", () => {
         sessionDurationMs: 3600000,
         siweRpcUrls: {},
         media: undefined,
+        replayPackaging,
         backgroundJobs: true,
         communityStream,
       },
@@ -188,6 +202,46 @@ describe("configuration", () => {
       MEDIA_S3_ACCESS_KEY: "local",
       MEDIA_S3_SECRET_KEY: "local-secret",
     };
+    assert.throws(
+      () =>
+        loadConfig({
+          DATABASE_URL: databaseUrl,
+          MEDIA_REPLAY_PACKAGING_ENABLED: "yes",
+        }),
+      /must be true or false/,
+    );
+    assert.throws(
+      () =>
+        loadConfig({
+          DATABASE_URL: databaseUrl,
+          MEDIA_REPLAY_PACKAGING_ENABLED: "true",
+        }),
+      /private replay edge/,
+    );
+    const automated = loadConfig({
+      DATABASE_URL: databaseUrl,
+      ...media,
+      MEDIA_REPLAY_EDGE_URL: "https://edge.example",
+      MEDIA_REPLAY_SIGNING_SECRET: "synthetic-private-replay-secret-32bytes",
+      MEDIA_REPLAY_PACKAGING_ENABLED: "true",
+      MEDIA_REPLAY_CONCURRENCY: "2",
+      MEDIA_REPLAY_MAX_JOB_SECONDS: "90",
+      MEDIA_REPLAY_MAX_INPUT_MIB: "100",
+      MEDIA_REPLAY_MAX_OUTPUT_MIB: "200",
+    });
+    assert.equal(automated.replayPackaging.enabled, true);
+    assert.equal(automated.replayPackaging.maxJobMs, 90000);
+    assert.equal(automated.replayPackaging.maxInputBytes, 104857600);
+    for (const env of [
+      { MEDIA_REPLAY_CONCURRENCY: "3" },
+      { MEDIA_REPLAY_MAX_JOB_SECONDS: "1" },
+      { MEDIA_REPLAY_MAX_INPUT_MIB: "3000" },
+      { MEDIA_REPLAY_MAX_OUTPUT_MIB: "5000" },
+    ])
+      assert.throws(
+        () => loadConfig({ DATABASE_URL: databaseUrl, ...env }),
+        /MEDIA_REPLAY_/,
+      );
     assert.equal(
       loadConfig({ DATABASE_URL: databaseUrl, ...media }).media.s3Bucket,
       "replays",

@@ -608,17 +608,27 @@ if (root) {
         event.currentTarget.disabled = false;
       }
     });
+  let publicRevision = "0";
   async function refresh() {
     const pageEpoch = pageGeneration;
     try {
       const result = await request("");
       if (disposed || pageEpoch !== pageGeneration) return false;
+      if (result.streamRevision !== undefined) {
+        if (
+          !/^\d{1,20}$/.test(result.streamRevision) ||
+          BigInt(result.streamRevision) < BigInt(publicRevision)
+        )
+          return false;
+      }
       if (
         currentState &&
         result.state &&
         result.state.revision < currentState.revision
       )
-        return;
+        return false;
+      if (result.streamRevision !== undefined)
+        publicRevision = result.streamRevision;
       currentState = result.state;
       eventStatus = result.eventStatus;
       serverOffset = new Date(result.serverNow).getTime() - Date.now();
@@ -781,16 +791,23 @@ if (root) {
     void tickWatch();
     diagnostics.record(document.hidden ? "background" : "foreground");
     if (document.hidden) {
+      if (!speakerConnected) {
+        window.clearTimeout(pollTimer);
+        pollTimer = undefined;
+      }
       recovery.offline(); // invalidate stability evidence without ending intent
       replayPlayer.background();
     }
     if (!document.hidden) {
       replayPlayer.online();
       void refresh();
+      pollStatus();
       if (!speakerConnected) scheduleReconnect();
     }
   });
   window.addEventListener("offline", () => {
+    window.clearTimeout(pollTimer);
+    pollTimer = undefined;
     recovery.offline();
     replayPlayer.offline();
     diagnostics.record("offline");
@@ -798,6 +815,8 @@ if (root) {
   window.addEventListener("online", () => {
     diagnostics.record("network_restored");
     replayPlayer.online();
+    void refresh();
+    pollStatus();
     if (!speakerConnected) scheduleReconnect();
   });
   window.addEventListener("yap-measurement-changed", () => void tickWatch());
@@ -844,9 +863,16 @@ if (root) {
   })();
   let pollTimer;
   function pollStatus() {
-    if (disposed) return;
+    if (
+      disposed ||
+      pollTimer !== undefined ||
+      navigator.onLine === false ||
+      (document.hidden && !speakerConnected)
+    )
+      return;
     pollTimer = window.setTimeout(
       async () => {
+        pollTimer = undefined;
         await refresh();
         pollStatus();
       },
@@ -917,6 +943,7 @@ if (root) {
     endWatch();
     window.clearTimeout(pollTimer);
     void disconnectRoom();
+    pollTimer = undefined;
     void preparedRoom?.disconnect(true);
     preparedRoom = undefined;
     if (cachedPage) {

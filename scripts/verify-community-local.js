@@ -12,6 +12,7 @@ import { chromium } from "playwright-core";
 import { verifyCommunityLoad } from "./verify-community-load.js";
 import { verifyCommunityDelivery } from "./verify-community-delivery.js";
 import { verifyChatClient } from "./verify-chat-client.js";
+import { verifyMediaOperations } from "./verify-media-operations.js";
 import { createCommunityRepository } from "../dist/features/community/repository.js";
 import { provisionDatabase } from "./provision-database.js";
 
@@ -209,6 +210,13 @@ try {
   try {
     if (process.env.COMMUNITY_DURABLE_TRIAL === "1")
       await verifyCommunityDelivery({
+        pool: runtimePool,
+        owner,
+        admin,
+        url: url("yaparena_runtime"),
+      });
+    if (process.env.COMMUNITY_DURABLE_TRIAL === "1")
+      await verifyMediaOperations({
         pool: runtimePool,
         owner,
         admin,

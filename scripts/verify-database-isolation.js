@@ -20,6 +20,7 @@ import { runner, MigrationBuilder } from "node-pg-migrate";
 import { privateKeyToAccount } from "viem/accounts";
 import { deliveryTables } from "../migrations/1791335211412_durable-community-delivery.js";
 import { receiptTables } from "../migrations/1791345540042_preserve-chat-idempotency.js";
+import { replayJobTables } from "../migrations/1791385198189_automatic-replay-packaging.js";
 import { provisionDatabase } from "./provision-database.js";
 import {
   runtimeGrants,
@@ -51,6 +52,7 @@ const applicationTables = [
   "wallet_operations",
   ...deliveryTables,
   ...receiptTables,
+  ...replayJobTables,
 ];
 const container = `yaparena-isolation-${randomUUID().slice(0, 8)}`;
 const evidenceDirectory = `/tmp/${container}-evidence`;

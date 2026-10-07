@@ -7,13 +7,15 @@ export function createDatabase(
   connectionString: string,
   logger: Logger,
   observeWait?: (seconds: number) => void,
+  limits: { max?: number; timeoutMs?: number } = {},
 ) {
   const database = new Pool({
     connectionString,
-    max: 10,
-    connectionTimeoutMillis: 5_000,
+    max: limits.max ?? 10,
+    connectionTimeoutMillis: limits.timeoutMs ?? 5_000,
+    query_timeout: limits.timeoutMs,
     idleTimeoutMillis: 30_000,
-    options: "-c search_path=pg_catalog,yaparena,pg_temp",
+    options: `-c search_path=pg_catalog,yaparena,pg_temp${limits.timeoutMs ? ` -c statement_timeout=${limits.timeoutMs}` : ""}`,
   });
 
   database.on("error", (error) => {

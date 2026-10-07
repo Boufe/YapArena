@@ -14,6 +14,12 @@ type ProductSummary = Awaited<
 
 export function createMetrics() {
   const registry = new Registry();
+  const mediaControl = new Counter({
+    name: "yaparena_media_control_total",
+    help: "Bounded media clock, permission repair and delivery admission outcomes",
+    labelNames: ["kind"],
+    registers: [registry],
+  });
   const streamCount = new Gauge({
     name: "yaparena_community_streams",
     help: "Active public streams",
@@ -155,6 +161,7 @@ export function createMetrics() {
     handler,
     registry,
     poolWait,
+    mediaControl,
     community: {
       count(kind: string) {
         delivery.inc({ kind });

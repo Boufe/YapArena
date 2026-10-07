@@ -219,6 +219,47 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
     nodeEnvironment,
   );
   const media = parseMedia(environment, nodeEnvironment);
+  const packagingEnabled =
+    environment.MEDIA_REPLAY_PACKAGING_ENABLED ?? "false";
+  if (!["true", "false"].includes(packagingEnabled))
+    throw new Error("MEDIA_REPLAY_PACKAGING_ENABLED must be true or false");
+  if (packagingEnabled === "true" && !media?.replayEdgeUrl)
+    throw new Error(
+      "automatic replay packaging requires configured media and private replay edge",
+    );
+  const replayPackaging = Object.freeze({
+    enabled: packagingEnabled === "true",
+    concurrency: parseInteger(
+      environment.MEDIA_REPLAY_CONCURRENCY ?? "1",
+      "MEDIA_REPLAY_CONCURRENCY",
+      { minimum: 1, maximum: 2 },
+    ),
+    pollMs: 5000,
+    leaseMs: 60000,
+    heartbeatMs: 15000,
+    maxJobMs:
+      parseInteger(
+        environment.MEDIA_REPLAY_MAX_JOB_SECONDS ?? "1800",
+        "MEDIA_REPLAY_MAX_JOB_SECONDS",
+        { minimum: 60, maximum: 7200 },
+      ) * 1000,
+    maxInputBytes:
+      parseInteger(
+        environment.MEDIA_REPLAY_MAX_INPUT_MIB ?? "2048",
+        "MEDIA_REPLAY_MAX_INPUT_MIB",
+        { minimum: 1, maximum: 2048 },
+      ) *
+      1024 ** 2,
+    maxOutputBytes:
+      parseInteger(
+        environment.MEDIA_REPLAY_MAX_OUTPUT_MIB ?? "4096",
+        "MEDIA_REPLAY_MAX_OUTPUT_MIB",
+        { minimum: 1, maximum: 4096 },
+      ) *
+      1024 ** 2,
+    maxDurationSeconds: 7200,
+    maxFiles: 11000,
+  });
   const backgroundJobs = environment.RUN_BACKGROUND_JOBS ?? "true";
   const streamEnabled = environment.COMMUNITY_STREAM_ENABLED ?? "false";
   if (!["true", "false"].includes(streamEnabled))
@@ -305,6 +346,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
     sessionDurationMs,
     siweRpcUrls,
     media,
+    replayPackaging,
     backgroundJobs: backgroundJobs === "true",
     communityStream,
   });

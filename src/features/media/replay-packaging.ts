@@ -112,6 +112,31 @@ export async function run(
   });
 }
 
+export async function verifyReplayTools({
+  signal,
+  runProcess = run,
+}: { signal?: AbortSignal; runProcess?: typeof run } = {}) {
+  const probe = await runProcess("ffprobe", ["-version"], {
+    signal,
+    timeoutMs: 5000,
+  });
+  const encoders = await runProcess("ffmpeg", ["-hide_banner", "-encoders"], {
+    signal,
+    timeoutMs: 5000,
+  });
+  const muxers = await runProcess("ffmpeg", ["-hide_banner", "-muxers"], {
+    signal,
+    timeoutMs: 5000,
+  });
+  if (
+    !/^ffprobe version /i.test(probe) ||
+    !/^\s*V\S{5}\s+libx264\b/m.test(encoders) ||
+    !/^\s*A\S{5}\s+aac\b/m.test(encoders) ||
+    !/^\s*E\s+hls\s/m.test(muxers)
+  )
+    throw new ReplayFailure("encoder_capability_missing", false);
+}
+
 export type ReplayFile = {
   path: string;
   bytes: number;

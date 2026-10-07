@@ -12,6 +12,7 @@ import { createReplayJobs } from "../dist/features/media/replay-jobs.js";
 import {
   buildReplayPackage,
   run,
+  verifyReplayTools,
 } from "../dist/features/media/replay-packaging.js";
 import { createReplayWorker } from "../dist/features/media/replay-worker.js";
 import { verifyRuntimeIdentity } from "../dist/platform/database.js";
@@ -59,6 +60,7 @@ const measuredRun = (command, args, options) =>
   run(command, args, { ...options, spawnProcess: spawned });
 try {
   assert.match(process.version, /^v24\./);
+  await verifyReplayTools();
   let postgresVersion, port;
   if (hostMode) {
     postgresVersion = (await exec("initdb", ["--version"])).stdout.trim();
@@ -213,6 +215,12 @@ try {
     async connect() {
       const client = await pool.connect();
       return {
+        on(...args) {
+          client.on(...args);
+        },
+        removeListener(...args) {
+          client.removeListener(...args);
+        },
         query(text, args) {
           if (text.includes("INSERT INTO yaparena.event_history"))
             throw new Error("synthetic transaction fault");
@@ -295,6 +303,67 @@ try {
   );
   console.log(
     "PostgreSQL concurrent enqueue/claim, source pin, transaction rollback, atomic automatic publication and idempotent completion PASS",
+  );
+
+  const loss = await event("replay-publication-connection-loss");
+  await jobs.reconcile();
+  const lossJob = await jobs.claim();
+  await jobs.bindSource(lossJob, '"loss-source"');
+  const blocker = await pool.connect();
+  await blocker.query("BEGIN");
+  await blocker.query(
+    "SELECT debate_id FROM debate_media WHERE debate_id=$1 FOR UPDATE",
+    [loss.room],
+  );
+  let backend;
+  const losing = createReplayJobs({
+    query: pool.query.bind(pool),
+    async connect() {
+      const client = await pool.connect();
+      backend = client.processID;
+      return client;
+    },
+  });
+  const lost = losing.complete(lossJob, digest);
+  const rejection = assert.rejects(
+    lost,
+    (error) =>
+      ["57P01", "ECONNRESET"].includes(error.code) ||
+      error.message.includes("Connection terminated"),
+  );
+  for (let i = 0; i < 100; i++) {
+    const blocked =
+      backend &&
+      (
+        await admin.query(
+          "SELECT wait_event_type FROM pg_stat_activity WHERE pid=$1",
+          [backend],
+        )
+      ).rows[0]?.wait_event_type === "Lock";
+    if (blocked) break;
+    if (i === 99)
+      throw new Error("Publication did not reach controlled lock wait");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  await admin.query("SELECT pg_terminate_backend($1)", [backend]);
+  try {
+    await rejection;
+  } finally {
+    await blocker.query("ROLLBACK").catch(() => {});
+    blocker.release();
+  }
+  assert.equal(await jobs.ready(loss.room, loss.sourceKey), null);
+  assert.equal(
+    (await owner.query("SELECT status FROM debates WHERE id=$1", [loss.room]))
+      .rows[0].status,
+    "ended",
+  );
+  await jobs.fail(lossJob, "processing_failed", false);
+  const lossCleanup = await jobs.claimCleanup();
+  assert.equal(lossCleanup.packageKey, lossJob.packageKey);
+  await jobs.finishCleanup(lossCleanup, true);
+  console.log(
+    "Runtime publication backend termination: error handled, rollback complete, ready pointer absent PASS",
   );
 
   // A removal transaction holds the domain lock while a completion starts.

@@ -149,6 +149,10 @@ export function createReplayJobs(
       if (!allows(job.debateId)) return false;
       const client = await db.connect();
       let broken = false;
+      const lost = () => {
+        broken = true;
+      };
+      client.on("error", lost);
       try {
         await client.query("BEGIN");
         await client.query(
@@ -231,6 +235,7 @@ export function createReplayJobs(
         }
         throw error;
       } finally {
+        client.removeListener("error", lost);
         client.release(broken);
       }
     },

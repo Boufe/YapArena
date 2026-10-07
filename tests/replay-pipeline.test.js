@@ -18,6 +18,7 @@ import {
   inspectReplayPackage,
   run,
   ReplayFailure,
+  verifyReplayTools,
 } from "../dist/features/media/replay-packaging.js";
 import { createReplayWorker } from "../dist/features/media/replay-worker.js";
 import { replayStorageFixture } from "./helpers/replay-storage.js";
@@ -28,6 +29,32 @@ const packageKey = `debates/${room}/package-00000000-0000-4000-8000-000000000002
 const captions = "WEBVTT\n\n00:00:00.000 --> 00:00:02.000\nSynthetic tone\n";
 const errorCode = (code) => (error) =>
   error instanceof ReplayFailure && error.code === code;
+test("startup checks program/codec/muxer capability before claiming work", async () => {
+  const responses = [
+    "ffprobe version synthetic",
+    " V....D libx264 H264\n A..... aac AAC",
+    " E hls Apple HLS",
+  ];
+  const commands = [];
+  await verifyReplayTools({
+    runProcess: async (command, args, options) => {
+      commands.push({ command, args, options });
+      return responses[commands.length - 1];
+    },
+  });
+  assert.deepEqual(
+    commands.map((c) => c.command),
+    ["ffprobe", "ffmpeg", "ffmpeg"],
+  );
+  assert.ok(commands.every((c) => c.options.timeoutMs === 5000));
+  await assert.rejects(
+    verifyReplayTools({
+      runProcess: async () => "synthetic missing capabilities",
+    }),
+    errorCode("encoder_capability_missing"),
+  );
+});
+
 async function fixture(t) {
   const directory = await mkdtemp(resolve(tmpdir(), "yaparena-replay-test-"));
   t.after(() => rm(directory, { recursive: true, force: true }));

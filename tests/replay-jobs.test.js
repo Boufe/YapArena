@@ -48,6 +48,8 @@ function fixture(mode = "ready") {
     query,
     async connect() {
       return {
+        on() {},
+        removeListener() {},
         query,
         release() {
           released = true;
@@ -60,6 +62,8 @@ function fixture(mode = "ready") {
       query,
       async connect() {
         return {
+          on() {},
+          removeListener() {},
           query,
           release() {
             released = true;

@@ -6,6 +6,8 @@ Caption review remains optional: an absent reviewed WebVTT file never blocks con
 or replay publication. Existing approved captions accompany a package; a subsequent
 approved caption change creates a new immutable package. This change adds no transcription
 service and makes no claim about automatic caption generation or caption quality.
+Worker startup verifies ffprobe, libx264/AAC encoding and HLS muxing before claiming a job;
+missing tools/codecs fail startup, preserving durable attempt budgets.
 
 The earlier operator workflow in [decision 0004](decisions/0004-live-debate-replay.md)
 describes the prototype. This subsequent decision authorizes automatic **ended → replay**
@@ -156,6 +158,10 @@ On 2026-10-07, macOS/local Node 24.19.0, PostgreSQL 17.10 and FFmpeg 9.0.2:
 Follow-up checks passed a real database-stall shutdown in 1,524.80 ms against an
 eight-second deadline, a stuck encoder SIGKILL/close in 2,028 ms, restrictive deletion
 policies, source-key replacement and room-scoped canary isolation.
+Terminating the runtime publication backend during a controlled media-row lock wait also
+passed: the worker handled the connection error, released the broken client, rolled back
+publication and left no ready pointer. Integrated isolation verification additionally
+passed all 38 private tables and 19 membership-guard cases.
 
 The local Docker trial could not start because its existing daemon reported a containerd
 temporary-directory I/O error; its trial container was removed. Native PostgreSQL 17

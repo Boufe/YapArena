@@ -23,6 +23,8 @@ import { provisionDatabase } from "./provision-database.js";
 const exec = promisify(execFile);
 const quiet = { info() {}, warn() {}, error() {} };
 const directory = await mkdtemp("/tmp/yaparena-replay-trial-");
+const container = `yaparena-replay-${randomUUID().slice(0, 8)}`;
+const hostMode = process.env.REPLAY_POSTGRES_MODE === "host";
 const passwords = Object.fromEntries(
   ["postgres", "yaparena_owner", "yaparena_runtime"].map((role) => [
     role,
@@ -57,37 +59,63 @@ const measuredRun = (command, args, options) =>
   run(command, args, { ...options, spawnProcess: spawned });
 try {
   assert.match(process.version, /^v24\./);
-  const postgresVersion = (await exec("initdb", ["--version"])).stdout.trim();
-  assert.match(postgresVersion, /PostgreSQL\) (17|18)\./);
-  const passwordFile = resolve(directory, "password");
-  await writeFile(passwordFile, passwords.postgres, { mode: 0o600 });
-  await exec("initdb", [
-    "--pgdata",
-    resolve(directory, "data"),
-    "--username",
-    "postgres",
-    "--auth",
-    "scram-sha-256",
-    "--pwfile",
-    passwordFile,
-  ]);
-  await rm(passwordFile);
-  const reserve = createServer();
-  reserve.listen(0, "127.0.0.1");
-  await once(reserve, "listening");
-  const port = reserve.address().port;
-  await new Promise((resolve) => reserve.close(resolve));
-  await exec("pg_ctl", [
-    "--pgdata",
-    resolve(directory, "data"),
-    "--log",
-    resolve(directory, "postgres.log"),
-    "--options",
-    `-p ${port} -h 127.0.0.1 -k ${directory}`,
-    "--wait",
-    "start",
-  ]);
-  started = true;
+  let postgresVersion, port;
+  if (hostMode) {
+    postgresVersion = (await exec("initdb", ["--version"])).stdout.trim();
+    assert.match(postgresVersion, /PostgreSQL\) (17|18)\./);
+    const passwordFile = resolve(directory, "password");
+    await writeFile(passwordFile, passwords.postgres, { mode: 0o600 });
+    await exec("initdb", [
+      "--pgdata",
+      resolve(directory, "data"),
+      "--username",
+      "postgres",
+      "--auth",
+      "scram-sha-256",
+      "--pwfile",
+      passwordFile,
+    ]);
+    await rm(passwordFile);
+    const reserve = createServer();
+    reserve.listen(0, "127.0.0.1");
+    await once(reserve, "listening");
+    port = reserve.address().port;
+    await new Promise((resolve) => reserve.close(resolve));
+    await exec("pg_ctl", [
+      "--pgdata",
+      resolve(directory, "data"),
+      "--log",
+      resolve(directory, "postgres.log"),
+      "--options",
+      `-p ${port} -h 127.0.0.1 -k ${directory}`,
+      "--wait",
+      "start",
+    ]);
+    started = true;
+  } else {
+    started = true;
+    await exec(
+      "docker",
+      [
+        "run",
+        "--detach",
+        "--name",
+        container,
+        "--publish",
+        "127.0.0.1::5432",
+        "--env",
+        "POSTGRES_PASSWORD",
+        "postgres:18.4-bookworm",
+      ],
+      { env: { ...process.env, POSTGRES_PASSWORD: passwords.postgres } },
+    );
+    port = Number(
+      (await exec("docker", ["port", container, "5432/tcp"])).stdout
+        .trim()
+        .split(":")
+        .at(-1),
+    );
+  }
   const config = (role) => ({
     host: "127.0.0.1",
     port,
@@ -98,8 +126,22 @@ try {
     query_timeout: 3000,
     connectionTimeoutMillis: 2000,
   });
-  admin = new pg.Client(config("postgres"));
-  await admin.connect();
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const candidate = new pg.Client(config("postgres"));
+    try {
+      await candidate.connect();
+      admin = candidate;
+      break;
+    } catch {
+      await candidate.end().catch(() => {});
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  if (!admin) throw new Error("Disposable PostgreSQL did not become ready");
+  const serverVersion = (await admin.query("SHOW server_version")).rows[0]
+    .server_version;
+  assert.match(serverVersion, /^(17|18)\./);
+  postgresVersion ||= `PostgreSQL ${serverVersion} (Docker)`;
   await provisionDatabase(admin, passwords);
   owner = new pg.Client(config("yaparena_owner"));
   await owner.connect();
@@ -210,6 +252,19 @@ try {
     packageKey: job.packageKey,
     hasCaptions: false,
   });
+  assert.equal(
+    (
+      await pool.query("DELETE FROM media_replay_attempts WHERE id=$1", [
+        job.leaseId,
+      ])
+    ).rowCount,
+    0,
+  );
+  assert.equal(
+    (await pool.query("DELETE FROM media_replay_jobs WHERE id=$1", [job.id]))
+      .rowCount,
+    0,
+  );
   assert.equal(
     (
       await owner.query(
@@ -333,6 +388,24 @@ try {
     ).rowCount,
   );
 
+  const changed = await event("replay-source-change");
+  await jobs.reconcile();
+  const changedJob = await jobs.claim();
+  await jobs.bindSource(changedJob, '"old-source"');
+  const newKey = `debates/${changed.room}/${randomUUID()}.mp4`;
+  await owner.query(
+    "UPDATE debate_media SET recording_key=$2 WHERE debate_id=$1",
+    [changed.room, newKey],
+  );
+  assert.equal(await jobs.complete(changedJob, digest), false);
+  await jobs.fail(changedJob, "lease_lost");
+  await jobs.reconcile();
+  const newSourceJob = await jobs.claim();
+  assert.equal(newSourceJob.sourceKey, newKey);
+  assert.equal(newSourceJob.attempts, 1);
+  await jobs.bindSource(newSourceJob, '"new-source"');
+  assert.equal(await jobs.complete(newSourceJob, digest), true);
+
   const retry = await event("replay-retries");
   await jobs.reconcile();
   for (let attempt = 1; attempt <= 5; attempt++) {
@@ -354,6 +427,14 @@ try {
       )
     ).rows[0].state,
     "failed",
+  );
+  assert.equal(
+    (
+      await pool.query("DELETE FROM media_replay_jobs WHERE debate_id=$1", [
+        retry.room,
+      ])
+    ).rowCount,
+    0,
   );
   await owner.query(
     "UPDATE topics SET publication_state='hidden' WHERE id=$1",
@@ -406,6 +487,34 @@ try {
   );
   // Keep earlier fixtures ineligible before running the actual complete worker.
   await owner.query("UPDATE debates SET publication_state='hidden'");
+  const canary = await event("replay-canary");
+  const outside = await event("replay-outside-canary");
+  const scoped = createReplayJobs(pool, [canary.room]);
+  assert.equal(await scoped.reconcile(), 1);
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int n FROM media_replay_jobs WHERE debate_id=$1",
+        [outside.room],
+      )
+    ).rows[0].n,
+    0,
+  );
+  const canaryJob = await scoped.claim();
+  assert.equal(canaryJob.debateId, canary.room);
+  assert.equal(await createReplayJobs(pool, []).claim(), null);
+  assert.equal(
+    await createReplayJobs(pool, []).complete(canaryJob, digest),
+    false,
+  );
+  await owner.query(
+    "UPDATE debates SET publication_state='hidden' WHERE id=ANY($1::uuid[])",
+    [[canary.room, outside.room]],
+  );
+  await jobs.fail(canaryJob, "lease_lost");
+  console.log(
+    "Real PostgreSQL room-scoped canary enqueue/claim/completion isolation PASS",
+  );
   const synthetic = await event("replay-automatic-encoder");
   const input = resolve(directory, "synthetic.mp4");
   await run("ffmpeg", [
@@ -497,11 +606,87 @@ try {
         "real PostgreSQL runtime transactions + FFmpeg, synthetic in-memory object adapter; no hosted storage/edge or physical-device evidence",
     }),
   );
+
+  // Real query stall while cancellation drains the encoding task. Use the same
+  // timeout budget as the integrated dedicated worker, not owner credentials.
+  const stalled = await event("replay-shutdown-db-stall");
+  storage.put(stalled.sourceKey, await readFile(input));
+  const stalledPool = new pg.Pool({
+    ...config("yaparena_runtime"),
+    max: 2,
+    query_timeout: 1500,
+    connectionTimeoutMillis: 1500,
+    options:
+      "-c search_path=pg_catalog,yaparena,pg_temp -c statement_timeout=1500 -c lock_timeout=1000",
+  });
+  try {
+    await verifyRuntimeIdentity(stalledPool);
+    const stalledJobs = createReplayJobs(stalledPool);
+    let began;
+    const queryStarted = new Promise((resolve) => {
+      began = resolve;
+    });
+    const draining = createReplayWorker({
+      jobs: {
+        ...stalledJobs,
+        async heartbeat() {
+          began();
+          await stalledPool.query("SELECT pg_sleep(10)");
+          return true;
+        },
+      },
+      storage: storage.storage,
+      logger: quiet,
+      options: {
+        tempRoot: directory,
+        leaseMs: 5000,
+        heartbeatMs: 100,
+        maxJobMs: 5000,
+      },
+      packageMedia: async (_input, _output, _captions, { signal }) =>
+        new Promise((_, reject) =>
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true,
+          }),
+        ),
+    });
+    draining.start();
+    await queryStarted;
+    const stopStart = performance.now();
+    await draining.stop();
+    const shutdownMs = performance.now() - stopStart;
+    assert.ok(shutdownMs < 8000);
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT state FROM media_replay_jobs WHERE debate_id=$1",
+          [stalled.room],
+        )
+      ).rows[0].state,
+      "queued",
+    );
+    assert.equal(
+      (await readdir(directory)).filter((name) =>
+        name.startsWith("yaparena-replay-"),
+      ).length,
+      0,
+    );
+    console.log(
+      JSON.stringify({
+        result: "PASS",
+        scenario: "worker shutdown while real PostgreSQL heartbeat is stalled",
+        shutdownMs: Number(shutdownMs.toFixed(2)),
+        deadlineMs: 8000,
+      }),
+    );
+  } finally {
+    await stalledPool.end();
+  }
 } finally {
   await pool?.end();
   await owner?.end();
   await admin?.end();
-  if (started)
+  if (started && hostMode)
     await exec("pg_ctl", [
       "--pgdata",
       resolve(directory, "data"),
@@ -510,5 +695,7 @@ try {
       "--wait",
       "stop",
     ]);
+  else if (started)
+    await exec("docker", ["rm", "--force", container]).catch(() => {});
   await rm(directory, { recursive: true, force: true });
 }

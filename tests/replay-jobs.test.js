@@ -56,6 +56,17 @@ function fixture(mode = "ready") {
     },
   });
   return {
+    db: {
+      query,
+      async connect() {
+        return {
+          query,
+          release() {
+            released = true;
+          },
+        };
+      },
+    },
     jobs,
     queries,
     get released() {
@@ -103,6 +114,34 @@ test("queue accepts bounded scheduling and rejects invalid worker inputs before 
     false,
   );
   assert.equal(await empty.jobs.prune(), 0);
+});
+
+test("room allowlist is validated, copied and fences all publication operations", async () => {
+  const f = fixture();
+  for (const rooms of [["invalid"], [room, room], Array(1001).fill(room)])
+    assert.throws(() => createReplayJobs(f.db, rooms), RangeError);
+  const rooms = [room];
+  const scoped = createReplayJobs(f.db, rooms);
+  rooms.length = 0;
+  await scoped.reconcile();
+  await scoped.claim();
+  assert.deepEqual(
+    f.queries.find((q) =>
+      q.text.includes("INSERT INTO yaparena.media_replay_jobs"),
+    ).values[1],
+    [room],
+  );
+  assert.deepEqual(
+    f.queries.find(
+      (q) => q.text.includes("WITH due AS") && q.text.includes("claimed AS"),
+    ).values[3],
+    [room],
+  );
+  const excluded = createReplayJobs(f.db, []);
+  assert.equal(await excluded.bindSource(job, '"source"'), false);
+  assert.equal(await excluded.heartbeat(job), false);
+  assert.equal(await excluded.complete(job, digest), false);
+  assert.equal(await excluded.ready(room, job.sourceKey), null);
 });
 test("completion releases transactions on revoked visibility, stale lease, missing attempt and database failure", async () => {
   for (const mode of [

@@ -27,7 +27,25 @@ function bounded(value: number, minimum: number, maximum: number) {
   return value;
 }
 
-export function createReplayJobs(db: Pick<Pool, "query" | "connect">) {
+export function createReplayJobs(
+  db: Pick<Pool, "query" | "connect">,
+  allowedRooms?: readonly string[],
+) {
+  if (
+    allowedRooms !== undefined &&
+    (!Array.isArray(allowedRooms) ||
+      allowedRooms.length > 1000 ||
+      new Set(allowedRooms).size !== allowedRooms.length ||
+      allowedRooms.some(
+        (id) =>
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+            id,
+          ),
+      ))
+  )
+    throw new RangeError("invalid replay room allowlist");
+  const rooms = allowedRooms === undefined ? null : [...allowedRooms];
+  const allows = (id: string) => rooms === null || rooms.includes(id);
   return Object.freeze({
     // A periodic bounded scan closes missed wake-ups. No dependency on NOTIFY,
     // webhook delivery order or an application process staying alive.
@@ -56,7 +74,7 @@ export function createReplayJobs(db: Pick<Pool, "query" | "connect">) {
         SELECT a.id FROM yaparena.media_replay_attempts a JOIN yaparena.media_replay_jobs j ON j.id=a.job_id
         WHERE a.state IN ('writing','ready') AND NOT
           (j.lease_id=a.id AND (j.state='ready' OR (j.state='processing' AND j.lease_expires_at>clock_timestamp())))
-        ORDER BY a.id LIMIT $1 FOR UPDATE OF a SKIP LOCKED)
+        ORDER BY j.id,a.id LIMIT $1 FOR UPDATE OF j,a SKIP LOCKED)
         UPDATE yaparena.media_replay_attempts a SET state='cleanup',cleanup_after=GREATEST(protect_until,clock_timestamp())
         FROM abandoned WHERE a.id=abandoned.id`,
         [limit],
@@ -67,13 +85,14 @@ export function createReplayJobs(db: Pick<Pool, "query" | "connect">) {
         `INSERT INTO yaparena.media_replay_jobs(id,debate_id,source_key,caption_hash)
         SELECT gen_random_uuid(),m.debate_id,m.recording_key,${hash} FROM yaparena.debate_media m
         JOIN yaparena.debates d ON d.id=m.debate_id JOIN yaparena.topics t ON t.id=d.topic_id
-        WHERE ${eligible} AND m.recording_key ~ '^debates/[0-9a-f-]{36}/[a-zA-Z0-9-]+[.]mp4$'
+        WHERE ${eligible} AND ($2::uuid[] IS NULL OR m.debate_id=ANY($2::uuid[]))
+          AND m.recording_key ~ '^debates/[0-9a-f-]{36}/[a-zA-Z0-9-]+[.]mp4$'
           AND split_part(m.recording_key,'/',2)=m.debate_id::text
           AND NOT EXISTS (SELECT 1 FROM yaparena.media_replay_jobs j WHERE j.debate_id=m.debate_id
             AND j.source_key=m.recording_key AND j.caption_hash=${hash} AND j.state<>'cancelled')
         ORDER BY m.debate_id LIMIT $1
         ON CONFLICT (debate_id,source_key,caption_hash) WHERE state<>'cancelled' DO NOTHING RETURNING id`,
-        [limit],
+        [limit, rooms],
       );
       return inserted.rowCount ?? 0;
     },
@@ -84,7 +103,7 @@ export function createReplayJobs(db: Pick<Pool, "query" | "connect">) {
       const result = await db.query<ReplayJob>(
         `WITH due AS (
         SELECT j.id FROM yaparena.media_replay_jobs j WHERE state='queued' AND attempts<5
-          AND next_attempt_at<=clock_timestamp() AND ${current}
+          AND next_attempt_at<=clock_timestamp() AND ($4::uuid[] IS NULL OR j.debate_id=ANY($4::uuid[])) AND ${current}
         ORDER BY next_attempt_at,j.id LIMIT 1 FOR UPDATE OF j SKIP LOCKED), claimed AS (
         UPDATE yaparena.media_replay_jobs j SET state='processing',attempts=attempts+1,lease_id=$1::uuid,
           lease_expires_at=clock_timestamp()+$2*INTERVAL '1 millisecond',
@@ -96,12 +115,13 @@ export function createReplayJobs(db: Pick<Pool, "query" | "connect">) {
           j.attempts,j.lease_id AS "leaseId",j.package_key AS "packageKey",j.source_etag AS "sourceEtag",
           m.captions_vtt AS "captionsVtt" FROM claimed j JOIN attempt a ON a.id=j.lease_id
           JOIN yaparena.debate_media m ON m.debate_id=j.debate_id`,
-        [leaseId, leaseMs, maxJobMs],
+        [leaseId, leaseMs, maxJobMs, rooms],
       );
       return result.rows[0] ?? null;
     },
     async heartbeat(job: ReplayJob, leaseMs = 60_000) {
       bounded(leaseMs, 5000, 300_000);
+      if (!allows(job.debateId)) return false;
       const result = await db.query(
         `UPDATE yaparena.media_replay_jobs j SET
         lease_expires_at=clock_timestamp()+$3*INTERVAL '1 millisecond',updated_at=clock_timestamp()
@@ -114,6 +134,7 @@ export function createReplayJobs(db: Pick<Pool, "query" | "connect">) {
     async bindSource(job: ReplayJob, etag: string) {
       if (!etag || etag.length > 200)
         throw new RangeError("invalid source identity");
+      if (!allows(job.debateId)) return false;
       const result = await db.query(
         `UPDATE yaparena.media_replay_jobs j SET source_etag=$3
         WHERE id=$1 AND lease_id=$2 AND state='processing' AND lease_expires_at>clock_timestamp()
@@ -125,7 +146,9 @@ export function createReplayJobs(db: Pick<Pool, "query" | "connect">) {
     async complete(job: ReplayJob, manifestDigest: string) {
       if (!/^[0-9a-f]{64}$/.test(manifestDigest))
         throw new RangeError("invalid manifest digest");
+      if (!allows(job.debateId)) return false;
       const client = await db.connect();
+      let broken = false;
       try {
         await client.query("BEGIN");
         await client.query(
@@ -201,10 +224,14 @@ export function createReplayJobs(db: Pick<Pool, "query" | "connect">) {
         await client.query("COMMIT");
         return true;
       } catch (error) {
-        await client.query("ROLLBACK");
+        try {
+          await client.query("ROLLBACK");
+        } catch {
+          broken = true;
+        }
         throw error;
       } finally {
-        client.release();
+        client.release(broken);
       }
     },
     async fail(job: ReplayJob, code: string, retryable = true) {
@@ -227,6 +254,7 @@ export function createReplayJobs(db: Pick<Pool, "query" | "connect">) {
       );
     },
     async ready(debateId: string, sourceKey: string) {
+      if (!allows(debateId)) return null;
       const result = await db.query<{
         packageKey: string;
         hasCaptions: boolean;

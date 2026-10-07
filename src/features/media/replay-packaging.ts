@@ -16,6 +16,17 @@ export const renditions = Object.freeze([
   { name: "480", width: 854, height: 480, bitrate: 1000, audio: 64 },
   { name: "720", width: 1280, height: 720, bitrate: 2400, audio: 96 },
 ]);
+function masterPlaylist() {
+  return [
+    "#EXTM3U",
+    "#EXT-X-VERSION:3",
+    ...renditions.flatMap((r) => [
+      `#EXT-X-STREAM-INF:BANDWIDTH=${Math.round((r.bitrate * 1.1 + r.audio) * 1000)},RESOLUTION=${r.width}x${r.height},CODECS="avc1.42c01f,mp4a.40.2"`,
+      `${r.name}/index.m3u8`,
+    ]),
+    "",
+  ].join("\n");
+}
 export class ReplayFailure extends Error {
   code: string;
   retryable: boolean;
@@ -135,6 +146,19 @@ export async function inspectReplayPackage(
     maxOutputBytes = 4 * 1024 ** 3,
   }: { signal?: AbortSignal; maxFiles?: number; maxOutputBytes?: number } = {},
 ): Promise<ReplayManifest> {
+  const master = resolve(directory, "master.m3u8");
+  const info = await lstat(master);
+  if (
+    !info.isFile() ||
+    info.size > 10_000 ||
+    (await readFile(master, "utf8")) !== masterPlaylist()
+  )
+    throw new ReplayFailure("invalid_master", false);
+  if (
+    captions !== null &&
+    (await readFile(resolve(directory, "captions.vtt"), "utf8")) !== captions
+  )
+    throw new ReplayFailure("output_changed", false);
   const paths: string[] = captions
     ? ["captions.vtt", "master.m3u8"]
     : ["master.m3u8"];
@@ -172,6 +196,7 @@ export async function inspectReplayPackage(
     );
     if (
       !uris.length ||
+      names.length !== uris.length + 1 ||
       uris.length !== durations.length ||
       new Set(uris).size !== uris.length ||
       uris.some(
@@ -225,6 +250,76 @@ export async function inspectReplayPackage(
     bytes,
     files,
   };
+}
+
+async function encodeWithBudget(
+  args: string[],
+  directory: string,
+  runProcess: typeof run,
+  signal: AbortSignal | undefined,
+  maxBytes: number,
+  maxFiles: number,
+) {
+  const budget = new AbortController();
+  const combined = signal
+    ? AbortSignal.any([signal, budget.signal])
+    : budget.signal;
+  let pending: Promise<void> | undefined;
+  const inspect = async () => {
+    let bytes = 0,
+      files = 0;
+    for (const r of renditions) {
+      const folder = resolve(directory, r.name);
+      let names: string[];
+      try {
+        names = await readdir(folder);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+        throw error;
+      }
+      files += names.length;
+      if (files + 2 > maxFiles) throw new ReplayFailure("file_limit", false);
+      for (const name of names) {
+        // The muxer atomically renames its temporary playlist on completion.
+        if (
+          name !== "index.m3u8.tmp" &&
+          !replayFileName.test(`${r.name}/${name}`)
+        )
+          throw new ReplayFailure("invalid_output_path", false);
+        let file;
+        try {
+          file = await lstat(resolve(folder, name));
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+          throw error;
+        }
+        if (!file.isFile())
+          throw new ReplayFailure("invalid_output_file", false);
+        bytes += file.size;
+        if (bytes > maxBytes || (name.endsWith(".ts") && file.size > 4_000_000))
+          throw new ReplayFailure("output_limit", false);
+      }
+    }
+  };
+  const timer = setInterval(() => {
+    if (!pending)
+      pending = inspect()
+        .catch((error) => budget.abort(error))
+        .finally(() => {
+          pending = undefined;
+        });
+  }, 500);
+  try {
+    await runProcess("ffmpeg", args, { signal: combined });
+    await pending;
+    await inspect();
+    if (budget.signal.aborted) throw budget.signal.reason;
+  } catch (error) {
+    throw budget.signal.aborted ? budget.signal.reason : error;
+  } finally {
+    clearInterval(timer);
+    await pending;
+  }
 }
 
 export async function buildReplayPackage(
@@ -318,8 +413,7 @@ export async function buildReplayPackage(
     checkReplaySignal(signal);
     const folder = resolve(directory, rendition.name);
     await mkdir(folder, { mode: 0o700 });
-    await runProcess(
-      "ffmpeg",
+    await encodeWithBudget(
       [
         "-hide_banner",
         "-loglevel",
@@ -394,19 +488,14 @@ export async function buildReplayPackage(
         `${folder}/segment%05d.ts`,
         `${folder}/index.m3u8`,
       ],
-      { signal },
+      directory,
+      runProcess,
+      signal,
+      maxOutputBytes,
+      maxFiles,
     );
   }
-  const master = [
-    "#EXTM3U",
-    "#EXT-X-VERSION:3",
-    ...renditions.flatMap((r) => [
-      `#EXT-X-STREAM-INF:BANDWIDTH=${Math.round((r.bitrate * 1.1 + r.audio) * 1000)},RESOLUTION=${r.width}x${r.height},CODECS="avc1.42c01f,mp4a.40.2"`,
-      `${r.name}/index.m3u8`,
-    ]),
-    "",
-  ].join("\n");
-  await writeFile(resolve(directory, "master.m3u8"), master, {
+  await writeFile(resolve(directory, "master.m3u8"), masterPlaylist(), {
     flag: "wx",
     mode: 0o600,
   });

@@ -53,6 +53,9 @@ Backoff has jitter and is capped at 60 seconds. Process loss returns the job aft
 expiry; no stale token can renew or publish it. An exhausted input remains failed, so
 retention cannot silently reset its attempt budget. A new source, approved caption change,
 or newer authorized republication may produce a new input/job.
+The optional room allowlist applies to enqueue, claim and all readiness/publication
+operations: `undefined` permits all eligible rooms, while an explicit empty list permits
+none. It is validated and copied, so a single-room canary never publishes unrelated events.
 
 Domain removal/visibility/source/caption changes invalidate jobs in the same transaction
 via private triggers, including event deletion. Cleanup tombstones deliberately survive
@@ -81,7 +84,8 @@ Library defaults are one job per encoder (hard maximum two), five-second polling
 at most 2 GiB of source, 7,200 seconds of media, 3840×2160 video and eight source audio
 channels. It emits at most 4 GiB and 11,000 files; individual transport-stream segments
 are limited to 4 MB. Fixed output bitrates/duration and a free-space preflight bound the
-encoding budget. Use a worker volume with an enforced disk budget and enough headroom
+encoding budget. A 500 ms disk monitor aborts conversion on byte/file/segment limits,
+and each rendition is rechecked before starting the next. Use a worker volume with an enforced disk budget and enough headroom
 for simultaneous input/output; admission is per worker process, not a global host quota.
 Validate full-duration/4K resource use before increasing concurrency.
 
@@ -105,7 +109,8 @@ claims have their own fenced leases and bounded batches: at most 11,001 objects 
 exact attempt prefix, with no deletion of source MP4s, legacy manual packages or other
 rooms. Partial deletion retries. Cancelled jobs are pruned after 30 days only once every
 attempt has been cleaned. Ready and exhausted failed inputs remain retained while current.
-Event/source retention must invalidate database eligibility before object deletion.
+Restrictive DELETE policies refuse removal of current ready/failed jobs or uncleaned
+attempts. Event/source retention must invalidate database eligibility before object deletion.
 
 Fresh grants are refused as soon as the database input/visibility becomes ineligible.
 Existing issued credentials retain their configured maximum access window; this queue
@@ -121,10 +126,13 @@ npm ci
 npm run check
 npm run verify:media-packaging
 node scripts/verify-replay-pipeline.js
+# Optional native local cluster instead of disposable Docker PostgreSQL:
+REPLAY_POSTGRES_MODE=host node scripts/verify-replay-pipeline.js
 ```
 
-The pipeline trial requires native PostgreSQL 17/18 tools (`initdb`, `pg_ctl`) and FFmpeg
-on PATH. It refuses other Node/PostgreSQL major versions, creates a disposable localhost
+The pipeline trial defaults to disposable Docker PostgreSQL 18.4. Native host mode
+requires PostgreSQL 17/18 tools (`initdb`, `pg_ctl`); both modes require FFmpeg on PATH.
+It refuses other Node/PostgreSQL major versions, creates a disposable localhost
 cluster and random synthetic identities, runs actual migrations as owner, verifies the
 separate runtime identity, then performs all queue/application work as runtime. It reads
 no `.env`, accepts no hosted database URL and writes no provider or external bucket state.
@@ -144,6 +152,15 @@ On 2026-10-07, macOS/local Node 24.19.0, PostgreSQL 17.10 and FFmpeg 9.0.2:
 | Conversion worker elapsed / sampled peak encoder RSS                      | 0.702 s / 97.34 MiB (two threads)                              |
 | Trial Node process peak RSS                                               | 105.48 MiB, including synthetic object adapter                 |
 | Separate captioned encoding trial                                         | Three decoded qualities; 14 files; aligned two-second segments |
+
+Follow-up checks passed a real database-stall shutdown in 1,524.80 ms against an
+eight-second deadline, a stuck encoder SIGKILL/close in 2,028 ms, restrictive deletion
+policies, source-key replacement and room-scoped canary isolation.
+
+The local Docker trial could not start because its existing daemon reported a containerd
+temporary-directory I/O error; its trial container was removed. Native PostgreSQL 17
+verification passed. Docker 18.4 execution is a runnable CI path requiring independent
+evidence; no shared Docker VM restart or unrelated-container cleanup was attempted.
 
 The RSS sample interval is 30 ms and may miss a brief peak. Six-second timings/memory
 are not capacity predictions for full recordings or provider-hosted workers. Unit tests

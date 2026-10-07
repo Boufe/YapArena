@@ -52,6 +52,13 @@ export const up = (pgm) => {
     GRANT UPDATE (state,protect_until,cleanup_after,cleanup_token,cleanup_lease_at)
       ON yaparena.media_replay_attempts TO yaparena_runtime;
     GRANT DELETE ON yaparena.media_replay_jobs,yaparena.media_replay_attempts TO yaparena_runtime;
+    CREATE POLICY replay_retention_delete ON yaparena.media_replay_jobs AS RESTRICTIVE
+      FOR DELETE TO yaparena_runtime USING (state='cancelled'
+        AND updated_at<clock_timestamp()-INTERVAL '30 days');
+    CREATE POLICY replay_retention_delete ON yaparena.media_replay_attempts AS RESTRICTIVE
+      FOR DELETE TO yaparena_runtime USING (state='cleaned' AND EXISTS (
+        SELECT 1 FROM yaparena.media_replay_jobs j WHERE j.id=job_id AND j.state='cancelled'
+          AND j.updated_at<clock_timestamp()-INTERVAL '30 days'));
     -- Domain writers acquire their domain/community locks first; queue locks
     -- come last in UUID order. Final publication takes topic -> debate -> media
     -- -> community room -> job -> attempt; ordinary claims lock queue rows only.

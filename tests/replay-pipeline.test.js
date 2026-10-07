@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import {
   mkdtemp,
   mkdir,
@@ -88,6 +89,31 @@ test("encoder runner bounds output/time, drains cancellation and sanitizes failu
   );
 });
 
+test("stuck encoder ignores SIGTERM then is killed and drained within shutdown budget", async () => {
+  const controller = new AbortController();
+  let pid;
+  const before = performance.now();
+  const pending = run(
+    process.execPath,
+    [
+      "-e",
+      "process.on('SIGTERM',()=>{});process.stdout.write('ready');setInterval(()=>{},1000)",
+    ],
+    {
+      signal: controller.signal,
+      spawnProcess(command, args, options) {
+        const child = spawn(command, args, options);
+        pid = child.pid;
+        child.stdout.once("data", () => controller.abort());
+        return child;
+      },
+    },
+  );
+  await assert.rejects(pending, errorCode("cancelled"));
+  assert.ok(performance.now() - before < 8000);
+  assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
+});
+
 test("three aligned immutable renditions work with optional reviewed captions", async (t) => {
   const f = await fixture(t);
   const manifest = await buildReplayPackage(f.input, f.output, null, {
@@ -171,6 +197,52 @@ test("package inspection rejects missing end, traversal, alignment, file and byt
   await rm(resolve(f.output, "480/not-allowlisted"));
   await writeFile(resolve(f.output, "480/segment00000.ts"), "");
   await assert.rejects(inspect(), errorCode("invalid_output_file"));
+});
+
+test("encoding disk monitor aborts runaway output before all renditions run", async (t) => {
+  const f = await fixture(t);
+  let encodes = 0;
+  const slow = async (command, args, options) => {
+    if (command === "ffprobe") return f.runProcess(command, args, options);
+    encodes++;
+    await writeFile(
+      resolve(args.at(-1), "..", "segment00000.ts"),
+      Buffer.alloc(4_000_001),
+    );
+    await new Promise((_, reject) =>
+      options.signal.addEventListener(
+        "abort",
+        () => reject(options.signal.reason),
+        { once: true },
+      ),
+    );
+    return "";
+  };
+  await assert.rejects(
+    buildReplayPackage(f.input, f.output, null, { runProcess: slow }),
+    errorCode("output_limit"),
+  );
+  assert.equal(encodes, 1);
+});
+
+test("package rejects master injection and corrupted reviewed captions", async (t) => {
+  const f = await fixture(t);
+  const manifest = await buildReplayPackage(f.input, f.output, captions, {
+    runProcess: f.runProcess,
+  });
+  await writeFile(resolve(f.output, "captions.vtt"), "WEBVTT\ncorrupt");
+  await assert.rejects(
+    inspectReplayPackage(f.output, 2, manifest.sourceSha256, captions),
+    errorCode("output_changed"),
+  );
+  await writeFile(
+    resolve(f.output, "master.m3u8"),
+    "#EXTM3U\nhttps://private.invalid/media",
+  );
+  await assert.rejects(
+    inspectReplayPackage(f.output, 2, manifest.sourceSha256, null),
+    errorCode("invalid_master"),
+  );
 });
 
 test("storage pins a bounded source, verifies immutable files, publishes marker last and cleans only its prefix", async (t) => {
@@ -331,6 +403,55 @@ test("source streaming and cleanup reject corrupt size, missing body, foreign pr
     partial.storage.removePackage(packageKey),
     errorCode("cleanup_failed"),
   );
+});
+
+test("cleanup pages repeatedly, bounds deletion work and honors abortion", async () => {
+  const s = replayStorageFixture();
+  const prefix = packageKey.slice(0, -4) + "/hls/";
+  for (let index = 0; index < 1201; index++)
+    s.put(
+      prefix + `240/segment${String(index).padStart(5, "0")}.ts`,
+      "synthetic",
+    );
+  assert.equal(await s.storage.removePackage(packageKey), 1201);
+  assert.equal(
+    s.commands.filter((c) => c.constructor.name === "ListObjectsV2Command")
+      .length,
+    3,
+  );
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(
+    s.storage.removePackage(packageKey, controller.signal),
+    errorCode("cancelled"),
+  );
+  const oversized = replayStorageFixture(async (command) => {
+    if (command.constructor.name === "ListObjectsV2Command")
+      return {
+        Contents: Array.from({ length: 1000 }, (_, index) => ({
+          Key: prefix + `240/segment${String(index).padStart(5, "0")}.ts`,
+        })),
+      };
+  });
+  await assert.rejects(
+    oversized.storage.removePackage(packageKey),
+    errorCode("cleanup_limit"),
+  );
+});
+
+test("poll failure remains bounded and logs fixed queue event", async () => {
+  const f = workerFixture({
+    jobs: {
+      async reconcile() {
+        throw new Error("private database details");
+      },
+    },
+  });
+  f.worker.start();
+  await delay(5);
+  await f.worker.stop();
+  assert.ok(f.calls.includes("replay_queue_failed"));
+  assert.equal(JSON.stringify(f.calls).includes("private"), false);
 });
 
 function workerFixture(overrides = {}) {

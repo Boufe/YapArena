@@ -162,6 +162,13 @@ in 1.823 seconds while parallel validation was running; sampled encoder RSS was 
 trial Node peak 113.42 MiB. A real DB-heartbeat stall drained in 1,515.55 ms against eight
 seconds. Storage in this trial was an explicitly synthetic in-memory adapter.
 
+Final repeat on implementation commit `fae50da641255afda0971e69e69c157a2d8a36a2`
+passed: conversion 0.745 seconds/98.13 MiB sampled encoder RSS, 13 files/3,058,877 bytes,
+96.23 MiB trial Node peak, stalled-heartbeat shutdown 1,515.15 ms. The quality gate
+passed 377 tests with 94.85% lines, 92.18% branches and 94.46% functions. All five
+[CI jobs](https://github.com/Boufe/YapArena/actions/runs/37652828898) passed, including
+both production image variants/scans and PostgreSQL 18.4 integration checks.
+
 The actual Express app trial admitted 500 anonymous leases on one IP across five rooms:
 5,301 HTTP requests including event pages, CSS, auth bootstrap, chat/personal-like reads,
 real synthetic-key JWT generation and repeat media polling. Public delivery had zero
@@ -171,6 +178,11 @@ pool connections peaked at ten. Two independent processes proved lock exclusion 
 SIGKILL recovery (26.6 ms), and forced backend loss discarded its connection. Concurrent
 due clocks with Node time one hour behind advanced each room only once.
 
+The final repeat on that implementation commit passed 5,301 requests at p95 27.03 ms,
+zero public-delivery refusals, preserved protected-write refusal and 26.77 ms process-lock
+recovery. Six real PostgreSQL processing recordings established that failed/unfinished
+inputs on the first five-item page did not prevent the sixth from becoming verified.
+
 The same disposable trial retained the existing multi-context community browser journeys
 and 30-second 500-stream/50-room soak: 300 HTTP writes, 3,000 delivery samples, p95 213 ms,
 reconnect 446 ms, restart 890 ms, peak process RSS 131.41 MiB, final zero streams and slow
@@ -179,6 +191,12 @@ The earlier hosted Free restart result (28.74 seconds) has not been superseded b
 matched paid trial. Raw sanitized logs remain in ignored local trial artifacts; rerun
 the commands for evidence against an exact reviewed commit/hosted image.
 
+The final 30-second community repeat passed 500 streams/50 rooms, 300 writes/3,000 samples,
+p95 264 ms, reconnect 587 ms, restart 889 ms, peak RSS 129.89 MiB/growth 57.67 MiB,
+460 slow-client stress mutations, ten buffer-pressure outcomes and zero final streams.
+Desktop/mobile-emulation chat delivery was 998/1,000 ms, reconnect catch-up 81 ms and
+moderation removal 473 ms. Mobile emulation is not physical-device acceptance.
+
 Hosted acceptance still requires a paid-worker canary using synthetic recordings with
 actual R2 immutable uploads/HEAD checks, private edge delivery, automatic publication,
 restart and removal/renewal. Then measure full-duration encoding, a longer hosted soak,
@@ -186,6 +204,21 @@ browser/acoustic/physical-device behavior and the declared media load. Existing 
 financial, project review/merge and production replay-domain gates remain open.
 
 ## Diagnosis and rollback
+
+For an explicit staging-only storage trial, build first and run:
+
+```sh
+node --env-file=.env.runtime scripts/verify-replay-storage.js
+```
+
+This requires `MEDIA_S3_ENDPOINT`, region/bucket/access/secret settings and
+`MEDIA_REPLAY_EDGE_URL`/`MEDIA_REPLAY_SIGNING_SECRET`. It creates a fresh UUID-scoped
+synthetic source and package, checks real conditional writes, pinned download, immutable
+metadata/length, ready-marker ordering and no-caption delivery through all three edge
+renditions, then deletes only those owned objects. It does not change application DB
+state, deploy anything or establish browser/hosted-worker capacity. On cleanup failure,
+the private temporary directory retains exact owned keys in `cleanup.json` for recovery;
+never delete unrelated prefixes. Do not publish credentials or issued playback URLs.
 
 `yaparena_media_control_total` uses bounded clock/permission/admission outcome labels;
 pool wait and existing delivery metrics remain separate. Encoder logs contain bounded

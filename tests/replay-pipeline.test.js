@@ -435,16 +435,16 @@ test("source streaming and cleanup reject corrupt size, missing body, foreign pr
 test("cleanup pages repeatedly, bounds deletion work and honors abortion", async () => {
   const s = replayStorageFixture();
   const prefix = packageKey.slice(0, -4) + "/hls/";
-  for (let index = 0; index < 1201; index++)
+  for (let index = 0; index < 11_001; index++)
     s.put(
       prefix + `240/segment${String(index).padStart(5, "0")}.ts`,
       "synthetic",
     );
-  assert.equal(await s.storage.removePackage(packageKey), 1201);
+  assert.equal(await s.storage.removePackage(packageKey), 11_001);
   assert.equal(
     s.commands.filter((c) => c.constructor.name === "ListObjectsV2Command")
       .length,
-    3,
+    13,
   );
   const controller = new AbortController();
   controller.abort();

@@ -216,7 +216,9 @@ export function createReplayStorage(
       let deleted = 0;
       // Re-list the first page after deletion. Opaque continuation tokens need
       // not remain valid when the namespace they describe changes underneath.
-      for (let page = 0; page < 12; page++) {
+      // Up to twelve deletion pages (11,001 objects), plus the final empty
+      // listing that proves cleanup completed rather than merely making progress.
+      for (let page = 0; page < 13; page++) {
         checkReplaySignal(signal);
         const result = await client.send(
           new ListObjectsV2Command({

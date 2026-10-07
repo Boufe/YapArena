@@ -5,6 +5,7 @@ services:
     image: ${APP_IMAGE:?Set APP_IMAGE to an immutable ghcr.io image digest}
     environment:
       NODE_ENV: production
+      NODE_OPTIONS: ${NODE_OPTIONS:---max-semi-space-size=4}
       PORT: 3000
       LOG_LEVEL: ${LOG_LEVEL:-info}
       APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN to the public HTTPS origin}
@@ -16,6 +17,9 @@ services:
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
       SESSION_DURATION_MS: ${SESSION_DURATION_MS:-604800000}
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the production PostgreSQL connection string}
+      COMMUNITY_STREAM_ENABLED: ${COMMUNITY_STREAM_ENABLED:-false}
+      COMMUNITY_MAX_STREAMS: ${COMMUNITY_MAX_STREAMS:-500}
+      COMMUNITY_MAX_ROOMS: ${COMMUNITY_MAX_ROOMS:-50}
     ports:
       - "127.0.0.1:${HOST_PORT:-3000}:3000"
     init: true

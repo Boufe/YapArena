@@ -175,6 +175,26 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
   );
   const media = parseMedia(environment, nodeEnvironment);
   const backgroundJobs = environment.RUN_BACKGROUND_JOBS ?? "true";
+  const streamEnabled = environment.COMMUNITY_STREAM_ENABLED ?? "false";
+  if (!["true", "false"].includes(streamEnabled))
+    throw new Error("COMMUNITY_STREAM_ENABLED must be true or false");
+  const communityStream = Object.freeze({
+    enabled: streamEnabled === "true",
+    maxStreams: parseInteger(
+      environment.COMMUNITY_MAX_STREAMS ?? "500",
+      "COMMUNITY_MAX_STREAMS",
+      { minimum: 1, maximum: 10000 },
+    ),
+    maxRooms: parseInteger(
+      environment.COMMUNITY_MAX_ROOMS ?? "50",
+      "COMMUNITY_MAX_ROOMS",
+      { minimum: 1, maximum: 1000 },
+    ),
+    maxConcurrentReads: 4,
+    reconcileMs: 5000,
+    heartbeatMs: 15000,
+    bufferBytes: 65536,
+  });
 
   if (!environments.has(nodeEnvironment)) {
     throw new Error("NODE_ENV must be development, test, or production");
@@ -190,6 +210,10 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is required");
   }
+  if (communityStream.enabled && new URL(databaseUrl).port === "6543")
+    throw new Error(
+      "community LISTEN requires a direct or session-pooler connection",
+    );
   if (
     environment.DATABASE_MIGRATION_URL ||
     environment.DATABASE_ADMIN_URL ||
@@ -237,5 +261,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
     siweRpcUrls,
     media,
     backgroundJobs: backgroundJobs === "true",
+    communityStream,
   });
 }

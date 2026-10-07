@@ -1,5 +1,6 @@
 /* global document, window */
 import { api } from "./community-transport.js";
+import { createCommunityStream } from "./community-stream.js";
 import {
   createChatState,
   compareIds,
@@ -115,14 +116,25 @@ function initEvent(root) {
   let currentLiked = false;
   let oldest = null;
   let signedIn = false;
+  let likeWriting = false;
+  let personalEpoch = 0;
+  let personalRefreshNeeded = true;
   const state = createChatState();
   const localNodes = new Map();
   let cooldownUntil = 0;
   let cooldownTimer;
   let composing = false;
   let recoveredSubmission = null;
-  let initialized = false;
   let syncing = false;
+  let degradedMode = false;
+  let streamHealthy = false;
+  let publicUnavailable = false;
+  let streamEpoch = 0;
+  let resetFence = "0";
+  let summaryRevision = "0";
+  let pollController;
+  let reconciliationTimer;
+  let reconciling = false;
   let loadingOlder = false;
   let retryDelay = 2000;
   let timer;
@@ -132,9 +144,35 @@ function initEvent(root) {
   const rendered = new Map();
   const tracked = new Set();
 
-  async function refreshSummary() {
-    const summary = await api(`/api/community/events/${id}`);
-    count.textContent = `${summary.likes} ${summary.likes === 1 ? "like" : "likes"}`;
+  async function refreshPersonalLike() {
+    if (!signedIn || publicUnavailable || likeWriting) return;
+    const epoch = ++personalEpoch;
+    try {
+      const mine = await api(`/api/community/events/${id}/my-like`);
+      if (epoch !== personalEpoch || publicUnavailable || likeWriting) return;
+      currentLiked = mine.liked;
+      like.setAttribute("aria-pressed", String(currentLiked));
+      like.textContent = currentLiked ? "Remove like" : "Like this event";
+      personalRefreshNeeded = false;
+    } catch {
+      /* Keep the existing personal selection until it can be checked. */
+    }
+  }
+
+  function renderSummary(summary) {
+    if (
+      !summary ||
+      !/^(0|[1-9]\d*)$/.test(String(summary.likes)) ||
+      !["open", "paused"].includes(summary.chatState) ||
+      typeof summary.chatWritable !== "boolean"
+    )
+      throw new Error("Invalid public summary");
+    if (summary.revision && compareIds(summary.revision, summaryRevision) < 0)
+      return;
+    if (summary.revision) summaryRevision = summary.revision;
+    if (status.textContent === "Loading community activity…")
+      setText(status, "");
+    count.textContent = `${summary.likes} ${String(summary.likes) === "1" ? "like" : "likes"}`;
     // Keep drafts and recovery available when chat becomes read-only.
     chatForm.dataset.writable = String(summary.chatWritable);
     updateComposer();
@@ -145,12 +183,42 @@ function initEvent(root) {
           ? "Chat is open during this live event."
           : "Chat is read-only outside the live event.";
     setText(chatState, summaryLabel);
-    if (signedIn) {
-      const mine = await api(`/api/community/events/${id}/my-like`);
-      currentLiked = mine.liked;
-      like.setAttribute("aria-pressed", String(currentLiked));
-      like.textContent = currentLiked ? "Remove like" : "Like this event";
+  }
+
+  async function reconcilePending() {
+    if (!signedIn || reconciling || publicUnavailable) return;
+    const keys = [...state.submissions.values()]
+      .filter(
+        (record) =>
+          !["confirmed", "removed", "rejected", "cooldown"].includes(
+            record.state,
+          ),
+      )
+      .map((record) => record.submission.clientMessageId)
+      .slice(0, 100);
+    if (!keys.length) return;
+    reconciling = true;
+    const finish = state.beginRequest();
+    try {
+      const epoch = streamEpoch;
+      const items = await api(
+        `/api/community/events/${id}/chat/submissions?keys=${keys.join(",")}`,
+      );
+      if (epoch !== streamEpoch || publicUnavailable) {
+        scheduleReconciliation();
+        return;
+      }
+      for (const item of items) insertMessage(item, "reconcile");
+    } catch {
+      /* Uncertainty remains explicit; no automatic send. */
+    } finally {
+      reconciling = false;
+      finish();
     }
+  }
+  function scheduleReconciliation() {
+    window.clearTimeout(reconciliationTimer);
+    reconciliationTimer = window.setTimeout(() => void reconcilePending(), 300);
   }
 
   function readChatPath(path) {
@@ -164,15 +232,19 @@ function initEvent(root) {
     );
     return {
       node,
+      id: node?.dataset.messageId,
       offset: node?.getBoundingClientRect().top - top,
       scrollTop: messages.scrollTop,
     };
   }
 
   function restoreAnchor(anchor) {
-    if (anchor.node?.isConnected)
+    const node = anchor.node?.isConnected
+      ? anchor.node
+      : rendered.get(anchor.id);
+    if (node?.isConnected)
       messages.scrollTop +=
-        anchor.node.getBoundingClientRect().top -
+        node.getBoundingClientRect().top -
         messages.getBoundingClientRect().top -
         anchor.offset;
     else messages.scrollTop = anchor.scrollTop;
@@ -344,7 +416,7 @@ function initEvent(root) {
       if (item.clientMessageId !== record.submission.clientMessageId)
         throw new Error("Invalid acknowledgment; delivery is unconfirmed.");
       insertMessage(item, "post");
-      schedule(0);
+      if (degradedMode) schedule(0);
     } catch (error) {
       if (state.fail(record, attempt, error)) {
         if (error.status === 429 && Number.isFinite(error.retryAfterSeconds)) {
@@ -358,6 +430,7 @@ function initEvent(root) {
         sendStatus.textContent = `${record.state === "unconfirmed" ? "Delivery unconfirmed. The message may have arrived." : record.state === "cooldown" ? "Posting allowance reached." : "Message rejected."} ${error.message} Use the message’s retry or draft recovery actions.`;
       }
     } finally {
+      if (streamHealthy) scheduleReconciliation();
       record.settled = true;
       finishRequest();
     }
@@ -405,6 +478,16 @@ function initEvent(root) {
   }
 
   function insertMessage(item, source = "feed") {
+    if (publicUnavailable) return false;
+    if (
+      source === "post" &&
+      item.streamRevision &&
+      compareIds(item.streamRevision, resetFence) <= 0 &&
+      !state.server.has(item.id)
+    ) {
+      scheduleReconciliation();
+      return false;
+    }
     const result = state.receive(item, source);
     const record = result.record;
     const current = result.item;
@@ -417,7 +500,10 @@ function initEvent(root) {
     let node = pendingNode || serverNode;
     if (pendingNode && serverNode && pendingNode !== serverNode)
       serverNode.remove();
-    if (record && unseenIds.delete(current.id)) {
+    if (
+      (record || current.state === "removed") &&
+      unseenIds.delete(current.id)
+    ) {
       unseenCount = unseenIds.size;
       showNewCount();
     }
@@ -437,6 +523,7 @@ function initEvent(root) {
         );
         messages.insertBefore(node, next || null);
       }
+      if (!node.isConnected) messages.append(node);
       updateMessageNode(node, current, record);
       if (current.state === "visible") {
         const next = Array.from(messages.children).find(
@@ -459,7 +546,7 @@ function initEvent(root) {
           ? "Message accepted earlier and removed by moderation."
           : "Message sent.";
     }
-    return result.inserted;
+    return result.inserted && current.state === "visible";
   }
 
   function updateEmpty() {
@@ -498,26 +585,23 @@ function initEvent(root) {
       first.remove();
     }
     if (!shouldFollow) restoreAnchor(anchor);
+    const hidden = [...tracked].filter((id) => !rendered.has(id));
+    for (const staleId of hidden.slice(
+      0,
+      Math.max(0, hidden.length - 1000 + rendered.size),
+    )) {
+      tracked.delete(staleId);
+      const record = state.server.get(staleId)?.record;
+      if (record?.state === "removed" && record.settled) {
+        localNodes.get(record.submission.clientMessageId)?.remove();
+        localNodes.delete(record.submission.clientMessageId);
+      }
+      state.forget(staleId);
+    }
     oldest =
       Array.from(messages.children).find((node) =>
         rendered.has(node.dataset.messageId),
       )?.dataset.messageId ?? null;
-  }
-
-  async function loadInitialChat() {
-    const finishRequest = state.beginRequest();
-    try {
-      const page = await api(readChatPath(`/api/community/events/${id}/chat`));
-      for (const item of page.items) insertMessage(item, "history");
-      oldest = page.items[0]?.id ?? null;
-      state.advance(page.items);
-      older.hidden = !page.hasMore;
-      updateEmpty();
-      messages.scrollTop = messages.scrollHeight;
-      initialized = true;
-    } finally {
-      finishRequest();
-    }
   }
 
   async function loadOlderChat() {
@@ -526,11 +610,13 @@ function initEvent(root) {
     older.disabled = true;
     const finishRequest = state.beginRequest();
     try {
+      const epoch = streamEpoch;
       const page = await api(
         readChatPath(
           `/api/community/events/${id}/chat?before=${encodeURIComponent(oldest)}`,
         ),
       );
+      if (epoch !== streamEpoch || publicUnavailable) return;
       const anchor = saveAnchor();
       for (const item of page.items) insertMessage(item, "history");
       oldest = page.items[0]?.id ?? oldest;
@@ -547,111 +633,46 @@ function initEvent(root) {
     }
   }
 
-  async function syncChat() {
-    let received = 0;
-    let hasMore = false;
-    const visibleIds = Array.from(rendered.keys());
-    const hiddenIds = Array.from(tracked)
-      .filter((id) => !rendered.has(id))
-      .sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1));
-    const hiddenBudget = Math.max(0, 1000 - visibleIds.length);
-    for (const staleId of hiddenIds.slice(
-      0,
-      Math.max(0, hiddenIds.length - hiddenBudget),
-    )) {
-      tracked.delete(staleId);
-      const record = state.server.get(staleId)?.record;
-      if (record?.state === "removed" && record.settled) {
-        localNodes.get(record.submission.clientMessageId)?.remove();
-        localNodes.delete(record.submission.clientMessageId);
-      }
-      state.forget(staleId);
-    }
-    const watched = [
-      ...visibleIds,
-      ...(hiddenBudget ? hiddenIds.slice(-hiddenBudget) : []),
-    ].sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1));
-    const watchPages = [];
-    for (let index = 0; index < watched.length; index += 200)
-      watchPages.push(watched.slice(index, index + 200));
-    for (let pageNumber = 0; pageNumber < 20; pageNumber += 1) {
-      const watchedIds = watchPages[pageNumber] ?? [];
-      const query = new URLSearchParams({ after: state.cursor });
-      if (watchedIds.length) query.set("watch", watchedIds.join(","));
-      const page = await api(
-        readChatPath(`/api/community/events/${id}/chat/sync?${query}`),
-      );
-      const shouldFollowPage = nearBottom();
-      if (watchedIds.length) {
-        const present = new Set(
-          [...page.watched, ...(page.removed || [])].map((item) => item.id),
-        );
-        const anchor = saveAnchor();
-        for (const watchedId of watchedIds) {
-          if (!present.has(watchedId)) {
-            state.missing(watchedId);
-            const node = rendered.get(watchedId);
-            if (node?.dataset.submissionId)
-              updateLocal(state.server.get(watchedId).record);
-            else node?.remove();
-            rendered.delete(watchedId);
-          }
-        }
-        for (const item of [...(page.removed || []), ...page.watched])
-          insertMessage(item);
-        restoreAnchor(anchor);
-      }
-      let added = 0;
-      for (const item of page.items)
-        if (insertMessage(item)) {
-          added += 1;
-          if (!shouldFollowPage) unseenIds.add(item.id);
-        }
-      received += added;
-      // Confirmation alone must neither scroll nor add an unread message.
-      if (added && shouldFollowPage) messages.scrollTop = messages.scrollHeight;
-      else if (added) unseenCount = unseenIds.size;
-      state.advance(page.items);
-      hasMore = page.hasMore;
-      if (!hasMore && pageNumber + 1 >= watchPages.length) break;
-    }
-    const shouldFollow = nearBottom();
-    trimFeed(shouldFollow);
-    updateEmpty();
-    if (shouldFollow) {
-      messages.scrollTop = messages.scrollHeight;
-      unseenCount = 0;
-      unseenIds.clear();
-    }
-    if (received)
-      chatRoot.querySelector("[data-community-announcement]").textContent =
-        `${received} new chat ${received === 1 ? "message" : "messages"}.`;
-    showNewCount();
-    return hasMore;
-  }
-
   function schedule(delay) {
+    if (!degradedMode || publicUnavailable) return;
     window.clearTimeout(timer);
     timer = window.setTimeout(() => void poll(), delay);
   }
 
   async function poll() {
-    if (syncing) return;
+    if (syncing || !degradedMode || publicUnavailable) return;
+    pollController = new AbortController();
     if (document.visibilityState === "hidden") {
       schedule(2000);
       return;
     }
     syncing = true;
     try {
-      if (!initialized) await loadInitialChat();
-      const hasMore = await syncChat();
-      await refreshSummary();
-      setText(connection, "Live updates on");
+      let more = false;
+      for (let batch = 0; batch < 20; batch++) {
+        const frame = await api(
+          `/api/community/events/${id}/updates${stream.cursor ? `?cursor=${encodeURIComponent(stream.cursor)}` : ""}`,
+          { signal: pollController.signal },
+        );
+        if (!degradedMode || publicUnavailable || pollController.signal.aborted)
+          return;
+        await stream.acceptHttp(frame);
+        more = frame.more;
+        if (!more) break;
+      }
+      await reconcilePending();
+      if (!degradedMode || publicUnavailable) return;
+      setText(connection, "Polling updates on · reconnecting live updates");
       if (status.textContent === "Loading community activity…")
         status.textContent = "Community activity ready.";
       retryDelay = 2000;
-      schedule(hasMore ? 0 : 2000);
+      schedule(more ? 0 : 2000);
     } catch (error) {
+      if (!degradedMode || publicUnavailable) return;
+      if (error.status === 404) {
+        unavailable();
+        return;
+      }
       if (error.status === 401) signedIn = false;
       setText(connection, "Connection interrupted. Reconnecting…");
       schedule(retryDelay);
@@ -661,21 +682,159 @@ function initEvent(root) {
     }
   }
 
+  function unavailable() {
+    publicUnavailable = true;
+    streamEpoch++;
+    pollController?.abort();
+    recoveryController?.abort();
+    window.clearTimeout(timer);
+    window.clearTimeout(reconciliationTimer);
+    messages.replaceChildren(
+      element("li", "Community activity is unavailable."),
+    );
+    rendered.clear();
+    tracked.clear();
+    localNodes.clear();
+    unseenIds.clear();
+    unseenCount = 0;
+    chatForm.dataset.writable = "false";
+    updateComposer();
+    older.hidden = true;
+    newMessages.hidden = true;
+    like.disabled = true;
+    count.textContent = "Unavailable";
+  }
+  let recoveryController;
+  async function recoverWatched(ids, anchor, epoch) {
+    recoveryController?.abort();
+    const controller = new AbortController();
+    recoveryController = controller;
+    const finish = state.beginRequest();
+    try {
+      for (let index = 0; index < ids.length; index += 200) {
+        const page = await api(
+          readChatPath(
+            `/api/community/events/${id}/chat/sync?after=9223372036854775807&watch=${ids.slice(index, index + 200).join(",")}`,
+          ),
+          { signal: controller.signal },
+        );
+        if (epoch !== streamEpoch || publicUnavailable) return;
+        for (const item of [...page.watched, ...(page.removed || [])])
+          insertMessage(item, "recovery");
+        restoreAnchor(anchor);
+        trimFeed(false);
+      }
+    } catch {
+      /* Reset remains redacted; the reader can load current history. */
+    } finally {
+      finish();
+    }
+  }
+  function applyFrame(frame, source) {
+    const snapshot = frame.kind === "snapshot" ? frame.snapshot : null;
+    if (
+      snapshot &&
+      (!Array.isArray(snapshot.items) ||
+        snapshot.items.length > 10 ||
+        typeof snapshot.hasMore !== "boolean")
+    )
+      throw new Error("Invalid snapshot");
+    if (
+      !snapshot &&
+      (!Array.isArray(frame.changes) || frame.changes.length > 10)
+    )
+      throw new Error("Invalid changes");
+    streamEpoch++;
+    const follow = nearBottom();
+    const anchor = saveAnchor();
+    let added = 0;
+    if (snapshot) {
+      renderSummary(snapshot.summary);
+      resetFence = frame.cursor.split(":")[2];
+      const ids = new Set(snapshot.items.map((item) => item.id));
+      const watched = [...rendered.keys()]
+        .filter((serverId) => !ids.has(serverId))
+        .slice(0, 500);
+      for (const [serverId, node] of rendered) {
+        if (!ids.has(serverId)) {
+          state.missing(serverId);
+          node.remove();
+          rendered.delete(serverId);
+        }
+      }
+      for (const item of snapshot.items) insertMessage(item, "stream");
+      oldest = snapshot.items[0]?.id ?? null;
+      older.hidden = !snapshot.hasMore;
+      state.advance(snapshot.items);
+      if (watched.length) void recoverWatched(watched, anchor, streamEpoch);
+    } else {
+      for (const change of frame.changes) {
+        if (!["message", "summary"].includes(change.type))
+          throw new Error("Invalid change");
+        renderSummary(change.summary);
+        if (change.message && insertMessage(change.message, "stream")) {
+          added++;
+          if (!follow) unseenIds.add(change.message.id);
+        }
+      }
+    }
+    trimFeed(follow);
+    updateEmpty();
+    if (follow) messages.scrollTop = messages.scrollHeight;
+    else restoreAnchor(anchor);
+    unseenCount = unseenIds.size;
+    showNewCount();
+    if (added)
+      chatRoot.querySelector("[data-community-announcement]").textContent =
+        `${added} new chat messages.`;
+    streamHealthy = source === "stream";
+    scheduleReconciliation();
+  }
+  const stream = createCommunityStream({
+    room: id,
+    apply: applyFrame,
+    unavailable,
+    status: (label) => {
+      if (label === "Live updates on") {
+        streamHealthy = true;
+        if (personalRefreshNeeded) void refreshPersonalLike();
+      }
+      setText(connection, label);
+    },
+    beforeConnect() {
+      personalRefreshNeeded = true;
+      pollController?.abort();
+      window.clearTimeout(timer);
+    },
+    degraded(active) {
+      const changed = degradedMode !== active;
+      degradedMode = active;
+      if (active) {
+        streamHealthy = false;
+        if (changed) schedule(0);
+      } else {
+        pollController?.abort();
+        window.clearTimeout(timer);
+      }
+    },
+  });
   void api("/api/auth/me")
     .then(() => {
       signedIn = true;
-      return refreshSummary();
+      scheduleReconciliation();
+      return refreshPersonalLike();
     })
     .catch(() => {
       signedIn = false;
       like.title = "Sign in to like this event";
     });
-  void poll();
+  stream.start();
   root
     .querySelector("[data-community-refresh]")
     .addEventListener("click", () => {
       setText(connection, "Checking for messages…");
-      schedule(0);
+      if (degradedMode) schedule(0);
+      else stream.reconnect();
     });
   older.addEventListener("click", () => void loadOlderChat());
   newMessages.addEventListener("click", () => {
@@ -683,9 +842,11 @@ function initEvent(root) {
       const finishRequest = state.beginRequest();
       try {
         if (latestEvicted) {
+          const epoch = streamEpoch;
           const page = await api(
             readChatPath(`/api/community/events/${id}/chat`),
           );
+          if (epoch !== streamEpoch || publicUnavailable) return;
           for (const [serverId, node] of rendered) {
             node.remove();
             tracked.delete(serverId);
@@ -712,11 +873,23 @@ function initEvent(root) {
     })();
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") schedule(0);
+    if (document.visibilityState === "visible") stream.reconnect();
+    else {
+      stream.suspend();
+      pollController?.abort();
+      window.clearTimeout(timer);
+    }
   });
-  window.addEventListener("online", () => schedule(0));
+  window.addEventListener("online", () => stream.reconnect());
+  window.addEventListener("offline", () => stream.reconnect());
+  window.addEventListener("pagehide", () => stream.suspend());
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) stream.reconnect();
+  });
   like.addEventListener("click", () => {
     like.disabled = true;
+    likeWriting = true;
+    personalEpoch++;
     void api(`/api/community/events/${id}/like`, {
       method: currentLiked ? "DELETE" : "PUT",
     })
@@ -724,14 +897,16 @@ function initEvent(root) {
         currentLiked = result.liked;
         like.setAttribute("aria-pressed", String(currentLiked));
         like.textContent = currentLiked ? "Remove like" : "Like this event";
-        count.textContent = `${result.likes} ${result.likes === 1 ? "like" : "likes"}`;
+
         status.textContent = currentLiked ? "Event liked." : "Like removed.";
       })
       .catch((error) => {
         status.textContent = error.message;
       })
       .finally(() => {
-        like.disabled = false;
+        like.disabled = publicUnavailable;
+        likeWriting = false;
+        void refreshPersonalLike();
       });
   });
   root.querySelector("[data-community-share]").addEventListener("click", () => {

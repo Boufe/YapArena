@@ -9,6 +9,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { runner } from "node-pg-migrate";
 import pg from "pg";
 import { chromium } from "playwright-core";
+import { verifyCommunityLoad } from "./verify-community-load.js";
+import { verifyCommunityDelivery } from "./verify-community-delivery.js";
 import { verifyChatClient } from "./verify-chat-client.js";
 import { createCommunityRepository } from "../dist/features/community/repository.js";
 import { provisionDatabase } from "./provision-database.js";
@@ -26,6 +28,7 @@ const quiet = { info() {}, warn() {}, error() {} };
 let started = false;
 let hostDirectory;
 let app;
+let secondary;
 let admin;
 let owner;
 let port;
@@ -188,6 +191,13 @@ try {
     options: "-c search_path=pg_catalog,yaparena,pg_temp",
   });
   try {
+    if (process.env.COMMUNITY_DURABLE_TRIAL === "1")
+      await verifyCommunityDelivery({
+        pool: runtimePool,
+        owner,
+        admin,
+        url: url("yaparena_runtime"),
+      });
     const repository = createCommunityRepository(runtimePool);
     await owner.query(
       "INSERT INTO public_profiles(user_id,handle,display_name,publication_state) VALUES($1,'chat-upgrade-author','Synthetic upgrade author','published')",
@@ -230,31 +240,56 @@ try {
   const httpPort = reservation.address().port;
   await new Promise((resolve) => reservation.close(resolve));
   const base = `http://127.0.0.1:${httpPort}`;
-  app = spawn(process.execPath, ["dist/server.js"], {
-    env: {
-      PATH: process.env.PATH,
-      NODE_ENV: "development",
-      HOST: "127.0.0.1",
-      PORT: String(httpPort),
-      APP_ORIGIN: base,
-      LOG_LEVEL: "silent",
-      DATABASE_URL: url("yaparena_runtime"),
-    },
-    stdio: "ignore",
-  });
-  let ready = false;
-  for (let attempt = 0; attempt < 100; attempt++) {
-    try {
-      if ((await fetch(`${base}/ready`)).ok) {
-        ready = true;
-        break;
+  async function startServer() {
+    app = spawn(process.execPath, ["dist/server.js"], {
+      env: {
+        PATH: process.env.PATH,
+        NODE_ENV: "development",
+        NODE_OPTIONS: "--max-semi-space-size=4",
+        COMMUNITY_STREAM_ENABLED:
+          process.env.COMMUNITY_DURABLE_TRIAL === "1" ? "true" : "false",
+        HOST: "127.0.0.1",
+        PORT: String(httpPort),
+        APP_ORIGIN: base,
+        LOG_LEVEL: "silent",
+        API_RATE_LIMIT:
+          process.env.COMMUNITY_DURABLE_TRIAL === "1" ? "10000" : "300",
+        DATABASE_URL: url("yaparena_runtime"),
+      },
+      stdio: "ignore",
+    });
+    let ready = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      try {
+        if ((await fetch(`${base}/ready`)).ok) {
+          ready = true;
+          break;
+        }
+      } catch {
+        /* Startup is still in progress. */
       }
-    } catch {
-      /* Startup is still in progress. */
+      await delay(100);
     }
-    await delay(100);
+    if (!ready) throw new Error("Runtime application failed readiness");
   }
-  if (!ready) throw new Error("Runtime application failed readiness");
+  async function stopServer() {
+    if (app && app.exitCode === null) {
+      const exited = once(app, "exit");
+      app.kill("SIGTERM");
+      const deadline = setTimeout(() => app.kill("SIGKILL"), 8000);
+      try {
+        await exited;
+      } finally {
+        clearTimeout(deadline);
+      }
+      assert.equal(
+        app.exitCode,
+        0,
+        "graceful stream drain must finish without forced kill",
+      );
+    }
+  }
+  await startServer();
   if (process.env.COMMUNITY_CLIENT_ONLY === "1") {
     const artifactDir =
       process.env.BROWSER_ARTIFACT_DIR ?? `/tmp/${container}-evidence`;
@@ -281,6 +316,7 @@ try {
     await exec(process.execPath, ["scripts/verify-community-browser.js"], {
       env: {
         PATH: process.env.PATH,
+        COMMUNITY_DURABLE_TRIAL: process.env.COMMUNITY_DURABLE_TRIAL ?? "0",
         DATABASE_URL: url("yaparena_owner"),
         BROWSER_BASE_URL: base,
         BROWSER_ARTIFACT_DIR:
@@ -292,8 +328,59 @@ try {
       maxBuffer: 1024 * 1024,
     }).then((result) => process.stdout.write(result.stdout));
   }
+  if (process.env.COMMUNITY_DURABLE_TRIAL === "1") {
+    const secondReservation = createServer();
+    secondReservation.listen(0, "127.0.0.1");
+    await once(secondReservation, "listening");
+    const secondPort = secondReservation.address().port;
+    await new Promise((resolve) => secondReservation.close(resolve));
+    const secondBase = `http://127.0.0.1:${secondPort}`;
+    secondary = spawn(process.execPath, ["dist/server.js"], {
+      env: {
+        PATH: process.env.PATH,
+        NODE_ENV: "development",
+        NODE_OPTIONS: "--max-semi-space-size=4",
+        HOST: "127.0.0.1",
+        PORT: String(secondPort),
+        APP_ORIGIN: secondBase,
+        LOG_LEVEL: "silent",
+        RUN_BACKGROUND_JOBS: "false",
+        COMMUNITY_STREAM_ENABLED: "true",
+        DATABASE_URL: url("yaparena_runtime"),
+      },
+      stdio: "ignore",
+    });
+    let secondReady = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      try {
+        if ((await fetch(`${secondBase}/ready`)).ok) {
+          secondReady = true;
+          break;
+        }
+      } catch {
+        /* Still starting. */
+      }
+      await delay(100);
+    }
+    assert.ok(secondReady, "second runtime process must become ready");
+    await verifyCommunityLoad({
+      owner,
+      base,
+      secondBase,
+      restart: async (during) => {
+        await stopServer();
+        await during();
+        await startServer();
+      },
+    });
+  }
   console.log("Disposable community PostgreSQL/runtime/browser trial PASS");
 } finally {
+  if (secondary && secondary.exitCode === null) {
+    const exited = once(secondary, "exit");
+    secondary.kill("SIGTERM");
+    await exited;
+  }
   if (app && app.exitCode === null) {
     const exited = once(app, "exit");
     app.kill("SIGTERM");

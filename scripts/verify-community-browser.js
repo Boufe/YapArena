@@ -19,11 +19,20 @@ const databaseUrl = new URL(
 );
 if (process.env.BROWSER_DATABASE_PORT)
   databaseUrl.port = process.env.BROWSER_DATABASE_PORT;
-if (!["localhost", "127.0.0.1"].includes(databaseUrl.hostname))
-  throw new Error(
-    "browser verification accepts only a local PostgreSQL database",
-  );
-const pool = new pg.Pool({ connectionString: databaseUrl.toString() });
+const hosted = !["localhost", "127.0.0.1"].includes(databaseUrl.hostname);
+if (hosted) {
+  assert.equal(process.env.BROWSER_HOSTED_SYNTHETIC, "1");
+  assert.equal(base, "https://yaparena-staging-web.onrender.com");
+  assert.equal(databaseUrl.port, "5432");
+  assert.equal(databaseUrl.searchParams.get("sslmode"), "verify-full");
+}
+const pool = new pg.Pool({
+  connectionString: databaseUrl.toString(),
+  max: 2,
+  connectionTimeoutMillis: 10000,
+  query_timeout: 15000,
+  options: "-c search_path=pg_catalog,yaparena,pg_temp",
+});
 const suffix = randomUUID().slice(0, 8);
 const eventId = randomUUID();
 const eventSlug = `community-browser-${suffix}`;
@@ -31,6 +40,7 @@ const accounts = [];
 let topicId;
 let browser;
 const timings = {};
+const connectionReady = /(?:Live|Polling) updates on/;
 
 async function axeViolations(page, selector) {
   await page.evaluate((source) => {
@@ -94,6 +104,11 @@ async function grantModerator(userId) {
 }
 
 try {
+  if (hosted)
+    assert.equal(
+      (await pool.query("SELECT current_user AS identity")).rows[0].identity,
+      "yaparena_owner",
+    );
   const topic = await pool.query(
     `INSERT INTO topics (slug, title, summary, side_a_label, side_b_label, publication_state)
      VALUES ($1, 'Community browser trial', 'Temporary local browser verification', 'For', 'Against', 'published')
@@ -122,7 +137,7 @@ try {
     .waitFor({ state: "visible" });
   const reporter = await register("reporter", true);
   await reporter.page.goto(`${base}/debates/${eventSlug}`);
-  await reporter.page.getByText("Live updates on").waitFor();
+  await reporter.page.getByText(connectionReady).waitFor();
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },
     deviceScaleFactor: 1,
@@ -132,7 +147,7 @@ try {
   });
   const mobilePage = await mobile.newPage();
   await mobilePage.goto(`${base}/debates/${eventSlug}`);
-  await mobilePage.getByText("Live updates on").waitFor();
+  await mobilePage.getByText(connectionReady).waitFor();
   await author.page.locator("[data-community-like]").click();
   try {
     await author.page
@@ -219,6 +234,11 @@ try {
       .inputValue(),
     "Too soon",
   );
+  const desktopConsent = author.page.getByRole("button", {
+    name: "Not now",
+    exact: true,
+  });
+  if (await desktopConsent.isVisible()) await desktopConsent.click();
   await author.page.screenshot({
     path: `${artifactDir}/community-desktop.png`,
     fullPage: true,
@@ -337,6 +357,56 @@ try {
   );
   await author.page.goto(`${base}/debates/${eventSlug}`);
   await author.page.getByText("A useful public comment").waitFor();
+  if (process.env.COMMUNITY_DURABLE_TRIAL === "1") {
+    // The HTTPS write commits, its response is lost, and the live stream plus
+    // authenticated reconciliation must resolve the optimistic row exactly once.
+    await author.page.getByText("Live updates on", { exact: true }).waitFor();
+    await pool.query(
+      "UPDATE event_chat_messages SET created_at=clock_timestamp()-INTERVAL '20 seconds' WHERE debate_id=$1",
+      [eventId],
+    );
+    let lostConfirmation = false;
+    await author.page.route(
+      `**/api/community/events/${eventId}/chat`,
+      async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        const accepted = await route.fetch();
+        assert.equal(accepted.status(), 201);
+        lostConfirmation = true;
+        await route.abort("failed");
+      },
+    );
+    await author.page
+      .locator("[data-community-chat-form] textarea")
+      .fill("Stream resolves lost confirmation");
+    await author.page.locator("[data-community-chat-form] button").click();
+    await mobilePage
+      .getByText("Stream resolves lost confirmation", { exact: true })
+      .waitFor();
+    await author.page
+      .locator("[data-message-id]")
+      .filter({ hasText: "Stream resolves lost confirmation" })
+      .waitFor();
+    assert.equal(lostConfirmation, true);
+    await author.page.waitForFunction(
+      () =>
+        [...document.querySelectorAll(".community-message-body")].filter(
+          (node) => node.textContent === "Stream resolves lost confirmation",
+        ).length === 1,
+    );
+    assert.equal(
+      await author.page
+        .getByText("Stream resolves lost confirmation", { exact: true })
+        .count(),
+      1,
+    );
+    const accepted = await pool.query(
+      "SELECT count(*)::int AS count FROM event_chat_messages WHERE debate_id=$1 AND body=$2",
+      [eventId, "Stream resolves lost confirmation"],
+    );
+    assert.equal(accepted.rows[0].count, 1);
+    await author.page.unroute(`**/api/community/events/${eventId}/chat`);
+  }
   const overflow = await mobilePage.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,
   );
@@ -356,6 +426,11 @@ try {
       touchTargets.every((target) => target.width >= 44 && target.height >= 44),
     "mobile emulation uses 44px message actions",
   );
+  const mobileConsent = mobilePage.getByRole("button", {
+    name: "Not now",
+    exact: true,
+  });
+  if (await mobileConsent.isVisible()) await mobileConsent.click();
   await mobilePage.screenshot({
     path: `${artifactDir}/community-mobile.png`,
     fullPage: true,
@@ -418,6 +493,51 @@ try {
     await archivePage.getByText("Backlog 1", { exact: true }).count(),
     1,
   );
+  let stalePage;
+  let releaseHistory;
+  let historyCaptured;
+  let staleMessageId;
+  if (process.env.COMMUNITY_DURABLE_TRIAL === "1") {
+    const staleContext = await browser.newContext({ bypassCSP: true });
+    stalePage = await staleContext.newPage();
+    await stalePage.addInitScript(() => {
+      window.__communityTrialFrames = [];
+      const NativeEventSource = window.EventSource;
+      window.EventSource = class extends NativeEventSource {
+        constructor(...args) {
+          super(...args);
+          this.addEventListener("community", (event) => {
+            window.__communityTrialFrames.push(JSON.parse(event.data));
+          });
+        }
+      };
+    });
+    await stalePage.goto(`${base}/debates/${eventSlug}`);
+    await stalePage.getByText("Live updates on", { exact: true }).waitFor();
+    const captured = new Promise((resolve) => {
+      historyCaptured = resolve;
+    });
+    const release = new Promise((resolve) => {
+      releaseHistory = resolve;
+    });
+    await stalePage.route(
+      `**/api/community/events/${eventId}/chat?before=*`,
+      async (route) => {
+        const response = await route.fetch();
+        const body = await response.json();
+        assert.ok(
+          body.items.some((m) => m.body === "Backlog 1"),
+          "held history contains pre-removal content",
+        );
+        staleMessageId = body.items.find((m) => m.body === "Backlog 1").id;
+        historyCaptured();
+        await release;
+        await route.fulfill({ response });
+      },
+    );
+    await stalePage.locator("[data-community-older]").click();
+    await captured;
+  }
   const oldMessage = reporter.page
     .locator("[data-community-messages] [data-message-id]")
     .filter({ hasText: "Backlog 1" })
@@ -442,6 +562,74 @@ try {
     .getByText("Backlog 1", { exact: true })
     .waitFor({ state: "hidden" });
   timings.moderationRemovalMs = Math.round(performance.now() - removalAt);
+  if (stalePage) {
+    await stalePage.waitForFunction(
+      (id) =>
+        window.__communityTrialFrames.some((frame) =>
+          frame.changes?.some(
+            (change) =>
+              change.message?.id === id &&
+              change.message.state === "removed" &&
+              change.message.body === null,
+          ),
+        ),
+      staleMessageId,
+    );
+    releaseHistory();
+    await stalePage.locator("[data-community-older]:enabled").waitFor();
+    assert.equal(
+      await stalePage.getByText("Backlog 1", { exact: true }).count(),
+      0,
+    );
+    await stalePage.unroute(`**/api/community/events/${eventId}/chat?before=*`);
+    await stalePage.locator("[data-community-older]").click();
+    await stalePage.getByText("Backlog 2", { exact: true }).waitFor();
+    assert.equal(
+      await stalePage.getByText("Backlog 1", { exact: true }).count(),
+      0,
+    );
+    timings.healthyStreamHttpRaces =
+      "PASS: lost confirmation and delayed pre-removal history";
+  }
+  if (process.env.COMMUNITY_DURABLE_TRIAL === "1") {
+    await reporter.page.getByText("Live updates on", { exact: true }).waitFor();
+    await archivePage.getByText("Live updates on", { exact: true }).waitFor();
+    await archivePage
+      .locator("[data-community-chat-form] textarea")
+      .fill("Draft survives event ending");
+    await pool.query(
+      "UPDATE debates SET status='ended',live_ended_at=clock_timestamp() WHERE id=$1",
+      [eventId],
+    );
+    await archivePage
+      .locator('[data-community-chat-form] button[type="submit"]:disabled')
+      .waitFor();
+    assert.equal(
+      await archivePage
+        .locator("[data-community-chat-form] textarea")
+        .inputValue(),
+      "Draft survives event ending",
+    );
+    assert.equal(
+      await reporter.page
+        .getByText("After history load", { exact: true })
+        .count(),
+      1,
+    );
+    await pool.query(
+      "UPDATE topics SET publication_state='draft' WHERE id=$1",
+      [topicId],
+    );
+    await archivePage
+      .getByText("This event is no longer public.", { exact: true })
+      .waitFor();
+    assert.equal(await archivePage.locator("[data-message-id]").count(), 0);
+    await pool.query(
+      "UPDATE topics SET publication_state='published' WHERE id=$1",
+      [topicId],
+    );
+    await pool.query("UPDATE debates SET status='live' WHERE id=$1", [eventId]);
+  }
   const overlay = await mobilePage.goto(`${base}/overlay/${eventSlug}`);
   assert.equal(overlay.status(), 200);
   assert.equal(

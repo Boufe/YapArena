@@ -24,6 +24,7 @@
 
 FROM base AS production
 ENV NODE_ENV=production
+ENV NODE_OPTIONS="--max-semi-space-size=4"
 RUN rm -rf /usr/local/lib/node_modules/npm \
     /usr/local/lib/node_modules/corepack \
     /opt/yarn-v1.22.22 && \

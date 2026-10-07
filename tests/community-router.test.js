@@ -33,6 +33,7 @@ function fixture({
   failure,
   hidden = false,
   apiRateLimit,
+  streams,
 } = {}) {
   const calls = [];
   const community = {
@@ -49,6 +50,14 @@ function fixture({
         chatState: "open",
         chatWritable: true,
       };
+    },
+    publicUpdates: async (id, cursor) => {
+      calls.push(["updates", id, cursor]);
+      return { version: 1, roomId: id, kind: "snapshot" };
+    },
+    reconcileSubmissions: async (id, userId, keys) => {
+      calls.push(["submissions", id, userId, keys]);
+      return [];
     },
     listChat: async (id, before) => {
       calls.push(["listChat", id, before]);
@@ -116,6 +125,7 @@ function fixture({
   };
   const app = createApp({
     community,
+    communityStreams: streams,
     identity: { getRoles: async () => roles },
     sessions: {
       findUserByTokenHash: async () =>
@@ -134,6 +144,71 @@ function fixture({
 }
 
 describe("community API and share surfaces", () => {
+  it("serves public durable recovery and validates private owner reconciliation", async () => {
+    const { app, auth, calls } = fixture();
+    await request(app)
+      .get(`/api/community/events/${eventId}/updates`)
+      .expect(200);
+    assert.deepEqual(calls.at(-1), ["updates", eventId, null]);
+    await request(app)
+      .get(
+        `/api/community/events/${eventId}/updates?cursor=${encodeURIComponent(`v1:${eventId}:9007199254740993`)}`,
+      )
+      .expect(200);
+    assert.equal(calls.at(-1)[2], "9007199254740993");
+    await request(app)
+      .get(`/api/community/events/${eventId}/updates?cursor=v1:other:1`)
+      .expect(400);
+    await request(app).get(`/api/community/events/bad/updates`).expect(404);
+    await request(app)
+      .get(`/api/community/events/${eventId}/chat/submissions?keys=bad`)
+      .expect(401);
+    await auth(
+      "get",
+      `/api/community/events/${eventId}/chat/submissions?keys=bad`,
+    ).expect(400);
+    const key = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    await auth(
+      "get",
+      `/api/community/events/${eventId}/chat/submissions?keys=${key}`,
+    ).expect(200);
+    assert.deepEqual(calls.at(-1), ["submissions", eventId, "7", [key]]);
+  });
+  it("admits anonymous streams with room-scoped recovery and origin checks", async () => {
+    const calls = [];
+    const { app } = fixture({
+      signedIn: false,
+      streams: {
+        subscribe(id, cursor, ip, response) {
+          calls.push({ id, cursor, ip });
+          response.status(200).end();
+        },
+      },
+    });
+    const path = `/api/community/events/${eventId}/stream`;
+    await request(app)
+      .get(path)
+      .set("Last-Event-ID", `v1:${eventId}:9`)
+      .expect(200);
+    assert.equal(calls.at(-1).cursor, "9");
+    await request(app)
+      .get(`${path}?cursor=${encodeURIComponent(`v1:${eventId}:8`)}`)
+      .set("Last-Event-ID", `v1:${eventId}:9`)
+      .expect(200);
+    assert.equal(calls.at(-1).cursor, "8");
+    await request(app).get(`${path}?cursor=bad`).expect(400);
+    await request(app).get(`${path}?cursor=a&cursor=b`).expect(400);
+    await request(app)
+      .get(path)
+      .set("Origin", "https://other.example")
+      .expect(403);
+    await request(app)
+      .get(path)
+      .set("Sec-Fetch-Site", "cross-site")
+      .expect(403);
+    await request(app).get("/api/community/events/bad/stream").expect(404);
+    await request(fixture().app).get(path).expect(503);
+  });
   it("lets guests read chat and engagement but keeps mutations and case data private", async () => {
     const { app } = fixture({ signedIn: false });
     assert.equal(

@@ -93,6 +93,12 @@ jobs:
       - name: Verify database isolation with fresh and upgraded schemas
         run: npm run verify:database-isolation
 
+      - name: Verify durable community transactions, fanout, recovery and browsers
+        env:
+          BROWSER_CHROME_PATH: /usr/bin/google-chrome
+          COMMUNITY_SOAK_SECONDS: "30"
+        run: npm run verify:community-delivery
+
       - name: Provision separate database identities
         run: docker compose --profile release run --rm --build provision
 

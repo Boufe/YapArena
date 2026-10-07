@@ -5,6 +5,35 @@ import { loadConfig } from "../dist/platform/config.js";
 
 describe("configuration", () => {
   const databaseUrl = "postgresql://user:password@localhost:5432/database";
+  const communityStream = {
+    enabled: false,
+    maxStreams: 500,
+    maxRooms: 50,
+    maxConcurrentReads: 4,
+    reconcileMs: 5000,
+    heartbeatMs: 15000,
+    bufferBytes: 65536,
+  };
+  it("requires session-compatible streaming credentials and bounded capacities", () => {
+    const value = loadConfig({
+      DATABASE_URL: databaseUrl,
+      COMMUNITY_STREAM_ENABLED: "true",
+      COMMUNITY_MAX_STREAMS: "100",
+      COMMUNITY_MAX_ROOMS: "10",
+    });
+    assert.equal(value.communityStream.enabled, true);
+    assert.equal(value.communityStream.maxStreams, 100);
+    for (const env of [
+      { COMMUNITY_STREAM_ENABLED: "yes" },
+      { COMMUNITY_MAX_STREAMS: "0" },
+      { COMMUNITY_MAX_ROOMS: "1001" },
+      {
+        COMMUNITY_STREAM_ENABLED: "true",
+        DATABASE_URL: databaseUrl.replace("5432", "6543"),
+      },
+    ])
+      assert.throws(() => loadConfig({ DATABASE_URL: databaseUrl, ...env }));
+  });
 
   it("provides safe development defaults", () => {
     assert.deepEqual(loadConfig({ DATABASE_URL: databaseUrl }), {
@@ -23,6 +52,7 @@ describe("configuration", () => {
       siweRpcUrls: {},
       media: undefined,
       backgroundJobs: true,
+      communityStream,
     });
   });
 
@@ -58,6 +88,7 @@ describe("configuration", () => {
         siweRpcUrls: {},
         media: undefined,
         backgroundJobs: true,
+        communityStream,
       },
     );
   });

@@ -19,7 +19,8 @@
     "verify:database-isolation": "npm run build && node scripts/verify-database-isolation.js",
     "inventory:database": "node scripts/inventory-database.js",
     "seed:discovery": "node --env-file-if-exists=.env scripts/seed-discovery.js",
-    "initialize": "node scripts/initialize-project.js"
+    "initialize": "node scripts/initialize-project.js",
+    "verify:community-delivery": "npm run build && COMMUNITY_DURABLE_TRIAL=1 node scripts/verify-community-local.js"
   },
   "keywords": [],
   "author": "",

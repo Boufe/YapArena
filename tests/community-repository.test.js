@@ -73,6 +73,7 @@ function fake(options = {}) {
   const value = (key, fallback) => (key in options ? options[key] : fallback);
   const result = async (sql, parameters = []) => {
     queries.push([sql, parameters]);
+    if (sql.includes(") candidates")) return rows([{ id: eventId }]);
     if (
       ["BEGIN", "COMMIT", "ROLLBACK"].includes(sql) ||
       sql.includes("pg_advisory_xact_lock")
@@ -105,6 +106,8 @@ function fake(options = {}) {
         },
       ]);
     if (sql.includes("m.client_message_id = $3"))
+      return rows(value("accepted", []));
+    if (sql.includes("m.client_message_id=ANY($3::uuid[])"))
       return rows(value("accepted", []));
     if (sql.includes("m.id > $2") && sql.includes("FROM event_chat_messages m"))
       return rows(value("newChatRows", [chat]));
@@ -209,6 +212,22 @@ function fake(options = {}) {
 }
 
 describe("community repository policy", () => {
+  it("reconciles only the authenticated sender's accepted keys and redacts removal", async () => {
+    const db = fake({ accepted: [{ ...chat, state: "removed" }] });
+    const items = await db.community.reconcileSubmissions(eventId, "1", [
+      chat.clientMessageId,
+    ]);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].clientMessageId, chat.clientMessageId);
+    assert.equal(items[0].body, null);
+    assert.equal("authorUserId" in items[0], false);
+    const query = db.queries.find(([sql]) =>
+      sql.includes("m.client_message_id=ANY($3::uuid[])"),
+    );
+    assert.deepEqual(query[1], [eventId, "1", [chat.clientMessageId]]);
+    assert.ok(db.queries[0][0].includes("REPEATABLE READ READ ONLY"));
+    assert.equal(db.queries.at(-1)[0], "COMMIT");
+  });
   it("exposes only published event fields, visible chat, and a bounded cursor", async () => {
     const { community, queries } = fake({
       chatRows: Array.from({ length: 51 }, (_, index) => ({

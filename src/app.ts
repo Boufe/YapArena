@@ -11,6 +11,7 @@ import type { createMatchingRepository } from "./features/matching/repository.ts
 import type { createMediaRepository } from "./features/media/repository.ts";
 import type { createMediaProvider } from "./features/media/provider.ts";
 import type { createCommunityRepository } from "./features/community/repository.ts";
+import type { createCommunityStreams } from "./features/community/streams.ts";
 import type { createMeasurementRepository } from "./features/measurement/repository.ts";
 import type { createUserRepository } from "./platform/auth/users.ts";
 import type { createSessionRepository } from "./platform/auth/sessions.ts";
@@ -77,6 +78,7 @@ export function createApp({
   media,
   mediaProvider,
   community,
+  communityStreams,
   measurement,
   users,
   sessions,
@@ -100,6 +102,10 @@ export function createApp({
   media?: ReturnType<typeof createMediaRepository>;
   mediaProvider?: ReturnType<typeof createMediaProvider>;
   community?: ReturnType<typeof createCommunityRepository>;
+  communityStreams?: Pick<
+    ReturnType<typeof createCommunityStreams>,
+    "subscribe"
+  >;
   measurement?: ReturnType<typeof createMeasurementRepository>;
   users: ReturnType<typeof createUserRepository>;
   sessions: ReturnType<typeof createSessionRepository>;
@@ -144,21 +150,24 @@ export function createApp({
   );
   const liveRead = (request: Request) =>
     request.method === "GET" &&
-    /^\/api\/(?:media\/events\/[0-9a-f-]{36}|community\/events\/[0-9a-f-]{36}(?:\/my-like|\/chat\/sync)?)$/i.test(
+    /^\/api\/(?:media\/events\/[0-9a-f-]{36}|community\/events\/[0-9a-f-]{36}(?:\/my-like|\/chat\/sync|\/updates)?)$/i.test(
       request.path,
     );
+  const streamRead = (request: Request) =>
+    request.method === "GET" &&
+    /^\/api\/community\/events\/[^/]+\/stream$/.test(request.path);
   app.use(
     createApiRateLimiter({
       windowMs: 60_000,
       limit: 600,
-      skip: (request) => !liveRead(request),
+      skip: (request) => !liveRead(request) || streamRead(request),
     }),
   );
   app.use(
     createApiRateLimiter({
       windowMs: rateLimitWindowMs,
       limit: apiRateLimit,
-      skip: liveRead,
+      skip: (request) => liveRead(request) || streamRead(request),
     }),
   );
   if (media && mediaProvider) {
@@ -266,6 +275,7 @@ export function createApp({
         requireAuth: createRequireAuthentication({ sessions, environment }),
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",
         recordProductAction,
+        streams: communityStreams,
       }),
     );
   }

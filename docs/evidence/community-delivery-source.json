@@ -1,0 +1,43 @@
+{
+  "at": "2026-10-07T02:25:19.441147+00:00",
+  "baseCommit": "bc3e92f42aa067c08e4834301a99602323db395a",
+  "branch": "coordination/preserved-shared-work",
+  "dirtyWorkingTree": true,
+  "node": "24.19.0",
+  "postgres": "17.10 Homebrew, disposable SCRAM clusters",
+  "browser": "Chrome 154.0.8037.98, headless desktop and phone emulation",
+  "webNodeOptions": "--max-semi-space-size=4",
+  "files": {
+    "migrations/1791335211412_durable-community-delivery.js": "e437717c42ad3a655149e53c4389e970e49f58ca24814be832d31a3399baaa2b",
+    "src/platform/sse.ts": "d02e640e1861a27a68b3bc048bbd1095e0dec783e43d966b4a5e5c394083bf93",
+    "src/platform/room-fanout.ts": "87d7c8cf969d7890387f3c43cc7cefc078b14e0621c55bf96a1208b3cf2ce70d",
+    "src/platform/pg-listener.ts": "93e48137550d59e8d18d91334f0a010524f5bde3c07bf991469c40182ee36b95",
+    "src/features/community/delivery.ts": "aec66debace0c23aa91407dab7f8f16430a776312bb0fb3aaebfe4a982bf4bc4",
+    "src/features/community/streams.ts": "677a9d5354d52538efb747b96a49dce0e04c72b190f706f203653c318e04a9f4",
+    "src/features/community/repository.ts": "574eb1b0e1996535e9dd73547ec3ac9c61422d8de7069085a25998ac5a71ceae",
+    "src/features/community/router.ts": "2b27fd850aebee500a7b28455f195c35105a5b0f0b2ce097dac9d446c45ee2db",
+    "src/platform/config.ts": "2aa04e6e4a5950604229cc98dc109c891d07c6741d4493a7956add89d2cd87d4",
+    "src/platform/database.ts": "f460c31c842d08f0428d2b2f2c00955df69dd786336fd0259993437569cfc3b3",
+    "src/platform/metrics.ts": "4cecce9eff2dd48f462be0370a2ea6a650bf8fcc545acd90813d9efe72e5eae4",
+    "src/platform/logger.ts": "797ec0f79481af8730a945d84ab034369845d4fdd9ad6634abd52b5e235ac80f",
+    "src/platform/runtime.ts": "a81bbfa2cd0320f6d9d15a22da26cdb593dfe37a397cf0a6075577c5874ad8f0",
+    "src/server.ts": "468134b91554a18df2c27ee3da797436996ce99c88adf04df40175fb375e8069",
+    "src/app.ts": "1502b948bad5dcf98b3b60f10711a3139aecaf998c5e28240c9e29bcdd6c0a67",
+    "public/community.js": "dcd2d3cc4140ba1e97a33584e8619baa6b0f5aa5363baf0b578833807525de3c",
+    "public/community-state.js": "445396e2cb9287c8f1ab3f7e0847bef2a47d64267e8ef85078417ffd9cfa453a",
+    "public/community-stream.js": "ec896ce4a8ba6a95b5d0e1e5a3c71168852c6d6181ba37f7d1df6404691e3c7e",
+    "public/community-transport.js": "cdf97741d8879f41df1675bd68e199f9ab08604ab884847d71d48455c6fd9dc1",
+    "scripts/verify-community-delivery.js": "91b790e9771fabf00460d314a23f41126c97c20caa9ac0137b54029749176989",
+    "scripts/verify-community-load.js": "295ff4912b83ff09bd92b0df6f68c85688af79e51280e2a9e9241901b0b9e670",
+    "scripts/verify-community-local.js": "7a3c6f75c533b4a1cc610bccc8d45ae99584538f144be5ed199a4fd2f627e0f3",
+    "scripts/verify-community-browser.js": "5cb7c8ad214210e5a08ec6069787f5862d2cbe2d99c9eb19352abcb2aa16008f",
+    "scripts/verify-community-edge.js": "df439f2c574f7bf97cceb485d57b704c2a2c961527ef77bc6afb24801834a0f8",
+    "scripts/verify-database-isolation.js": "7c7619ec126f4056f006ee0c85c5ea47e772f8e2db9657e58ce5eeeee2797c9d",
+    "tests/community-sse.test.js": "c5a60da6a0aac84abed968f4b3691fa4184d8e3e94516a7d17f7a2e43121a137"
+  },
+  "validationNote": "Final client/source validated by the ten-second full browser rerun. Five-minute server capacity preceded only a loading-label correction and screenshot consent dismissal.",
+  "fiveMinuteSourceExceptions": {
+    "public/community.js": "2dad7941f1215b61ce16e7a16e7eb00a63043bf04bb26c61045071f78d05ef70",
+    "scripts/verify-community-browser.js": "6ed4e3379ef16aee7e8096172723b9fedceb5d2b4a61e5c0a967c525dc83fac4"
+  }
+}

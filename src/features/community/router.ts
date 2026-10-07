@@ -16,6 +16,8 @@ import {
 import { createRequireRole } from "../identity/router.ts";
 import { renderModeration, renderMyModeration, renderOverlay } from "./web.ts";
 import type { ProductActionRecorder } from "../measurement/router.ts";
+import type { createCommunityStreams } from "./streams.ts";
+import { parseRoomCursor } from "./delivery.ts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const submissionUuid =
@@ -96,12 +98,14 @@ export function createCommunityRouter({
   requireAuth,
   applicationOrigin,
   recordProductAction,
+  streams,
 }: {
   community: ReturnType<typeof createCommunityRepository>;
   identity: Pick<ReturnType<typeof createIdentityRepository>, "getRoles">;
   requireAuth: RequestHandler;
   applicationOrigin: string;
   recordProductAction?: ProductActionRecorder;
+  streams?: Pick<ReturnType<typeof createCommunityStreams>, "subscribe">;
 }) {
   const router = Router();
   const participant = createRequireRole(identity, ["participant"]);
@@ -151,6 +155,41 @@ export function createCommunityRouter({
     const id = pathId(request);
     if (!id) return response.status(404).json({ error: "event not found" });
     return attempt(response, () => community.summary(id));
+  });
+  router.get("/api/community/events/:id/stream", (request, response) => {
+    const id = pathId(request)?.toLowerCase();
+    if (!id) return response.status(404).end();
+    if (
+      (request.headers.origin && request.headers.origin !== origin) ||
+      request.headers["sec-fetch-site"] === "cross-site"
+    )
+      return response.status(403).end();
+    if (!streams)
+      return response
+        .set("Retry-After", "30")
+        .status(503)
+        .json({ error: "community stream is disabled" });
+    try {
+      // Explicit application cursor wins over EventSource's received-but-unapplied ID.
+      const cursor = parseRoomCursor(
+        id,
+        request.query.cursor ?? request.headers["last-event-id"],
+      );
+      return streams.subscribe(id, cursor, request.ip ?? "unknown", response);
+    } catch {
+      return response.status(400).json({ error: "invalid room cursor" });
+    }
+  });
+  router.get("/api/community/events/:id/updates", async (request, response) => {
+    const id = pathId(request)?.toLowerCase();
+    if (!id) return response.status(404).json({ error: "event not found" });
+    let cursor: string | null;
+    try {
+      cursor = parseRoomCursor(id, request.query.cursor);
+    } catch {
+      return response.status(400).json({ error: "invalid room cursor" });
+    }
+    return attempt(response, () => community.publicUpdates(id, cursor));
   });
   router.get(
     "/api/community/events/:id/chat",
@@ -203,6 +242,27 @@ export function createCommunityRouter({
       const id = pathId(request);
       if (!id) return response.status(404).json({ error: "event not found" });
       return attempt(response, () => community.summary(id, request.user!.id));
+    },
+  );
+  router.get(
+    "/api/community/events/:id/chat/submissions",
+    requireAuth,
+    async (request, response) => {
+      const id = pathId(request);
+      const keys =
+        typeof request.query.keys === "string"
+          ? request.query.keys.split(",")
+          : [];
+      if (
+        !id ||
+        !keys.length ||
+        keys.length > 100 ||
+        !keys.every((key) => submissionUuid.test(key))
+      )
+        return response.status(400).json({ error: "invalid submission keys" });
+      return attempt(response, () =>
+        community.reconcileSubmissions(id, request.user!.id, keys),
+      );
     },
   );
   router.post(

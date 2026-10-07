@@ -3,7 +3,11 @@ import type { Logger } from "pino";
 
 const { Pool } = pg;
 
-export function createDatabase(connectionString: string, logger: Logger) {
+export function createDatabase(
+  connectionString: string,
+  logger: Logger,
+  observeWait?: (seconds: number) => void,
+) {
   const database = new Pool({
     connectionString,
     max: 10,
@@ -15,6 +19,28 @@ export function createDatabase(connectionString: string, logger: Logger) {
   database.on("error", (error) => {
     logger.error({ error }, "idle database connection failed");
   });
+  if (observeWait) {
+    const acquire = database.connect.bind(database);
+    // pg's own query path also calls connect with a callback.
+    database.connect = ((
+      callback?: (
+        error: Error | undefined,
+        client: pg.PoolClient | undefined,
+        release: (err?: Error | boolean) => void,
+      ) => void,
+    ) => {
+      const start = performance.now();
+      if (callback)
+        return acquire((error, client, release) => {
+          observeWait((performance.now() - start) / 1000);
+          callback(error, client, release);
+        });
+      return acquire().then((client) => {
+        observeWait((performance.now() - start) / 1000);
+        return client;
+      });
+    }) as typeof database.connect;
+  }
 
   return database;
 }

@@ -58,7 +58,10 @@ export function createHttpLogger(logger: Logger) {
         return (
           request.url === "/health" ||
           request.url === "/ready" ||
-          request.url === "/metrics"
+          request.url === "/metrics" ||
+          /^\/api\/community\/events\/[^/]+\/(?:stream|chat\/submissions)(?:\?|$)/.test(
+            request.url ?? "",
+          )
         );
       },
     },

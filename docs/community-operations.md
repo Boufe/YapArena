@@ -90,6 +90,13 @@ Connection messages announce changes once, and feed announcements report brief n
 
 ## Participant and moderator journeys
 
+The feature-gated durable transport, protocol, lock order and rollout procedure are documented in
+[Durable public community delivery](community-delivery.md). With the flag enabled, a page uses one
+public stream, HTTP history pagination and private pending/own-like reconciliation. HTTP polling
+runs only during degraded delivery. With the flag disabled, new pages use bounded durable HTTP
+updates. The stream reference log has its own seven-day retention; it does not change the chat or
+moderation evidence policies below.
+
 1. Open a published event page. Guests can read visible chat, copy the canonical event link,
    open its QR code, and load `/overlay/<event-slug>` for a basic broadcast title card. The
    overlay contains no likes, chat counts, score, sponsor, hidden tally, or result.
@@ -98,7 +105,7 @@ Connection messages announce changes once, and feed announcements report brief n
    these as visible interest, not official support. A guest or restricted account sees a clear
    sign-in or restriction error for writes. Chat becomes read-only when the event leaves `live`.
    The feed sits beside the watch view on desktop and directly below it on mobile. New messages
-   are checked every two seconds while the page is visible. The client keeps an ordered cursor,
+   arrive through the enabled public stream, with two-second durable polling during degraded operation. The client keeps an ordered room cursor,
    drains missed pages after reconnect, avoids duplicate IDs, and preserves the reader's scroll
    position until they choose **Jump to latest**. A submitted message appears immediately with its delivery state. The composer
    remains editable; uncertain or rejected submissions offer explicit unchanged retry and draft
@@ -152,6 +159,11 @@ after starting PostgreSQL and applying migrations, run `node scripts/verify-comm
 the local `DATABASE_URL` set. The exercise creates and removes synthetic users and a synthetic
 event. It checks concurrent posts and likes, report limits, removal, preserved private evidence,
 restriction, pause/resume, appeal independence, and no change to event status or rule snapshot.
+
+Run `npm run verify:community-delivery` for disposable real PostgreSQL transactions, LISTEN recovery,
+multi-viewer browser races and the five-minute 500-viewer soak. CI runs a 30-second smoke soak.
+The [delivery guide](community-delivery.md#repeatable-validation-and-hosted-procedure) describes
+Docker and host-PostgreSQL modes and hosted checks; local success alone does not authorize rollout.
 
 A self-contained synthetic trial builds on separate owner/runtime logins and verifies an existing
 keyless row through the new migration, eight concurrent identical submissions, competing payloads,

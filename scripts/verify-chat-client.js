@@ -15,6 +15,10 @@ export async function verifyChatClient({
     bypassCSP: true,
     viewport: { width: 1280, height: 900 },
   });
+  // This deterministic prerequisite fixture intentionally exercises degraded polling.
+  await context.route(`**/api/community/events/${eventId}/stream*`, (route) =>
+    route.abort(),
+  );
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -22,6 +26,37 @@ export async function verifyChatClient({
   const feed = [];
   const posts = [];
   const cursors = [];
+  let nextCursor = 0n;
+  const log = [];
+  const versions = new Map();
+  function capture() {
+    for (const item of feed) {
+      const fingerprint = `${item.state}:${item.revision}:${item.body}`;
+      if (versions.get(item.id)?.fingerprint !== fingerprint) {
+        const cursor = String(++nextCursor);
+        versions.set(item.id, { fingerprint, cursor });
+        log.push({ cursor, id: item.id });
+      }
+    }
+  }
+  function publicItem(item) {
+    return {
+      ...item,
+      body: item.state === "removed" ? null : item.body,
+      clientMessageId: null,
+      streamRevision: versions.get(item.id)?.cursor ?? "0",
+    };
+  }
+  function summary() {
+    return {
+      likes: "0",
+      chatState: "open",
+      chatWritable: true,
+      eventStatus: "live",
+      revision: String(nextCursor),
+    };
+  }
+
   let disconnected = false;
   function message(body, clientMessageId = null) {
     const item = {
@@ -69,8 +104,67 @@ export async function verifyChatClient({
         });
       return;
     }
-    if (disconnected && url.pathname.includes("/chat"))
+    if (url.pathname.endsWith("/stream")) return route.abort();
+    if (
+      disconnected &&
+      (url.pathname.includes("/chat") || url.pathname.endsWith("/updates"))
+    )
       return route.abort("internetdisconnected");
+    if (url.pathname.endsWith("/updates")) {
+      capture();
+      const raw = url.searchParams.get("cursor");
+      const after = raw ? BigInt(raw.split(":")[2]) : null;
+      const events = log
+        .filter((e) => after !== null && BigInt(e.cursor) > after)
+        .slice(0, 10);
+      const cursor =
+        after === null
+          ? String(nextCursor)
+          : (events.at(-1)?.cursor ?? String(after));
+      const items = feed.filter((item) => item.state === "visible");
+      cursors.push(
+        ...(after === null
+          ? items.slice(-10)
+          : events.map((e) => feed.find((item) => item.id === e.id))
+        ).map((item) => item.id),
+      );
+      return route.fulfill({
+        json: {
+          version: 1,
+          roomId: eventId,
+          cursor: `v1:${eventId}:${cursor}`,
+          kind: after === null ? "snapshot" : "changes",
+          snapshot:
+            after === null
+              ? {
+                  summary: summary(),
+                  items: items.slice(-10).map(publicItem),
+                  hasMore: items.length > 10,
+                }
+              : undefined,
+          changes:
+            after === null
+              ? undefined
+              : events.map((e) => ({
+                  type: "message",
+                  message: publicItem(feed.find((item) => item.id === e.id)),
+                  summary: summary(),
+                })),
+          more: BigInt(cursor) < nextCursor,
+        },
+      });
+    }
+    if (url.pathname.endsWith("/chat/submissions")) {
+      const keys = new Set((url.searchParams.get("keys") || "").split(","));
+      return route.fulfill({
+        json: feed
+          .filter((item) => keys.has(item.clientMessageId))
+          .map((item) => ({
+            ...publicItem(item),
+            clientMessageId: item.clientMessageId,
+          })),
+      });
+    }
     if (url.pathname.endsWith("/chat/sync")) {
       const after = url.searchParams.get("after");
       cursors.push(after);
@@ -110,7 +204,7 @@ export async function verifyChatClient({
   const refresh = async () => {
     const response = page.waitForResponse(
       (response) =>
-        response.url().includes("/chat/sync") && response.status() === 200,
+        response.url().includes("/updates") && response.status() === 200,
     );
     await page.locator("[data-community-refresh]").click();
     await response;
@@ -145,10 +239,10 @@ export async function verifyChatClient({
   };
   try {
     await page.goto(`${base}/debates/${eventSlug}`);
-    await page.getByText("Live updates on").waitFor();
+    await page.getByText("Polling updates on", { exact: false }).waitFor();
     const consent = page.getByRole("button", { name: "Not now", exact: true });
     if (await consent.isVisible()) await consent.click();
-    assert.equal(await rows.count(), 50);
+    assert.equal(await rows.count(), 10);
     await page.locator("[data-community-older]").click();
     await page
       .locator(".community-message-body")
@@ -451,7 +545,7 @@ export async function verifyChatClient({
       await delay(25);
     assert.ok(
       cursors.includes(feed.at(-1).id),
-      "catch-up cursor reaches the newest server ID",
+      "durable catch-up includes the newest server ID",
     );
     assert.ok(
       (await page

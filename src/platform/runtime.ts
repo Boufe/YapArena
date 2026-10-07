@@ -19,6 +19,7 @@ export function createRuntime({
   identity,
   matching,
   community,
+  communityStreams,
   measurement,
   media,
   mediaProvider,
@@ -46,6 +47,7 @@ export function createRuntime({
     ReturnType<typeof createCommunityRepository>,
     "pruneExpired"
   >;
+  communityStreams?: { start(): Promise<void>; stop(): Promise<void> };
   measurement?: Pick<
     ReturnType<typeof createMeasurementRepository>,
     "pruneExpired"
@@ -158,6 +160,7 @@ export function createRuntime({
   return Object.freeze({
     async start() {
       await verifyDatabase();
+      await communityStreams?.start();
 
       if (app) {
         server = await new Promise<Server>((resolve, reject) => {
@@ -182,6 +185,7 @@ export function createRuntime({
     async stop() {
       if (cleanupTimer) clearIntervalFn(cleanupTimer);
       if (mediaTimer) clearIntervalFn(mediaTimer);
+      await communityStreams?.stop();
 
       if (server) {
         const listeningServer = server;

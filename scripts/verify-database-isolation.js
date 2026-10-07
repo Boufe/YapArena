@@ -2,13 +2,23 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  writeFile,
+  mkdtemp,
+  rm,
+} from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
+import { createServer } from "node:net";
+import { once } from "node:events";
 import pg from "pg";
 import pino from "pino";
 import supertest from "./test-http-request.js";
 import { runner, MigrationBuilder } from "node-pg-migrate";
 import { privateKeyToAccount } from "viem/accounts";
+import { deliveryTables } from "../migrations/1791335211412_durable-community-delivery.js";
 import { provisionDatabase } from "./provision-database.js";
 import {
   runtimeGrants,
@@ -35,7 +45,11 @@ import { createMeasurementRepository } from "../dist/features/measurement/reposi
 // This harness creates its own isolated Docker cluster. It accepts no external URL,
 // never reads .env, mounts no data volume, and uses only synthetic random credentials.
 const exec = promisify(execFile);
-const applicationTables = [...Object.keys(runtimeGrants), "wallet_operations"];
+const applicationTables = [
+  ...Object.keys(runtimeGrants),
+  "wallet_operations",
+  ...deliveryTables,
+];
 const container = `yaparena-isolation-${randomUUID().slice(0, 8)}`;
 const evidenceDirectory = `/tmp/${container}-evidence`;
 const postgresImage =
@@ -54,6 +68,7 @@ const inventorySql = await readFile(
   "utf8",
 );
 let port;
+let hostDirectory;
 let started = false;
 const url = (database, role = "postgres") => {
   const connection = new URL(`postgresql://127.0.0.1:${port}/${database}`);
@@ -153,6 +168,7 @@ async function browserChecks(admin) {
         "assign_participant_role",
         "product_measurement_record_completion",
         "isolation_definer_probe",
+        "capture_community_change",
       ]) {
         await admin.query("SAVEPOINT probe");
         await denied(admin, `SELECT yaparena.${routine}()`);
@@ -385,6 +401,7 @@ async function runtimeChecks(database, owner, admin) {
       "SELECT nextval('yaparena_migrations.pgmigrations_id_seq')",
       "SELECT setval('yaparena.users_id_seq',1)",
       "SELECT yaparena.isolation_definer_probe()",
+      "SELECT yaparena.capture_community_change()",
       "UPDATE yaparena.users SET email = email",
     ])
       await denied(login, sql);
@@ -1000,23 +1017,60 @@ async function scenario(database, upgrade) {
 }
 
 try {
-  await exec("docker", [
-    "run",
-    "--detach",
-    "--rm",
-    "--name",
-    container,
-    "--env",
-    "POSTGRES_USER=fixture_admin",
-    "--env",
-    `POSTGRES_PASSWORD=${bootstrapPassword}`,
-    "--publish",
-    "127.0.0.1::5432",
-    postgresImage,
-  ]);
-  started = true;
-  const mapping = await exec("docker", ["port", container, "5432/tcp"]);
-  port = mapping.stdout.trim().split(":").at(-1);
+  if (process.env.DATABASE_TEST_MODE === "host") {
+    const version = (await exec("pg_config", ["--version"])).stdout;
+    if (!/^PostgreSQL (17|18)\./.test(version))
+      throw new Error("Host harness requires PostgreSQL 17/18");
+    hostDirectory = await mkdtemp("/tmp/yaparena-isolation-pg-");
+    const passwordFile = `${hostDirectory}/password`;
+    await writeFile(passwordFile, bootstrapPassword, { mode: 0o600 });
+    await exec("initdb", [
+      "--pgdata",
+      `${hostDirectory}/data`,
+      "--username",
+      "fixture_admin",
+      "--auth",
+      "scram-sha-256",
+      "--pwfile",
+      passwordFile,
+    ]);
+    await rm(passwordFile);
+    const reserved = createServer();
+    reserved.listen(0, "127.0.0.1");
+    await once(reserved, "listening");
+    port = String(reserved.address().port);
+    await new Promise((resolve) => reserved.close(resolve));
+    await exec("pg_ctl", [
+      "--pgdata",
+      `${hostDirectory}/data`,
+      "--log",
+      `${hostDirectory}/postgres.log`,
+      "--options",
+      `-p ${port} -h 127.0.0.1 -k ${hostDirectory}`,
+      "--wait",
+      "start",
+    ]);
+    started = true;
+    console.log(version.trim());
+  } else {
+    await exec("docker", [
+      "run",
+      "--detach",
+      "--rm",
+      "--name",
+      container,
+      "--env",
+      "POSTGRES_USER=fixture_admin",
+      "--env",
+      `POSTGRES_PASSWORD=${bootstrapPassword}`,
+      "--publish",
+      "127.0.0.1::5432",
+      postgresImage,
+    ]);
+    started = true;
+    const mapping = await exec("docker", ["port", container, "5432/tcp"]);
+    port = mapping.stdout.trim().split(":").at(-1);
+  }
   let admin;
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
@@ -1061,5 +1115,17 @@ try {
   );
   process.exitCode = 1;
 } finally {
-  if (started) await exec("docker", ["stop", container]);
+  if (started) {
+    if (hostDirectory)
+      await exec("pg_ctl", [
+        "--pgdata",
+        `${hostDirectory}/data`,
+        "--mode",
+        "fast",
+        "--wait",
+        "stop",
+      ]);
+    else await exec("docker", ["stop", container]);
+  }
+  if (hostDirectory) await rm(hostDirectory, { recursive: true, force: true });
 }

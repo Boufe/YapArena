@@ -419,3 +419,12 @@ test stages retain those tools.
 Database provisioning, privilege inventory, backend RLS policies, fresh/upgrade verification and
 hosted isolation gates are documented in the [F04 database runbook](docs/security/database-isolation.md).
 Run `npm run verify:database-isolation` separately from `npm run check` with Docker available.
+
+Durable public chat, likes and chat writability use a feature-gated SSE connection per event page.
+The [community delivery guide](docs/community-delivery.md) defines the public protocol, runtime
+LISTEN requirements, limits, retention and rollout. `COMMUNITY_STREAM_ENABLED=false` remains the
+default; new pages use bounded durable HTTP recovery until it is enabled. Run
+`npm run verify:community-delivery` for disposable PostgreSQL, independent browser sessions,
+two-process fanout, restart/slow-client trials and a five-minute 500-viewer soak. An installed
+PostgreSQL 17/18 can run the local fallback using `COMMUNITY_POSTGRES_MODE=host`; isolation uses
+`DATABASE_TEST_MODE=host`. These checks are local capacity evidence, not hosted release approval.

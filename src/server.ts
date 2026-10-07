@@ -15,10 +15,24 @@ import { createDatabase } from "./platform/database.ts";
 import { createLogger } from "./platform/logger.ts";
 import { verifyDatabaseState } from "./platform/migrations.ts";
 import { createRuntime } from "./platform/runtime.ts";
+import { createMetrics } from "./platform/metrics.ts";
+import { createCommunityStreams } from "./features/community/streams.ts";
 
 const config = loadConfig();
 const logger = createLogger({ level: config.logLevel });
-const database = createDatabase(config.databaseUrl, logger);
+const metrics = createMetrics();
+const database = createDatabase(config.databaseUrl, logger, (seconds) =>
+  metrics.poolWait.observe(seconds),
+);
+const communityStreams = config.communityStream.enabled
+  ? createCommunityStreams(
+      database,
+      config.databaseUrl,
+      logger,
+      metrics.community,
+      config.communityStream,
+    )
+  : undefined;
 const messages = createMessageRepository(database);
 const discovery = createDiscoveryRepository(database);
 const identity = createIdentityRepository(database);
@@ -40,6 +54,8 @@ const app = createApp({
   media,
   mediaProvider,
   community,
+  communityStreams,
+  metrics,
   measurement,
   users,
   sessions,
@@ -63,6 +79,7 @@ const runtime = createRuntime({
   identity,
   matching,
   community,
+  communityStreams,
   measurement,
   media,
   mediaProvider,

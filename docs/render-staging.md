@@ -81,6 +81,15 @@ the older `preview-1` rules and cannot be used for a real media trial.
 
 ## Enable live video and replay
 
+Public community streaming is a separate rollout gate. `COMMUNITY_STREAM_ENABLED=false` remains in
+the Blueprint; enabling it requires an authorized hosted trial following the
+[delivery guide](community-delivery.md#rollout-compatibility-and-rollback). Reserve one persistent
+runtime LISTEN session per web process in addition to its ordinary ten-connection pool, verify its
+actual direct/session-pooler identity, and measure Chrome's HTTP/2 protocol and timely frames on the
+real SSE route with `scripts/verify-community-edge.js`. A file's port/settings do not establish these
+facts. The existing media polling, clock and whole-app single-instance restrictions still apply.
+The Free hosting plan does not become an approved live-event plan by enabling SSE.
+
 1. Create a LiveKit Cloud Build project. Copy its HTTPS API URL, WSS browser URL, API key, and API
    secret. Create a private Cloudflare R2 **Standard** bucket and a bucket-scoped S3 key that can
    write, read, and HEAD replay objects. Keep all keys in the provider dashboards and Render.

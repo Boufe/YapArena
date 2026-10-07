@@ -16,7 +16,7 @@ export const up = (pgm) => {
     );
     CREATE INDEX community_receipts_room ON yaparena.community_submission_receipts (debate_id);
     ALTER TABLE yaparena.community_submission_receipts ENABLE ROW LEVEL SECURITY;
-    REVOKE ALL ON yaparena.community_submission_receipts FROM PUBLIC, anon, authenticated;
+    REVOKE ALL ON yaparena.community_submission_receipts FROM PUBLIC;
     GRANT SELECT, INSERT ON yaparena.community_submission_receipts TO yaparena_runtime;
     GRANT UPDATE (revision, stream_revision) ON yaparena.community_submission_receipts TO yaparena_runtime;
     CREATE POLICY backend_runtime ON yaparena.community_submission_receipts TO yaparena_runtime
@@ -55,7 +55,15 @@ export const up = (pgm) => {
         WHERE message_id=OLD.id;
       RETURN OLD;
     END $$;
-    REVOKE ALL ON FUNCTION yaparena.capture_submission_receipt() FROM PUBLIC, anon, authenticated, yaparena_runtime;
+    REVOKE ALL ON FUNCTION yaparena.capture_submission_receipt() FROM PUBLIC, yaparena_runtime;
+    -- Plain PostgreSQL CI has no Supabase browser roles. Explicitly deny those
+    -- roles when present without creating provider identities or granting access.
+    DO $$ DECLARE role_name text; BEGIN
+      FOR role_name IN SELECT rolname FROM pg_roles WHERE rolname IN ('anon','authenticated') LOOP
+        EXECUTE format('REVOKE ALL ON TABLE yaparena.community_submission_receipts FROM %I',role_name);
+        EXECUTE format('REVOKE ALL ON FUNCTION yaparena.capture_submission_receipt() FROM %I',role_name);
+      END LOOP;
+    END $$;
     CREATE TRIGGER chat_submission_receipt AFTER INSERT OR DELETE OR UPDATE OF author_user_id,debate_id,client_message_id
       ON yaparena.event_chat_messages FOR EACH ROW EXECUTE FUNCTION yaparena.capture_submission_receipt();
   `);

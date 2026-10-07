@@ -122,9 +122,6 @@ try {
     }
   }
   if (!admin) throw new Error("Local PostgreSQL did not become ready");
-  await admin.query(
-    "CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN",
-  );
   await provisionDatabase(admin, passwords);
   owner = await connect("yaparena_owner");
   const migrations = (await readdir("migrations")).filter((name) =>
@@ -162,6 +159,11 @@ try {
     )
   ).rows[0].id;
   await migrate();
+  // Match plain-PostgreSQL authentication CI: migrations must also work without
+  // provider roles. Roles added afterward still receive no private privileges.
+  await admin.query(
+    "CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN",
+  );
   const binding = (
     await owner.query(
       "SELECT message_id::text,body_hash=sha256(convert_to('Existing keyed acceptance','UTF8')) AS matches FROM community_submission_receipts WHERE author_user_id=$1 AND debate_id=$2 AND client_message_id=$3",

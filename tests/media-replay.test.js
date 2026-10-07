@@ -10,6 +10,7 @@ function fixture({ native = true, supported = true } = {}) {
   let network = true;
   let requests = 0;
   let requestError;
+  let grantProvider;
   let playError;
   let sound;
   const instances = [];
@@ -36,7 +37,11 @@ function fixture({ native = true, supported = true } = {}) {
     querySelector() {
       return { src: "", dataset: { originalSrc: "/captions.vtt" } };
     },
-    load() {},
+    load() {
+      this.loadCount = (this.loadCount || 0) + 1;
+      this.currentTime = 0;
+      this.paused = true;
+    },
     removeAttribute() {},
     pause() {
       this.paused = true;
@@ -90,6 +95,7 @@ function fixture({ native = true, supported = true } = {}) {
     request: async () => {
       requests++;
       if (requestError) throw requestError;
+      if (grantProvider) return grantProvider(requests);
       return {
         type: "hls",
         url: "https://media.example/master.m3u8",
@@ -130,6 +136,9 @@ function fixture({ native = true, supported = true } = {}) {
     },
     setError: (error) => {
       requestError = error;
+    },
+    setGrantProvider: (provider) => {
+      grantProvider = provider;
     },
     setPlayError: (error) => {
       playError = error;
@@ -233,7 +242,7 @@ it("suspends offline recovery, bounds failed retries, and rejects unsupported HL
   f.offline();
   f.player.offline();
   f.video.emit("error");
-  assert.equal(f.jobs.size, 1); // ten-second stability timer is also cancelled on interruption below
+  assert.equal(f.jobs.size, 0);
   f.video.emit("waiting");
   assert.equal(f.jobs.size, 0);
   f.online();
@@ -252,7 +261,10 @@ it("discards an outstanding access response after leave and coalesces renewal", 
   const f = fixture();
   await f.player.start();
   f.video.emit("loadedmetadata");
-  await f.run(10000);
+  for (let i = 0; i < 10; i++) {
+    f.video.currentTime += 1;
+    await f.run(1000);
+  }
   assert.ok(f.records.some((r) => r.event === "recovery_stable"));
   f.player.online();
   f.player.online();
@@ -263,5 +275,105 @@ it("discards an outstanding access response after leave and coalesces renewal", 
   f.player.online();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(f.requests, 2);
+  f.player.destroy();
+});
+it("retains the pending position and play intent across renewals before metadata", async () => {
+  for (const paused of [false, true]) {
+    const f = fixture();
+    await f.player.start();
+    f.video.emit("loadedmetadata");
+    f.video.currentTime = 68;
+    f.video.playbackRate = 2;
+    f.video.textTracks[0].mode = "showing";
+    f.video.paused = paused;
+    f.player.online();
+    await new Promise((resolve) => setImmediate(resolve));
+    f.player.online();
+    await new Promise((resolve) => setImmediate(resolve));
+    f.video.emit("loadedmetadata");
+    assert.equal(f.video.currentTime, 68);
+    assert.equal(f.video.playbackRate, 2);
+    assert.equal(f.video.paused, paused);
+    assert.equal(f.video.textTracks[0].mode, "showing");
+    f.player.destroy();
+  }
+});
+it("cannot declare replay recovery stable after pause, offline or error", async () => {
+  for (const interruption of [
+    "pause",
+    "offline",
+    "error",
+    "ended",
+    "background",
+  ]) {
+    const f = fixture();
+    await f.player.start();
+    f.video.emit("loadedmetadata");
+    if (interruption === "offline") {
+      f.offline();
+      f.player.offline();
+    } else if (interruption === "background") f.player.background();
+    else f.video.emit(interruption);
+    assert.equal(
+      [...f.jobs.values()].some((job) => job.ms === 1000),
+      false,
+      interruption + " cancels stability evidence",
+    );
+    f.player.destroy();
+  }
+});
+it("requires continuing playback progress rather than a transport or playing signal", async () => {
+  const f = fixture();
+  await f.player.start();
+  f.video.emit("loadedmetadata");
+  await f.run(1000); // no decoded media time progress
+  assert.equal(
+    f.records.some((r) => r.event === "recovery_stable"),
+    false,
+  );
+  f.player.destroy();
+});
+it("preserves replay state while a cached page is suspended and resumed", async () => {
+  const f = fixture();
+  await f.player.start();
+  f.video.emit("loadedmetadata");
+  f.video.currentTime = 68;
+  f.player.suspend();
+  assert.equal(f.video.paused, true);
+  assert.equal(f.jobs.size, 0);
+  f.player.resume();
+  await new Promise((resolve) => setImmediate(resolve));
+  f.video.emit("loadedmetadata");
+  assert.equal(f.video.currentTime, 68);
+  assert.equal(f.video.paused, false);
+  f.player.destroy();
+});
+it("cancels access pending at suspension without consuming a fresh resume grant", async () => {
+  const f = fixture();
+  const complete = [];
+  f.setGrantProvider(() => new Promise((resolve) => complete.push(resolve)));
+  const start = f.player.start();
+  await new Promise((resolve) => setImmediate(resolve));
+  f.player.suspend();
+  f.player.resume();
+  await new Promise((resolve) => setImmediate(resolve));
+  const grant = {
+    type: "hls",
+    url: "https://media.example/master.m3u8",
+    expiresIn: 300,
+    expiresAt: new Date(Date.now() + 300000).toISOString(),
+  };
+  complete[0](grant);
+  await start;
+  assert.equal(f.video.loadCount || 0, 0);
+  assert.equal(f.jobs.size, 0);
+  f.player.online();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(f.requests, 2, "old finally cannot clear the newer grant");
+  complete[1](grant);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(f.video.loadCount, 1);
+  f.video.emit("loadedmetadata");
+  assert.equal(f.video.paused, false);
   f.player.destroy();
 });

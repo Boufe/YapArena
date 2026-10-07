@@ -28,6 +28,11 @@ duplicate identity, participant removal, deleted/closed room, cancellation and d
 stop retries. A generation guard rejects late grants after cancellation. Leave also
 clears speaker autojoin intent for subsequent refreshes.
 
+Transport success does not replenish the five-retry budget. A captured connection
+generation must observe ten seconds of progressing remote video before resetting it.
+Reconnect, offline return, a stall, hidden/disabled media or a new user intent invalidates
+the evidence. Exhaustion stops automatic intent once; a deliberate Join starts a new budget.
+
 Speaker choices and deliberate mute are remembered in tab session storage, scoped to
 event and authenticated seat. A muted rejoin captures only camera and relies on the
 existing recent server device check; an expired check requires a deliberate new check.
@@ -35,6 +40,18 @@ Publishing requires user microphone intent, running state, the current side and 
 LiveKit microphone permission. Permission/state changes re-evaluate the gate. Late
 publish completion rechecks intent and permission before enabling the checked track.
 No camera/microphone capture happens during connection preparation.
+
+For a persisted browser history page, pagehide releases the LiveKit connection and capture,
+suspends replay, and keeps the frozen DOM and listeners. This preserves chat drafts and scroll.
+Pageshow requires a successful current eligibility response before a fresh viewer/speaker
+join. Denied or failed refreshes cannot reuse cached eligibility. A page generation rejects
+responses arriving after another navigation. Ordinary page exit disposes all resources.
+
+Replay source renewal retains its pending position, rate, caption mode and play/pause intent
+until metadata applies them. A second renewal during loading cannot replace that state with
+the source's reset DOM. Replay stability requires ten successive one-second media-time
+advances; pause, seek, end, offline or error cancels the window. This is playback progress
+evidence, not acoustic onset or capture-to-display delay.
 
 The application owns pagehide cleanup with SDK `disconnectOnPageLeave: false`. The SDK's
 default beforeunload disconnect otherwise arrives as a voluntary leave and clears speaker

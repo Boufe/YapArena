@@ -107,6 +107,7 @@ function fixture() {
   const listeners = new Map();
   let index = 0;
   let viewerGrant;
+  let stateResponse;
   let eventStatus = "live";
   let speaker = false;
   const requests = [];
@@ -250,6 +251,7 @@ function fixture() {
       });
     if (url.endsWith("/device-check")) return response({});
     if (url.endsWith("/playback")) return response({}, 204);
+    if (stateResponse) return stateResponse;
     return response({
       eventStatus,
       preparationUrl: "wss://synthetic.example",
@@ -307,6 +309,9 @@ function fixture() {
     },
     setGrant: (grant) => {
       viewerGrant = grant;
+    },
+    setStateResponse: (state) => {
+      stateResponse = state;
     },
     response,
     setStatus: (status) => {
@@ -390,6 +395,65 @@ it("cancels joins whose authorization response arrives after leave", async () =>
   await joining;
   assert.equal(f.calls.includes("connect"), false);
   f.listeners.get("pagehide")();
+});
+it("revives media after cached history return without reloading drafts or reconnecting ended events", async () => {
+  for (const ended of [false, true]) {
+    const f = fixture();
+    await f.start();
+    await f.element("viewer").click();
+    f.listeners.get("pagehide")({ persisted: true });
+    await settle();
+    assert.equal(f.calls.filter((call) => call === "disconnect").length, 1);
+    if (ended) f.setStatus("ended");
+    f.listeners.get("pageshow")?.({ persisted: true });
+    await settle();
+    if (!ended) {
+      const retry = [...f.jobs.values()].find((job) => job.ms < 400);
+      assert.ok(retry, "eligible cached return must reconnect");
+      await f.timer(retry.ms);
+      assert.equal(f.calls.filter((call) => call === "connect").length, 2);
+      assert.ok(f.intervals.size > 0);
+    } else {
+      assert.equal(f.calls.filter((call) => call === "connect").length, 1);
+    }
+    f.listeners.get("pagehide")();
+    await settle();
+    assert.equal(f.jobs.size, 0);
+    assert.equal(f.intervals.size, 0);
+  }
+});
+it("refuses cached speaker capture after failed eligibility or a second page hide", async () => {
+  for (const status of [401, 403, 404, 503]) {
+    const f = fixture();
+    f.speaker();
+    await f.start();
+    await f.element("speaker").click();
+    f.listeners.get("pagehide")({ persisted: true });
+    await settle();
+    f.setStateResponse(f.response({ error: "unavailable" }, status));
+    f.listeners.get("pageshow")({ persisted: true });
+    await settle();
+    assert.equal(f.calls.filter((call) => call === "capture").length, 1);
+    assert.equal(
+      [...f.jobs.values()].some((job) => job.ms < 400),
+      false,
+    );
+    f.listeners.get("pagehide")();
+  }
+  const f = fixture();
+  await f.start();
+  await f.element("viewer").click();
+  f.listeners.get("pagehide")({ persisted: true });
+  await settle();
+  let complete;
+  f.setStateResponse(new Promise((resolve) => (complete = resolve)));
+  f.listeners.get("pageshow")({ persisted: true });
+  await settle();
+  f.listeners.get("pagehide")();
+  complete(f.response({ eventStatus: "live", state: { revision: 1 } }));
+  await settle();
+  assert.equal(f.calls.filter((call) => call === "connect").length, 1);
+  assert.equal(f.jobs.size, 0);
 });
 it("does not fight duplicate identity or removal and suspends application retries offline", async () => {
   for (const reason of [2, 4, 5, 10]) {

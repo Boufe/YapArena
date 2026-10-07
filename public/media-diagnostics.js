@@ -91,6 +91,8 @@ export function observePlayback(
     now = () => performance.now(),
     schedule = setInterval,
     cancel = clearInterval,
+    onProgress = () => {},
+    onInterruption = () => {},
   },
 ) {
   let lastTime = node.currentTime;
@@ -141,6 +143,7 @@ export function observePlayback(
     resume();
     first = true;
     diagnostics.frame(kind);
+    onProgress(lastProgress);
   }
   function rendered() {
     progress();
@@ -156,6 +159,7 @@ export function observePlayback(
     }
   });
   function interrupt(cause) {
+    onInterruption();
     resetAttempt();
     if (!first) {
       if (active()) emit("startup_wait", { cause });
@@ -169,16 +173,19 @@ export function observePlayback(
   listen("waiting", () => interrupt("buffering"));
   listen("stalled", () => interrupt("stalled"));
   listen("pause", () => {
+    onInterruption();
     resume();
     emit("intentional_pause");
   });
   listen("seeking", () => {
+    onInterruption();
     resume();
     emit("seek");
   });
-  listen("error", () =>
-    emit("media_element_error", { code: node.error?.code }),
-  );
+  listen("error", () => {
+    onInterruption();
+    emit("media_element_error", { code: node.error?.code });
+  });
   const timer = schedule(() => {
     const sampleAt = now();
     if (active() && first)
@@ -187,6 +194,7 @@ export function observePlayback(
       });
     previousSample = sampleAt;
     if (!active()) {
+      onInterruption();
       resume();
       lastProgress = now();
       return;
@@ -195,6 +203,7 @@ export function observePlayback(
       interrupt(kind === "audio" ? "audio_loss_suspected" : "freeze_suspected");
   }, 1000);
   return () => {
+    onInterruption();
     resume();
     cancel(timer);
     if (frameCallback !== undefined)

@@ -34,11 +34,43 @@ if (root) {
   window.yapMediaDiagnostics = diagnostics;
   const mediaTracks = createMediaTracks(videos, (node, track, identity) => {
     if (identity === room?.localParticipant.identity) return;
+    const observedRoom = room;
+    let stability;
     return observePlayback(node, {
       kind: track.kind,
       diagnostics,
       expected: () =>
-        !document.hidden && !track.isMuted && eventStatus === "live",
+        !disposed &&
+        !document.hidden &&
+        navigator.onLine &&
+        room === observedRoom &&
+        !track.isMuted &&
+        eventStatus === "live",
+      onProgress(at) {
+        if (track.kind !== "video") return;
+        const epoch = recovery.connectionGeneration;
+        if (
+          !stability ||
+          stability.epoch !== epoch ||
+          at - stability.last > 3000
+        )
+          stability = { epoch, start: at, last: at, confirmed: false };
+        stability.last = at;
+        if (
+          !stability.confirmed &&
+          at - stability.start >= 10000 &&
+          recovery.playbackStable(stability.epoch)
+        ) {
+          stability.confirmed = true;
+          diagnostics.record("recovery_stable", {
+            kind: "video",
+            windowMs: 10000,
+          });
+        }
+      },
+      onInterruption() {
+        stability = undefined;
+      },
     });
   });
   const viewerButton = root.querySelector("[data-media-viewer]");
@@ -60,6 +92,9 @@ if (root) {
   let microphoneWanted = true;
   let deviceChoices = {};
   let disposed = false;
+  let cachedIntent;
+  let cachedPage = false;
+  let pageGeneration = 0;
   const sound = root.querySelector("[data-media-sound]");
   const leave = root.querySelector("[data-media-leave]");
   const mute = root.querySelector("[data-media-mute]");
@@ -74,7 +109,8 @@ if (root) {
       (item) => !item.paused && item.readyState >= 2,
     );
   const watchMode = () => {
-    if (document.hidden || !window.yapMeasurement?.consented) return null;
+    if (disposed || document.hidden || !window.yapMeasurement?.consented)
+      return null;
     if (!video.hidden && !video.paused && video.readyState >= 2)
       return "replay";
     if (room && !side && eventStatus === "live" && activeLiveVideo())
@@ -573,9 +609,10 @@ if (root) {
       }
     });
   async function refresh() {
+    const pageEpoch = pageGeneration;
     try {
       const result = await request("");
-      if (disposed) return;
+      if (disposed || pageEpoch !== pageGeneration) return false;
       if (
         currentState &&
         result.state &&
@@ -611,7 +648,7 @@ if (root) {
       for (const button of operator.querySelectorAll("[data-media-action]"))
         button.hidden = !presentation.actions[button.dataset.mediaAction];
       if (["ended", "replay", "finalized", "cancelled"].includes(eventStatus)) {
-        endWatch();
+        if (watchSession?.mode === "live") endWatch();
         cancelReconnect();
         rememberSpeaker(false);
         if (room) diagnostics.finish("debate_ended");
@@ -704,7 +741,9 @@ if (root) {
                   : "Microphone off",
           );
       }
+      return true;
     } catch (error) {
+      if (disposed || pageEpoch !== pageGeneration) return false;
       if ([401, 403, 404].includes(error.status)) {
         recovery.stop();
         rememberSpeaker(false);
@@ -718,6 +757,7 @@ if (root) {
           ? "Live media is not configured for this deployment."
           : error.message,
       );
+      return false;
     }
   }
   function paintClock() {
@@ -740,6 +780,10 @@ if (root) {
   document.addEventListener("visibilitychange", () => {
     void tickWatch();
     diagnostics.record(document.hidden ? "background" : "foreground");
+    if (document.hidden) {
+      recovery.offline(); // invalidate stability evidence without ending intent
+      replayPlayer.background();
+    }
     if (!document.hidden) {
       replayPlayer.online();
       void refresh();
@@ -841,19 +885,52 @@ if (root) {
         }
       }
   }, 5000);
-  window.addEventListener("pagehide", () => {
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted || !cachedPage) return;
+    cachedPage = false;
+    disposed = false;
+    const pageEpoch = ++pageGeneration;
+    const role = cachedIntent;
+    cachedIntent = undefined;
+    diagnostics.record("foreground");
+    replayPlayer.resume();
+    pollStatus();
+    void refresh().then((eligible) => {
+      if (!eligible || disposed || pageEpoch !== pageGeneration) return;
+      if (
+        (role === "speaker" && canJoinAsSpeaker()) ||
+        (role === "viewer" && eventStatus === "live")
+      ) {
+        recovery.start(role);
+        diagnostics.start(role === "viewer" ? "live" : "speaker", false);
+        scheduleReconnect();
+      }
+    });
+  });
+  window.addEventListener("pagehide", (event = {}) => {
+    pageGeneration++;
+    cachedPage = Boolean(event.persisted);
+    cachedIntent = cachedPage ? recovery.intent : undefined;
     disposed = true;
     recovery.stop();
     diagnostics.finish("abandoned");
     endWatch();
+    window.clearTimeout(pollTimer);
+    void disconnectRoom();
+    void preparedRoom?.disconnect(true);
+    preparedRoom = undefined;
+    if (cachedPage) {
+      // Keep DOM, drafts, scroll and listeners in the browser's frozen page.
+      // Capture/transport is released; fresh authorization is required on return.
+      void reporter.flush();
+      replayPlayer.suspend();
+      return;
+    }
     reporter.stop();
     replayPlayer.destroy();
     replayObservers.forEach((stop) => stop());
-    window.clearTimeout(pollTimer);
     window.clearInterval(watchTimer);
     window.clearInterval(clockTimer);
     window.clearInterval(statsTimer);
-    void disconnectRoom();
-    void preparedRoom?.disconnect(true);
   });
 }

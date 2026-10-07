@@ -54,6 +54,8 @@ it("observes actual frames and advancing audio, excludes intentional pauses and 
     let frame;
     let cancelled = false;
     let expected = true;
+    const progress = [];
+    let interruptions = 0;
     const handlers = new Map();
     const d = createMediaDiagnostics({ now: () => now });
     d.start("replay", false);
@@ -84,6 +86,8 @@ it("observes actual frames and advancing audio, excludes intentional pauses and 
       cancel: () => {
         cancelled = true;
       },
+      onProgress: (at) => progress.push(at),
+      onInterruption: () => interruptions++,
     });
     now = 100;
     if (kind === "video") frame();
@@ -111,6 +115,8 @@ it("observes actual frames and advancing audio, excludes intentional pauses and 
     tick();
     cleanup();
     assert.equal(cancelled, true);
+    assert.deepEqual(progress, [100, 4100]);
+    assert.ok(interruptions >= 5);
     assert.equal(handlers.size, 0);
     assert.ok(d.export().records.some((r) => r.event === "interruption_end"));
   }

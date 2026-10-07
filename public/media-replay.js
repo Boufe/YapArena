@@ -7,15 +7,18 @@ export function createReplayPlayer({
   say,
   soundRequired,
   online = () => navigator.onLine,
+  visible = () => globalThis.document?.visibilityState !== "hidden",
   schedule = setTimeout,
   cancel = clearTimeout,
 }) {
   let player;
   let grant;
   let renewing;
+  let renewalToken;
   let timer;
   let retryTimer;
   let generation = 0;
+  let sourceGeneration = -1;
   let attempts = 0;
   let prepared = false;
   let loading = false;
@@ -23,6 +26,7 @@ export function createReplayPlayer({
   let destroyed = false;
   let restore;
   let stableTimer;
+  let suspended = false;
   const snapshot = () => ({
     time: video.currentTime || 0,
     rate: video.playbackRate,
@@ -34,6 +38,7 @@ export function createReplayPlayer({
     timer = undefined;
   }
   async function play() {
+    if (suspended) return;
     try {
       await video.play();
       soundRequired(false);
@@ -45,7 +50,7 @@ export function createReplayPlayer({
     }
   }
   function loaded() {
-    if (!restore) return;
+    if (!restore || suspended || sourceGeneration !== generation) return;
     video.currentTime = restore.time;
     video.playbackRate = restore.rate;
     Array.from(video.textTracks).forEach((track, i) => {
@@ -60,10 +65,27 @@ export function createReplayPlayer({
   const playing = () => {
     diagnostics.record("replay_resumed");
     if (stableTimer !== undefined) cancel(stableTimer);
-    stableTimer = schedule(() => {
-      attempts = 0;
-      diagnostics.record("recovery_stable", { windowMs: 10_000 });
-    }, 10_000);
+    let lastPosition = video.currentTime;
+    let progressingSeconds = 0;
+    const sample = () => {
+      stableTimer = undefined;
+      if (
+        video.paused ||
+        video.ended ||
+        video.seeking ||
+        suspended ||
+        !online() ||
+        !visible() ||
+        video.currentTime <= lastPosition
+      )
+        return;
+      lastPosition = video.currentTime;
+      if (++progressingSeconds === 10) {
+        attempts = 0;
+        diagnostics.record("recovery_stable", { windowMs: 10_000 });
+      } else stableTimer = schedule(sample, 1000);
+    };
+    stableTimer = schedule(sample, 1000);
   };
   const waiting = () => {
     if (stableTimer !== undefined) cancel(stableTimer);
@@ -71,6 +93,9 @@ export function createReplayPlayer({
   };
   video.addEventListener("playing", playing);
   video.addEventListener("waiting", waiting);
+  video.addEventListener("pause", waiting);
+  video.addEventListener("ended", waiting);
+  video.addEventListener("seeking", waiting);
   video.addEventListener("error", recover);
   function renewLater() {
     clearTimer();
@@ -93,6 +118,7 @@ export function createReplayPlayer({
       throw new Error("Adaptive replay is not supported in this browser");
     player?.destroy();
     player = undefined;
+    sourceGeneration = epoch;
     loading = true;
     restore = previous;
     grant = access;
@@ -139,11 +165,15 @@ export function createReplayPlayer({
   async function renew(preload = false) {
     if (renewing) return renewing;
     const epoch = generation;
-    renewing = (async () => {
+    const token = {};
+    renewalToken = token;
+    renewing = Promise.resolve().then(async () => {
       try {
         const access = await request("/replay");
         if (destroyed || epoch !== generation) return;
-        const previous = snapshot();
+        // A source replacement resets the DOM before metadata arrives. Until
+        // restoration succeeds, this saved state remains authoritative.
+        const previous = restore || snapshot();
         if (wanted && !grant) previous.paused = false;
         diagnostics.record("authorization", { outcome: "allowed" });
         await load(access, previous, preload, epoch);
@@ -161,12 +191,16 @@ export function createReplayPlayer({
         } else recover();
         throw error;
       } finally {
-        renewing = undefined;
+        if (renewalToken === token) {
+          renewing = undefined;
+          renewalToken = undefined;
+        }
       }
-    })();
+    });
     return renewing;
   }
   function recover() {
+    waiting();
     if (destroyed || !wanted || retryTimer !== undefined || !online()) return;
     if (attempts >= 5) {
       wanted = false;
@@ -194,6 +228,7 @@ export function createReplayPlayer({
     player?.destroy();
     player = undefined;
     grant = undefined;
+    restore = undefined;
     prepared = false;
     video.pause();
     video.removeAttribute("src");
@@ -206,6 +241,7 @@ export function createReplayPlayer({
     async start() {
       diagnostics.start("replay", prepared);
       wanted = true;
+      const epoch = generation;
       attempts = 0;
       video.hidden = false;
       if (!grant) await renew();
@@ -220,7 +256,7 @@ export function createReplayPlayer({
         }
         if (loading && restore) restore.paused = false;
       }
-      if (wanted) await play();
+      if (wanted && epoch === generation) await play();
     },
     async activateSound() {
       diagnostics.record("sound_activation_tap");
@@ -228,13 +264,34 @@ export function createReplayPlayer({
       await play();
     },
     online() {
-      if (wanted) void renew().catch(() => {});
+      if (wanted && !suspended) void renew().catch(() => {});
     },
     offline() {
+      waiting();
       clearTimer();
       if (retryTimer !== undefined) cancel(retryTimer);
       retryTimer = undefined;
       diagnostics.record("offline");
+    },
+    background() {
+      waiting();
+    },
+    suspend() {
+      suspended = true;
+      generation++;
+      renewing = undefined;
+      renewalToken = undefined;
+      restore ||= snapshot();
+      clearTimer();
+      waiting();
+      if (retryTimer !== undefined) cancel(retryTimer);
+      retryTimer = undefined;
+      player?.stopLoad();
+      video.pause();
+    },
+    resume() {
+      suspended = false;
+      if (wanted && online()) void renew().catch(() => {});
     },
     stop,
     destroy() {
@@ -243,6 +300,9 @@ export function createReplayPlayer({
       video.removeEventListener("loadedmetadata", loaded);
       video.removeEventListener("playing", playing);
       video.removeEventListener("waiting", waiting);
+      video.removeEventListener("pause", waiting);
+      video.removeEventListener("ended", waiting);
+      video.removeEventListener("seeking", waiting);
       video.removeEventListener("error", recover);
     },
   };

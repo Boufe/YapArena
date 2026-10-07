@@ -224,3 +224,46 @@ or approved higher limits. Check actual subscription, remaining usage, CPU and R
 budgets before running it. See [limits](https://developers.cloudflare.com/workers/platform/limits/)
 and [pricing](https://developers.cloudflare.com/workers/platform/pricing/). No billing change
 is part of the implementation. Cloudflare zone Pro is separate from Workers Paid.
+
+## Repeatable synthetic hosted operators
+
+`scripts/verify-media-hosted-browser.js` runs only against the existing HTTPS staging origin
+and a separate certificate-validated owner connection. Before running it, load approved
+staging provider settings into that one-off process, set `DATABASE_OWNER_URL`,
+`DATABASE_CA_FILE` and `BROWSER_EXECUTABLE_PATH`, then run:
+
+```sh
+node scripts/verify-media-hosted-browser.js /private/ignored/trial-artifacts DEPLOYED_FULL_COMMIT_SHA
+```
+
+It asserts the actual browser asset version, creates only tagged synthetic accounts/event,
+uses independent Chrome contexts with fake capture against actual LiveKit, verifies rendered
+video and provider mute/turn state, and requires real recording webhook completion. Failed
+trials clean scoped provider/storage/database state. Successful ended fixtures remain for
+packaging; `media-fixture.json` contains a synthetic session cookie, so keep its mode 600
+and never publish it. Retain the private cleanup manifest until the final provider, R2 and
+database cleanup has been verified. The headless sound control is not an acoustic test.
+
+After packaging/upload and enabling only that room's edge allowlist, an authorized operator
+runner calls `verifyHostedMediaReplay` from `scripts/verify-media-hosted-replay.js` with the
+verified owner connection, approved service environment, fixed staging base, private fixture,
+full deployed SHA, ignored artifact directory, Chrome executable and reviewed caption file.
+The operator obtains credentials through its approved authenticated connection; this module
+does not discover or print secrets. Its fixed stage/owner/tag guards may restore only its own
+hidden synthetic fixture through a newer publication change for a repeat. It checks actual
+HLS decoding, loaded WebVTT cues, keyboard startup, paused seek/rate/caption preservation
+through renewal, CORS/HEAD/ranges and scoped signature refusal. It hides only that fixture,
+requires fresh-grant denial/player cleanup, then waits for the actual issued 300-second
+capability to expire and verifies 403. Caption tracks are explicitly enabled before checking
+cues; do not require an invented status phrase when asserting player cleanup.
+
+The first application renewal timer is shortened to 45 seconds; the signed capability and
+its actual 300-second expiry are unchanged. Repeated segment bytes do not establish which
+request hit an edge cache, so report cache-hit provenance as unobserved unless independently
+measured. The caller owns final fixture cleanup and its database connection. A completed
+run is not physical/native-HLS, acoustic, controlled-network or 510-participant acceptance.
+
+Provider environment listing is paginated. Render defaults to 20 entries; the canary has 22. Read every page before comparing/preserving settings, or update individual authorized
+keys. Never replace a service's configuration using the first page alone. Verify the pair
+and canary allowlist after a change. Remove both edge variables and the allowlist together
+after the disposable trial, retaining legacy playback and the privately deployed Worker.

@@ -17,15 +17,16 @@
     },
     "edge": {
       "trial": "browser-to-edge",
-      "at": "2026-10-07T03:00:27.695Z",
+      "at": "2026-10-07T05:00:48.439Z",
       "origin": "https://yaparena-staging-web.onrender.com",
       "healthStatus": 200,
       "healthProtocol": "h2",
       "streamStatus": 200,
       "streamProtocol": "h2",
-      "firstFrameMs": 137,
-      "firstHeartbeatMs": 12366,
-      "verifiedDelivery": true
+      "firstFrameMs": 128,
+      "firstHeartbeatMs": 5895,
+      "verifiedDelivery": true,
+      "sourceCommit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2"
     },
     "migration": {
       "at": "2026-10-07T02:57:22.093Z",
@@ -71,8 +72,8 @@
       "source": "authenticated encrypted pre-migration backup; no plaintext file"
     },
     "media-preflight": {
-      "at": "2026-10-07T03:25:38.588Z",
-      "mediaEnabled": false,
+      "at": "2026-10-07T03:32:03.323Z",
+      "mediaConfigured": true,
       "providerCredentialsConfigured": true,
       "edgeConfigured": false,
       "cloudflareDeploymentTokenConfigured": false,
@@ -91,12 +92,386 @@
       "protectedChatRows": 8,
       "protectedSemanticHashUnchanged": true,
       "syntheticAccountsRemaining": 0
+    },
+    "deployment-live-9f32a62": {
+      "status": "live",
+      "commit": "9f32a6206af6ebf9dd6c3f5a2cebde7bfeeb1897",
+      "updatedAt": "2026-10-07T04:36:01.083208Z",
+      "finishedAt": "2026-10-07T04:36:01.082784Z"
+    },
+    "receipt-backup": {
+      "at": "2026-10-07T04:14:39.867Z",
+      "status": "PASS",
+      "archive": "pre-receipt-application.dump.enc",
+      "bytes": 204006,
+      "ciphertextSha256": "87b01ea867097d318f5cec814745cf718f979795964ba15fef21f60e15c90697",
+      "encryption": "AES-256-GCM, separately retained key",
+      "authenticatedDecryption": true,
+      "pgRestoreList": true,
+      "restoreEntries": 442,
+      "version": "pg_dump (PostgreSQL) 17.10 (Homebrew)",
+      "chatRows": 8,
+      "chatProjectionSha256": "8643d11f9ffc9f9f267848a6a09126e0717cccf59f4d6d5686238b83c3dfcd65",
+      "scope": ["yaparena", "yaparena_migrations"],
+      "fullRestorePerformed": false
+    },
+    "receipt-migration": {
+      "receiptCount": "2",
+      "at": "2026-10-07T04:29:05.329Z",
+      "status": "PASS",
+      "commit": "9f32a6206af6ebf9dd6c3f5a2cebde7bfeeb1897",
+      "applied": ["1791345540042_preserve-chat-idempotency"],
+      "existingChatRows": 8,
+      "chatProjectionSha256": "8643d11f9ffc9f9f267848a6a09126e0717cccf59f4d6d5686238b83c3dfcd65",
+      "originalProjectionsPreserved": true,
+      "grants": [
+        {
+          "role": "anon",
+          "trigger_callable": false,
+          "readable": false,
+          "insertable": false,
+          "deletable": false,
+          "binding_update": false,
+          "revision_update": false
+        },
+        {
+          "role": "authenticated",
+          "trigger_callable": false,
+          "readable": false,
+          "insertable": false,
+          "deletable": false,
+          "binding_update": false,
+          "revision_update": false
+        },
+        {
+          "role": "yaparena_runtime",
+          "trigger_callable": false,
+          "readable": true,
+          "insertable": true,
+          "deletable": false,
+          "binding_update": false,
+          "revision_update": true
+        }
+      ],
+      "migrationSha256": "c797cbb860277a7c057866b02874ff6dae5dadc042ed49bf38cdcaf949e63df1",
+      "operatorIdentity": "yaparena_owner",
+      "operatorProcess": "Node 24 from the reviewed isolated checkout; no owner credentials added to web"
+    },
+    "capacity-0450dbc": {
+      "trial": "hosted-community-capacity",
+      "at": "2026-10-07T03:54:12.070Z",
+      "viewers": 500,
+      "rooms": 50,
+      "seconds": 60,
+      "writes": 600,
+      "writer": "separate owner process; synthetic SQL mutations, not HTTP send capacity",
+      "mutationRate": 10,
+      "samples": 6000,
+      "p50Ms": 93,
+      "p95Ms": 366,
+      "reconnectMs": 6161,
+      "restartMs": 28803,
+      "baselineRssMiB": 175.29,
+      "peakRssMiB": 194.86,
+      "rssGrowthMiB": 19.57,
+      "maxRuntimeConnectionsIncludingObserver": 9,
+      "deployedRuntimeListenIdentityVerified": true,
+      "finalStreams": 0,
+      "finalRooms": 0,
+      "commit": "0450dbcc815db33c7f4ec029c31f4c37bf8841ab"
+    },
+    "capacity": {
+      "trial": "hosted-community-capacity",
+      "at": "2026-10-07T04:53:50.760Z",
+      "viewers": 500,
+      "rooms": 50,
+      "seconds": 60,
+      "writes": 600,
+      "writer": "separate owner process; synthetic SQL mutations, not HTTP send capacity",
+      "mutationRate": 10,
+      "samples": 6000,
+      "p50Ms": 88,
+      "p95Ms": 314,
+      "reconnectMs": 5592,
+      "restartMs": 28740,
+      "measuredLoadSeconds": 60.16,
+      "processAverageCpuCores": 0.0431,
+      "maxObservedEventLoopP99Ms": 87.36,
+      "loadAveragePoolWaitMs": 0.15,
+      "baselineRssMiB": 99.57,
+      "peakRssMiB": 124.46,
+      "rssGrowthMiB": 24.89,
+      "maxRuntimeConnectionsIncludingObserver": 10,
+      "deployedRuntimeListenIdentityVerified": true,
+      "finalStreams": 0,
+      "finalRooms": 0,
+      "commit": "9f32a6206af6ebf9dd6c3f5a2cebde7bfeeb1897"
+    },
+    "replay-preflight": {
+      "at": "2026-10-07T03:49:25.517Z",
+      "edgeOrigin": "https://yaparena-replay-staging.yaparena-staging.workers.dev",
+      "bucketScopedReadWrite": "PASS",
+      "unsignedRequestStatus": 403,
+      "capabilityRequired": "PASS",
+      "scopedProbeDeleted": true
+    },
+    "replay-edge-deployment": {
+      "at": "2026-10-07T03:43:59.599Z",
+      "worker": "yaparena-replay-staging",
+      "sourceCommit": "0450dbcc815db33c7f4ec029c31f4c37bf8841ab",
+      "sourceSha256": "f52925f6ccb26b02cada8db174ee81e1f590ab7ce2080e2cae57f25d7cfc5c68",
+      "uploaded": true,
+      "etag": "1555dfbcc3adfee54a0bcc2f2600afbf89388b1558ad0b5f19d52c1d7310486d",
+      "r2Binding": true,
+      "signingSecretSet": true,
+      "logsDisabled": true,
+      "workersDevEnabled": false,
+      "previewsEnabled": false,
+      "billingChanged": false
+    },
+    "replay-edge-route": {
+      "at": "2026-10-07T03:45:43.041Z",
+      "origin": "https://yaparena-replay-staging.yaparena-staging.workers.dev",
+      "worker": "yaparena-replay-staging",
+      "createdAccountSubdomain": true,
+      "providerHostnameForSyntheticStageOnly": true,
+      "customDomainProductionGateOpen": true,
+      "previewsEnabled": false,
+      "billingChanged": false
+    },
+    "media-edge-configuration": {
+      "at": "2026-10-07T04:39:08.005Z",
+      "sourceCommit": "9f32a6206af6ebf9dd6c3f5a2cebde7bfeeb1897",
+      "deployId": "dep-db2spqss728c73ahh5d0",
+      "status": "build_in_progress",
+      "changedKeys": [
+        "MEDIA_REPLAY_EDGE_URL",
+        "MEDIA_REPLAY_SIGNING_SECRET",
+        "MEDIA_REPLAY_EDGE_ROOMS"
+      ],
+      "syntheticCanaryRoomCount": 1,
+      "legacyPlaybackPreserved": true,
+      "otherEnvironmentPreserved": true,
+      "billingChanged": false
+    },
+    "media-package": {
+      "at": "2026-10-07T04:38:51.996Z",
+      "sourceCommit": "9f32a6206af6ebf9dd6c3f5a2cebde7bfeeb1897",
+      "result": "PASS",
+      "synthetic": true,
+      "sourceBytes": 7653250,
+      "sourceDurationSeconds": 61.18458,
+      "sourceStreams": [
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        },
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "renditions": ["240", "480", "720"],
+      "files": 98,
+      "decodedAllRenditions": true,
+      "privateUpload": true,
+      "readyMarkerUploadedLast": true,
+      "captions": "Reviewed synthetic cue labels; not transcription quality evidence"
+    },
+    "media-browser-9f32a62": {
+      "at": "2026-10-07T04:36:40.618Z",
+      "sourceCommit": "9f32a6206af6ebf9dd6c3f5a2cebde7bfeeb1897",
+      "browser": "Chrome desktop headless; actual LiveKit transport with synthetic capture",
+      "physicalDevices": false,
+      "independentNetworks": false,
+      "measurements": {
+        "speaker1JoinMs": 1858,
+        "speaker2JoinMs": 1834,
+        "viewerTwoRenderedVideosMs": 736,
+        "deliberatelyMutedRefreshJoinMs": 1571
+      },
+      "soundActivationControlRequired": false,
+      "soundActivationControlHiddenAfterGesture": true,
+      "deliberateMuteActualPublishedTrackCheck": "PASS",
+      "pauseObservedAfterSpeakerRefresh": true,
+      "mutePreservedThroughRefresh": "PASS",
+      "secondSpeakerAuthorizedAudio": "PASS",
+      "endStopsViewer": "PASS",
+      "providerRecordingWebhook": "PASS",
+      "result": "PASS",
+      "finishedAt": "2026-10-07T04:37:53.671Z",
+      "browserVersion": "154.0.8037.98"
+    },
+    "configuration-pagination": {
+      "at": "2026-10-07T05:00:12.383Z",
+      "result": "PASS",
+      "providerListDefault": 20,
+      "allEnvironmentEntries": 22,
+      "preExistingKeysPreserved": true,
+      "pairedReplayConfigurationPresent": true,
+      "streamFlagPresent": true,
+      "operatorPaginationCorrected": true
+    },
+    "deployment-live-3e27b2a": {
+      "status": "live",
+      "commit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2",
+      "finishedAt": "2026-10-07T04:59:21.146597Z"
+    },
+    "browser": {
+      "at": "2026-10-07T05:01:23.033Z",
+      "status": "PASS",
+      "commit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2",
+      "independentSessions": true,
+      "streamHttpRaces": true,
+      "physicalDevice": false
+    },
+    "final-postflight": {
+      "at": "2026-10-07T05:21:39.123Z",
+      "result": "PASS",
+      "protectedChatRows": 8,
+      "protectedProjectionHashUnchanged": true,
+      "remainingSyntheticAccounts": 0
+    },
+    "media-replay": {
+      "at": "2026-10-07T05:05:19.328Z",
+      "sourceCommit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2",
+      "synthetic": true,
+      "physicalDevices": false,
+      "measurements": {
+        "replayKeyboardToVideoProgressMs": 858
+      },
+      "checks": {
+        "hlsBrowserDecodedVideo": "PASS",
+        "webVttCues": "PASS",
+        "keyboardPlayback": "PASS",
+        "seekRatePauseCaptionRenewal": "PASS",
+        "edgeCorsHeadRange": "PASS",
+        "cachedResourceStillRequiresCapability": "PASS",
+        "tamperedUnsignedCrossRecordingExpiredDenial": "PASS",
+        "removalDeniesFreshGrantAndStopsPublicPlayer": "PASS",
+        "naturallyExpiredIssuedCapability": "PASS"
+      },
+      "soundActivationRequired": false,
+      "renewalTimer": "First application expiresIn accelerated to 45s; real signed edge lifetime remains 300s",
+      "edgeCacheHit": "Repeated same segment bytes; cache-hit origin not independently observable",
+      "preExpiryCapabilityAfterRemovalStatus": 200,
+      "capabilityLifetimeSeconds": 300,
+      "result": "PASS",
+      "finishedAt": "2026-10-07T05:10:37.179Z"
+    },
+    "media-final-cleanup": {
+      "at": "2026-10-07T05:20:50.449Z",
+      "result": "PASS",
+      "deletedOwnR2Objects": 101,
+      "remainingOwnR2Objects": 0,
+      "remainingOwnLiveKitRooms": 0,
+      "activeOwnEgress": 0,
+      "deletedSyntheticAccounts": 2,
+      "remainingSyntheticAccounts": 0,
+      "issuedCapabilitiesNaturallyExpired": true,
+      "edgeCacheGloballyPurged": false,
+      "cacheExplanation": "Any retained segment bytes remain behind signature verification; trial capabilities expired, fresh grants denied, synthetic event deleted"
+    },
+    "media-canary-disabled": {
+      "at": "2026-10-07T05:21:37.524Z",
+      "result": "PASS",
+      "removedKeys": [
+        "MEDIA_REPLAY_EDGE_URL",
+        "MEDIA_REPLAY_SIGNING_SECRET",
+        "MEDIA_REPLAY_EDGE_ROOMS"
+      ],
+      "allPagesRead": true,
+      "environmentEntriesBefore": 22,
+      "environmentEntriesAfter": 19,
+      "otherEnvironmentPreserved": true,
+      "legacyReplayPreserved": true,
+      "replayWorkerRemainsPrivate": true,
+      "billingChanged": false,
+      "deploymentPending": true
+    },
+    "final-host-environment": {
+      "at": "2026-10-07T05:21:03.443Z",
+      "nodeInfo": "yaparena_nodejs_version_info{version=\"v24.21.0\",major=\"24\",minor=\"21\",patch=\"0\"} 1",
+      "database": {
+        "identity": "yaparena_runtime",
+        "version": "17.6"
+      },
+      "clientTls": {
+        "encrypted": true,
+        "authorized": true
+      }
+    },
+    "canary-disabled-deployment": {
+      "at": "2026-10-07T05:32:17.660Z",
+      "sourceCommit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2",
+      "deployId": "dep-db2tioajnfac73803v80",
+      "status": "build_in_progress",
+      "canaryDisabled": true,
+      "otherEnvironmentPreserved": true,
+      "billingChanged": false
+    },
+    "canary-disabled-deployment-live": {
+      "at": "2026-10-07T05:33:39.851Z",
+      "sourceCommit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2",
+      "deployId": "dep-db2tioajnfac73803v80",
+      "status": "live",
+      "finishedAt": "2026-10-07T05:32:46.658609Z",
+      "canaryDisabled": true,
+      "billingChanged": false
+    },
+    "canary-disabled-ready": {
+      "at": "2026-10-07T05:34:36.710Z",
+      "result": "PASS",
+      "sourceCommit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2",
+      "readyStatus": 200,
+      "canaryDisabled": true,
+      "remainingEnvironmentEntries": 19,
+      "activeStreams": 0,
+      "activeRooms": 0,
+      "runtimeIdentityVerified": true,
+      "persistentRuntimeListeners": 1,
+      "nodeVersion": "v24.21.0",
+      "billingChanged": false
+    },
+    "portable-media-replay": {
+      "at": "2026-10-07T05:10:55.171Z",
+      "sourceCommit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2",
+      "synthetic": true,
+      "physicalDevices": false,
+      "measurements": {
+        "replayKeyboardToVideoProgressMs": 991
+      },
+      "checks": {
+        "hlsBrowserDecodedVideo": "PASS",
+        "webVttCues": "PASS",
+        "keyboardPlayback": "PASS",
+        "seekRatePauseCaptionRenewal": "PASS",
+        "edgeCorsHeadRange": "PASS",
+        "cachedResourceStillRequiresCapability": "PASS",
+        "tamperedUnsignedCrossRecordingExpiredDenial": "PASS",
+        "removalDeniesFreshGrantAndStopsPublicPlayer": "PASS",
+        "naturallyExpiredIssuedCapability": "PASS"
+      },
+      "soundActivationRequired": false,
+      "renewalTimer": "First application expiresIn accelerated to 45s; real signed edge lifetime remains 300s",
+      "edgeCacheHit": "Repeated same segment bytes; cache-hit origin not independently observable",
+      "preExpiryCapabilityAfterRemovalStatus": 200,
+      "capabilityLifetimeSeconds": 300,
+      "result": "PASS",
+      "finishedAt": "2026-10-07T05:16:13.114Z"
     }
   },
   "knownFailures": [
-    "pre-existing case selected; compensated with newer revision",
-    "profile hydration race in harness",
-    "older resume joined an in-flight newer-cursor read; product regression fixed, not yet deployed"
+    "pre-existing moderation case selected; compensated through newer revision",
+    "profile hydration race in harness; corrected",
+    "older resume joined in-flight newer-cursor cohort; product fix deployed and verified",
+    "optional provider anon role missing on plain PostgreSQL; additive receipt migration corrected before staging apply",
+    "speaker refresh intent cleared by SDK beforeunload; fixed and cloud rerun passed",
+    "Render Free restart exceeded provisional 10-second total recovery target on both hosted repeats",
+    "first final HLS caption trial left browser text track disabled and timed out; not a passed trial",
+    "second final HLS removal assertion expected an invented status phrase; player cleanup passed but whole trial failed; corrected portable harness passed twice"
   ],
   "productionReleaseReady": false,
   "combinedMediaCommit": "095e99713e34ee93479ccceb74e80aa3e7d2f4c6",
@@ -154,5 +529,85 @@
       "maxRuntimeConnections": 8,
       "secondProcessMutations": 60
     }
-  ]
+  ],
+  "mediaPreflightCorrection": "MEDIA_ENABLED does not exist; actual loadConfig parser confirms media configured.",
+  "coordinatedReview": {
+    "thread": "Create worktree and follow plan",
+    "finalCodeCommit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2",
+    "acknowledged": true,
+    "independentlyPassedFocusedTests": 29,
+    "contribution": "24a0974 integrated as d582a99",
+    "productionApproval": false
+  },
+  "finalLocalQuality": {
+    "commit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2",
+    "result": "PASS",
+    "tests": 332,
+    "lineCoverage": 94.33,
+    "branchCoverage": 91.7,
+    "functionCoverage": 95.28
+  },
+  "receiptCI": {
+    "commit": "9f32a6206af6ebf9dd6c3f5a2cebde7bfeeb1897",
+    "run": 37570946277,
+    "allFiveJobs": "PASS",
+    "tests": 354
+  },
+  "finalCI": {
+    "commit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2",
+    "run": 37573539274,
+    "result": "PASS",
+    "allFiveJobs": "PASS",
+    "tests": 365,
+    "lineCoverage": 97.92,
+    "branchCoverage": 91.8,
+    "functionCoverage": 96.51
+  },
+  "finalIsolation": {
+    "result": "PASS",
+    "commit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2",
+    "postgres": "17.10 Homebrew",
+    "creatorMediatorCasesPerScenario": 19,
+    "scenarios": ["fresh", "upgrade"],
+    "hostedDataAPI": "UNVERIFIED",
+    "defaultDockerAttempt": "FAIL local Docker command",
+    "catalog": "/tmp/yaparena-isolation-ee93e4a4-evidence"
+  },
+  "configurationPaginationNote": "Historical deployment.previous null fields came from a partial provider list, not proof of absent settings; full pagination preservation was verified before final cleanup.",
+  "operatorScripts": [
+    {
+      "path": "scripts/verify-community-hosted-capacity.js",
+      "sha256": "438bd71d6ade8fb4bd3f933f6a5e21e9c7845ce653ea184fdeba7c503459eb4a"
+    },
+    {
+      "path": "scripts/verify-media-hosted-browser.js",
+      "sha256": "bfa639f99f28ed6eb179416b9244eae68517da16e2d52e005af3dba6bf8e4805"
+    },
+    {
+      "path": "scripts/verify-media-hosted-replay.js",
+      "sha256": "6b65cc266c63e0dfa577f270adb6bfabc28c45073c8dcda80946a67ccd660327"
+    }
+  ],
+  "unverifiedAcceptance": [
+    "Long hosted soak and matched paid-plan restart/capacity comparison",
+    "Physical iPhone SE 2 and Pixel 4a; Safari/Firefox/native HLS",
+    "Acoustic onset, synchronized live delay, controlled WebRTC interruption and real foreground return",
+    "510 LiveKit participants and five simultaneous debates/recordings",
+    "Independent edge cache-hit provenance",
+    "Hosted Data API isolation",
+    "Whole-app multi-instance clock ownership and shared-IP abuse-control capacity",
+    "Production custom replay domain, receipt privacy review and existing project/financial gates"
+  ],
+  "finalOperatorQuality": {
+    "result": "PASS",
+    "node": "24.19.0",
+    "tests": 332,
+    "lineCoverage": 94.33,
+    "branchCoverage": 91.7,
+    "functionCoverage": 95.28,
+    "applicationCommit": "3e27b2ababa79c3f614963e7ea8046a6aae1a5d2",
+    "workingTreeIncludesHostedOperators": true,
+    "log": "/private/tmp/yaparena-final-evidence-check-unrestricted.log",
+    "sandboxAttempt": "FAIL: local HTTP listen EPERM; unrestricted repeat passed"
+  }
 }

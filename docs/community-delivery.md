@@ -422,3 +422,10 @@ fanout capacity; SQL fixture mutations do not establish hosted authenticated HTT
 It reports actual restart duration independently of catch-up, enforces delivery/memory/session
 budgets, keeps failed attempts visible, and deletes only its tagged fixture data. Preserve baseline
 fingerprints and operator records, and combine it with the real HTTP browser journey.
+
+The hosted-capacity runner also records process CPU over the measured steady-load interval,
+maximum observed event-loop p99 and average pool wait. These are process observations, not
+provider CPU entitlement/throttling evidence. A matched paid-plan comparison is required
+before extrapolating the Free result. When configuring deployment, read every paginated
+provider environment page before preserving/replacing variables; the staging canary has
+more entries than Render's default 20-item page.

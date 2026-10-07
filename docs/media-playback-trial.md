@@ -114,7 +114,123 @@ checks are recorded separately in the community trial.
 
 A read-only provider preflight at 03:25:38 UTC reached LiveKit's room/egress APIs (zero active
 rooms, participants and recordings) and passed R2 HEAD bucket. Actual LiveKit billing/project
-limits are not exposed by those APIs. The Render web service currently has media disabled and
+limits are not exposed by those APIs. The Render web service has media configured through its credentials and
 no replay edge. R2 storage credentials are present; Workers deployment credentials are absent
 from the web service and will be loaded only by a separate authorized operator. No provider
 recording, adaptive edge playback or physical-device acceptance has been performed in this phase.
+
+## Actual cloud recording and coordinated recovery fixes — 2026-10-07
+
+Combined `9f32a6206af6ebf9dd6c3f5a2cebde7bfeeb1897` reached staging at 04:36:01 UTC after all
+five CI checks passed. Chrome 154.0.8037.98 on macOS 15.7.5 used two independent speaker
+contexts and an anonymous viewer with fake camera/microphone capture against actual LiveKit
+Cloud. The service was Render Free, one instance. These are synthetic desktop workflow
+samples, not acoustic startup, live-delay distributions, physical-device or network acceptance.
+
+The successful recording trial at 04:37:53 UTC measured speaker joins at 1,858/1,834ms, two
+rendered viewer videos at 736ms, and deliberately muted refresh/rejoin at 1,571ms. Actual
+provider track state verified mute before and after refresh. The server observed a pause
+after the speaker disconnected; authorized operator resume restored the clock. Side B's
+audio publication was verified, ending stopped the viewer, and the actual provider webhook
+made the recording ready. No webhook success was injected. Sound activation was not required
+in this headless Chrome sample; audible output and restrictive autoplay cohorts were not proven.
+Earlier full cloud attempts failed speaker refresh; a separate no-recording diagnostic and
+failing regression isolated SDK beforeunload clearing joined intent. Fix `72e41b5` retained
+application pagehide cleanup and passed this subsequent real-provider trial.
+
+The actual 61.18458-second source (7,653,250 bytes, 1280×720 H.264 and AAC) was downloaded only
+to ignored private artifacts. At 04:38:51 UTC FFmpeg 9.0.2 packaged all three renditions and
+decoded their complete playlists. All 98 package files were uploaded under the unique synthetic
+recording prefix, with the ready marker last. Captions are manually reviewed synthetic cue
+labels, not transcription accuracy evidence. No private recording was committed.
+
+The Cloudflare Worker was deployed at 03:43:59 UTC, source `0450dbc` (Worker SHA-256
+`f52925f6ccb26b02cada8db174ee81e1f590ab7ce2080e2cae57f25d7cfc5c68`), then enabled at
+`https://yaparena-replay-staging.yaparena-staging.workers.dev`. This is a synthetic staging
+exception; a custom HTTPS domain remains a production gate. Private R2 Put/Get/Delete probing
+passed, the probe was deleted, public bucket access is disabled and unsigned Worker access
+returns 403. Actual Workers subscription access returned 403, so the plan is unknown.
+Worker observability/request logging and preview URLs were disabled. Deployment tokens remain
+in ignored `.env.deploy`, outside Render. The paired replay variables and a one-room canary
+allowlist reached live at 04:39:37 UTC; eight ready legacy replays retain their signed-MP4 path.
+
+Direct coordination with the media agent became available through Codex thread tools. It
+audited the integration and found actual additional recovery bugs: cached history pages
+remained disposed; a second renewal could lose pending seek/play state; paused playback could
+report stable recovery; transport flapping reset retry limits. Its `24a0974` fix is integrated
+as `d582a99`; application fixes are `2fb30d6` and `3e27b2a`. The agent explicitly accepted the
+final code integration after independently passing 29 focused tests. The local final full
+check passed 332 tests, 94.33% lines/91.70% branches/95.28% functions. Denied cached-page
+eligibility and pending old grants/HLS callbacks also have regressions. The focused old
+behavior failed before the fixes; those attempts are retained as failures.
+
+Final-commit deployed HLS/renewal/removal is recorded below. Controlled WebRTC interruption,
+actual foreground return, acoustic startup and synchronized capture-to-playback delay,
+Safari/Firefox/native HLS, physical SE 2/Pixel 4a, accessibility and 510-participant/five-debate
+load remain unverified. Existing 600 media GET requests/minute/IP also cannot support 500
+viewers behind one NAT polling every three seconds; a provider upgrade does not repair that
+application budget. Do not call the 500-viewer SSE trial media-load evidence. Separate
+brief/network/foreground recovery cohorts for their 3/5/5-second targets; the current pooled
+report restoration field alone cannot establish those targets. Existing project gates remain.
+
+Logs: `/private/tmp/yaparena-media-9f32a62-browser.log`,
+`/private/tmp/yaparena-media-package.log`, and
+`/private/tmp/yaparena-media-hls-callback-check.log`. Failed cloud refresh logs and the private
+fixture/cleanup manifest are retained in ignored operator artifacts; never publish session
+cookies, signed playback URLs, owner credentials or source recordings with a trial report.
+
+## Actual private HLS, renewal, removal and expiry — 2026-10-07 UTC
+
+Combined `3e27b2ababa79c3f614963e7ea8046a6aae1a5d2` reached live at 04:59:21 UTC and passed
+all five jobs in [CI run 37573539274](https://github.com/Boufe/YapArena/actions/runs/37573539274)
+(365 tests). Actual runtime Node 24.21.0/PostgreSQL 17.6 was independently verified. Chrome
+154.0.8037.98 on macOS 15.7.5 loaded the real synthetic recording through the privately
+deployed Worker and HLS.js. The 05:05:19–05:10:37 UTC sequence passed; keyboard-to-video
+progress was 858ms. The portable `verifyHostedMediaReplay` module repeated the complete
+sequence at 05:10:55–05:16:13 UTC, passing with 991ms startup. These are two synthetic
+desktop samples, not latency distributions or physical/native-HLS acceptance.
+
+Both runs verified actual HLS decoding, three loaded reviewed WebVTT cues, keyboard startup,
+20-second seeking, rate 1.25, and preserved pause/seek/rate/caption settings through renewal.
+The first application renewal timer was shortened to 45 seconds while the real signed edge
+capability retained its issued 300-second lifetime. Exact-origin CORS, HEAD and 206 byte
+ranges passed. Valid repeated segment requests passed; unsigned, tampered, cross-recording
+and expired requests were denied. Repeated bytes do not independently establish a cache hit.
+Worker tests establish authorization before its cache lookup; the hosted denial tests are
+reported separately from that implementation evidence.
+
+Hiding only the synthetic event denied fresh grants (404) and left its public player hidden,
+paused and with no source (`readyState=0`). An already-issued valid capability still returned
+200 before expiry, as documented. Each trial waited for the actual issued five-minute
+capability to expire and observed 403. This is bounded capability expiry, not immediate
+revocation of every issued URL or a global cache purge. Acoustic output and restrictive
+autoplay behavior were not established by headless keyboard startup.
+
+Earlier final-code attempts remain failures: the first caption assertion left the browser
+text track disabled and timed out; the next passed playback/renewal but expected an invented
+removal status phrase instead of asserting actual player cleanup. The corrected harness
+explicitly enables captions and checks hidden/paused/no-source state. These harness failures
+did not require another application change and are retained with their original outcomes.
+
+Cleanup at 05:20:50 UTC deleted all 101 objects under the exact synthetic prefix and verified
+it empty, with zero owned LiveKit rooms/active egress. The synthetic event/topic and two
+accounts were deleted after issued capabilities expired. Global edge cache purge was not
+performed; any retained bytes remain behind signature verification and expired trial
+capabilities, with fresh grants denied. All eight protected existing chat projections were
+unchanged and zero synthetic accounts remained at 05:21:39 UTC. Provider historical recording
+metadata is not claimed deleted. Local ignored source recordings remain private operator
+artifacts, not repository content.
+
+The three canary variables were removed from the fully paginated Render configuration at
+05:21:37 UTC (22 entries to 19, preserving every other setting). The same integrated code
+reached live with that cleanup at 05:32:46 UTC (`dep-db2tioajnfac73803v80`). Final readiness
+was 200, zero streams/rooms remained, and the runtime LISTEN identity was verified.
+The private Worker remains available, and legacy published replays keep their signed-MP4
+delivery path. Adaptive replay is therefore implemented and exercised in staging, rather
+than globally enabled for existing unpackaged recordings.
+
+Logs: `/private/tmp/yaparena-media-replay-3e27b2a-final.log` and
+`/private/tmp/yaparena-media-portable-replay.log`. Sanitized measurements, cleanup and
+configuration are in `docs/evidence/community-delivery-release.json`; credentials,
+cookies and signed capabilities remain in ignored private operator artifacts. Repeatable
+operator procedures are in `docs/media-playback-operations.md`.

@@ -239,8 +239,7 @@ local restart 876ms, RSS growth 57.11MiB, eight runtime sessions, ten slow-clien
 and zero final streams/rooms. Logs: `/private/tmp/yaparena-combined-{check,isolation,packaging,delivery}.log`.
 
 The existing service's media credentials were inspected safely at 03:25:38 UTC: LiveKit APIs
-responded, zero rooms/participants/active egress existed, and R2 HEAD bucket succeeded. Media is
-currently disabled and the private replay edge is not configured. Render has R2 storage keys but
+responded, zero rooms/participants/active egress existed, and R2 HEAD bucket succeeded. Media is configured by the existing credentials; the private replay edge is not configured. Render has R2 storage keys but
 no Workers deployment token. This is credential-connectivity evidence, not recording/playback or
 plan evidence. The user is supplying the deployment token through an ignored local operator file.
 Physical devices, native Safari/Firefox playback, media quality/load, replay edge, regional timings,
@@ -263,3 +262,112 @@ The fixed 30-second full durable trial passed: 500 streams/50 rooms, 300 authent
 3,000 samples, p50 40ms/p95 97ms, reconnect 433ms, restart 906ms, RSS growth 56.36MiB,
 eight runtime sessions, 60 second-process mutations, ten slow-client disconnects and zero
 final resources. The final fixed real-PG run measured default no-hint repair at 5,008ms.
+
+The media preflight's initial `MEDIA_ENABLED` inference was incorrect: that variable does not
+exist. At 03:32:03 UTC the actual application configuration parser confirmed media is configured.
+The stored sanitized preflight was corrected; provider access/zero-activity observations hold.
+The saved Cloudflare token allowed Worker enumeration, but the first reviewed-code upload
+received HTTP 403. No Worker was created, route enabled, web replay variable changed or plan
+upgraded. A deployment-authorized token and staging hostname choice are pending.
+
+## Receipt retention, coordinated media audit and final staging checks
+
+The additional prerequisite checkpoint `d8ebbc1` binds retained and purged submissions in
+private body-free receipts. It prevents a retry after retention from becoming a new message.
+Native PostgreSQL established existing-row backfill, eight concurrent purged retries, conflict
+rejection, direct duplicate rollback without a cursor advance, owner reconciliation, immutable
+identity and receipt rollback. The first CI attempts (`37569793779`, `37570397944`) failed because
+plain PostgreSQL has no optional Supabase `anon` role. Unreleased migration correction `9f32a62`
+conditionally revokes provider roles when present; the native harness now migrates before
+creating its later browser-role probes. Existing applied migrations were not edited.
+
+`9f32a6206af6ebf9dd6c3f5a2cebde7bfeeb1897` passed all five CI jobs in run `37570946277`,
+including 354 tests. Native isolation fresh/upgrade passed with 19 membership cases per
+scenario; the 30-second PostgreSQL/browser/500-stream repeat also passed. A separate verified
+owner applied `1791345540042` at 04:29 UTC after a fresh encrypted backup. All eight existing
+chat projections were unchanged and two receipts backfilled. Both browser roles have no receipt
+access; runtime DELETE and identity/hash updates remain denied. The backup authenticated
+decryption/archive listing passed (204,006 bytes, 442 entries); no full restore was repeated.
+Render `9f32a62` reached live at 04:36:01 UTC, retaining runtime credentials and other settings.
+
+The five-minute native soak completed at 04:19 UTC on `72e41b5` with the receipt DDL before
+the optional-role portability correction: 500 viewers/50 rooms, 3,000 authenticated HTTP
+writes, 30,000 samples, p50 39ms/p95 157ms, reconnect 471ms, local restart 872ms, 53.69MiB RSS
+growth, nine runtime sessions, 600 second-process mutations, ten slow-client disconnects and
+zero final streams/rooms. Counter serialization waited 114ms behind the held 100ms transaction;
+uncontended p50/p95 were 0.37/0.79ms; no-hint repair was 5,003ms. This is not a clean-`9f32a62`
+five-minute execution; the current-commit portability repeat is separate.
+
+Hosted `9f32a62` trial at 04:53:50 UTC passed the declared steady-delivery/reconnect/resource
+budgets: 500 SSE viewers/50 rooms, 600 separate-owner SQL mutations, 6,000 samples, p50 88ms/
+p95 314ms, reconnect 5,592ms, baseline/peak RSS 99.57/124.46MiB (24.89MiB growth), ten runtime
+sessions including the observer, and zero final streams/rooms. It is not hosted HTTP-send
+throughput or media capacity. Process CPU averaged 0.0431 cores over 60.16 seconds; maximum
+observed event-loop p99 was 87.36ms and average pool wait 0.15ms. These process measurements
+do not establish provider CPU quota, throttling or whole-app capacity. The deployed runtime
+idle LISTEN identity was verified.
+
+Controlled Render Free restart again took 28,740ms, exceeding the provisional 10-second total
+recovery target. Steady delivery was within its target, while full restart was not. A matched
+paid-plan trial is unperformed, so upgrading alone is not claimed to establish capacity or
+close the recovery target. Logs: `/private/tmp/yaparena-hosted-capacity-9f32a62.log`,
+`/private/tmp/yaparena-receipt-final-soak.log`, and
+`/private/tmp/yaparena-receipt-portability-{isolation,delivery}.log`.
+
+Direct Codex-thread coordination with “Create worktree and follow plan” became available at
+04:34 UTC. That agent audited the combined implementation and contributed focused recovery
+commit `24a0974`, integrated as `d582a99`. Its reproduced browser history, replay renewal and
+retry-budget issues received failing-before/passing-after regressions. It acknowledged the
+final code integration at `3e27b2a` after independently passing 29 focused tests. The final
+local quality check passed 332 tests (94.33% lines, 91.70% branches, 95.28% functions). This
+code-review acknowledgment is not production approval; final deployed media checks are recorded
+in the media trial. The original checkout and unrelated changes remain preserved.
+
+## Final integrated code, HTTP/2 and cleanup — 2026-10-07 UTC
+
+Combined code `3e27b2ababa79c3f614963e7ea8046a6aae1a5d2` passed all five jobs in
+[CI run 37573539274](https://github.com/Boufe/YapArena/actions/runs/37573539274): 365 tests,
+97.92% lines, 91.80% branches and 96.51% functions, including real PostgreSQL 18.4 integration,
+image/security and synthetic packaging checks. Local Node 24.19.0 passed 332 tests with
+94.33% lines, 91.70% branches and 95.28% functions. Native PostgreSQL 17.10 isolation passed
+fresh and upgrade scenarios with 19 membership cases each. The default Docker attempt failed
+because the local Docker command was unavailable; the supported native execution passed.
+Logs: `/private/tmp/yaparena-media-hls-callback-check.log`,
+`/private/tmp/yaparena-media-final-native-isolation.log`, and
+`/private/tmp/yaparena-media-final-ci-quality.log`. No Docker runtime is required for this
+local operator workflow; CI separately validates its container path.
+
+Render deployment `dep-db2t2u8m7kps73c7j2u0` reached live at 04:59:21 UTC. At 05:00:48 UTC,
+the actual Chrome browser-to-edge route returned HTTP/2 for readiness and SSE: 128ms first
+frame and 5,895ms to the next scheduled heartbeat. The heartbeat has no durable ID. At
+05:01 UTC independent browser contexts passed pending/lost-HTTP reconciliation, delayed
+history, pagination, drafts, disconnect/reconnect, pause/resume, removal/restoration, event
+ending and topic visibility revocation. Desktop/emulated-phone update samples were
+1,093/1,095ms and reconnect 180ms; the 1,606ms moderation workflow includes HTTPS mutation
+processing and is separate from the steady commit-delivery p95 measurement. Phone emulation
+does not establish physical-device acceptance. Logs:
+`/private/tmp/yaparena-edge-3e27b2a.log` and
+`/private/tmp/yaparena-community-browser-3e27b2a.log`.
+
+The synthetic media recording, HLS renewal/removal and natural capability-expiry trials
+completed; their precise scope and earlier failed attempts are in the media trial. Cleanup
+at 05:20:50 UTC deleted all 101 owned R2 objects, the synthetic event/topic and two accounts;
+no owned provider room or active recording remained. At 05:21:39 UTC all eight protected
+pre-existing chat projections still matched the pre-receipt backup and zero synthetic
+accounts remained. The one-room canary configuration was removed with all other settings
+preserved; the private Worker remains deployed for future staging trials. Deployment `dep-db2tioajnfac73803v80` applied that removal at 05:32:46 UTC.
+At 05:34:36 UTC readiness was 200, active streams/rooms were zero and exactly one idle
+runtime LISTEN connection remained. All 19 remaining environment entries were preserved.
+
+At 05:21 UTC the actual service reported Node 24.21.0; its certificate-verified session-pooler
+connection reported PostgreSQL 17.6 and runtime identity `yaparena_runtime`. Browser/public
+API access to hosted Data API isolation remains unverified; catalog and privilege probes
+alone do not establish that separate gate. Render Free restart, long hosted soak, paid-plan
+comparison, physical-browser coverage, whole-app clock/shared-IP scaling and the existing
+privacy/financial gates remain open. The provisional capacity targets are not approved
+production limits.
+
+The final documentation/hosted-operator working tree repeated `npm run check`: 332 tests,
+94.33% lines/91.70% branches/95.28% functions. The first sandbox execution failed HTTP
+server binding with `listen EPERM`; the authorized unrestricted repeat passed. Both logs
+are retained as `/private/tmp/yaparena-final-evidence-check{,-unrestricted}.log`.

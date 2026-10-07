@@ -30,6 +30,7 @@ export async function verifyHostedCommunityCapacity({
   let firstMessage;
   let maximumRss = 0;
   let maximumConnections = 0;
+  let maximumEventLoopP99Seconds = 0;
   let listenerVerified = false;
   const starts = new Map();
   const latency = [];
@@ -50,8 +51,18 @@ export async function verifyHostedCommunityCapacity({
       rss: value("yaparena_process_resident_memory_bytes"),
       streams: value("yaparena_community_streams"),
       rooms: value("yaparena_community_rooms"),
+      cpuSeconds:
+        value("yaparena_process_cpu_user_seconds_total") +
+        value("yaparena_process_cpu_system_seconds_total"),
+      eventLoopP99Seconds: value("yaparena_nodejs_eventloop_lag_p99_seconds"),
+      poolWaitSeconds: value("yaparena_database_pool_wait_seconds_sum"),
+      poolAcquisitions: value("yaparena_database_pool_wait_seconds_count"),
     };
     maximumRss = Math.max(maximumRss, result.rss);
+    maximumEventLoopP99Seconds = Math.max(
+      maximumEventLoopP99Seconds,
+      result.eventLoopP99Seconds,
+    );
     const identities = (
       await observer.query(
         "SELECT application_name, state, query FROM pg_stat_activity WHERE usename=current_user AND datname=current_database()",
@@ -95,7 +106,17 @@ export async function verifyHostedCommunityCapacity({
             const line = raw.split("\n").find((v) => v.startsWith("data: "));
             if (!line) continue;
             const frame = JSON.parse(line.slice(6));
-            if (!frame.cursor) continue;
+            if (!frame.cursor) {
+              // A caught-up resume confirms freshness with an ID-less heartbeat;
+              // it does not invent or advance the successfully applied cursor.
+              if (
+                state.cursor &&
+                raw.startsWith("event: heartbeat") &&
+                frame.version === 1
+              )
+                state.ready = true;
+              continue;
+            }
             const match = /^v1:([a-f0-9-]{36}):([0-9]+)$/.exec(frame.cursor);
             assert.ok(match && match[1] === room, "room-scoped trial cursor");
             const previous = state.cursor?.split(":")[2];
@@ -222,7 +243,34 @@ export async function verifyHostedCommunityCapacity({
       if (i % 50 === 0) await metrics();
       await delay(Math.max(0, start + (i + 1) * 100 - performance.now()));
     }
-    await until(() => latency.length === writes * 10);
+    const measured = await metrics();
+    const measuredSeconds = (performance.now() - start) / 1000;
+    console.log(
+      JSON.stringify({
+        phase: "hosted-delivery-observed",
+        expectedSamples: writes * 10,
+        samples: latency.length,
+        closedViewers: viewers.filter((v) => v.closed).length,
+        metrics: measured,
+      }),
+    );
+    try {
+      await until(() => latency.length === writes * 10);
+    } catch (error) {
+      const cursors = viewers.map((v) => BigInt(v.cursor.split(":")[2]));
+      console.log(
+        JSON.stringify({
+          phase: "hosted-delivery-deadline",
+          expectedSamples: writes * 10,
+          samples: latency.length,
+          closedViewers: viewers.filter((v) => v.closed).length,
+          minCursor: cursors.reduce((a, b) => (a < b ? a : b)).toString(),
+          maxCursor: cursors.reduce((a, b) => (a > b ? a : b)).toString(),
+          metrics: await metrics(),
+        }),
+      );
+      throw error;
+    }
     const resumes = await close();
     await owner.query(
       "UPDATE event_chat_messages SET state='removed' WHERE id=$1 AND debate_id=$2",
@@ -285,6 +333,18 @@ export async function verifyHostedCommunityCapacity({
       p95Ms: Math.round(latency[Math.floor(latency.length * 0.95)]),
       reconnectMs,
       restartMs,
+      measuredLoadSeconds: +measuredSeconds.toFixed(2),
+      processAverageCpuCores: +(
+        (measured.cpuSeconds - atCapacity.cpuSeconds) /
+        measuredSeconds
+      ).toFixed(4),
+      maxObservedEventLoopP99Ms: +(maximumEventLoopP99Seconds * 1000).toFixed(
+        2,
+      ),
+      loadAveragePoolWaitMs: +(
+        ((measured.poolWaitSeconds - atCapacity.poolWaitSeconds) * 1000) /
+        Math.max(1, measured.poolAcquisitions - atCapacity.poolAcquisitions)
+      ).toFixed(2),
       baselineRssMiB: +(baseline.rss / 1024 / 1024).toFixed(2),
       peakRssMiB: +(maximumRss / 1024 / 1024).toFixed(2),
       rssGrowthMiB: +((maximumRss - baseline.rss) / 1024 / 1024).toFixed(2),

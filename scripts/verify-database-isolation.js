@@ -19,6 +19,7 @@ import supertest from "./test-http-request.js";
 import { runner, MigrationBuilder } from "node-pg-migrate";
 import { privateKeyToAccount } from "viem/accounts";
 import { deliveryTables } from "../migrations/1791335211412_durable-community-delivery.js";
+import { receiptTables } from "../migrations/1791345540042_preserve-chat-idempotency.js";
 import { provisionDatabase } from "./provision-database.js";
 import {
   runtimeGrants,
@@ -49,6 +50,7 @@ const applicationTables = [
   ...Object.keys(runtimeGrants),
   "wallet_operations",
   ...deliveryTables,
+  ...receiptTables,
 ];
 const container = `yaparena-isolation-${randomUUID().slice(0, 8)}`;
 const evidenceDirectory = `/tmp/${container}-evidence`;
@@ -169,6 +171,7 @@ async function browserChecks(admin) {
         "product_measurement_record_completion",
         "isolation_definer_probe",
         "capture_community_change",
+        "capture_submission_receipt",
       ]) {
         await admin.query("SAVEPOINT probe");
         await denied(admin, `SELECT yaparena.${routine}()`);
@@ -402,6 +405,9 @@ async function runtimeChecks(database, owner, admin) {
       "SELECT setval('yaparena.users_id_seq',1)",
       "SELECT yaparena.isolation_definer_probe()",
       "SELECT yaparena.capture_community_change()",
+      "SELECT yaparena.capture_submission_receipt()",
+      "DELETE FROM yaparena.community_submission_receipts",
+      "UPDATE yaparena.community_submission_receipts SET body_hash=body_hash",
       "UPDATE yaparena.users SET email = email",
     ])
       await denied(login, sql);

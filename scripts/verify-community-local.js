@@ -154,7 +154,21 @@ try {
       [legacyEvent, legacyUser],
     )
   ).rows[0].id;
+  const legacyKey = randomUUID();
+  const legacyKeyed = (
+    await owner.query(
+      "INSERT INTO event_chat_messages(debate_id,author_user_id,body,client_message_id,created_at) VALUES ($1,$2,'Existing keyed acceptance',$3,clock_timestamp()-INTERVAL '20 seconds') RETURNING id",
+      [legacyEvent, legacyUser, legacyKey],
+    )
+  ).rows[0].id;
   await migrate();
+  const binding = (
+    await owner.query(
+      "SELECT message_id::text,body_hash=sha256(convert_to('Existing keyed acceptance','UTF8')) AS matches FROM community_submission_receipts WHERE author_user_id=$1 AND debate_id=$2 AND client_message_id=$3",
+      [legacyUser, legacyEvent, legacyKey],
+    )
+  ).rows[0];
+  assert.deepEqual(binding, { message_id: legacyKeyed, matches: true });
   const upgraded = (
     await owner.query(
       "SELECT client_message_id, revision::text, body FROM event_chat_messages WHERE id=$1",
@@ -214,6 +228,13 @@ try {
       "Synthetic retained acceptance",
       expiryKey,
     );
+    await assert.rejects(
+      runtimePool.query(
+        "UPDATE event_chat_messages SET client_message_id=$2 WHERE id=$1",
+        [accepted.id, randomUUID()],
+      ),
+      (error) => error.code === "23514",
+    );
     await owner.query(
       "UPDATE event_chat_messages SET created_at=clock_timestamp()-INTERVAL '366 days' WHERE id=$1",
       [accepted.id],
@@ -223,12 +244,100 @@ try {
     const afterExpiry = await repository.postChat(
       legacyEvent,
       legacyUser,
-      "New binding after retention expiry",
+      "Synthetic retained acceptance",
       expiryKey,
     );
-    assert.notEqual(afterExpiry.id, accepted.id);
+    assert.equal(afterExpiry.id, accepted.id);
+    assert.equal(afterExpiry.state, "removed");
+    assert.equal(afterExpiry.body, null);
+    assert.ok(BigInt(afterExpiry.revision) > BigInt(accepted.revision));
+    assert.ok(
+      BigInt(afterExpiry.streamRevision) > BigInt(accepted.streamRevision),
+    );
+    assert.deepEqual(
+      await repository.reconcileSubmissions(legacyEvent, legacyUser, [
+        expiryKey,
+      ]),
+      [afterExpiry],
+    );
+    const cursor = (
+      await owner.query(
+        "SELECT cursor::text FROM community_rooms WHERE room_id=$1",
+        [legacyEvent],
+      )
+    ).rows[0].cursor;
+    const retries = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        repository.postChat(
+          legacyEvent,
+          legacyUser,
+          "Synthetic retained acceptance",
+          expiryKey,
+          false,
+        ),
+      ),
+    );
+    assert.ok(
+      retries.every((item) => item.id === accepted.id && item.body === null),
+    );
+    await assert.rejects(
+      repository.postChat(
+        legacyEvent,
+        legacyUser,
+        "Conflicting after purge",
+        expiryKey,
+      ),
+      (error) => error.code === "CHAT_PAYLOAD_CONFLICT",
+    );
+    await assert.rejects(
+      runtimePool.query(
+        "INSERT INTO event_chat_messages(debate_id,author_user_id,body,client_message_id) VALUES ($1,$2,'Bypass retry',$3)",
+        [legacyEvent, legacyUser, expiryKey],
+      ),
+      (error) => error.code === "23505",
+    );
+    assert.equal(
+      (
+        await owner.query(
+          "SELECT cursor::text FROM community_rooms WHERE room_id=$1",
+          [legacyEvent],
+        )
+      ).rows[0].cursor,
+      cursor,
+      "failed duplicate rolls back log and counter",
+    );
+    assert.equal(
+      (
+        await owner.query(
+          "SELECT COUNT(*)::text AS n FROM event_chat_messages WHERE id=$1",
+          [accepted.id],
+        )
+      ).rows[0].n,
+      "0",
+    );
+    const rolledBackKey = randomUUID();
+    const writer = await runtimePool.connect();
+    try {
+      await writer.query("BEGIN");
+      await writer.query(
+        "INSERT INTO event_chat_messages(debate_id,author_user_id,body,client_message_id) VALUES ($1,$2,'Rolled back binding',$3)",
+        [legacyEvent, legacyUser, rolledBackKey],
+      );
+      await writer.query("ROLLBACK");
+    } finally {
+      writer.release();
+    }
+    assert.equal(
+      (
+        await owner.query(
+          "SELECT COUNT(*)::text AS n FROM community_submission_receipts WHERE client_message_id=$1",
+          [rolledBackKey],
+        )
+      ).rows[0].n,
+      "0",
+    );
     console.log(
-      "Chat idempotency retention: existing runtime purge expires keys; subsequent eligible reuse is a new write PASS",
+      "Chat idempotency retention: backfill, canonical purged acknowledgment, concurrent retries, conflicting reuse, database enforcement and rollback PASS",
     );
   } finally {
     await runtimePool.end();

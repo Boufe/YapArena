@@ -64,9 +64,25 @@ an account was restricted; verify current sign-in and event/topic publication fi
 acceptance lookup is scoped to the account from its session. A payload conflict needs explicit user
 review, never an automatic new key. Removed acknowledgments expose no removed text.
 
-Keys expire only with the existing 365-day message purge and applicable moderation holds. After
-purge, reuse is a new submission and can produce a new message if writes are eligible. This adds no
-independent receipt archive or extra retention job. Reload recovery is intentionally unsupported:
+Migration `1791345540042_preserve-chat-idempotency.js` adds a private, body-free receipt binding
+the authenticated sender, room and key to the canonical message ID and SHA-256 request fingerprint.
+It backfills currently retained keyed messages. An AFTER trigger records the binding in the same
+transaction and prevents rebinding at PostgreSQL even after the chat body is purged. Message
+identity fields are immutable. Receipt reads precede allowance checks; unchanged retries return
+the canonical message or its newer removed tombstone, and conflicting text remains HTTP 409.
+Pending reconciliation also returns purged canonical tombstones. No retry inserts another row,
+advances the room counter or recreates removed content.
+
+Receipts contain private sender/key metadata and a request fingerprint, not anonymous data; they
+never enter public fanout or logs. They retain for the room/account lifetime, independently of
+365-day chat/evidence retention and the seven-day stream log. Physical room/account deletion
+cascades receipts; runtime has no receipt DELETE or binding/hash UPDATE permission. Existing
+keys purged before this migration cannot be reconstructed. Apply the additive migration as owner
+before deploying the matching image. An older image may reject a purged-key retry with 5xx, but
+the receipt constraint prevents a duplicate; pause chat before rollback to incompatible code.
+The migration backfill/index takes a table lock: schedule and measure it on large catalogs.
+
+Reload recovery is intentionally unsupported:
 recoverable submissions and drafts stay in page memory, not local storage, offline cache or logs.
 Keep the page open when delivery is unconfirmed. **Retry unchanged** resends the original text/key;
 **Recover to draft** appends text, never replaces later typing, and does not send it. Sending an unchanged recovered draft retries the original key; editing or appending to existing

@@ -22,7 +22,11 @@ Before SSE edits, the shared working tree already implemented optimistic submiss
 `clientMessageId`, immutable retry text, owner-only pending reconciliation, and revision safeguards.
 The partial PostgreSQL unique index scopes keys to sender/room. Account transaction locks serialize
 retries, canonical reads precede allowance/new-write checks, conflicting text fails with 409, and
-removed acceptances return null bodies. Keys expire only on normal message retention purge.
+removed acceptances return null bodies. The initial prerequisite implementation expired keys on
+normal message retention purge; the later retention audit found this did not satisfy the strict
+retry requirement. The separately reviewable receipt checkpoint described in
+[community operations](community-operations.md#chat-submission-migration-and-rollout) fixes that
+gap with additive migration `1791345540042_preserve-chat-idempotency.js`; no applied migration changes.
 
 Executed with Node 24.19.0, disposable SCRAM PostgreSQL 17.10, distinct owner/runtime logins and
 synthetic data: `node --test tests/community-state.test.js tests/community-repository.test.js
@@ -32,7 +36,8 @@ desktop 2,216ms, phone viewport 2,221ms, reconnect 28ms, removal 1,669ms; these 
 observations. Logs: `/tmp/yaparena-prerequisite-unit.log`, `/tmp/yaparena-prerequisites.log`.
 The initial sandbox attempts failed on local sockets/shared memory; the recorded trials ran with
 local process permission. No missing prerequisite implementation was found, so this checkpoint adds
-no prerequisite code. Existing unrelated uncommitted work was preserved; `/tmp/yaparena-before-sse.patch`
+no prerequisite code at that time. The retention guarantee was subsequently corrected as described
+above. Existing unrelated uncommitted work was preserved; `/tmp/yaparena-before-sse.patch`
 records the starting tracked diff. No commit/deployment was made.
 
 ## Implementation and writer inventory
@@ -92,6 +97,9 @@ Lock order for existing application writers is: account/advisory and business lo
 by the operation; debate/control/message locks; then the room counter. Do not acquire another public
 entity lock after acquiring a room counter. Matching/media already lock the debate before updating
 its lifecycle, and their subsequent participant/media work cannot acquire a competing room counter.
+Submission receipt locks come last, after the room counter; unchanged retry reads take no receipt
+row lock. A purged keyed message updates its canonical tombstone in the same deletion transaction.
+Receipts never acquire another public entity lock and are retained independently of body/log cleanup.
 Chat takes the debate share lock and control lock before INSERT. An implicit open control INSERT
 does not allocate an event, which avoids counter-to-control inversion with a pause. Moderation takes
 the case/appeal and target message/control before capture. Profile/topic fanout acquires affected

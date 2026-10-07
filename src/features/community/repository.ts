@@ -46,6 +46,9 @@ interface ChatRow {
   revision: string;
   streamRevision?: string;
 }
+interface AcceptedChatRow extends ChatRow {
+  payloadMatches: boolean;
+}
 interface CaseRow {
   id: string;
   reporterUserId: string;
@@ -86,6 +89,17 @@ const chatFields = `m.id, m.debate_id AS "debateId",
 const chatJoin = `FROM event_chat_messages m
   LEFT JOIN public_profiles p ON p.user_id = m.author_user_id
     AND p.publication_state = 'published'`;
+
+// The receipt survives message-body retention. A purged canonical message can
+// only be acknowledged as removed; this path never recreates its content.
+const receiptFields = `r.message_id AS id, r.debate_id AS "debateId",
+  r.author_user_id AS "authorUserId", COALESCE(p.display_name, 'Participant') AS "authorName",
+  m.body, COALESCE(m.state, 'removed') AS state, r.created_at AS "createdAt",
+  r.client_message_id AS "clientMessageId", COALESCE(m.revision,r.revision)::text AS revision,
+  COALESCE(m.stream_revision,r.stream_revision)::text AS "streamRevision"`;
+const receiptJoin = `FROM community_submission_receipts r
+  LEFT JOIN event_chat_messages m ON m.id=r.message_id
+  LEFT JOIN public_profiles p ON p.user_id=r.author_user_id AND p.publication_state='published'`;
 
 function publicMessage(item: ChatRow, viewerId?: string) {
   return {
@@ -351,15 +365,14 @@ export function createCommunityRepository(database: Pool) {
         // Access is always checked, even for an acknowledgment of an earlier write.
         const event = await eventFor(client, id, true);
         if (clientMessageId) {
-          const accepted = await client.query<ChatRow>(
-            `SELECT ${chatFields} ${chatJoin}
-             WHERE m.debate_id = $1 AND m.author_user_id = $2 AND m.client_message_id = $3
-             FOR SHARE OF m`,
-            [id, userId, clientMessageId],
+          const accepted = await client.query<AcceptedChatRow>(
+            `SELECT ${receiptFields}, r.body_hash=sha256(convert_to($4,'UTF8')) AS "payloadMatches" ${receiptJoin}
+             WHERE r.debate_id = $1 AND r.author_user_id = $2 AND r.client_message_id = $3`,
+            [id, userId, clientMessageId, body],
           );
           const original = accepted.rows[0];
           if (original) {
-            if (original.body !== body)
+            if (!original.payloadMatches)
               throw new CommunityConflictError(
                 "submission key was already accepted with different text",
                 "CHAT_PAYLOAD_CONFLICT",
@@ -450,8 +463,8 @@ export function createCommunityRepository(database: Pool) {
         async (client) => {
           await eventFor(client, id);
           const result = await client.query<ChatRow>(
-            `SELECT ${chatFields} ${chatJoin}
-        WHERE m.debate_id=$1 AND m.author_user_id=$2 AND m.client_message_id=ANY($3::uuid[])`,
+            `SELECT ${receiptFields} ${receiptJoin}
+        WHERE r.debate_id=$1 AND r.author_user_id=$2 AND r.client_message_id=ANY($3::uuid[])`,
             [id, userId, keys],
           );
           return result.rows.map((item) => publicMessage(item, userId));

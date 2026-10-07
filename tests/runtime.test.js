@@ -61,6 +61,10 @@ describe("service runtime", () => {
         },
       },
       database: { end: mock.fn(async () => events.push("database closed")) },
+      communityStreams: {
+        start: async () => events.push("listener registered"),
+        stop: async () => events.push("streams drained"),
+      },
       sessions: { deleteExpired: async () => 0 },
       logger: { info: () => {}, error: () => {} },
       config: { port: 3000, host: "127.0.0.1" },
@@ -70,7 +74,13 @@ describe("service runtime", () => {
     await runtime.start();
     await runtime.stop();
 
-    assert.deepEqual(events, ["verified", "listen", "database closed"]);
+    assert.deepEqual(events, [
+      "verified",
+      "listener registered",
+      "listen",
+      "streams drained",
+      "database closed",
+    ]);
   });
 
   it("does not listen when database verification fails", async () => {

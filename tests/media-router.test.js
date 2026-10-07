@@ -22,6 +22,17 @@ function fixture(overrides = {}) {
     recordingKey: `debates/${id}/recording.mp4`,
   };
   const media = {
+    async getPublicSnapshot() {
+      const current = await this.getPublicEvent();
+      return current?.publicationState === "published"
+        ? {
+            state: await this.get(),
+            eventStatus: current.status,
+            serverNow: new Date().toISOString(),
+            streamRevision: "1",
+          }
+        : null;
+    },
     async get() {
       calls.push("get");
       return state;
@@ -91,6 +102,12 @@ function fixture(overrides = {}) {
     },
     async replayUrl() {
       return "http://localhost:8333/replay";
+    },
+    async replayAccess(key) {
+      return { url: await this.replayUrl(key), expiresIn: 3600 };
+    },
+    async publishCaptions() {
+      calls.push("publishCaptions");
     },
     async webhook() {
       return {};
@@ -1005,4 +1022,50 @@ describe("signed media webhooks", () => {
       204,
     );
   });
+});
+
+it("accepts anonymous bounded operational playback reports and denies removed replay renewal", async () => {
+  const f = fixture();
+  const report = {
+    event: "attempt",
+    mode: "live",
+    prepared: false,
+    browser: "chrome",
+    device: "desktop",
+  };
+  assert.equal(
+    (
+      await request(f.app)
+        .post(`/api/media/events/${id}/playback`)
+        .send({ reports: [report] })
+    ).status,
+    204,
+  );
+  assert.equal(
+    (
+      await request(f.app)
+        .post(`/api/media/events/${id}/playback`)
+        .send({ reports: [{ ...report, url: "secret" }] })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request(f.app)
+        .post("/api/media/events/invalid/playback")
+        .send({ reports: [report] })
+    ).status,
+    404,
+  );
+  f.event.status = "replay";
+  f.state.recordingStatus = "ready";
+  assert.equal(
+    (await request(f.app).get(`/api/media/events/${id}/replay`)).status,
+    200,
+  );
+  f.event.publicationState = "removed";
+  assert.equal(
+    (await request(f.app).get(`/api/media/events/${id}/replay`)).status,
+    404,
+  );
 });

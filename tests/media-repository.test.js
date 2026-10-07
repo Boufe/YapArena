@@ -29,7 +29,7 @@ function fake() {
     if (sql.includes("FROM debates WHERE id = $1 FOR UPDATE"))
       return result(event ? [event] : []);
     if (
-      sql.includes("FROM debates WHERE id = $1") &&
+      sql.includes("FROM debates d JOIN topics") &&
       sql.includes('"publicationState"')
     )
       return result(event ? [event] : []);
@@ -66,7 +66,7 @@ function fake() {
       sql.startsWith("SELECT") &&
       sql.includes("FROM debate_media WHERE debate_id = $1 FOR UPDATE")
     )
-      return result(media ? [media] : []);
+      return result(media ? [{ ...media, databaseNow: new Date() }] : []);
     if (
       sql.startsWith("SELECT") &&
       sql.includes("FROM debate_media WHERE debate_id = $1")

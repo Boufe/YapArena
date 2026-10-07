@@ -1,9 +1,10 @@
-export function createMediaTracks(container) {
+export function createMediaTracks(container, observe = () => {}) {
   const attached = new Map();
 
   function detach(track) {
     const entry = attached.get(track);
     if (!entry) return;
+    entry.cleanup?.();
     track.detach(entry.node);
     entry.node.remove();
     attached.delete(track);
@@ -23,7 +24,11 @@ export function createMediaTracks(container) {
       node.dataset.participant = identity;
       node.autoplay = true;
       if (track.kind === "video") node.setAttribute("playsinline", "");
-      attached.set(track, { node, identity });
+      attached.set(track, {
+        node,
+        identity,
+        cleanup: observe(node, track, identity),
+      });
       container.append(node);
     },
     detach,

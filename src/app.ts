@@ -8,9 +8,11 @@ import type { createMessageRepository } from "./features/messages/repository.ts"
 import type { createDiscoveryRepository } from "./features/discovery/repository.ts";
 import type { createIdentityRepository } from "./features/identity/repository.ts";
 import type { createMatchingRepository } from "./features/matching/repository.ts";
+import { createMediaTelemetry } from "./features/media/telemetry.ts";
 import type { createMediaRepository } from "./features/media/repository.ts";
 import type { createMediaProvider } from "./features/media/provider.ts";
 import type { createCommunityRepository } from "./features/community/repository.ts";
+import type { createCommunityStreams } from "./features/community/streams.ts";
 import type { createMeasurementRepository } from "./features/measurement/repository.ts";
 import type { createUserRepository } from "./platform/auth/users.ts";
 import type { createSessionRepository } from "./platform/auth/sessions.ts";
@@ -36,6 +38,11 @@ import {
 } from "./platform/auth/router.ts";
 import { createHttpLogger } from "./platform/logger.ts";
 import { createMetrics } from "./platform/metrics.ts";
+import { SharedReadCapacityError } from "./platform/shared-read.ts";
+import {
+  createViewerAdmission,
+  mediaDeliveryLane,
+} from "./platform/viewer-admission.ts";
 import {
   createApiRateLimiter,
   createCsrfOriginProtection,
@@ -48,6 +55,11 @@ export const handleError: ErrorRequestHandler = (
   _next,
 ) => {
   void _next;
+  if (error instanceof SharedReadCapacityError)
+    return response
+      .set("Retry-After", "1")
+      .status(503)
+      .json({ error: "public media temporarily busy; retry shortly" });
 
   if (error instanceof SyntaxError) {
     return response.status(400).json({
@@ -76,7 +88,9 @@ export function createApp({
   matching,
   media,
   mediaProvider,
+  mediaAdmissionSecret,
   community,
+  communityStreams,
   measurement,
   users,
   sessions,
@@ -99,7 +113,12 @@ export function createApp({
   matching?: ReturnType<typeof createMatchingRepository>;
   media?: ReturnType<typeof createMediaRepository>;
   mediaProvider?: ReturnType<typeof createMediaProvider>;
+  mediaAdmissionSecret?: string;
   community?: ReturnType<typeof createCommunityRepository>;
+  communityStreams?: Pick<
+    ReturnType<typeof createCommunityStreams>,
+    "subscribe"
+  >;
   measurement?: ReturnType<typeof createMeasurementRepository>;
   users: ReturnType<typeof createUserRepository>;
   sessions: ReturnType<typeof createSessionRepository>;
@@ -133,8 +152,22 @@ export function createApp({
       ? helmet({
           contentSecurityPolicy: {
             directives: {
-              "connect-src": ["'self'", mediaUrl!.origin, mediaHttpOrigin!],
-              "media-src": ["'self'", mediaProvider.playbackOrigin],
+              "connect-src": [
+                "'self'",
+                mediaUrl!.origin,
+                mediaHttpOrigin!,
+                ...(mediaProvider.playbackOrigins ?? [
+                  mediaProvider.playbackOrigin,
+                ]),
+              ],
+              "worker-src": ["'self'", "blob:"],
+              "media-src": [
+                "'self'",
+                "blob:",
+                ...(mediaProvider.playbackOrigins ?? [
+                  mediaProvider.playbackOrigin,
+                ]),
+              ],
               "upgrade-insecure-requests":
                 environment === "production" ? [] : null,
             },
@@ -144,21 +177,38 @@ export function createApp({
   );
   const liveRead = (request: Request) =>
     request.method === "GET" &&
-    /^\/api\/(?:media\/events\/[0-9a-f-]{36}|community\/events\/[0-9a-f-]{36}(?:\/my-like|\/chat\/sync)?)$/i.test(
+    /^\/api\/community\/events\/[0-9a-f-]{36}(?:\/my-like|\/chat\/sync|\/updates)?$/i.test(
       request.path,
     );
+  const streamRead = (request: Request) =>
+    request.method === "GET" &&
+    /^\/api\/community\/events\/[^/]+\/stream$/.test(request.path);
+  app.use(
+    createViewerAdmission({
+      secret: mediaAdmissionSecret,
+      secure: environment === "production",
+      refused: (reason) =>
+        metrics.mediaControl.inc({ kind: `admission_${reason}` }),
+    }),
+  );
   app.use(
     createApiRateLimiter({
       windowMs: 60_000,
       limit: 600,
-      skip: (request) => !liveRead(request),
+      skip: (request) =>
+        !liveRead(request) ||
+        streamRead(request) ||
+        Boolean(mediaDeliveryLane(request)),
     }),
   );
   app.use(
     createApiRateLimiter({
       windowMs: rateLimitWindowMs,
       limit: apiRateLimit,
-      skip: liveRead,
+      skip: (request) =>
+        liveRead(request) ||
+        streamRead(request) ||
+        Boolean(mediaDeliveryLane(request)),
     }),
   );
   if (media && mediaProvider) {
@@ -252,6 +302,7 @@ export function createApp({
       createMediaRouter({
         media,
         provider: mediaProvider,
+        recordPlayback: createMediaTelemetry(metrics.registry),
         matching,
         identity,
         requireAuth: createRequireAuthentication({ sessions, environment }),
@@ -266,6 +317,7 @@ export function createApp({
         requireAuth: createRequireAuthentication({ sessions, environment }),
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",
         recordProductAction,
+        streams: communityStreams,
       }),
     );
   }

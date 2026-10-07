@@ -1,0 +1,114 @@
+{
+  "recordedAt": "2026-10-07T16:34:08Z",
+  "implementationCommit": "fae50da641255afda0971e69e69c157a2d8a36a2",
+  "environment": {
+    "node": "24.19.0",
+    "os": "macOS 15.7.5",
+    "postgres": "17.10 Homebrew",
+    "ffmpeg": "9.0.2",
+    "data": "disposable local databases and synthetic recordings",
+    "objectAdapter": "in-memory synthetic adapter for the pipeline trial"
+  },
+  "quality": {
+    "command": "npm run check",
+    "tests": 377,
+    "passed": 377,
+    "failed": 0,
+    "coverage": { "lines": 94.85, "branches": 92.18, "functions": 94.46 }
+  },
+  "isolation": {
+    "command": "DATABASE_TEST_MODE=host npm run verify:database-isolation",
+    "fresh": "PASS",
+    "upgrade": "PASS",
+    "privateTables": 38,
+    "membershipCasesPerRun": 19,
+    "hostedDataApiGraphqlRealtime": "UNVERIFIED"
+  },
+  "replay": {
+    "command": "REPLAY_POSTGRES_MODE=host npm run verify:replay-pipeline",
+    "result": "PASS",
+    "sourceSeconds": 6,
+    "encoderThreads": 2,
+    "conversionSeconds": 0.745,
+    "encoderSampledPeakRssMiB": 98.13,
+    "nodePeakRssMiB": 96.23,
+    "files": 13,
+    "bytes": 3058877,
+    "stalledHeartbeatShutdownMs": 1515.15,
+    "shutdownDeadlineMs": 8000,
+    "controlledTransactions": [
+      "concurrent enqueue and lease claim",
+      "pinned source identity",
+      "rollback of automatic publication/history/community cursor",
+      "atomic ended-to-replay publication and idempotent completion",
+      "runtime publication backend termination without unhandled crash",
+      "removal/completion race and topic visibility revocation",
+      "lease expiry, caption replacement, deletion tombstones",
+      "five-attempt retry budget, immutable runtime bindings and bounded pruning",
+      "room-scoped canary filtering"
+    ]
+  },
+  "mediaControls": {
+    "command": "COMMUNITY_POSTGRES_MODE=host COMMUNITY_SOAK_SECONDS=30 npm run verify:community-delivery",
+    "result": "PASS",
+    "viewersOnOneIp": 500,
+    "rooms": 5,
+    "httpRequests": 5301,
+    "publicDeliveryRefusals": 0,
+    "protectedWriteRefusals": 1,
+    "protectedWriteAllowancePreserved": true,
+    "bootstrapAndPollP95Ms": 27.03,
+    "elapsedMs": 1359,
+    "runtimePoolPeakConnections": 10,
+    "independentClockProcesses": 2,
+    "clockContentionMs": 0.44,
+    "processDeathOwnershipRecoveryMs": 26.77,
+    "peakProviderWritesPerRoom": 1,
+    "missedRecordingProbeRooms": 6,
+    "pendingRecordingStarvationPrevented": true,
+    "provider": "synthetic permissions and locally signed SDK JWTs; no cloud media load"
+  },
+  "community": {
+    "result": "PASS",
+    "viewers": 500,
+    "rooms": 50,
+    "seconds": 30,
+    "writes": 300,
+    "deliverySamples": 3000,
+    "deliveryP95Ms": 264,
+    "reconnectStormMs": 587,
+    "restartMs": 889,
+    "peakRssMiB": 129.89,
+    "rssGrowthMiB": 57.67,
+    "slowClientMutations": 460,
+    "bufferPressureOutcomes": 10,
+    "finalStreams": 0,
+    "secondProcessMutations": 60,
+    "browser": {
+      "desktopChatDeliveryMs": 998,
+      "mobileEmulationChatDeliveryMs": 1000,
+      "reconnectCatchupMs": 81,
+      "moderationRemovalMs": 473,
+      "racesDraftsPaginationEndingVisibilityAccessibility": "PASS",
+      "physicalDevices": "UNPERFORMED"
+    }
+  },
+  "ci": {
+    "url": "https://github.com/Boufe/YapArena/actions/runs/37652828898",
+    "allFiveJobs": "PASS",
+    "tests": 410,
+    "coverage": { "lines": 97.87, "branches": 92.25, "functions": 95.52 },
+    "encoderImageAndToolsAndVulnerabilityScan": "PASS",
+    "postgres18Integration": "PASS"
+  },
+  "failedAttempts": [
+    "First final local rerun failed due to disk exhaustion (under 200 MiB free), not counted as passed; only owned generated dependencies and disposable database files were reclaimed before sequential passing repeats."
+  ],
+  "limitations": [
+    "Six-second synthetic encoding is not full-duration or hosted worker capacity.",
+    "Local HTTP and synthetic SDK grants do not establish 510 LiveKit participants/five recordings.",
+    "The new migration/worker/configuration are not deployed; staging remains 3e27b2a with adaptive delivery disabled.",
+    "The prior hosted Render Free restart result remains 28.74 seconds, failing the provisional 10-second target.",
+    "Physical devices, acoustic/live-delay and browser cohort trials, provider quotas, hosted encoder soak, project/privacy/financial review and production replay domain remain release gates."
+  ]
+}

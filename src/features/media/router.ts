@@ -1,3 +1,4 @@
+import { parsePlaybackReports, type PlaybackReport } from "./telemetry.ts";
 import { randomUUID } from "node:crypto";
 import { EgressStatus } from "@livekit/protocol";
 import { Router } from "express";
@@ -49,12 +50,14 @@ export function createMediaRouter({
   matching,
   identity,
   requireAuth,
+  recordPlayback = () => {},
 }: {
   media: ReturnType<typeof createMediaRepository>;
   provider: ReturnType<typeof createMediaProvider>;
   matching: ReturnType<typeof createMatchingRepository>;
   identity: ReturnType<typeof createIdentityRepository>;
   requireAuth: RequestHandler;
+  recordPlayback?: (rows: PlaybackReport[]) => void;
 }) {
   const router = Router();
   const participant = createRequireRole(identity, ["participant"]);
@@ -64,18 +67,25 @@ export function createMediaRouter({
     next();
   });
 
+  router.post("/events/:id/playback", (request, response) => {
+    if (!idOf(request)) return response.status(404).end();
+    const reports = parsePlaybackReports(request.body?.reports);
+    if (!reports)
+      return response.status(400).json({ error: "invalid playback report" });
+    recordPlayback(reports);
+    return response.status(204).end();
+  });
+
   router.get("/events/:id", async (request, response) => {
     const id = idOf(request);
     if (!id) return response.status(404).json({ error: "event not found" });
-    const event = await media.getPublicEvent(id);
-    if (!event || event.publicationState !== "published")
+    const snapshot = await media.getPublicSnapshot(id);
+    if (!snapshot)
       return response.status(404).json({ error: "event not found" });
-    const state = await media.get(id);
     return response.json({
-      state,
-      eventStatus: event.status,
-      serverNow: new Date().toISOString(),
+      ...snapshot,
       extensionsEnabled: false,
+      preparationUrl: provider.publicUrl,
     });
   });
   router.get(
@@ -107,10 +117,7 @@ export function createMediaRouter({
     )
       return response.status(404).json({ error: "replay not available" });
     try {
-      return response.json({
-        url: await provider.replayUrl(state.recordingKey),
-        expiresIn: 3600,
-      });
+      return response.json(await provider.replayAccess(state.recordingKey));
     } catch (error) {
       request.log.error({ error, id }, "replay object unavailable");
       return response
@@ -391,7 +398,7 @@ export function createMediaRouter({
           throw new MediaConflictError(
             "verified recording required before replay",
           );
-        await provider.replayUrl(state.recordingKey);
+        await provider.replayAccess(state.recordingKey);
         return response.json({
           event: await matching.operatorTransition(
             request.user!.id,
@@ -417,6 +424,12 @@ export function createMediaRouter({
           .status(400)
           .json({ error: "valid plain WebVTT required" });
       try {
+        const state = await media.get(id);
+        if (state?.recordingStatus !== "ready" || !state.recordingKey)
+          throw new MediaConflictError(
+            "recording must be ready before captions are published",
+          );
+        await provider.publishCaptions(state.recordingKey, request.body.vtt);
         await media.setCaptions(id, request.body.vtt);
         return response.status(204).end();
       } catch (error) {

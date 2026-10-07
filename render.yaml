@@ -13,12 +13,16 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_OPTIONS
+        value: --max-semi-space-size=4
       - key: PORT
         value: "10000"
       - key: TRUST_PROXY
         value: "1"
       - key: RUN_BACKGROUND_JOBS
         value: "true"
+      - key: COMMUNITY_STREAM_ENABLED
+        value: "false"
       - key: APP_ORIGIN
         fromService:
           name: yaparena-staging-web

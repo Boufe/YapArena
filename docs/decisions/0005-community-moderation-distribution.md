@@ -92,6 +92,10 @@ assistive-technology and staging review; they cannot close those release gates.
 
 ## Abuse, retention, and release
 
+[Decision 0006](0006-durable-community-delivery.md) adds a gated durable public SSE transport with
+bounded HTTP degraded recovery. It preserves this decision's submission identity, moderation,
+access and evidence policies. Stream cursors are independent of message-history pagination.
+
 Server-side account locks serialize community writes, including concurrent requests. Chat is
 limited to one post per 10 seconds and 30 per hour per account. Reports are limited to five per
 24 hours. Likes use idempotent add/remove operations, a unique account/event key, and at most

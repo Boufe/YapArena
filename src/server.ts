@@ -5,6 +5,8 @@ import { createIdentityRepository } from "./features/identity/repository.ts";
 import { createMatchingRepository } from "./features/matching/repository.ts";
 import { createMediaRepository } from "./features/media/repository.ts";
 import { createMediaProvider } from "./features/media/provider.ts";
+import { createMediaOperations } from "./features/media/operations.ts";
+import { createReplayJobs } from "./features/media/replay-jobs.ts";
 import { createCommunityRepository } from "./features/community/repository.ts";
 import { createMeasurementRepository } from "./features/measurement/repository.ts";
 import { createSessionRepository } from "./platform/auth/sessions.ts";
@@ -15,10 +17,24 @@ import { createDatabase } from "./platform/database.ts";
 import { createLogger } from "./platform/logger.ts";
 import { verifyDatabaseState } from "./platform/migrations.ts";
 import { createRuntime } from "./platform/runtime.ts";
+import { createMetrics } from "./platform/metrics.ts";
+import { createCommunityStreams } from "./features/community/streams.ts";
 
 const config = loadConfig();
 const logger = createLogger({ level: config.logLevel });
-const database = createDatabase(config.databaseUrl, logger);
+const metrics = createMetrics();
+const database = createDatabase(config.databaseUrl, logger, (seconds) =>
+  metrics.poolWait.observe(seconds),
+);
+const communityStreams = config.communityStream.enabled
+  ? createCommunityStreams(
+      database,
+      config.databaseUrl,
+      logger,
+      metrics.community,
+      config.communityStream,
+    )
+  : undefined;
 const messages = createMessageRepository(database);
 const discovery = createDiscoveryRepository(database);
 const identity = createIdentityRepository(database);
@@ -26,9 +42,28 @@ const matching = createMatchingRepository(database);
 const community = createCommunityRepository(database);
 const measurement = createMeasurementRepository(database);
 const media = config.media ? createMediaRepository(database) : undefined;
-const mediaProvider = config.media
-  ? createMediaProvider(config.media)
+const replayJobs = config.replayPackaging.enabled
+  ? createReplayJobs(database)
   : undefined;
+const baseMediaProvider = config.media
+  ? createMediaProvider(
+      config.media,
+      replayJobs
+        ? (key) => replayJobs.ready(key.split("/")[1]!, key)
+        : undefined,
+    )
+  : undefined;
+const mediaOperations =
+  media && baseMediaProvider
+    ? createMediaOperations({
+        database,
+        media,
+        provider: baseMediaProvider,
+        logger,
+        count: (kind) => metrics.mediaControl.inc({ kind }),
+      })
+    : undefined;
+const mediaProvider = mediaOperations?.provider;
 const users = createUserRepository(database);
 const sessions = createSessionRepository(database);
 const wallets = createWalletRepository(database);
@@ -39,7 +74,10 @@ const app = createApp({
   matching,
   media,
   mediaProvider,
+  mediaAdmissionSecret: config.media?.livekitSecret,
   community,
+  communityStreams,
+  metrics,
   measurement,
   users,
   sessions,
@@ -63,9 +101,11 @@ const runtime = createRuntime({
   identity,
   matching,
   community,
+  communityStreams,
   measurement,
   media,
   mediaProvider,
+  mediaOperations,
   wallets,
   logger,
   config,

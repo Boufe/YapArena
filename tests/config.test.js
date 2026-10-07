@@ -5,6 +5,47 @@ import { loadConfig } from "../dist/platform/config.js";
 
 describe("configuration", () => {
   const databaseUrl = "postgresql://user:password@localhost:5432/database";
+  const communityStream = {
+    enabled: false,
+    maxStreams: 500,
+    maxRooms: 50,
+    maxConcurrentReads: 4,
+    reconcileMs: 5000,
+    heartbeatMs: 15000,
+    bufferBytes: 65536,
+  };
+  const replayPackaging = {
+    enabled: false,
+    concurrency: 1,
+    pollMs: 5000,
+    leaseMs: 60000,
+    heartbeatMs: 15000,
+    maxJobMs: 1800000,
+    maxInputBytes: 2147483648,
+    maxOutputBytes: 4294967296,
+    maxDurationSeconds: 7200,
+    maxFiles: 11000,
+  };
+  it("requires session-compatible streaming credentials and bounded capacities", () => {
+    const value = loadConfig({
+      DATABASE_URL: databaseUrl,
+      COMMUNITY_STREAM_ENABLED: "true",
+      COMMUNITY_MAX_STREAMS: "100",
+      COMMUNITY_MAX_ROOMS: "10",
+    });
+    assert.equal(value.communityStream.enabled, true);
+    assert.equal(value.communityStream.maxStreams, 100);
+    for (const env of [
+      { COMMUNITY_STREAM_ENABLED: "yes" },
+      { COMMUNITY_MAX_STREAMS: "0" },
+      { COMMUNITY_MAX_ROOMS: "1001" },
+      {
+        COMMUNITY_STREAM_ENABLED: "true",
+        DATABASE_URL: databaseUrl.replace("5432", "6543"),
+      },
+    ])
+      assert.throws(() => loadConfig({ DATABASE_URL: databaseUrl, ...env }));
+  });
 
   it("provides safe development defaults", () => {
     assert.deepEqual(loadConfig({ DATABASE_URL: databaseUrl }), {
@@ -22,7 +63,9 @@ describe("configuration", () => {
       sessionDurationMs: 604800000,
       siweRpcUrls: {},
       media: undefined,
+      replayPackaging,
       backgroundJobs: true,
+      communityStream,
     });
   });
 
@@ -57,7 +100,9 @@ describe("configuration", () => {
         sessionDurationMs: 3600000,
         siweRpcUrls: {},
         media: undefined,
+        replayPackaging,
         backgroundJobs: true,
+        communityStream,
       },
     );
   });
@@ -157,6 +202,46 @@ describe("configuration", () => {
       MEDIA_S3_ACCESS_KEY: "local",
       MEDIA_S3_SECRET_KEY: "local-secret",
     };
+    assert.throws(
+      () =>
+        loadConfig({
+          DATABASE_URL: databaseUrl,
+          MEDIA_REPLAY_PACKAGING_ENABLED: "yes",
+        }),
+      /must be true or false/,
+    );
+    assert.throws(
+      () =>
+        loadConfig({
+          DATABASE_URL: databaseUrl,
+          MEDIA_REPLAY_PACKAGING_ENABLED: "true",
+        }),
+      /private replay edge/,
+    );
+    const automated = loadConfig({
+      DATABASE_URL: databaseUrl,
+      ...media,
+      MEDIA_REPLAY_EDGE_URL: "https://edge.example",
+      MEDIA_REPLAY_SIGNING_SECRET: "synthetic-private-replay-secret-32bytes",
+      MEDIA_REPLAY_PACKAGING_ENABLED: "true",
+      MEDIA_REPLAY_CONCURRENCY: "2",
+      MEDIA_REPLAY_MAX_JOB_SECONDS: "90",
+      MEDIA_REPLAY_MAX_INPUT_MIB: "100",
+      MEDIA_REPLAY_MAX_OUTPUT_MIB: "200",
+    });
+    assert.equal(automated.replayPackaging.enabled, true);
+    assert.equal(automated.replayPackaging.maxJobMs, 90000);
+    assert.equal(automated.replayPackaging.maxInputBytes, 104857600);
+    for (const env of [
+      { MEDIA_REPLAY_CONCURRENCY: "3" },
+      { MEDIA_REPLAY_MAX_JOB_SECONDS: "1" },
+      { MEDIA_REPLAY_MAX_INPUT_MIB: "3000" },
+      { MEDIA_REPLAY_MAX_OUTPUT_MIB: "5000" },
+    ])
+      assert.throws(
+        () => loadConfig({ DATABASE_URL: databaseUrl, ...env }),
+        /MEDIA_REPLAY_/,
+      );
     assert.equal(
       loadConfig({ DATABASE_URL: databaseUrl, ...media }).media.s3Bucket,
       "replays",
@@ -320,4 +405,67 @@ describe("configuration", () => {
       /REQUEST_BODY_LIMIT must use kb or mb units/,
     );
   });
+});
+
+it("validates the optional replay edge as an HTTPS origin with paired secrets", () => {
+  for (const fields of [
+    { MEDIA_REPLAY_EDGE_URL: "https://media.example" },
+    { MEDIA_REPLAY_SIGNING_SECRET: "secret" },
+    {
+      MEDIA_REPLAY_EDGE_URL: "http://media.example",
+      MEDIA_REPLAY_SIGNING_SECRET: "a".repeat(32),
+    },
+    {
+      MEDIA_REPLAY_EDGE_URL: "https://media.example/path",
+      MEDIA_REPLAY_SIGNING_SECRET: "a".repeat(32),
+    },
+    {
+      MEDIA_REPLAY_EDGE_URL: "https://media.example",
+      MEDIA_REPLAY_SIGNING_SECRET: "short",
+    },
+    {
+      MEDIA_REPLAY_EDGE_URL: "https://media.example",
+      MEDIA_REPLAY_SIGNING_SECRET: "a".repeat(32),
+    },
+  ])
+    assert.throws(() =>
+      loadConfig({ DATABASE_URL: "postgres://localhost/test", ...fields }),
+    );
+});
+it("validates a bounded room allowlist for incremental replay rollout", () => {
+  const id = "33333333-3333-4333-8333-333333333333";
+  const environment = {
+    DATABASE_URL: "postgres://localhost/test",
+    LIVEKIT_URL: "https://live.example",
+    LIVEKIT_PUBLIC_URL: "wss://live.example",
+    LIVEKIT_API_KEY: "key",
+    LIVEKIT_API_SECRET: "secret",
+    MEDIA_S3_REGION: "auto",
+    MEDIA_S3_BUCKET: "synthetic",
+    MEDIA_S3_ACCESS_KEY: "key",
+    MEDIA_S3_SECRET_KEY: "secret",
+    MEDIA_REPLAY_EDGE_URL: "https://edge.example",
+    MEDIA_REPLAY_SIGNING_SECRET: "a".repeat(32),
+  };
+  const config = loadConfig({
+    ...environment,
+    MEDIA_REPLAY_EDGE_ROOMS: `${id},${id}`,
+  });
+  assert.deepEqual(config.media.replayEdgeRooms, [id]);
+  assert.equal(Object.isFrozen(config.media.replayEdgeRooms), true);
+  for (const value of ["*", `${id},`, ` ${id}`, Array(101).fill(id).join(",")])
+    assert.throws(
+      () => loadConfig({ ...environment, MEDIA_REPLAY_EDGE_ROOMS: value }),
+      /replay edge rooms/,
+    );
+  assert.throws(
+    () =>
+      loadConfig({
+        ...environment,
+        MEDIA_REPLAY_EDGE_URL: undefined,
+        MEDIA_REPLAY_SIGNING_SECRET: undefined,
+        MEDIA_REPLAY_EDGE_ROOMS: id,
+      }),
+    /replay edge rooms/,
+  );
 });

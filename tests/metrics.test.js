@@ -45,6 +45,32 @@ describe("metrics", () => {
     assert.equal(next.mock.callCount(), 1);
   });
 
+  it("keeps stream lifetime outside ordinary request latency and records bounded operational metrics", async () => {
+    const metrics = createMetrics();
+    const response = { once: mock.fn() };
+    metrics.middleware(
+      { method: "GET", path: "/api/community/events/example/stream" },
+      response,
+      () => {},
+    );
+    assert.equal(response.once.mock.callCount(), 0);
+    metrics.community.streams(2);
+    metrics.community.rooms(1);
+    metrics.community.count("snapshot");
+    metrics.community.lag(0.05);
+    metrics.poolWait.observe(0.01);
+    const output = await metrics.registry.metrics();
+    assert.match(output, /yaparena_community_streams 2/);
+    assert.match(output, /yaparena_community_rooms 1/);
+    assert.match(
+      output,
+      /yaparena_community_delivery_total\{kind="snapshot"\} 1/,
+    );
+    assert.match(output, /yaparena_community_delivery_lag_seconds_count 1/);
+    assert.match(output, /yaparena_database_pool_wait_seconds_count 1/);
+    assert.doesNotMatch(output, /yaparena_http_requests_total\{/);
+  });
+
   it("exports only fixed product categories and caches the aggregate snapshot", async () => {
     const metrics = createMetrics();
     let queries = 0;

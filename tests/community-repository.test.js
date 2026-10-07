@@ -73,6 +73,7 @@ function fake(options = {}) {
   const value = (key, fallback) => (key in options ? options[key] : fallback);
   const result = async (sql, parameters = []) => {
     queries.push([sql, parameters]);
+    if (sql.includes(") candidates")) return rows([{ id: eventId }]);
     if (
       ["BEGIN", "COMMIT", "ROLLBACK"].includes(sql) ||
       sql.includes("pg_advisory_xact_lock")
@@ -104,7 +105,14 @@ function fake(options = {}) {
           chatState: value("chatState", "open"),
         },
       ]);
-    if (sql.includes("m.client_message_id = $3"))
+    if (sql.includes("r.client_message_id = $3"))
+      return rows(
+        value("accepted", []).map((item) => ({
+          ...item,
+          payloadMatches: item.payloadMatches ?? item.body === parameters[3],
+        })),
+      );
+    if (sql.includes("r.client_message_id=ANY($3::uuid[])"))
       return rows(value("accepted", []));
     if (sql.includes("m.id > $2") && sql.includes("FROM event_chat_messages m"))
       return rows(value("newChatRows", [chat]));
@@ -209,6 +217,22 @@ function fake(options = {}) {
 }
 
 describe("community repository policy", () => {
+  it("reconciles only the authenticated sender's accepted keys and redacts removal", async () => {
+    const db = fake({ accepted: [{ ...chat, state: "removed" }] });
+    const items = await db.community.reconcileSubmissions(eventId, "1", [
+      chat.clientMessageId,
+    ]);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].clientMessageId, chat.clientMessageId);
+    assert.equal(items[0].body, null);
+    assert.equal("authorUserId" in items[0], false);
+    const query = db.queries.find(([sql]) =>
+      sql.includes("r.client_message_id=ANY($3::uuid[])"),
+    );
+    assert.deepEqual(query[1], [eventId, "1", [chat.clientMessageId]]);
+    assert.ok(db.queries[0][0].includes("REPEATABLE READ READ ONLY"));
+    assert.equal(db.queries.at(-1)[0], "COMMIT");
+  });
   it("exposes only published event fields, visible chat, and a bounded cursor", async () => {
     const { community, queries } = fake({
       chatRows: Array.from({ length: 51 }, (_, index) => ({
@@ -330,7 +354,7 @@ describe("community repository policy", () => {
       assert.ok(
         queries.some(
           ([sql, params]) =>
-            sql.includes("m.client_message_id = $3") && params[1] === "1",
+            sql.includes("r.client_message_id = $3") && params[1] === "1",
         ),
       );
     }
@@ -397,6 +421,49 @@ describe("community repository policy", () => {
     assert.equal(
       (await community.syncChat(eventId, "0", [])).removed.length,
       0,
+    );
+  });
+
+  it("acknowledges a purged receipt without reopening chat, charging allowance, or exposing its hash", async () => {
+    const tombstone = {
+      ...chat,
+      body: null,
+      state: "removed",
+      revision: "3",
+      streamRevision: "9007199254740993",
+      payloadMatches: true,
+    };
+    const db = fake({
+      accepted: [tombstone],
+      eventStatus: "ended",
+      restricted: true,
+      recent: 1,
+    });
+    const ack = await db.community.postChat(
+      eventId,
+      "1",
+      "Hello",
+      chat.clientMessageId,
+      false,
+    );
+    assert.equal(ack.id, chat.id);
+    assert.equal(ack.body, null);
+    assert.equal(ack.revision, "3");
+    assert.equal(ack.streamRevision, "9007199254740993");
+    assert.equal("payloadMatches" in ack, false);
+    assert.equal("bodyHash" in ack, false);
+    assert.ok(
+      !db.queries.some(
+        ([sql]) =>
+          sql.includes("AS recent") ||
+          sql.includes("INSERT INTO event_chat_messages"),
+      ),
+    );
+    await assert.rejects(
+      fake({
+        accepted: [{ ...tombstone, payloadMatches: false }],
+      }).community.postChat(eventId, "1", "Different", chat.clientMessageId),
+      (error) => error.code === "CHAT_PAYLOAD_CONFLICT",
     );
   });
 

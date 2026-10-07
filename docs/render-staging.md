@@ -81,6 +81,15 @@ the older `preview-1` rules and cannot be used for a real media trial.
 
 ## Enable live video and replay
 
+Public community streaming is a separate rollout gate. `COMMUNITY_STREAM_ENABLED=false` remains in
+the Blueprint; enabling it requires an authorized hosted trial following the
+[delivery guide](community-delivery.md#rollout-compatibility-and-rollback). Reserve one persistent
+runtime LISTEN session per web process in addition to its ordinary ten-connection pool, verify its
+actual direct/session-pooler identity, and measure Chrome's HTTP/2 protocol and timely frames on the
+real SSE route with `scripts/verify-community-edge.js`. A file's port/settings do not establish these
+facts. The existing media polling, clock and whole-app single-instance restrictions still apply.
+The Free hosting plan does not become an approved live-event plan by enabling SSE.
+
 1. Create a LiveKit Cloud Build project. Copy its HTTPS API URL, WSS browser URL, API key, and API
    secret. Create a private Cloudflare R2 **Standard** bucket and a bucket-scoped S3 key that can
    write, read, and HEAD replay objects. Keep all keys in the provider dashboards and Render.
@@ -114,8 +123,44 @@ trial. [Cloudflare identifies 401 as missing or invalid credentials](https://dev
 ## Later scale-up
 
 The Free setup is for functional trials. For reliable scheduled events, first upgrade the Render
-web service so it stays awake; then separate the clock into a worker with leader election and
-monitoring. Move to a paid database with restore-tested backups before accepting real users. Add
+web service so it stays awake. Database-backed clock ownership and canonical permission repair
+now coordinate clock work across processes, but reliable compute and hosted recovery still need
+validation. Move to a paid database with restore-tested backups before accepting real users. Add
 alert delivery, load and media trials, and a shared rate limiter before scaling web instances.
 Keep production in separate provider projects and credentials. See
 [decision 0004](decisions/0004-live-debate-replay.md) for open production media decisions.
+
+## Deploy the automatic replay encoder
+
+This is a separate service; the existing Free blueprint does not provision it. Creating a
+Render background worker incurs paid compute. Select resources only after measuring representative
+recordings; the local six-second test does not approve the smallest tier for two-hour/4K inputs.
+No worker or plan upgrade has been purchased by the implementation.
+
+1. Back up and apply `1791385198189_automatic-replay-packaging.js` through the isolated migration
+   operator, then run the runtime database identity/isolation checks. Deploy the reviewed web
+   commit with packaging disabled first. Keep the additive migration on rollback.
+2. Create a Docker background worker from the same reviewed commit, set Docker Command to
+   `node dist/replay-worker.js`, and set `MEDIA_WORKER_TOOLS=true` so the image installs FFmpeg
+   and ffprobe. Render maps that non-secret environment flag to a Docker build argument.
+   Web images keep the default `false`. Never reference secrets in Docker build arguments.
+3. Give the worker only runtime database credentials, strict DB TLS/search-path settings,
+   LiveKit credentials and private bucket credentials. Match `MEDIA_REPLAY_EDGE_URL`,
+   `MEDIA_REPLAY_SIGNING_SECRET` and canary `MEDIA_REPLAY_EDGE_ROOMS` with the web service.
+   No owner/migration/admin URL or Cloudflare deployment token belongs in either service.
+4. Enable `MEDIA_REPLAY_PACKAGING_ENABLED=true` on worker and web for the synthetic canary.
+   Start with `MEDIA_REPLAY_CONCURRENCY=1` and the bounded defaults in `.env.example`.
+   The worker checks tools/codecs and runtime identity before claiming jobs.
+5. Complete a synthetic recording and observe automatic verification, durable claim, conversion,
+   immutable upload, validation and ended-to-replay publication. Kill/restart the encoder during
+   a second job; confirm automatic lease recovery, no duplicate publication and cleanup of
+   abandoned attempts. Test topic/event removal, renewal, seeking and optional/no-caption paths.
+6. Record exact commits/images, worker plan, CPU/RSS/disk/queue age, conversion time and failures;
+   run full-duration and hosted soak trials before broadening the canary. Alert on exhausted jobs.
+   Then remove the room allowlist on both services to enable the eligible catalog.
+
+After deployment, new eligible recordings are converted and published automatically. Initial
+service configuration and incident response remain deployment operations, not a per-recording
+approval step. Existing eligible MP4 replay remains the fallback until a verified package is ready.
+See [replay automation](replay-automation.md) and [delivery controls](media-delivery-controls.md)
+for queue invariants, limits, rollback and the unverified hosting/physical-device acceptance gates.

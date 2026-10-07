@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import { createCommunityDelivery, publicFrame } from "./delivery.ts";
 
 export class CommunityNotFoundError extends Error {}
 export class CommunityConflictError extends Error {
@@ -43,6 +44,10 @@ interface ChatRow {
   createdAt: Date;
   clientMessageId: string | null;
   revision: string;
+  streamRevision?: string;
+}
+interface AcceptedChatRow extends ChatRow {
+  payloadMatches: boolean;
 }
 interface CaseRow {
   id: string;
@@ -79,10 +84,22 @@ const chatFields = `m.id, m.debate_id AS "debateId",
   m.author_user_id AS "authorUserId",
   COALESCE(p.display_name, 'Participant') AS "authorName",
   m.body, m.state, m.created_at AS "createdAt",
-  m.client_message_id AS "clientMessageId", m.revision::text AS revision`;
+  m.client_message_id AS "clientMessageId", m.revision::text AS revision,
+  m.stream_revision::text AS "streamRevision"`;
 const chatJoin = `FROM event_chat_messages m
   LEFT JOIN public_profiles p ON p.user_id = m.author_user_id
     AND p.publication_state = 'published'`;
+
+// The receipt survives message-body retention. A purged canonical message can
+// only be acknowledged as removed; this path never recreates its content.
+const receiptFields = `r.message_id AS id, r.debate_id AS "debateId",
+  r.author_user_id AS "authorUserId", COALESCE(p.display_name, 'Participant') AS "authorName",
+  m.body, COALESCE(m.state, 'removed') AS state, r.created_at AS "createdAt",
+  r.client_message_id AS "clientMessageId", COALESCE(m.revision,r.revision)::text AS revision,
+  COALESCE(m.stream_revision,r.stream_revision)::text AS "streamRevision"`;
+const receiptJoin = `FROM community_submission_receipts r
+  LEFT JOIN event_chat_messages m ON m.id=r.message_id
+  LEFT JOIN public_profiles p ON p.user_id=r.author_user_id AND p.publication_state='published'`;
 
 function publicMessage(item: ChatRow, viewerId?: string) {
   return {
@@ -93,6 +110,7 @@ function publicMessage(item: ChatRow, viewerId?: string) {
     state: item.state,
     createdAt: item.createdAt,
     revision: item.revision,
+    streamRevision: item.streamRevision,
     clientMessageId:
       viewerId === item.authorUserId ? item.clientMessageId : null,
   };
@@ -113,10 +131,13 @@ const caseJoin = `FROM moderation_cases c
 async function transaction<T>(
   pool: Pool,
   action: (client: PoolClient) => Promise<T>,
+  readOnly = false,
 ) {
   const client = await pool.connect();
   try {
-    await client.query("BEGIN");
+    await client.query(
+      readOnly ? "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY" : "BEGIN",
+    );
     const result = await action(client);
     await client.query("COMMIT");
     return result;
@@ -197,7 +218,11 @@ async function notifyCase(
 }
 
 export function createCommunityRepository(database: Pool) {
+  const delivery = createCommunityDelivery(database);
   return Object.freeze({
+    async publicUpdates(id: string, after: string | null) {
+      return publicFrame(id, after, await delivery.read(id, after ?? "0"));
+    },
     async publicEvent(id: string) {
       const result = await database.query<{
         id: string;
@@ -260,22 +285,27 @@ export function createCommunityRepository(database: Pool) {
     },
 
     async listChat(id: string, before?: string, viewerId?: string) {
-      const event = await this.publicEvent(id);
-      if (!event) throw new CommunityNotFoundError("event not found");
-      const result = await database.query<ChatRow>(
-        `SELECT ${chatFields} ${chatJoin}
+      return transaction(
+        database,
+        async (client) => {
+          await eventFor(client, id);
+          const result = await client.query<ChatRow>(
+            `SELECT ${chatFields} ${chatJoin}
          WHERE m.debate_id = $1 AND m.state = 'visible'
            AND ($2::bigint IS NULL OR m.id < $2)
          ORDER BY m.id DESC LIMIT 51`,
-        [id, before ?? null],
+            [id, before ?? null],
+          );
+          return {
+            items: result.rows
+              .slice(0, 50)
+              .reverse()
+              .map((item) => publicMessage(item, viewerId)),
+            hasMore: result.rows.length > 50,
+          };
+        },
+        true,
       );
-      return {
-        items: result.rows
-          .slice(0, 50)
-          .reverse()
-          .map((item) => publicMessage(item, viewerId)),
-        hasMore: result.rows.length > 50,
-      };
     },
 
     async syncChat(
@@ -284,37 +314,42 @@ export function createCommunityRepository(database: Pool) {
       watchedIds: string[],
       viewerId?: string,
     ) {
-      const event = await this.publicEvent(id);
-      if (!event) throw new CommunityNotFoundError("event not found");
-      const [newMessages, watched] = await Promise.all([
-        database.query<ChatRow>(
-          `SELECT ${chatFields} ${chatJoin}
+      return transaction(
+        database,
+        async (client) => {
+          await eventFor(client, id);
+          const [newMessages, watched] = await Promise.all([
+            client.query<ChatRow>(
+              `SELECT ${chatFields} ${chatJoin}
            WHERE m.debate_id = $1 AND m.state = 'visible' AND m.id > $2
            ORDER BY m.id ASC LIMIT 51`,
-          [id, after],
-        ),
-        watchedIds.length
-          ? database.query<ChatRow>(
-              `SELECT ${chatFields} ${chatJoin}
+              [id, after],
+            ),
+            watchedIds.length
+              ? client.query<ChatRow>(
+                  `SELECT ${chatFields} ${chatJoin}
                WHERE m.debate_id = $1 AND m.id = ANY($2::bigint[])
                ORDER BY m.id ASC`,
-              [id, watchedIds],
-            )
-          : Promise.resolve({ rows: [] as ChatRow[] }),
-      ]);
-      return {
-        items: newMessages.rows
-          .slice(0, 50)
-          .map((item) => publicMessage(item, viewerId)),
-        hasMore: newMessages.rows.length > 50,
-        // Legacy clients use absence from watched to hide moderated messages.
-        watched: watched.rows
-          .filter((item) => item.state === "visible")
-          .map((item) => publicMessage(item, viewerId)),
-        removed: watched.rows
-          .filter((item) => item.state === "removed")
-          .map((item) => publicMessage(item, viewerId)),
-      };
+                  [id, watchedIds],
+                )
+              : Promise.resolve({ rows: [] as ChatRow[] }),
+          ]);
+          return {
+            items: newMessages.rows
+              .slice(0, 50)
+              .map((item) => publicMessage(item, viewerId)),
+            hasMore: newMessages.rows.length > 50,
+            // Legacy clients use absence from watched to hide moderated messages.
+            watched: watched.rows
+              .filter((item) => item.state === "visible")
+              .map((item) => publicMessage(item, viewerId)),
+            removed: watched.rows
+              .filter((item) => item.state === "removed")
+              .map((item) => publicMessage(item, viewerId)),
+          };
+        },
+        true,
+      );
     },
 
     async postChat(
@@ -330,15 +365,14 @@ export function createCommunityRepository(database: Pool) {
         // Access is always checked, even for an acknowledgment of an earlier write.
         const event = await eventFor(client, id, true);
         if (clientMessageId) {
-          const accepted = await client.query<ChatRow>(
-            `SELECT ${chatFields} ${chatJoin}
-             WHERE m.debate_id = $1 AND m.author_user_id = $2 AND m.client_message_id = $3
-             FOR SHARE OF m`,
-            [id, userId, clientMessageId],
+          const accepted = await client.query<AcceptedChatRow>(
+            `SELECT ${receiptFields}, r.body_hash=sha256(convert_to($4,'UTF8')) AS "payloadMatches" ${receiptJoin}
+             WHERE r.debate_id = $1 AND r.author_user_id = $2 AND r.client_message_id = $3`,
+            [id, userId, clientMessageId, body],
           );
           const original = accepted.rows[0];
           if (original) {
-            if (original.body !== body)
+            if (!original.payloadMatches)
               throw new CommunityConflictError(
                 "submission key was already accepted with different text",
                 "CHAT_PAYLOAD_CONFLICT",
@@ -412,7 +446,8 @@ export function createCommunityRepository(database: Pool) {
           `INSERT INTO event_chat_messages (debate_id, author_user_id, body, client_message_id, created_at)
            VALUES ($1, $2, $3, $4, clock_timestamp())
            RETURNING id, debate_id AS "debateId", author_user_id AS "authorUserId",
-             body, state, created_at AS "createdAt", client_message_id AS "clientMessageId", revision::text AS revision`,
+             body, state, created_at AS "createdAt", client_message_id AS "clientMessageId", revision::text AS revision,
+             stream_revision::text AS "streamRevision"`,
           [id, userId, body, clientMessageId ?? null],
         );
         return publicMessage(
@@ -420,6 +455,22 @@ export function createCommunityRepository(database: Pool) {
           userId,
         );
       });
+    },
+
+    async reconcileSubmissions(id: string, userId: string, keys: string[]) {
+      return transaction(
+        database,
+        async (client) => {
+          await eventFor(client, id);
+          const result = await client.query<ChatRow>(
+            `SELECT ${receiptFields} ${receiptJoin}
+        WHERE r.debate_id=$1 AND r.author_user_id=$2 AND r.client_message_id=ANY($3::uuid[])`,
+            [id, userId, keys],
+          );
+          return result.rows.map((item) => publicMessage(item, userId));
+        },
+        true,
+      );
     },
 
     async setLike(id: string, userId: string, liked: boolean) {
@@ -834,31 +885,60 @@ export function createCommunityRepository(database: Pool) {
     },
 
     async pruneExpired() {
-      return transaction(database, async (client) => {
-        const cases = await client.query(
-          `DELETE FROM moderation_cases c
-           WHERE c.status <> 'open' AND c.decided_at < CURRENT_TIMESTAMP - INTERVAL '365 days'
-             AND NOT EXISTS (SELECT 1 FROM moderation_appeals a
-               WHERE a.case_id = c.id AND a.status = 'open')`,
-        );
-        const chat = await client.query(
-          `DELETE FROM event_chat_messages m
-           WHERE m.created_at < CURRENT_TIMESTAMP - INTERVAL '365 days'
-             AND NOT EXISTS (SELECT 1 FROM moderation_cases c WHERE c.target_chat_id = m.id)`,
-        );
-        const likes = await client.query(
-          "DELETE FROM event_likes WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '365 days'",
-        );
-        const likeChanges = await client.query(
-          "DELETE FROM event_like_changes WHERE changed_at < CURRENT_TIMESTAMP - INTERVAL '365 days'",
-        );
+      const totals = await transaction(database, async (client) => {
+        const cases =
+          await client.query(`DELETE FROM moderation_cases WHERE id IN (
+          SELECT c.id FROM moderation_cases c WHERE c.status <> 'open'
+          AND c.decided_at < CURRENT_TIMESTAMP - INTERVAL '365 days'
+          AND NOT EXISTS (SELECT 1 FROM moderation_appeals a WHERE a.case_id=c.id AND a.status='open')
+          ORDER BY c.id LIMIT 500 FOR UPDATE SKIP LOCKED)`);
+        const likeChanges =
+          await client.query(`DELETE FROM event_like_changes WHERE id IN (
+          SELECT id FROM event_like_changes WHERE changed_at < CURRENT_TIMESTAMP - INTERVAL '365 days'
+          ORDER BY id LIMIT 500 FOR UPDATE SKIP LOCKED)`);
         return {
           cases: cases.rowCount ?? 0,
-          chat: chat.rowCount ?? 0,
-          likes: likes.rowCount ?? 0,
+          chat: 0,
+          likes: 0,
           likeChanges: likeChanges.rowCount ?? 0,
         };
       });
+      const rooms = await database.query<{
+        id: string;
+      }>(`SELECT debate_id AS id FROM (
+        SELECT debate_id FROM event_chat_messages WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '365 days'
+        UNION SELECT debate_id FROM event_likes WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '365 days'
+        ) candidates ORDER BY debate_id LIMIT 10`);
+      for (const { id } of rooms.rows) {
+        await transaction(database, async (client) => {
+          // Lock both entity sets without waiting before any trigger takes the counter.
+          // One room/transaction avoids inversions against multi-room topic/profile triggers.
+          const chatIds = await client.query<{ id: string }>(
+            `SELECT m.id FROM event_chat_messages m
+            WHERE m.debate_id=$1 AND m.created_at < CURRENT_TIMESTAMP - INTERVAL '365 days'
+            AND NOT EXISTS (SELECT 1 FROM moderation_cases c WHERE c.target_chat_id=m.id)
+            ORDER BY m.id LIMIT 50 FOR UPDATE SKIP LOCKED`,
+            [id],
+          );
+          const likeIds = await client.query<{ id: string }>(
+            `SELECT user_id AS id FROM event_likes
+            WHERE debate_id=$1 AND created_at < CURRENT_TIMESTAMP - INTERVAL '365 days'
+            ORDER BY user_id LIMIT 50 FOR UPDATE SKIP LOCKED`,
+            [id],
+          );
+          const chat = await client.query(
+            "DELETE FROM event_chat_messages WHERE debate_id=$1 AND id=ANY($2::bigint[])",
+            [id, chatIds.rows.map((r) => r.id)],
+          );
+          const likes = await client.query(
+            "DELETE FROM event_likes WHERE debate_id=$1 AND user_id=ANY($2::bigint[])",
+            [id, likeIds.rows.map((r) => r.id)],
+          );
+          totals.chat += chat.rowCount ?? 0;
+          totals.likes += likes.rowCount ?? 0;
+        });
+      }
+      return totals;
     },
   });
 }

@@ -7,6 +7,10 @@ The later [media prototype decision](0004-live-debate-replay.md) adds recording 
 gates to live and replay transitions. The `preview-1` timing gaps below remain true for events
 created under that historical rule snapshot.
 
+The subsequent [replay automation decision](../replay-automation.md) replaces the prototype's
+per-recording operator publication gate with verified automatic ended-to-replay publication
+when enabled. It does not change financial participation closure or publish outcomes.
+
 ## Topic and event identity
 
 A participant may create a topic as a private draft, define the two side labels, and publish it.

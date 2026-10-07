@@ -23,7 +23,13 @@
   RUN npm ci --omit=dev && npm cache clean --force
 
 FROM base AS production
+ARG MEDIA_WORKER_TOOLS=false
+RUN if [ "$MEDIA_WORKER_TOOLS" = "true" ]; then \
+      apt-get update && apt-get install --yes --no-install-recommends ffmpeg && \
+      rm -rf /var/lib/apt/lists/*; \
+    elif [ "$MEDIA_WORKER_TOOLS" != "false" ]; then exit 1; fi
 ENV NODE_ENV=production
+ENV NODE_OPTIONS="--max-semi-space-size=4"
 RUN rm -rf /usr/local/lib/node_modules/npm \
     /usr/local/lib/node_modules/corepack \
     /opt/yarn-v1.22.22 && \

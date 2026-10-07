@@ -19,11 +19,20 @@ const databaseUrl = new URL(
 );
 if (process.env.BROWSER_DATABASE_PORT)
   databaseUrl.port = process.env.BROWSER_DATABASE_PORT;
-if (!["localhost", "127.0.0.1"].includes(databaseUrl.hostname))
-  throw new Error(
-    "browser verification accepts only a local PostgreSQL database",
-  );
-const pool = new pg.Pool({ connectionString: databaseUrl.toString() });
+const hosted = !["localhost", "127.0.0.1"].includes(databaseUrl.hostname);
+if (hosted) {
+  assert.equal(process.env.BROWSER_HOSTED_SYNTHETIC, "1");
+  assert.equal(base, "https://yaparena-staging-web.onrender.com");
+  assert.equal(databaseUrl.port, "5432");
+  assert.equal(databaseUrl.searchParams.get("sslmode"), "verify-full");
+}
+const pool = new pg.Pool({
+  connectionString: databaseUrl.toString(),
+  max: 2,
+  connectionTimeoutMillis: 10000,
+  query_timeout: 15000,
+  options: "-c search_path=pg_catalog,yaparena,pg_temp",
+});
 const suffix = randomUUID().slice(0, 8);
 const eventId = randomUUID();
 const eventSlug = `community-browser-${suffix}`;
@@ -31,6 +40,10 @@ const accounts = [];
 let topicId;
 let browser;
 const timings = {};
+const connectionReady = /(?:Live|Polling) updates on/;
+const chatReportDetail = `Synthetic chat case ${suffix}`;
+const eventReportDetail = `Synthetic event case ${suffix}`;
+const oldReportDetail = `Synthetic old chat case ${suffix}`;
 
 async function axeViolations(page, selector) {
   await page.evaluate((source) => {
@@ -70,6 +83,12 @@ async function register(name, publishProfile = false) {
   assert.ok(userId, `registered ${name}`);
   accounts.push(userId);
   if (publishProfile) {
+    // The signed-in shell becomes visible before the profile read finishes.
+    // Wait for hydration so a delayed GET cannot clear fields during this trial.
+    await page
+      .locator("#profile-state")
+      .getByText("Create a private draft.", { exact: false })
+      .waitFor();
     await page
       .locator("#profile-form input[name=handle]")
       .fill(`browser-${name}-${suffix}`);
@@ -94,6 +113,11 @@ async function grantModerator(userId) {
 }
 
 try {
+  if (hosted)
+    assert.equal(
+      (await pool.query("SELECT current_user AS identity")).rows[0].identity,
+      "yaparena_owner",
+    );
   const topic = await pool.query(
     `INSERT INTO topics (slug, title, summary, side_a_label, side_b_label, publication_state)
      VALUES ($1, 'Community browser trial', 'Temporary local browser verification', 'For', 'Against', 'published')
@@ -122,7 +146,7 @@ try {
     .waitFor({ state: "visible" });
   const reporter = await register("reporter", true);
   await reporter.page.goto(`${base}/debates/${eventSlug}`);
-  await reporter.page.getByText("Live updates on").waitFor();
+  await reporter.page.getByText(connectionReady).waitFor();
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },
     deviceScaleFactor: 1,
@@ -132,7 +156,7 @@ try {
   });
   const mobilePage = await mobile.newPage();
   await mobilePage.goto(`${base}/debates/${eventSlug}`);
-  await mobilePage.getByText("Live updates on").waitFor();
+  await mobilePage.getByText(connectionReady).waitFor();
   await author.page.locator("[data-community-like]").click();
   try {
     await author.page
@@ -219,6 +243,11 @@ try {
       .inputValue(),
     "Too soon",
   );
+  const desktopConsent = author.page.getByRole("button", {
+    name: "Not now",
+    exact: true,
+  });
+  if (await desktopConsent.isVisible()) await desktopConsent.click();
   await author.page.screenshot({
     path: `${artifactDir}/community-desktop.png`,
     fullPage: true,
@@ -232,7 +261,7 @@ try {
     .click();
   const reportForm = reporter.page.locator(".community-message form");
   await reportForm.locator("select").selectOption("spam");
-  await reportForm.locator("textarea").fill("This needs moderator review");
+  await reportForm.locator("textarea").fill(chatReportDetail);
   await reportForm.locator("button[type=submit]").click();
   await reporter.page
     .getByText("Report submitted privately", { exact: false })
@@ -242,7 +271,7 @@ try {
     .selectOption("other");
   await reporter.page
     .locator("[data-community-report-form] textarea")
-    .fill("Event chat needs review");
+    .fill(eventReportDetail);
   await reporter.page.locator("[data-community-report-form] button").click();
   await reporter.page
     .getByText("Report submitted privately", { exact: false })
@@ -262,6 +291,7 @@ try {
   assert.deepEqual(await axeViolations(moderatorA.page, "main"), []);
   const chatCase = moderatorA.page
     .locator("[data-community-cases] .community-case")
+    .filter({ hasText: chatReportDetail })
     .filter({ hasText: "chat · open" })
     .first();
   await chatCase.locator("select").first().selectOption("remove_chat");
@@ -279,6 +309,7 @@ try {
     .waitFor({ state: "hidden" });
   const eventCase = moderatorA.page
     .locator("[data-community-cases] .community-case")
+    .filter({ hasText: eventReportDetail })
     .filter({ hasText: "event · open" })
     .first();
   await eventCase.locator("select").first().selectOption("pause_chat");
@@ -297,6 +328,7 @@ try {
     .selectOption("actioned");
   const pausedCase = moderatorA.page
     .locator("[data-community-cases] .community-case")
+    .filter({ hasText: eventReportDetail })
     .filter({ hasText: "pause_chat" })
     .first();
   await pausedCase.locator("textarea").fill("Review is complete, resume chat");
@@ -317,9 +349,16 @@ try {
   const moderatorB = await register("moderator-b");
   await grantModerator(moderatorB.userId);
   await moderatorB.page.goto(`${base}/moderation`);
+  const fixtureCase = (
+    await pool.query(
+      "SELECT id FROM moderation_cases WHERE debate_id=$1 AND reporter_user_id=$2 AND target_type='chat'",
+      [eventId, reporter.userId],
+    )
+  ).rows[0];
+  assert.ok(fixtureCase);
   const appealCard = moderatorB.page
     .locator("[data-community-appeals] .community-case")
-    .first();
+    .filter({ hasText: `Case ${fixtureCase.id}` });
   await appealCard.waitFor();
   await appealCard.locator("select").selectOption("overturned");
   await appealCard
@@ -337,6 +376,56 @@ try {
   );
   await author.page.goto(`${base}/debates/${eventSlug}`);
   await author.page.getByText("A useful public comment").waitFor();
+  if (process.env.COMMUNITY_DURABLE_TRIAL === "1") {
+    // The HTTPS write commits, its response is lost, and the live stream plus
+    // authenticated reconciliation must resolve the optimistic row exactly once.
+    await author.page.getByText("Live updates on", { exact: true }).waitFor();
+    await pool.query(
+      "UPDATE event_chat_messages SET created_at=clock_timestamp()-INTERVAL '20 seconds' WHERE debate_id=$1",
+      [eventId],
+    );
+    let lostConfirmation = false;
+    await author.page.route(
+      `**/api/community/events/${eventId}/chat`,
+      async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        const accepted = await route.fetch();
+        assert.equal(accepted.status(), 201);
+        lostConfirmation = true;
+        await route.abort("failed");
+      },
+    );
+    await author.page
+      .locator("[data-community-chat-form] textarea")
+      .fill("Stream resolves lost confirmation");
+    await author.page.locator("[data-community-chat-form] button").click();
+    await mobilePage
+      .getByText("Stream resolves lost confirmation", { exact: true })
+      .waitFor();
+    await author.page
+      .locator("[data-message-id]")
+      .filter({ hasText: "Stream resolves lost confirmation" })
+      .waitFor();
+    assert.equal(lostConfirmation, true);
+    await author.page.waitForFunction(
+      () =>
+        [...document.querySelectorAll(".community-message-body")].filter(
+          (node) => node.textContent === "Stream resolves lost confirmation",
+        ).length === 1,
+    );
+    assert.equal(
+      await author.page
+        .getByText("Stream resolves lost confirmation", { exact: true })
+        .count(),
+      1,
+    );
+    const accepted = await pool.query(
+      "SELECT count(*)::int AS count FROM event_chat_messages WHERE debate_id=$1 AND body=$2",
+      [eventId, "Stream resolves lost confirmation"],
+    );
+    assert.equal(accepted.rows[0].count, 1);
+    await author.page.unroute(`**/api/community/events/${eventId}/chat`);
+  }
   const overflow = await mobilePage.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,
   );
@@ -356,6 +445,11 @@ try {
       touchTargets.every((target) => target.width >= 44 && target.height >= 44),
     "mobile emulation uses 44px message actions",
   );
+  const mobileConsent = mobilePage.getByRole("button", {
+    name: "Not now",
+    exact: true,
+  });
+  if (await mobileConsent.isVisible()) await mobileConsent.click();
   await mobilePage.screenshot({
     path: `${artifactDir}/community-mobile.png`,
     fullPage: true,
@@ -418,21 +512,64 @@ try {
     await archivePage.getByText("Backlog 1", { exact: true }).count(),
     1,
   );
+  let stalePage;
+  let releaseHistory;
+  let historyCaptured;
+  let staleMessageId;
+  if (process.env.COMMUNITY_DURABLE_TRIAL === "1") {
+    const staleContext = await browser.newContext({ bypassCSP: true });
+    stalePage = await staleContext.newPage();
+    await stalePage.addInitScript(() => {
+      window.__communityTrialFrames = [];
+      const NativeEventSource = window.EventSource;
+      window.EventSource = class extends NativeEventSource {
+        constructor(...args) {
+          super(...args);
+          this.addEventListener("community", (event) => {
+            window.__communityTrialFrames.push(JSON.parse(event.data));
+          });
+        }
+      };
+    });
+    await stalePage.goto(`${base}/debates/${eventSlug}`);
+    await stalePage.getByText("Live updates on", { exact: true }).waitFor();
+    const captured = new Promise((resolve) => {
+      historyCaptured = resolve;
+    });
+    const release = new Promise((resolve) => {
+      releaseHistory = resolve;
+    });
+    await stalePage.route(
+      `**/api/community/events/${eventId}/chat?before=*`,
+      async (route) => {
+        const response = await route.fetch();
+        const body = await response.json();
+        assert.ok(
+          body.items.some((m) => m.body === "Backlog 1"),
+          "held history contains pre-removal content",
+        );
+        staleMessageId = body.items.find((m) => m.body === "Backlog 1").id;
+        historyCaptured();
+        await release;
+        await route.fulfill({ response });
+      },
+    );
+    await stalePage.locator("[data-community-older]").click();
+    await captured;
+  }
   const oldMessage = reporter.page
     .locator("[data-community-messages] [data-message-id]")
     .filter({ hasText: "Backlog 1" })
     .first();
   await oldMessage.getByRole("button", { name: "Report message" }).click();
   await oldMessage.locator("form select").selectOption("spam");
-  await oldMessage
-    .locator("form textarea")
-    .fill("Old chat message needs review");
+  await oldMessage.locator("form textarea").fill(oldReportDetail);
   await oldMessage.locator("form button[type=submit]").click();
   await oldMessage.locator("form").waitFor({ state: "hidden" });
   await moderatorB.page.locator("[data-community-refresh]").click();
   const oldCase = moderatorB.page
     .locator("[data-community-cases] .community-case")
-    .filter({ hasText: "Old chat message needs review" });
+    .filter({ hasText: oldReportDetail });
   await oldCase.locator("select").first().selectOption("remove_chat");
   await oldCase.locator("select").nth(1).selectOption("spam");
   await oldCase.locator("textarea").fill("Remove older reported chat message");
@@ -442,6 +579,74 @@ try {
     .getByText("Backlog 1", { exact: true })
     .waitFor({ state: "hidden" });
   timings.moderationRemovalMs = Math.round(performance.now() - removalAt);
+  if (stalePage) {
+    await stalePage.waitForFunction(
+      (id) =>
+        window.__communityTrialFrames.some((frame) =>
+          frame.changes?.some(
+            (change) =>
+              change.message?.id === id &&
+              change.message.state === "removed" &&
+              change.message.body === null,
+          ),
+        ),
+      staleMessageId,
+    );
+    releaseHistory();
+    await stalePage.locator("[data-community-older]:enabled").waitFor();
+    assert.equal(
+      await stalePage.getByText("Backlog 1", { exact: true }).count(),
+      0,
+    );
+    await stalePage.unroute(`**/api/community/events/${eventId}/chat?before=*`);
+    await stalePage.locator("[data-community-older]").click();
+    await stalePage.getByText("Backlog 2", { exact: true }).waitFor();
+    assert.equal(
+      await stalePage.getByText("Backlog 1", { exact: true }).count(),
+      0,
+    );
+    timings.healthyStreamHttpRaces =
+      "PASS: lost confirmation and delayed pre-removal history";
+  }
+  if (process.env.COMMUNITY_DURABLE_TRIAL === "1") {
+    await reporter.page.getByText("Live updates on", { exact: true }).waitFor();
+    await archivePage.getByText("Live updates on", { exact: true }).waitFor();
+    await archivePage
+      .locator("[data-community-chat-form] textarea")
+      .fill("Draft survives event ending");
+    await pool.query(
+      "UPDATE debates SET status='ended',live_ended_at=clock_timestamp() WHERE id=$1",
+      [eventId],
+    );
+    await archivePage
+      .locator('[data-community-chat-form] button[type="submit"]:disabled')
+      .waitFor();
+    assert.equal(
+      await archivePage
+        .locator("[data-community-chat-form] textarea")
+        .inputValue(),
+      "Draft survives event ending",
+    );
+    assert.equal(
+      await reporter.page
+        .getByText("After history load", { exact: true })
+        .count(),
+      1,
+    );
+    await pool.query(
+      "UPDATE topics SET publication_state='draft' WHERE id=$1",
+      [topicId],
+    );
+    await archivePage
+      .getByText("This event is no longer public.", { exact: true })
+      .waitFor();
+    assert.equal(await archivePage.locator("[data-message-id]").count(), 0);
+    await pool.query(
+      "UPDATE topics SET publication_state='published' WHERE id=$1",
+      [topicId],
+    );
+    await pool.query("UPDATE debates SET status='live' WHERE id=$1", [eventId]);
+  }
   const overlay = await mobilePage.goto(`${base}/overlay/${eventSlug}`);
   assert.equal(overlay.status(), 200);
   assert.equal(
@@ -463,6 +668,9 @@ try {
       result: "Community browser journeys verified at desktop and mobile sizes",
     }),
   );
+} catch (error) {
+  console.error("Community browser trial failed:", error.message);
+  throw error;
 } finally {
   if (browser) await browser.close();
   try {
@@ -482,6 +690,10 @@ try {
     await pool.query("DELETE FROM debates WHERE id = $1", [eventId]);
     if (topicId)
       await pool.query("DELETE FROM topics WHERE id = $1", [topicId]);
+    await pool.query("DELETE FROM community_room_events WHERE room_id=$1", [
+      eventId,
+    ]);
+    await pool.query("DELETE FROM community_rooms WHERE room_id=$1", [eventId]);
     for (const id of accounts) {
       await pool.query("DELETE FROM sessions WHERE user_id = $1", [id]);
       await pool.query("DELETE FROM public_profiles WHERE user_id = $1", [id]);

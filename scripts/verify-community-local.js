@@ -9,7 +9,10 @@ import { setTimeout as delay } from "node:timers/promises";
 import { runner } from "node-pg-migrate";
 import pg from "pg";
 import { chromium } from "playwright-core";
+import { verifyCommunityLoad } from "./verify-community-load.js";
+import { verifyCommunityDelivery } from "./verify-community-delivery.js";
 import { verifyChatClient } from "./verify-chat-client.js";
+import { verifyMediaOperations } from "./verify-media-operations.js";
 import { createCommunityRepository } from "../dist/features/community/repository.js";
 import { provisionDatabase } from "./provision-database.js";
 
@@ -26,6 +29,7 @@ const quiet = { info() {}, warn() {}, error() {} };
 let started = false;
 let hostDirectory;
 let app;
+let secondary;
 let admin;
 let owner;
 let port;
@@ -119,9 +123,6 @@ try {
     }
   }
   if (!admin) throw new Error("Local PostgreSQL did not become ready");
-  await admin.query(
-    "CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN",
-  );
   await provisionDatabase(admin, passwords);
   owner = await connect("yaparena_owner");
   const migrations = (await readdir("migrations")).filter((name) =>
@@ -151,7 +152,26 @@ try {
       [legacyEvent, legacyUser],
     )
   ).rows[0].id;
+  const legacyKey = randomUUID();
+  const legacyKeyed = (
+    await owner.query(
+      "INSERT INTO event_chat_messages(debate_id,author_user_id,body,client_message_id,created_at) VALUES ($1,$2,'Existing keyed acceptance',$3,clock_timestamp()-INTERVAL '20 seconds') RETURNING id",
+      [legacyEvent, legacyUser, legacyKey],
+    )
+  ).rows[0].id;
   await migrate();
+  // Match plain-PostgreSQL authentication CI: migrations must also work without
+  // provider roles. Roles added afterward still receive no private privileges.
+  await admin.query(
+    "CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN",
+  );
+  const binding = (
+    await owner.query(
+      "SELECT message_id::text,body_hash=sha256(convert_to('Existing keyed acceptance','UTF8')) AS matches FROM community_submission_receipts WHERE author_user_id=$1 AND debate_id=$2 AND client_message_id=$3",
+      [legacyUser, legacyEvent, legacyKey],
+    )
+  ).rows[0];
+  assert.deepEqual(binding, { message_id: legacyKeyed, matches: true });
   const upgraded = (
     await owner.query(
       "SELECT client_message_id, revision::text, body FROM event_chat_messages WHERE id=$1",
@@ -188,6 +208,20 @@ try {
     options: "-c search_path=pg_catalog,yaparena,pg_temp",
   });
   try {
+    if (process.env.COMMUNITY_DURABLE_TRIAL === "1")
+      await verifyCommunityDelivery({
+        pool: runtimePool,
+        owner,
+        admin,
+        url: url("yaparena_runtime"),
+      });
+    if (process.env.COMMUNITY_DURABLE_TRIAL === "1")
+      await verifyMediaOperations({
+        pool: runtimePool,
+        owner,
+        admin,
+        url: url("yaparena_runtime"),
+      });
     const repository = createCommunityRepository(runtimePool);
     await owner.query(
       "INSERT INTO public_profiles(user_id,handle,display_name,publication_state) VALUES($1,'chat-upgrade-author','Synthetic upgrade author','published')",
@@ -204,6 +238,13 @@ try {
       "Synthetic retained acceptance",
       expiryKey,
     );
+    await assert.rejects(
+      runtimePool.query(
+        "UPDATE event_chat_messages SET client_message_id=$2 WHERE id=$1",
+        [accepted.id, randomUUID()],
+      ),
+      (error) => error.code === "23514",
+    );
     await owner.query(
       "UPDATE event_chat_messages SET created_at=clock_timestamp()-INTERVAL '366 days' WHERE id=$1",
       [accepted.id],
@@ -213,12 +254,100 @@ try {
     const afterExpiry = await repository.postChat(
       legacyEvent,
       legacyUser,
-      "New binding after retention expiry",
+      "Synthetic retained acceptance",
       expiryKey,
     );
-    assert.notEqual(afterExpiry.id, accepted.id);
+    assert.equal(afterExpiry.id, accepted.id);
+    assert.equal(afterExpiry.state, "removed");
+    assert.equal(afterExpiry.body, null);
+    assert.ok(BigInt(afterExpiry.revision) > BigInt(accepted.revision));
+    assert.ok(
+      BigInt(afterExpiry.streamRevision) > BigInt(accepted.streamRevision),
+    );
+    assert.deepEqual(
+      await repository.reconcileSubmissions(legacyEvent, legacyUser, [
+        expiryKey,
+      ]),
+      [afterExpiry],
+    );
+    const cursor = (
+      await owner.query(
+        "SELECT cursor::text FROM community_rooms WHERE room_id=$1",
+        [legacyEvent],
+      )
+    ).rows[0].cursor;
+    const retries = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        repository.postChat(
+          legacyEvent,
+          legacyUser,
+          "Synthetic retained acceptance",
+          expiryKey,
+          false,
+        ),
+      ),
+    );
+    assert.ok(
+      retries.every((item) => item.id === accepted.id && item.body === null),
+    );
+    await assert.rejects(
+      repository.postChat(
+        legacyEvent,
+        legacyUser,
+        "Conflicting after purge",
+        expiryKey,
+      ),
+      (error) => error.code === "CHAT_PAYLOAD_CONFLICT",
+    );
+    await assert.rejects(
+      runtimePool.query(
+        "INSERT INTO event_chat_messages(debate_id,author_user_id,body,client_message_id) VALUES ($1,$2,'Bypass retry',$3)",
+        [legacyEvent, legacyUser, expiryKey],
+      ),
+      (error) => error.code === "23505",
+    );
+    assert.equal(
+      (
+        await owner.query(
+          "SELECT cursor::text FROM community_rooms WHERE room_id=$1",
+          [legacyEvent],
+        )
+      ).rows[0].cursor,
+      cursor,
+      "failed duplicate rolls back log and counter",
+    );
+    assert.equal(
+      (
+        await owner.query(
+          "SELECT COUNT(*)::text AS n FROM event_chat_messages WHERE id=$1",
+          [accepted.id],
+        )
+      ).rows[0].n,
+      "0",
+    );
+    const rolledBackKey = randomUUID();
+    const writer = await runtimePool.connect();
+    try {
+      await writer.query("BEGIN");
+      await writer.query(
+        "INSERT INTO event_chat_messages(debate_id,author_user_id,body,client_message_id) VALUES ($1,$2,'Rolled back binding',$3)",
+        [legacyEvent, legacyUser, rolledBackKey],
+      );
+      await writer.query("ROLLBACK");
+    } finally {
+      writer.release();
+    }
+    assert.equal(
+      (
+        await owner.query(
+          "SELECT COUNT(*)::text AS n FROM community_submission_receipts WHERE client_message_id=$1",
+          [rolledBackKey],
+        )
+      ).rows[0].n,
+      "0",
+    );
     console.log(
-      "Chat idempotency retention: existing runtime purge expires keys; subsequent eligible reuse is a new write PASS",
+      "Chat idempotency retention: backfill, canonical purged acknowledgment, concurrent retries, conflicting reuse, database enforcement and rollback PASS",
     );
   } finally {
     await runtimePool.end();
@@ -230,31 +359,56 @@ try {
   const httpPort = reservation.address().port;
   await new Promise((resolve) => reservation.close(resolve));
   const base = `http://127.0.0.1:${httpPort}`;
-  app = spawn(process.execPath, ["dist/server.js"], {
-    env: {
-      PATH: process.env.PATH,
-      NODE_ENV: "development",
-      HOST: "127.0.0.1",
-      PORT: String(httpPort),
-      APP_ORIGIN: base,
-      LOG_LEVEL: "silent",
-      DATABASE_URL: url("yaparena_runtime"),
-    },
-    stdio: "ignore",
-  });
-  let ready = false;
-  for (let attempt = 0; attempt < 100; attempt++) {
-    try {
-      if ((await fetch(`${base}/ready`)).ok) {
-        ready = true;
-        break;
+  async function startServer() {
+    app = spawn(process.execPath, ["dist/server.js"], {
+      env: {
+        PATH: process.env.PATH,
+        NODE_ENV: "development",
+        NODE_OPTIONS: "--max-semi-space-size=4",
+        COMMUNITY_STREAM_ENABLED:
+          process.env.COMMUNITY_DURABLE_TRIAL === "1" ? "true" : "false",
+        HOST: "127.0.0.1",
+        PORT: String(httpPort),
+        APP_ORIGIN: base,
+        LOG_LEVEL: "silent",
+        API_RATE_LIMIT:
+          process.env.COMMUNITY_DURABLE_TRIAL === "1" ? "10000" : "300",
+        DATABASE_URL: url("yaparena_runtime"),
+      },
+      stdio: "ignore",
+    });
+    let ready = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      try {
+        if ((await fetch(`${base}/ready`)).ok) {
+          ready = true;
+          break;
+        }
+      } catch {
+        /* Startup is still in progress. */
       }
-    } catch {
-      /* Startup is still in progress. */
+      await delay(100);
     }
-    await delay(100);
+    if (!ready) throw new Error("Runtime application failed readiness");
   }
-  if (!ready) throw new Error("Runtime application failed readiness");
+  async function stopServer() {
+    if (app && app.exitCode === null) {
+      const exited = once(app, "exit");
+      app.kill("SIGTERM");
+      const deadline = setTimeout(() => app.kill("SIGKILL"), 8000);
+      try {
+        await exited;
+      } finally {
+        clearTimeout(deadline);
+      }
+      assert.equal(
+        app.exitCode,
+        0,
+        "graceful stream drain must finish without forced kill",
+      );
+    }
+  }
+  await startServer();
   if (process.env.COMMUNITY_CLIENT_ONLY === "1") {
     const artifactDir =
       process.env.BROWSER_ARTIFACT_DIR ?? `/tmp/${container}-evidence`;
@@ -281,6 +435,7 @@ try {
     await exec(process.execPath, ["scripts/verify-community-browser.js"], {
       env: {
         PATH: process.env.PATH,
+        COMMUNITY_DURABLE_TRIAL: process.env.COMMUNITY_DURABLE_TRIAL ?? "0",
         DATABASE_URL: url("yaparena_owner"),
         BROWSER_BASE_URL: base,
         BROWSER_ARTIFACT_DIR:
@@ -292,8 +447,59 @@ try {
       maxBuffer: 1024 * 1024,
     }).then((result) => process.stdout.write(result.stdout));
   }
+  if (process.env.COMMUNITY_DURABLE_TRIAL === "1") {
+    const secondReservation = createServer();
+    secondReservation.listen(0, "127.0.0.1");
+    await once(secondReservation, "listening");
+    const secondPort = secondReservation.address().port;
+    await new Promise((resolve) => secondReservation.close(resolve));
+    const secondBase = `http://127.0.0.1:${secondPort}`;
+    secondary = spawn(process.execPath, ["dist/server.js"], {
+      env: {
+        PATH: process.env.PATH,
+        NODE_ENV: "development",
+        NODE_OPTIONS: "--max-semi-space-size=4",
+        HOST: "127.0.0.1",
+        PORT: String(secondPort),
+        APP_ORIGIN: secondBase,
+        LOG_LEVEL: "silent",
+        RUN_BACKGROUND_JOBS: "false",
+        COMMUNITY_STREAM_ENABLED: "true",
+        DATABASE_URL: url("yaparena_runtime"),
+      },
+      stdio: "ignore",
+    });
+    let secondReady = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      try {
+        if ((await fetch(`${secondBase}/ready`)).ok) {
+          secondReady = true;
+          break;
+        }
+      } catch {
+        /* Still starting. */
+      }
+      await delay(100);
+    }
+    assert.ok(secondReady, "second runtime process must become ready");
+    await verifyCommunityLoad({
+      owner,
+      base,
+      secondBase,
+      restart: async (during) => {
+        await stopServer();
+        await during();
+        await startServer();
+      },
+    });
+  }
   console.log("Disposable community PostgreSQL/runtime/browser trial PASS");
 } finally {
+  if (secondary && secondary.exitCode === null) {
+    const exited = once(secondary, "exit");
+    secondary.kill("SIGTERM");
+    await exited;
+  }
   if (app && app.exitCode === null) {
     const exited = once(app, "exit");
     app.kill("SIGTERM");

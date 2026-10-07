@@ -5,13 +5,16 @@ import {
   RoomServiceClient,
   WebhookReceiver,
 } from "livekit-server-sdk";
-import { EncodedFileOutput, S3Upload } from "@livekit/protocol";
+import { EncodedFileOutput, EgressStatus, S3Upload } from "@livekit/protocol";
 import {
   GetObjectCommand,
   HeadObjectCommand,
+  PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+import { createReplayAccess, replayPrefix } from "./replay.ts";
 
 export interface MediaProviderConfig {
   livekitUrl: string;
@@ -24,18 +27,28 @@ export interface MediaProviderConfig {
   s3Bucket: string;
   s3AccessKey: string;
   s3SecretKey: string;
+  replayEdgeUrl?: string;
+  replaySigningSecret?: string;
+  replayEdgeRooms?: readonly string[];
 }
 
-export function createMediaProvider(config: MediaProviderConfig) {
+export function createMediaProvider(
+  config: MediaProviderConfig,
+  packagedReplay?: (
+    key: string,
+  ) => Promise<{ packageKey: string; hasCaptions: boolean } | null>,
+) {
   const rooms = new RoomServiceClient(
     config.livekitUrl,
     config.livekitKey,
     config.livekitSecret,
+    { requestTimeout: 2 },
   );
   const egress = new EgressClient(
     config.livekitUrl,
     config.livekitKey,
     config.livekitSecret,
+    { requestTimeout: 5 },
   );
   const receiver = new WebhookReceiver(config.livekitKey, config.livekitSecret);
   const storage = new S3Client({
@@ -59,11 +72,27 @@ export function createMediaProvider(config: MediaProviderConfig) {
       })
     : storage;
   const roomName = (id: string) => `debate-${id}`;
+  const usesReplayEdge = (key: string) =>
+    Boolean(
+      config.replayEdgeUrl &&
+      (!config.replayEdgeRooms ||
+        config.replayEdgeRooms.includes(key.split("/")[1]!)),
+    );
+  const storageOrigin = config.s3PublicEndpoint
+    ? new URL(config.s3PublicEndpoint).origin
+    : "https:";
+  const playbackOrigin = config.replayEdgeUrl
+    ? new URL(config.replayEdgeUrl).origin
+    : storageOrigin;
   return Object.freeze({
     publicUrl: config.livekitPublicUrl,
-    playbackOrigin: config.s3PublicEndpoint
-      ? new URL(config.s3PublicEndpoint).origin
-      : "https:",
+    adaptiveReplay: Boolean(config.replayEdgeUrl),
+    playbackOrigin,
+    playbackOrigins: Object.freeze(
+      config.replayEdgeUrl
+        ? [...new Set([playbackOrigin, storageOrigin])]
+        : [playbackOrigin],
+    ),
     async token(
       id: string,
       identity: string,
@@ -100,12 +129,24 @@ export function createMediaProvider(config: MediaProviderConfig) {
         } catch {
           /* malformed metadata has no turn */
         }
+        const sources = side !== null && speakerSide === side ? [1, 2] : [1];
+        const permission = person.permission;
+        if (
+          permission?.canPublish &&
+          permission.canSubscribe &&
+          !permission.canPublishData &&
+          permission.canPublishSources.length === sources.length &&
+          sources.every((source) =>
+            permission.canPublishSources.includes(source),
+          )
+        )
+          continue;
         await rooms.updateParticipant(roomName(id), person.identity, {
           permission: {
             canPublish: true,
             canSubscribe: true,
             canPublishData: false,
-            canPublishSources: speakerSide === side ? [1, 2] : [1],
+            canPublishSources: sources,
           },
         });
       }
@@ -136,8 +177,84 @@ export function createMediaProvider(config: MediaProviderConfig) {
     async stopRecording(egressId: string) {
       await egress.stopEgress(egressId);
     },
+    async recordingResult(
+      egressId: string,
+      expectedKey: string,
+      signal?: AbortSignal,
+    ) {
+      const results = await egress.listEgress({ egressId });
+      const result = results.find((row) => row.egressId === egressId);
+      signal?.throwIfAborted();
+      if (
+        !result ||
+        [
+          EgressStatus.EGRESS_STARTING,
+          EgressStatus.EGRESS_ACTIVE,
+          EgressStatus.EGRESS_ENDING,
+        ].includes(result.status)
+      )
+        return null;
+      const file = result.fileResults.find(
+        (row) => row.filename === expectedKey && row.size > 0n,
+      );
+      if (result.status !== EgressStatus.EGRESS_COMPLETE || !file)
+        return { success: false, key: null };
+      const head = await storage.send(
+        new HeadObjectCommand({ Bucket: config.s3Bucket, Key: expectedKey }),
+        { abortSignal: signal },
+      );
+      if (
+        !head.ContentLength ||
+        !Number.isSafeInteger(head.ContentLength) ||
+        BigInt(head.ContentLength) !== file.size
+      )
+        throw new Error("recording object has not reached verified completion");
+      return { success: true, key: expectedKey };
+    },
     async webhook(body: string, authorization?: string) {
       return receiver.receive(body, authorization);
+    },
+    async replayAccess(key: string) {
+      const packaged = packagedReplay ? await packagedReplay(key) : undefined;
+      if (
+        !usesReplayEdge(key) ||
+        !config.replaySigningSecret ||
+        (packagedReplay && !packaged)
+      )
+        return {
+          url: await this.replayUrl(key),
+          type: "mp4",
+          expiresIn: 3600,
+          expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+        };
+      await storage.send(
+        new HeadObjectCommand({
+          Bucket: config.s3Bucket,
+          Key: `${replayPrefix(packaged?.packageKey ?? key)}ready.json`,
+        }),
+      );
+      const access = createReplayAccess(
+        packaged?.packageKey ?? key,
+        config.replayEdgeUrl!,
+        config.replaySigningSecret,
+      );
+      return {
+        ...access,
+        captionsUrl:
+          packaged && !packaged.hasCaptions ? undefined : access.captionsUrl,
+      };
+    },
+    async publishCaptions(key: string, captions: string) {
+      if (usesReplayEdge(key) && !packagedReplay)
+        await storage.send(
+          new PutObjectCommand({
+            Bucket: config.s3Bucket,
+            Key: `${replayPrefix(key)}captions.vtt`,
+            Body: captions,
+            ContentType: "text/vtt",
+            CacheControl: "no-store",
+          }),
+        );
     },
     async replayUrl(key: string) {
       await storage.send(

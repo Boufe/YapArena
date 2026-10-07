@@ -1,0 +1,338 @@
+{
+  "at": "2026-10-07T02:29:38.130179+00:00",
+  "environment": "disposable PostgreSQL 17.10 and Node 24.19.0 on macOS 15.7.5; synthetic data; edge check read-only",
+  "runs": [
+    {
+      "name": "five-minute",
+      "command": "COMMUNITY_POSTGRES_MODE=host npm run verify:community-delivery",
+      "result": "PASS",
+      "measurements": [
+        {
+          "trial": "durable-postgres",
+          "result": "PASS",
+          "node": "v24.19.0",
+          "postgres": "17.10 (Homebrew)",
+          "serializedWaitMs": 114,
+          "missedHintRecoveryMs": 23,
+          "defaultReconciliationRecoveryMs": 5007,
+          "counterMutationP50Ms": 0.29,
+          "counterMutationP95Ms": 0.79,
+          "counts": {
+            "listener_connected": 4,
+            "snapshot": 10,
+            "listener_failure": 2,
+            "catchup": 5,
+            "admission_refused": 1,
+            "buffer_pressure": 1
+          }
+        },
+        {
+          "at": "2026-10-07T02:21:06.941Z",
+          "base": "http://127.0.0.1:58783",
+          "viewport": {
+            "desktop": "1280x720 or default",
+            "mobile": "390x844 emulation"
+          },
+          "timings": {
+            "desktopChatDeliveryMs": 603,
+            "mobileViewportChatDeliveryMs": 605,
+            "reconnectCatchupMs": 78,
+            "moderationRemovalMs": 1172,
+            "healthyStreamHttpRaces": "PASS: lost confirmation and delayed pre-removal history"
+          },
+          "result": "Community browser journeys verified at desktop and mobile sizes"
+        },
+        {
+          "phase": "load-start",
+          "viewers": 500,
+          "rooms": 50,
+          "seconds": 300,
+          "mutationRate": 10,
+          "localApiRateLimit": 10000,
+          "nodeOptions": "--max-semi-space-size=4"
+        },
+        {
+          "phase": "load-measured",
+          "baselineRssMiB": 80.16,
+          "maxRssMiB": 129.91,
+          "rssGrowthMiB": 49.75,
+          "stormRecoveryMs": 446,
+          "restartRecoveryMs": 982,
+          "stressMutations": 460,
+          "bufferPressure": 10,
+          "maxHeapUsedMiB": 47.22,
+          "maxHeapTotalMiB": 55.48,
+          "maxExternalMiB": 5.5
+        },
+        {
+          "trial": "community-http-load",
+          "result": "PASS",
+          "viewers": 500,
+          "rooms": 50,
+          "seconds": 300,
+          "writes": 3000,
+          "deliverySamples": 30000,
+          "deliveryP50Ms": 38,
+          "deliveryP95Ms": 97,
+          "stormRecoveryMs": 446,
+          "restartRecoveryMs": 982,
+          "maxStreams": 500,
+          "maxRooms": 50,
+          "rssGrowthMiB": 49.75,
+          "slowClientStressMutations": 460,
+          "bufferPressure": 10,
+          "finalStreams": 0,
+          "maxRuntimeConnections": 8,
+          "secondProcessMutations": 600
+        }
+      ]
+    },
+    {
+      "name": "tuned-sixty-second",
+      "command": "COMMUNITY_POSTGRES_MODE=host COMMUNITY_SOAK_SECONDS=60 npm run verify:community-delivery",
+      "result": "PASS",
+      "measurements": [
+        {
+          "trial": "durable-postgres",
+          "result": "PASS",
+          "node": "v24.19.0",
+          "postgres": "17.10 (Homebrew)",
+          "serializedWaitMs": 114,
+          "missedHintRecoveryMs": 25,
+          "defaultReconciliationRecoveryMs": 5008,
+          "counterMutationP50Ms": 0.32,
+          "counterMutationP95Ms": 0.94,
+          "counts": {
+            "listener_connected": 4,
+            "snapshot": 10,
+            "listener_failure": 2,
+            "catchup": 6,
+            "admission_refused": 1,
+            "buffer_pressure": 1
+          }
+        },
+        {
+          "at": "2026-10-07T02:17:56.257Z",
+          "base": "http://127.0.0.1:56593",
+          "viewport": {
+            "desktop": "1280x720 or default",
+            "mobile": "390x844 emulation"
+          },
+          "timings": {
+            "desktopChatDeliveryMs": 615,
+            "mobileViewportChatDeliveryMs": 617,
+            "reconnectCatchupMs": 77,
+            "moderationRemovalMs": 1175,
+            "healthyStreamHttpRaces": "PASS: lost confirmation and delayed pre-removal history"
+          },
+          "result": "Community browser journeys verified at desktop and mobile sizes"
+        },
+        {
+          "phase": "load-start",
+          "viewers": 500,
+          "rooms": 50,
+          "seconds": 60,
+          "mutationRate": 10,
+          "localApiRateLimit": 10000,
+          "nodeOptions": "--max-semi-space-size=4"
+        },
+        {
+          "phase": "load-measured",
+          "baselineRssMiB": 75.13,
+          "maxRssMiB": 130.59,
+          "rssGrowthMiB": 55.47,
+          "stormRecoveryMs": 427,
+          "restartRecoveryMs": 989,
+          "stressMutations": 460,
+          "bufferPressure": 10,
+          "maxHeapUsedMiB": 47.06,
+          "maxHeapTotalMiB": 55.98,
+          "maxExternalMiB": 5.55
+        },
+        {
+          "trial": "community-http-load",
+          "result": "PASS",
+          "viewers": 500,
+          "rooms": 50,
+          "seconds": 60,
+          "writes": 600,
+          "deliverySamples": 6000,
+          "deliveryP50Ms": 38,
+          "deliveryP95Ms": 170,
+          "stormRecoveryMs": 427,
+          "restartRecoveryMs": 989,
+          "maxStreams": 500,
+          "maxRooms": 50,
+          "rssGrowthMiB": 55.47,
+          "slowClientStressMutations": 460,
+          "bufferPressure": 10,
+          "finalStreams": 0,
+          "maxRuntimeConnections": 8,
+          "secondProcessMutations": 120
+        }
+      ]
+    },
+    {
+      "name": "final-ui",
+      "command": "COMMUNITY_POSTGRES_MODE=host COMMUNITY_SOAK_SECONDS=10 npm run verify:community-delivery",
+      "result": "PASS",
+      "measurements": [
+        {
+          "trial": "durable-postgres",
+          "result": "PASS",
+          "node": "v24.19.0",
+          "postgres": "17.10 (Homebrew)",
+          "serializedWaitMs": 114,
+          "missedHintRecoveryMs": 24,
+          "defaultReconciliationRecoveryMs": 5011,
+          "counterMutationP50Ms": 0.29,
+          "counterMutationP95Ms": 0.89,
+          "counts": {
+            "listener_connected": 4,
+            "snapshot": 10,
+            "listener_failure": 2,
+            "catchup": 4,
+            "admission_refused": 1,
+            "buffer_pressure": 1
+          }
+        },
+        {
+          "at": "2026-10-07T02:27:37.893Z",
+          "base": "http://127.0.0.1:63078",
+          "viewport": {
+            "desktop": "1280x720 or default",
+            "mobile": "390x844 emulation"
+          },
+          "timings": {
+            "desktopChatDeliveryMs": 616,
+            "mobileViewportChatDeliveryMs": 618,
+            "reconnectCatchupMs": 81,
+            "moderationRemovalMs": 1174,
+            "healthyStreamHttpRaces": "PASS: lost confirmation and delayed pre-removal history"
+          },
+          "result": "Community browser journeys verified at desktop and mobile sizes"
+        },
+        {
+          "phase": "load-start",
+          "viewers": 500,
+          "rooms": 50,
+          "seconds": 10,
+          "mutationRate": 10,
+          "localApiRateLimit": 10000,
+          "nodeOptions": "--max-semi-space-size=4"
+        },
+        {
+          "phase": "load-measured",
+          "baselineRssMiB": 93.58,
+          "maxRssMiB": 130.42,
+          "rssGrowthMiB": 36.84,
+          "stormRecoveryMs": 436,
+          "restartRecoveryMs": 882,
+          "stressMutations": 460,
+          "bufferPressure": 10,
+          "maxHeapUsedMiB": 46.23,
+          "maxHeapTotalMiB": 56.23,
+          "maxExternalMiB": 5.59
+        },
+        {
+          "trial": "community-http-load",
+          "result": "PASS",
+          "viewers": 500,
+          "rooms": 50,
+          "seconds": 10,
+          "writes": 100,
+          "deliverySamples": 1000,
+          "deliveryP50Ms": 38,
+          "deliveryP95Ms": 162,
+          "stormRecoveryMs": 436,
+          "restartRecoveryMs": 882,
+          "maxStreams": 500,
+          "maxRooms": 50,
+          "rssGrowthMiB": 36.84,
+          "slowClientStressMutations": 460,
+          "bufferPressure": 10,
+          "finalStreams": 0,
+          "maxRuntimeConnections": 8,
+          "secondProcessMutations": 20
+        }
+      ]
+    },
+    {
+      "name": "default-gc-memory-failure",
+      "command": "COMMUNITY_POSTGRES_MODE=host npm run verify:community-delivery",
+      "result": "FAIL: RSS growth budget",
+      "measurements": [
+        {
+          "trial": "durable-postgres",
+          "result": "PASS",
+          "node": "v24.19.0",
+          "postgres": "17.10 (Homebrew)",
+          "serializedWaitMs": 114,
+          "missedHintRecoveryMs": 24,
+          "defaultReconciliationRecoveryMs": 5006,
+          "counterMutationP50Ms": 0.17,
+          "counterMutationP95Ms": 0.39,
+          "counts": {
+            "listener_connected": 4,
+            "snapshot": 10,
+            "listener_failure": 2,
+            "catchup": 5,
+            "admission_refused": 1,
+            "buffer_pressure": 1
+          }
+        },
+        {
+          "at": "2026-10-07T02:10:47.389Z",
+          "base": "http://127.0.0.1:54215",
+          "viewport": {
+            "desktop": "1280x720 or default",
+            "mobile": "390x844 emulation"
+          },
+          "timings": {
+            "desktopChatDeliveryMs": 620,
+            "mobileViewportChatDeliveryMs": 621,
+            "reconnectCatchupMs": 78,
+            "moderationRemovalMs": 1183,
+            "healthyStreamHttpRaces": "PASS: lost confirmation and delayed pre-removal history"
+          },
+          "result": "Community browser journeys verified at desktop and mobile sizes"
+        },
+        {
+          "phase": "load-start",
+          "viewers": 500,
+          "rooms": 50,
+          "seconds": 300,
+          "mutationRate": 10,
+          "localApiRateLimit": 10000
+        },
+        {
+          "phase": "load-measured",
+          "baselineRssMiB": 70.25,
+          "maxRssMiB": 226.03,
+          "rssGrowthMiB": 155.78,
+          "stormRecoveryMs": 427,
+          "restartRecoveryMs": 883,
+          "stressMutations": 460,
+          "bufferPressure": 10
+        }
+      ]
+    },
+    {
+      "name": "edge",
+      "command": "node scripts/verify-community-edge.js",
+      "result": "FAIL: readiness 503; SSE delivery unverified",
+      "measurements": [
+        {
+          "trial": "browser-to-edge",
+          "at": "2026-10-07T02:12:48.365Z",
+          "origin": "https://yaparena-staging-web.onrender.com",
+          "healthStatus": 503,
+          "healthProtocol": "h2",
+          "streamStatus": 404,
+          "status": 404,
+          "verifiedDelivery": false
+        }
+      ]
+    }
+  ]
+}

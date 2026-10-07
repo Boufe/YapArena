@@ -14,6 +14,40 @@ type ProductSummary = Awaited<
 
 export function createMetrics() {
   const registry = new Registry();
+  const mediaControl = new Counter({
+    name: "yaparena_media_control_total",
+    help: "Bounded media clock, permission repair and delivery admission outcomes",
+    labelNames: ["kind"],
+    registers: [registry],
+  });
+  const streamCount = new Gauge({
+    name: "yaparena_community_streams",
+    help: "Active public streams",
+    registers: [registry],
+  });
+  const roomCount = new Gauge({
+    name: "yaparena_community_rooms",
+    help: "Active room resources",
+    registers: [registry],
+  });
+  const delivery = new Counter({
+    name: "yaparena_community_delivery_total",
+    help: "Bounded delivery operations and failures",
+    labelNames: ["kind"],
+    registers: [registry],
+  });
+  const deliveryLag = new Histogram({
+    name: "yaparena_community_delivery_lag_seconds",
+    help: "Event creation to server output queue; browser latency is separate",
+    buckets: [0.01, 0.1, 0.5, 1, 5, 15, 60],
+    registers: [registry],
+  });
+  const poolWait = new Histogram({
+    name: "yaparena_database_pool_wait_seconds",
+    help: "Pool acquisition wait",
+    buckets: [0.001, 0.01, 0.1, 1, 5],
+    registers: [registry],
+  });
 
   collectDefaultMetrics({
     register: registry,
@@ -90,7 +124,10 @@ export function createMetrics() {
     response: Response,
     next: NextFunction,
   ) {
-    if (request.path === "/metrics") {
+    if (
+      request.path === "/metrics" ||
+      /^\/api\/community\/events\/[^/]+\/stream$/.test(request.path)
+    ) {
       return next();
     }
 
@@ -123,6 +160,22 @@ export function createMetrics() {
     middleware,
     handler,
     registry,
+    poolWait,
+    mediaControl,
+    community: {
+      count(kind: string) {
+        delivery.inc({ kind });
+      },
+      streams(value: number) {
+        streamCount.set(value);
+      },
+      rooms(value: number) {
+        roomCount.set(value);
+      },
+      lag(seconds: number) {
+        deliveryLag.observe(seconds);
+      },
+    },
     setProductSummaryProvider(provider: () => Promise<ProductSummary>) {
       productSummaryProvider = provider;
       lastProductRefresh = 0;

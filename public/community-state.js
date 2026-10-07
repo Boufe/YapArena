@@ -11,7 +11,14 @@ export function createChatState() {
 
   function begin(body, clientMessageId, createdAt) {
     const text = body.trim();
-    if (!text || text.length > 500) return null;
+    if (
+      !text ||
+      text.length > 500 ||
+      [...submissions.values()].filter(
+        (record) => !["confirmed", "removed"].includes(record.state),
+      ).length >= 100
+    )
+      return null;
     const record = {
       submission: Object.freeze({ body: text, clientMessageId, createdAt }),
       state: "sending",
@@ -63,10 +70,14 @@ export function createChatState() {
     if (
       previous &&
       ((source === "post" && previous.missing) ||
+        (item.streamRevision &&
+          previous.item.streamRevision &&
+          compareIds(item.streamRevision, previous.item.streamRevision) < 0) ||
         compareIds(item.revision, previous.item.revision) < 0 ||
         (item.revision === previous.item.revision &&
           previous.item.state === "removed" &&
-          item.state === "visible"))
+          item.state === "visible" &&
+          !(source === "recovery" && previous.missing)))
     ) {
       const newlyBound = !!local && previous.record !== local;
       const confirmedNow =

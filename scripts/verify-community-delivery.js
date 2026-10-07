@@ -450,6 +450,85 @@ export async function verifyCommunityDelivery({ pool, owner, admin, url }) {
     assert.equal(active, 0);
     assert.equal(activeRooms, 0);
 
+    // An older resume joins after a real PostgreSQL read has chosen a newer
+    // subscriber's cursor. It must receive a fresh read, not skip the first batch.
+    const resumeBefore = await head();
+    const reconnectMessages = [];
+    for (let i = 0; i < 20; i++)
+      reconnectMessages.push(
+        (await insert(owner, `Synthetic reconnect race ${i}`)).rows[0],
+      );
+    let releaseReconnect;
+    const reconnectBarrier = new Promise((resolve) => {
+      releaseReconnect = resolve;
+    });
+    let reconnectReadStarted = false;
+    let reconnectReads = 0;
+    const joining = createRoomFanout(
+      async (id, after) => {
+        const value = await delivery.read(id, after);
+        if (++reconnectReads === 1) {
+          reconnectReadStarted = true;
+          await reconnectBarrier;
+        }
+        return {
+          head: value.head,
+          floor: value.floor,
+          eligible: value.eligible,
+          snapshot: {
+            summary: value.summary,
+            items: value.items,
+            hasMore: value.hasMore,
+          },
+          events: value.events.map((e) => ({
+            cursor: e.cursor,
+            reset: e.kind === "reset",
+            change: { message: e.message, summary: value.summary },
+            at: e.occurredAt,
+          })),
+        };
+      },
+      metrics,
+      { ...defaultFanoutOptions, reconcileMs: 50 },
+    );
+    resources.push(joining);
+    joining.start();
+    const currentViewer = new TrialResponse(),
+      olderResume = new TrialResponse();
+    try {
+      joining.subscribe(
+        room,
+        reconnectMessages[9].stream_revision,
+        "synthetic-race",
+        currentViewer,
+      );
+      await until(() => reconnectReadStarted);
+      joining.subscribe(room, resumeBefore, "synthetic-race", olderResume);
+      releaseReconnect();
+      await until(() =>
+        olderResume
+          .data()
+          .some(
+            (f) =>
+              f.cursor ===
+              `v1:${room}:${reconnectMessages.at(-1).stream_revision}`,
+          ),
+      );
+      assert.deepEqual(
+        olderResume
+          .data()
+          .flatMap((f) => f.changes ?? [])
+          .map((e) => e.message.id),
+        reconnectMessages.map((message) => message.id),
+        "concurrent resume cannot skip a durable batch",
+      );
+    } finally {
+      releaseReconnect();
+      await joining.stop();
+    }
+    assert.equal(active, 0);
+    assert.equal(activeRooms, 0);
+
     // Exercise the actual manual and automatic lifecycle repositories.
     await createMatchingRepository(pool).operatorTransition(
       users[2],

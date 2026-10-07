@@ -100,3 +100,21 @@ browser compatibility, accessibility, regional media delay, failure-rate confide
 capacity/soak, recording-provider and controlled-network release targets remain unverified.
 The [existing media decision](decisions/0004-live-debate-replay.md), operating readiness
 and financial gates are still open. Configuration and passing unit tests do not close them.
+
+## Combined integration follow-up — 2026-10-07 UTC
+
+The original checkpoint `1bc118f` was cherry-picked as `095e997` into the SSE release based on
+reviewed main `78d72ef`; the newer account/database/container security fixes are included.
+Shared-file conflicts preserve both SSE admission and media telemetry controls. The combined
+`npm run check` passed 316 tests with 94.22% line, 91.54% branch and 95.49% function coverage.
+Modern database-isolation checks passed fresh and upgrade, and the six-second FFmpeg packaging
+trial again produced/decode-verified all three renditions and captions (14 files). This local
+result does not establish deployed HLS or WebRTC quality. Later SSE race regression/release
+checks are recorded separately in the community trial.
+
+A read-only provider preflight at 03:25:38 UTC reached LiveKit's room/egress APIs (zero active
+rooms, participants and recordings) and passed R2 HEAD bucket. Actual LiveKit billing/project
+limits are not exposed by those APIs. The Render web service currently has media disabled and
+no replay edge. R2 storage credentials are present; Workers deployment credentials are absent
+from the web service and will be loaded only by a separate authorized operator. No provider
+recording, adaptive edge playback or physical-device acceptance has been performed in this phase.

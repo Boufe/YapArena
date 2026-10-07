@@ -103,7 +103,11 @@ export function createRoomFanout(
     };
   }
   async function refresh(room: Room) {
-    const cursors = [...room.subscribers].flatMap((s) =>
+    // This read belongs to this subscriber cohort and its minimum cursor.
+    // A reconnect joining while PostgreSQL is reading may have an older cursor;
+    // subscribe marks the room dirty so that subscriber gets a subsequent read.
+    const subscribers = [...room.subscribers];
+    const cursors = subscribers.flatMap((s) =>
       s.cursor === null ? [] : [s.cursor],
     );
     const after = cursors.reduce(
@@ -132,7 +136,8 @@ export function createRoomFanout(
         }
         return sub.sink.sendFrame(frame);
       }
-      for (const sub of [...room.subscribers]) {
+      for (const sub of subscribers) {
+        if (!room.subscribers.has(sub)) continue;
         if (!projection.eligible) {
           sub.sink.send("unavailable", { version: 1, roomId: room.id });
           sub.sink.close();

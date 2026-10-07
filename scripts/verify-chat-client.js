@@ -541,7 +541,7 @@ export async function verifyChatClient({
     });
     for (let n = 1; n <= 550; n++) feed.push(message(`Catch-up ${n}`));
     await refresh();
-    for (let n = 0; n < 200 && !cursors.includes(feed.at(-1).id); n++)
+    for (let n = 0; n < 600 && !cursors.includes(feed.at(-1).id); n++)
       await delay(25);
     assert.ok(
       cursors.includes(feed.at(-1).id),

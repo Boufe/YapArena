@@ -41,6 +41,9 @@ let topicId;
 let browser;
 const timings = {};
 const connectionReady = /(?:Live|Polling) updates on/;
+const chatReportDetail = `Synthetic chat case ${suffix}`;
+const eventReportDetail = `Synthetic event case ${suffix}`;
+const oldReportDetail = `Synthetic old chat case ${suffix}`;
 
 async function axeViolations(page, selector) {
   await page.evaluate((source) => {
@@ -80,6 +83,12 @@ async function register(name, publishProfile = false) {
   assert.ok(userId, `registered ${name}`);
   accounts.push(userId);
   if (publishProfile) {
+    // The signed-in shell becomes visible before the profile read finishes.
+    // Wait for hydration so a delayed GET cannot clear fields during this trial.
+    await page
+      .locator("#profile-state")
+      .getByText("Create a private draft.", { exact: false })
+      .waitFor();
     await page
       .locator("#profile-form input[name=handle]")
       .fill(`browser-${name}-${suffix}`);
@@ -252,7 +261,7 @@ try {
     .click();
   const reportForm = reporter.page.locator(".community-message form");
   await reportForm.locator("select").selectOption("spam");
-  await reportForm.locator("textarea").fill("This needs moderator review");
+  await reportForm.locator("textarea").fill(chatReportDetail);
   await reportForm.locator("button[type=submit]").click();
   await reporter.page
     .getByText("Report submitted privately", { exact: false })
@@ -262,7 +271,7 @@ try {
     .selectOption("other");
   await reporter.page
     .locator("[data-community-report-form] textarea")
-    .fill("Event chat needs review");
+    .fill(eventReportDetail);
   await reporter.page.locator("[data-community-report-form] button").click();
   await reporter.page
     .getByText("Report submitted privately", { exact: false })
@@ -282,6 +291,7 @@ try {
   assert.deepEqual(await axeViolations(moderatorA.page, "main"), []);
   const chatCase = moderatorA.page
     .locator("[data-community-cases] .community-case")
+    .filter({ hasText: chatReportDetail })
     .filter({ hasText: "chat · open" })
     .first();
   await chatCase.locator("select").first().selectOption("remove_chat");
@@ -299,6 +309,7 @@ try {
     .waitFor({ state: "hidden" });
   const eventCase = moderatorA.page
     .locator("[data-community-cases] .community-case")
+    .filter({ hasText: eventReportDetail })
     .filter({ hasText: "event · open" })
     .first();
   await eventCase.locator("select").first().selectOption("pause_chat");
@@ -317,6 +328,7 @@ try {
     .selectOption("actioned");
   const pausedCase = moderatorA.page
     .locator("[data-community-cases] .community-case")
+    .filter({ hasText: eventReportDetail })
     .filter({ hasText: "pause_chat" })
     .first();
   await pausedCase.locator("textarea").fill("Review is complete, resume chat");
@@ -337,9 +349,16 @@ try {
   const moderatorB = await register("moderator-b");
   await grantModerator(moderatorB.userId);
   await moderatorB.page.goto(`${base}/moderation`);
+  const fixtureCase = (
+    await pool.query(
+      "SELECT id FROM moderation_cases WHERE debate_id=$1 AND reporter_user_id=$2 AND target_type='chat'",
+      [eventId, reporter.userId],
+    )
+  ).rows[0];
+  assert.ok(fixtureCase);
   const appealCard = moderatorB.page
     .locator("[data-community-appeals] .community-case")
-    .first();
+    .filter({ hasText: `Case ${fixtureCase.id}` });
   await appealCard.waitFor();
   await appealCard.locator("select").selectOption("overturned");
   await appealCard
@@ -544,15 +563,13 @@ try {
     .first();
   await oldMessage.getByRole("button", { name: "Report message" }).click();
   await oldMessage.locator("form select").selectOption("spam");
-  await oldMessage
-    .locator("form textarea")
-    .fill("Old chat message needs review");
+  await oldMessage.locator("form textarea").fill(oldReportDetail);
   await oldMessage.locator("form button[type=submit]").click();
   await oldMessage.locator("form").waitFor({ state: "hidden" });
   await moderatorB.page.locator("[data-community-refresh]").click();
   const oldCase = moderatorB.page
     .locator("[data-community-cases] .community-case")
-    .filter({ hasText: "Old chat message needs review" });
+    .filter({ hasText: oldReportDetail });
   await oldCase.locator("select").first().selectOption("remove_chat");
   await oldCase.locator("select").nth(1).selectOption("spam");
   await oldCase.locator("textarea").fill("Remove older reported chat message");
@@ -651,6 +668,9 @@ try {
       result: "Community browser journeys verified at desktop and mobile sizes",
     }),
   );
+} catch (error) {
+  console.error("Community browser trial failed:", error.message);
+  throw error;
 } finally {
   if (browser) await browser.close();
   try {
@@ -670,6 +690,10 @@ try {
     await pool.query("DELETE FROM debates WHERE id = $1", [eventId]);
     if (topicId)
       await pool.query("DELETE FROM topics WHERE id = $1", [topicId]);
+    await pool.query("DELETE FROM community_room_events WHERE room_id=$1", [
+      eventId,
+    ]);
+    await pool.query("DELETE FROM community_rooms WHERE room_id=$1", [eventId]);
     for (const id of accounts) {
       await pool.query("DELETE FROM sessions WHERE user_id = $1", [id]);
       await pool.query("DELETE FROM public_profiles WHERE user_id = $1", [id]);

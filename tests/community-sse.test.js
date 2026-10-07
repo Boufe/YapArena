@@ -177,6 +177,64 @@ describe("bounded SSE output and room fanout", () => {
     fanout.subscribe(room, null, "ip", refused);
     assert.equal(refused.code, 503);
   });
+  it("keeps subscribers joining an in-flight read behind their own resume cursor", async () => {
+    let release;
+    let started = false;
+    const barrier = new Promise((resolve) => {
+      release = resolve;
+    });
+    const afters = [];
+    const f = createRoomFanout(
+      async (_id, after) => {
+        afters.push(after);
+        const events = Array.from({ length: 20 }, (_, i) =>
+          event(String(i + 1)),
+        )
+          .filter((item) => BigInt(item.cursor) > BigInt(after))
+          .slice(0, 10);
+        if (afters.length === 1) {
+          started = true;
+          await barrier;
+        }
+        return projection("20", events);
+      },
+      metrics(),
+      { ...options, reconcileMs: 1000, heartbeatMs: 1000 },
+    );
+    f.start();
+    const existing = new Response(),
+      closed = new Response();
+    const reconnecting = new Response(),
+      fresh = new Response();
+    try {
+      f.subscribe(room, "10", "same-ip", existing);
+      f.subscribe(room, "10", "same-ip", closed);
+      await until(() => started);
+      f.subscribe(room, "0", "same-ip", reconnecting);
+      f.subscribe(room, null, "same-ip", fresh);
+      closed.end();
+      release();
+      await until(() =>
+        reconnecting
+          .data()
+          .some((frame) => frame.cursor === roomCursor(room, "20")),
+      );
+      assert.deepEqual(
+        reconnecting
+          .data()
+          .flatMap((frame) => frame.changes ?? [])
+          .map((change) => change.revision),
+        Array.from({ length: 20 }, (_, i) => String(i + 1)),
+      );
+      assert.equal(fresh.data()[0].kind, "snapshot");
+      assert.equal(closed.frames.length, 0);
+      assert.equal(afters[0], "10");
+      assert.equal(afters[1], "0");
+    } finally {
+      release();
+      await f.stop();
+    }
+  });
   it("resets retention/future cursors, preserves resumes, closes revoked rooms", async () => {
     let value = { ...projection("5", [event("4"), event("5")]), floor: "2" };
     const m = metrics();

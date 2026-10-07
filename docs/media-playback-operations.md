@@ -1,10 +1,12 @@
 # Adaptive playback and recovery
 
-This implementation is an isolated checkpoint on `feat/media-playback-reliability`,
-based on `bc3e92f`. It does not include the concurrent uncommitted SSE/database/security
-work in the original checkout. Merge these changes through review and rerun the combined
-quality, database-isolation and deployment gates. Do not copy `.env` or provider credentials
-between worktrees. There are no schema changes in this checkpoint.
+The original media checkpoint `1bc118f` was isolated on `feat/media-playback-reliability`.
+It is now integrated as `095e997` in `feature/community-delivery`, after the reviewed main
+security fixes and SSE checkpoint `ab59ebb`. Shared-file conflicts preserve community
+stream admission, media telemetry abuse limits, database isolation and both browser bundles.
+There are no media schema changes. Combined checks and actual deployed validation are recorded
+in the trial documents; integration does not close the physical-device or hosting gates.
+Do not copy provider credentials between worktrees.
 
 See [acceptance requirements](media-playback-requirements.md) for the proposed envelope
 and targets, and [trial evidence](media-playback-trial.md) for performed checks.
@@ -170,3 +172,22 @@ ring wraps; the report command rejects dropped records and always returns `relea
 false` pending reviewed release evidence. Never infer a 0.1% failure objective from a
 small successful trial. At least 3,840 zero-failure independent eligible attempts are needed
 even for a Wilson 95% upper bound below 0.1%; cohort dependence still requires analysis.
+
+## Deployment credentials and plan limits
+
+Keep the Cloudflare Workers deployment token in a separate operator secret environment.
+The web service needs its existing bucket-scoped R2 keys and the replay signing secret only.
+R2 S3 access keys cannot deploy a Worker. Verify token permissions against the current
+[Workers authorization requirements](https://developers.cloudflare.com/workers/authorization/workers/):
+creating a Worker requires Workers Admin; changing its domain also requires Workers Routes
+Write for that zone. After provisioning, scope ongoing deployment access to the existing Worker.
+
+For the proposed 500 concurrent replay viewers, two-second segments imply about 250 segment
+requests/second, or 900,000 requests/hour, before playlists, captions and retries. This is a
+planning estimate, not measured edge traffic. The Workers Free 100,000-request daily quota
+would be consumed in roughly 6 minutes 40 seconds at that steady rate. A 60-minute replay
+capacity trial therefore needs adequate paid Workers allowance (currently $5/month base)
+or approved higher limits. Check actual subscription, remaining usage, CPU and R2 operation
+budgets before running it. See [limits](https://developers.cloudflare.com/workers/platform/limits/)
+and [pricing](https://developers.cloudflare.com/workers/platform/pricing/). No billing change
+is part of the implementation. Cloudflare zone Pro is separate from Workers Paid.

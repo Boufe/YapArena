@@ -299,8 +299,9 @@ Deploy the reviewed matching server/assets with `COMMUNITY_STREAM_ENABLED=false`
 and private reconciliation checks, then enable in an authorized synthetic hosted trial. Reserve
 connection capacity for `(web processes × 11) + worker pools + release/admin reserve` on the verified
 session/direct route; the local two-process fanout trial does not size a hosted pooler. Render's actual
-service was inspected read-only in this task: `yaparena-staging-web` is **Free**, automatic deployment
-off, not suspended. No hosted setting or deployment was changed. Treat this as staging, not an approved
+service `yaparena-staging-web` is **Free**, with automatic deployment off. The authorized
+follow-up deployed SSE checkpoint `ab59ebb`, applied its additive migration and enabled the flag;
+see the dated trial for actual evidence and subsequent combined release status. Treat this as staging, not an approved
 live-event hosting plan. Existing in-process media clocks and IP abuse controls still require separate
 coordination before adding web instances; only community cross-process fanout is tested here.
 
@@ -339,8 +340,11 @@ clients which stop reading. It asserts latency, recovery, memory, connection and
 Set `COMMUNITY_SOAK_SECONDS=3600` for a longer release soak; CI uses a 30-second disposable smoke soak
 in its integration path. A five-minute local run is not a long-duration hosted capacity approval.
 
-Run hosted mutation/load/failure work only in an authorized disposable staging clone; the local
-fixture harness deliberately refuses hosted databases. Prepare synthetic published event/accounts
+Run hosted mutation/load/failure work in an authorized disposable staging environment, preferably
+an isolated clone. If the authorized staging database contains existing trial data, take a backup,
+record protected-row fingerprints and scope every selector/write/cleanup to unique synthetic
+fixtures. The local orchestrator deliberately refuses hosted databases. Its separately enabled
+browser harness permits the named staging origin only. Prepare synthetic published event/accounts
 using the existing staging workflow, then:
 
 1. Record reviewed commit/image, region, Node/PostgreSQL versions, provider plan, TLS/session mode,
@@ -382,6 +386,12 @@ using the existing staging workflow, then:
 Actual commands, failures, measurements, hosting observations and source hashes are recorded in the
 [durable delivery trial](community-delivery-trial.md).
 
+Room reads capture their subscriber cohort before choosing its minimum cursor. Subscribers
+joining while that read is in flight are excluded from that projection and mark the room dirty
+for another read using their own cursor. This prevents a reconnect with an older cursor from
+skipping the first durable batch. Closed subscribers are skipped. Unit and real-PostgreSQL tests
+hold a read after projection, add the older subscriber, and require all intervening messages.
+
 ## Authorized hosted browser procedure
 
 `scripts/verify-community-browser.js` defaults to loopback PostgreSQL. The explicitly enabled
@@ -395,3 +405,12 @@ Set `BROWSER_BASE_URL=https://yaparena-staging-web.onrender.com`,
 independent sessions, stream/HTTP races, moderation and lifecycle, and cleans its scoped rows.
 Keep the trial log and postflight database counts. The operator must have the separate hosted
 change authorization and backup required by the staging runbook before running it.
+
+The hosted-capacity module `scripts/verify-community-hosted-capacity.js` accepts separate owner
+fixture and runtime-observer connections from an authorized operator runner, rather than loading
+web secrets itself. Its fixed stage/role guards exercise 500 HTTPS streams in 50 synthetic rooms,
+ten committed SQL mutations/sec, reconnect and an optional provider restart. This measures hosted
+fanout capacity; SQL fixture mutations do not establish hosted authenticated HTTP write throughput.
+It reports actual restart duration independently of catch-up, enforces delivery/memory/session
+budgets, keeps failed attempts visible, and deletes only its tagged fixture data. Preserve baseline
+fingerprints and operator records, and combine it with the real HTTP browser journey.

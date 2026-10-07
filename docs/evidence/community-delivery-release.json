@@ -1,0 +1,158 @@
+{
+  "version": 1,
+  "stage": "authorized existing synthetic staging; no disposable project clone",
+  "records": {
+    "deployment": {
+      "at": "2026-10-07T02:58:19.330Z",
+      "commit": "ab59ebbb4a3d67a13654673ee8f438b0a3656bcf",
+      "deployId": "dep-db2rait9fdbs7390c3u0",
+      "status": "build_in_progress",
+      "previous": {
+        "COMMUNITY_STREAM_ENABLED": null,
+        "NODE_OPTIONS": null
+      },
+      "changedKeys": ["COMMUNITY_STREAM_ENABLED", "NODE_OPTIONS"],
+      "otherEnvironmentPreserved": true,
+      "billingChanged": false
+    },
+    "edge": {
+      "trial": "browser-to-edge",
+      "at": "2026-10-07T03:00:27.695Z",
+      "origin": "https://yaparena-staging-web.onrender.com",
+      "healthStatus": 200,
+      "healthProtocol": "h2",
+      "streamStatus": 200,
+      "streamProtocol": "h2",
+      "firstFrameMs": 137,
+      "firstHeartbeatMs": 12366,
+      "verifiedDelivery": true
+    },
+    "migration": {
+      "at": "2026-10-07T02:57:22.093Z",
+      "status": "PASS",
+      "commit": "ab59ebbb4a3d67a13654673ee8f438b0a3656bcf",
+      "applied": ["1791335211412_durable-community-delivery"],
+      "existingChatRows": 8,
+      "chatProjectionSha256": "89526343e76b52da8342281adbc141d010f437b27ee0635a5fbdd8d39eef712d",
+      "originalProjectionsPreserved": true,
+      "grants": [
+        {
+          "role": "anon",
+          "trigger_callable": false,
+          "event_access": false
+        },
+        {
+          "role": "authenticated",
+          "trigger_callable": false,
+          "event_access": false
+        },
+        {
+          "role": "yaparena_runtime",
+          "trigger_callable": false,
+          "event_access": true
+        }
+      ],
+      "migrationSha256": "e437717c42ad3a655149e53c4389e970e49f58ca24814be832d31a3399baaa2b",
+      "operatorIdentity": "yaparena_owner",
+      "operatorProcess": "Node 24 from the reviewed isolated checkout; no owner credentials added to web"
+    },
+    "compensating-cleanup": {
+      "at": "2026-10-07T03:08:14.462Z",
+      "status": "PASS",
+      "originalPublicMessageProjectionsRestored": true,
+      "chatRows": 8,
+      "semanticSha256": "7d2c1396599e5e75d16af77fd871147c7708c15b20319406cab35f3e03d06fef",
+      "restorationUsesNewerRevision": true,
+      "revision": "2",
+      "streamRevision": "2",
+      "originalCaseProjectionRestored": true,
+      "syntheticAuditRowsRemoved": 1,
+      "syntheticAccountsRemaining": "0",
+      "source": "authenticated encrypted pre-migration backup; no plaintext file"
+    },
+    "media-preflight": {
+      "at": "2026-10-07T03:25:38.588Z",
+      "mediaEnabled": false,
+      "providerCredentialsConfigured": true,
+      "edgeConfigured": false,
+      "cloudflareDeploymentTokenConfigured": false,
+      "actualLiveKitSubscription": "unavailable through media API",
+      "livekit": {
+        "apiReachable": true,
+        "rooms": 0,
+        "participants": 0,
+        "activeEgress": 0
+      },
+      "privateStorageCredentialPreflight": "PASS"
+    },
+    "browserPostflight": {
+      "at": "2026-10-07T03:29:38.011Z",
+      "status": "PASS",
+      "protectedChatRows": 8,
+      "protectedSemanticHashUnchanged": true,
+      "syntheticAccountsRemaining": 0
+    }
+  },
+  "knownFailures": [
+    "pre-existing case selected; compensated with newer revision",
+    "profile hydration race in harness",
+    "older resume joined an in-flight newer-cursor read; product regression fixed, not yet deployed"
+  ],
+  "productionReleaseReady": false,
+  "combinedMediaCommit": "095e99713e34ee93479ccceb74e80aa3e7d2f4c6",
+  "fixedQuality": {
+    "tests": 317,
+    "lineCoverage": 94.23,
+    "branchCoverage": 91.57,
+    "functionCoverage": 95.49,
+    "result": "PASS"
+  },
+  "fixedIsolation": {
+    "result": "PASS",
+    "postgres": "17.10 Homebrew",
+    "creatorMediatorCasesPerScenario": 19,
+    "scenarios": ["fresh", "upgrade"]
+  },
+  "fixedDurableChecks": [
+    {
+      "trial": "durable-postgres",
+      "result": "PASS",
+      "node": "v24.19.0",
+      "postgres": "17.10 (Homebrew)",
+      "serializedWaitMs": 114,
+      "missedHintRecoveryMs": 24,
+      "defaultReconciliationRecoveryMs": 5008,
+      "counterMutationP50Ms": 0.71,
+      "counterMutationP95Ms": 1.29,
+      "counts": {
+        "listener_connected": 4,
+        "snapshot": 9,
+        "listener_failure": 2,
+        "catchup": 8,
+        "admission_refused": 1,
+        "buffer_pressure": 1
+      }
+    },
+    {
+      "trial": "community-http-load",
+      "result": "PASS",
+      "viewers": 500,
+      "rooms": 50,
+      "seconds": 30,
+      "writes": 300,
+      "deliverySamples": 3000,
+      "deliveryP50Ms": 40,
+      "deliveryP95Ms": 97,
+      "stormRecoveryMs": 433,
+      "restartRecoveryMs": 906,
+      "maxStreams": 500,
+      "maxRooms": 50,
+      "rssGrowthMiB": 56.36,
+      "slowClientStressMutations": 460,
+      "bufferPressure": 10,
+      "finalStreams": 0,
+      "maxRuntimeConnections": 8,
+      "secondProcessMutations": 60
+    }
+  ]
+}

@@ -192,3 +192,74 @@ viewers and speakers count toward participants. A 500-media-viewer target would 
 community viewers who never join media do not count. The account's actual LiveKit subscription
 could not be inspected because no connected billing browser or applicable billing API was
 available. Project-specific limits and usage remain unverified.
+
+## Deployed SSE and media integration follow-up
+
+Reviewed SSE checkpoint `ab59ebbb4a3d67a13654673ee8f438b0a3656bcf` is PR
+[#27](https://github.com/Boufe/YapArena/pull/27). Its five CI checks passed in run
+`37564030066`, including 318 tests (97.57% lines, 90.90% branches, 96.57% functions),
+PostgreSQL 18.4 isolation/durable delivery/browser checks, container and deployment checks.
+This later evidence supersedes the initial phase's unperformed-CI statement for that checkpoint.
+
+The separate owner process applied only additive migration `1791335211412` at 02:57 UTC.
+All eight existing chat projections matched their pre-migration fingerprint. Runtime DML/RLS
+and unsafe-role denial were checked; direct trigger execution remains denied. Render deployment
+`dep-db2rait9fdbs7390c3u0` reached live at 02:59:17 UTC on `ab59ebb`. Only the stream flag and
+`NODE_OPTIONS=--max-semi-space-size=4` changed; runtime credentials and other settings were retained.
+Auto-deploy remains off and billing remains Free. The actual Chrome edge trial passed at
+03:00:27 UTC: readiness and stream both HTTP/2, initial frame 137ms, heartbeat 12,366ms.
+The running listener's runtime identity and idle `LISTEN yaparena_community_v1` statement were
+verified at 03:16:43 UTC. Supavisor rewrites `application_name` to its own name; a name-only
+filter produced a false negative, corrected by inspecting identity and the idle statement.
+
+The hosted browser trial initially selected a pre-existing moderation case because selectors
+were not fixture-scoped. That failed trial is not a PASS. The compensating cleanup at 03:08:14 UTC
+restored the original case projection from the authenticated backup and the original message's
+public state through a newer restoration revision (revision/stream revision 2). It deleted the
+single synthetic action audit and fixture actor. All eight original public semantic projections
+matched the backup; revision and stream-log history intentionally retain the newer restoration.
+No synthetic accounts remained. Selectors now use unique fixture detail and exact case ID.
+A later profile-form trial raced its initial hydration; it now waits for the loaded form.
+
+The next hosted run exposed a product fanout race: an older resume joining during an in-flight
+read could receive the newer cohort's batch and skip ten messages. A controlled unit test
+reproduced the missing first batch before the fix. Each read now captures its subscriber cohort;
+new arrivals receive a subsequent read using their cursor. A real-PostgreSQL barrier regression
+also requires all twenty intervening messages. Until the fixed commit is checked and deployed,
+the earlier staged checkpoint must not be treated as recovery acceptance.
+
+Media commit `1bc118fc0c53faa945b404eb07e8b33687e8f8e0` was integrated as
+`095e99713e34ee93479ccceb74e80aa3e7d2f4c6` after the reviewed security/SSE commits. Conflicts
+preserve stream admission, origin/abuse controls, telemetry rate limits and both bundles. Before
+the newly discovered fanout fix, combined checks passed 316 tests (94.22% lines, 91.54% branches,
+95.49% functions), current-main isolation fresh/upgrade cases, and FFmpeg synthetic three-rendition
+packaging/decoding. The 30-second combined real-PG/browser/two-process load passed 500 streams,
+50 rooms, 300 authenticated writes and 3,000 samples: p50 40ms/p95 125ms, reconnect 495ms,
+local restart 876ms, RSS growth 57.11MiB, eight runtime sessions, ten slow-client disconnects,
+and zero final streams/rooms. Logs: `/private/tmp/yaparena-combined-{check,isolation,packaging,delivery}.log`.
+
+The existing service's media credentials were inspected safely at 03:25:38 UTC: LiveKit APIs
+responded, zero rooms/participants/active egress existed, and R2 HEAD bucket succeeded. Media is
+currently disabled and the private replay edge is not configured. Render has R2 storage keys but
+no Workers deployment token. This is credential-connectivity evidence, not recording/playback or
+plan evidence. The user is supplying the deployment token through an ignored local operator file.
+Physical devices, native Safari/Firefox playback, media quality/load, replay edge, regional timings,
+long hosted soak and reliable paid hosting remain separate unverified release criteria.
+
+The fixed checkout then passed `npm run check`: 317 tests, 94.23% lines, 91.57% branches,
+95.49% functions. The current-main isolation gate passed again with 19 creator/API-mediator
+cases in both fresh and upgrade scenarios (catalogs `/tmp/yaparena-isolation-8f15cc1b-evidence`).
+The controlled older-resume regression passed both unit and real-PostgreSQL execution.
+Postflight at 03:29:38 UTC confirmed the eight protected public message projections unchanged
+and zero synthetic browser accounts. Logs are `/private/tmp/yaparena-combined-fixed-*.log`.
+
+A five-minute combined run on the pre-fix server also passed its capacity phase: 3,000 HTTPS
+writes, 30,000 samples, p50 40ms/p95 128ms, reconnect 410ms, local restart 905ms, RSS growth
+43.84MiB, eight runtime sessions, ten slow-client disconnects and zero final resources. That
+capacity observation does not override the separately exposed in-flight reconnect race.
+The fixed server's final release soak is recorded separately after completion.
+
+The fixed 30-second full durable trial passed: 500 streams/50 rooms, 300 authenticated writes,
+3,000 samples, p50 40ms/p95 97ms, reconnect 433ms, restart 906ms, RSS growth 56.36MiB,
+eight runtime sessions, 60 second-process mutations, ten slow-client disconnects and zero
+final resources. The final fixed real-PG run measured default no-hint repair at 5,008ms.

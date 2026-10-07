@@ -8,6 +8,7 @@ import type { createMessageRepository } from "./features/messages/repository.ts"
 import type { createDiscoveryRepository } from "./features/discovery/repository.ts";
 import type { createIdentityRepository } from "./features/identity/repository.ts";
 import type { createMatchingRepository } from "./features/matching/repository.ts";
+import { createMediaTelemetry } from "./features/media/telemetry.ts";
 import type { createMediaRepository } from "./features/media/repository.ts";
 import type { createMediaProvider } from "./features/media/provider.ts";
 import type { createCommunityRepository } from "./features/community/repository.ts";
@@ -139,8 +140,14 @@ export function createApp({
       ? helmet({
           contentSecurityPolicy: {
             directives: {
-              "connect-src": ["'self'", mediaUrl!.origin, mediaHttpOrigin!],
-              "media-src": ["'self'", mediaProvider.playbackOrigin],
+              "connect-src": [
+                "'self'",
+                mediaUrl!.origin,
+                mediaHttpOrigin!,
+                mediaProvider.playbackOrigin,
+              ],
+              "worker-src": ["'self'", "blob:"],
+              "media-src": ["'self'", "blob:", mediaProvider.playbackOrigin],
               "upgrade-insecure-requests":
                 environment === "production" ? [] : null,
             },
@@ -156,6 +163,16 @@ export function createApp({
   const streamRead = (request: Request) =>
     request.method === "GET" &&
     /^\/api\/community\/events\/[^/]+\/stream$/.test(request.path);
+  const playbackReport = (request: Request) =>
+    request.method === "POST" &&
+    /^\/api\/media\/events\/[0-9a-f-]{36}\/playback$/i.test(request.path);
+  app.use(
+    createApiRateLimiter({
+      windowMs: 60_000,
+      limit: 1500,
+      skip: (request) => !playbackReport(request),
+    }),
+  );
   app.use(
     createApiRateLimiter({
       windowMs: 60_000,
@@ -167,7 +184,8 @@ export function createApp({
     createApiRateLimiter({
       windowMs: rateLimitWindowMs,
       limit: apiRateLimit,
-      skip: (request) => liveRead(request) || streamRead(request),
+      skip: (request) =>
+        liveRead(request) || streamRead(request) || playbackReport(request),
     }),
   );
   if (media && mediaProvider) {
@@ -261,6 +279,7 @@ export function createApp({
       createMediaRouter({
         media,
         provider: mediaProvider,
+        recordPlayback: createMediaTelemetry(metrics.registry),
         matching,
         identity,
         requireAuth: createRequireAuthentication({ sessions, environment }),

@@ -208,6 +208,13 @@ exact commands, controls, and validation limits. Local keys in the Compose overr
 only. A recording must be complete and verified in object storage before an operator can publish
 replay. Captions are reviewed WebVTT text uploaded by an operator. Extensions remain disabled.
 
+The [playback runbook](docs/media-playback-operations.md) describes connection preparation,
+bounded recovery, HLS packaging, private authenticated edge delivery, telemetry and rollback.
+The [proposed acceptance scope](docs/media-playback-requirements.md) and
+[local trial record](docs/media-playback-trial.md) distinguish implementation checks from
+physical-device and deployed performance evidence. Run `npm run verify:media-packaging`
+with FFmpeg installed to verify the synthetic adaptive recording ladder.
+
 Run the quality gate:
 
 ```sh

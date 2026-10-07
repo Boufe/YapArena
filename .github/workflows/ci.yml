@@ -84,6 +84,12 @@ jobs:
       - name: Install browser test dependencies
         run: npm ci
 
+      - name: Install FFmpeg for synthetic replay verification
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
+
+      - name: Verify adaptive replay packaging and decoding
+        run: npm run verify:media-packaging
+
       - name: Create local test configuration
         run: cp .env.example .env
 

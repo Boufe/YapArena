@@ -2,6 +2,11 @@
 
 **Status:** Prototype implementation; media architecture and product timings are not approved for launch.
 
+The subsequent [playback reliability checkpoint](../media-playback-operations.md) adds
+connection preparation, application recovery and an optional authenticated HLS replay
+path. Its [acceptance scope](../media-playback-requirements.md) remains proposed and
+[release evidence](../media-playback-trial.md) explicitly records unverified gates.
+
 ## Product boundary
 
 The product PRD requires two speakers, equal initial speaking time, a bounded extension mechanism,

@@ -352,3 +352,29 @@ describe("configuration", () => {
     );
   });
 });
+
+it("validates the optional replay edge as an HTTPS origin with paired secrets", () => {
+  for (const fields of [
+    { MEDIA_REPLAY_EDGE_URL: "https://media.example" },
+    { MEDIA_REPLAY_SIGNING_SECRET: "secret" },
+    {
+      MEDIA_REPLAY_EDGE_URL: "http://media.example",
+      MEDIA_REPLAY_SIGNING_SECRET: "a".repeat(32),
+    },
+    {
+      MEDIA_REPLAY_EDGE_URL: "https://media.example/path",
+      MEDIA_REPLAY_SIGNING_SECRET: "a".repeat(32),
+    },
+    {
+      MEDIA_REPLAY_EDGE_URL: "https://media.example",
+      MEDIA_REPLAY_SIGNING_SECRET: "short",
+    },
+    {
+      MEDIA_REPLAY_EDGE_URL: "https://media.example",
+      MEDIA_REPLAY_SIGNING_SECRET: "a".repeat(32),
+    },
+  ])
+    assert.throws(() =>
+      loadConfig({ DATABASE_URL: "postgres://localhost/test", ...fields }),
+    );
+});

@@ -9,9 +9,12 @@ import { EncodedFileOutput, S3Upload } from "@livekit/protocol";
 import {
   GetObjectCommand,
   HeadObjectCommand,
+  PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+import { createReplayAccess, replayPrefix } from "./replay.ts";
 
 export interface MediaProviderConfig {
   livekitUrl: string;
@@ -24,6 +27,8 @@ export interface MediaProviderConfig {
   s3Bucket: string;
   s3AccessKey: string;
   s3SecretKey: string;
+  replayEdgeUrl?: string;
+  replaySigningSecret?: string;
 }
 
 export function createMediaProvider(config: MediaProviderConfig) {
@@ -61,9 +66,12 @@ export function createMediaProvider(config: MediaProviderConfig) {
   const roomName = (id: string) => `debate-${id}`;
   return Object.freeze({
     publicUrl: config.livekitPublicUrl,
-    playbackOrigin: config.s3PublicEndpoint
-      ? new URL(config.s3PublicEndpoint).origin
-      : "https:",
+    adaptiveReplay: Boolean(config.replayEdgeUrl),
+    playbackOrigin: config.replayEdgeUrl
+      ? new URL(config.replayEdgeUrl).origin
+      : config.s3PublicEndpoint
+        ? new URL(config.s3PublicEndpoint).origin
+        : "https:",
     async token(
       id: string,
       identity: string,
@@ -138,6 +146,38 @@ export function createMediaProvider(config: MediaProviderConfig) {
     },
     async webhook(body: string, authorization?: string) {
       return receiver.receive(body, authorization);
+    },
+    async replayAccess(key: string) {
+      if (!config.replayEdgeUrl || !config.replaySigningSecret)
+        return {
+          url: await this.replayUrl(key),
+          type: "mp4",
+          expiresIn: 3600,
+          expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+        };
+      await storage.send(
+        new HeadObjectCommand({
+          Bucket: config.s3Bucket,
+          Key: `${replayPrefix(key)}ready.json`,
+        }),
+      );
+      return createReplayAccess(
+        key,
+        config.replayEdgeUrl,
+        config.replaySigningSecret,
+      );
+    },
+    async publishCaptions(key: string, captions: string) {
+      if (config.replayEdgeUrl)
+        await storage.send(
+          new PutObjectCommand({
+            Bucket: config.s3Bucket,
+            Key: `${replayPrefix(key)}captions.vtt`,
+            Body: captions,
+            ContentType: "text/vtt",
+            CacheControl: "no-store",
+          }),
+        );
     },
     async replayUrl(key: string) {
       await storage.send(

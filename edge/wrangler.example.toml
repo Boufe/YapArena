@@ -1,0 +1,14 @@
+name = "yaparena-replay"
+main = "replay-worker.js"
+compatibility_date = "2026-10-06"
+workers_dev = false
+
+[vars]
+APP_ORIGIN = "https://your-app.example"
+
+[[r2_buckets]]
+binding = "REPLAY_BUCKET"
+bucket_name = "your-private-media-bucket"
+
+# Set REPLAY_SIGNING_SECRET through the provider secret store, never this file.
+# Bind a custom domain / route and disable public bucket URLs.

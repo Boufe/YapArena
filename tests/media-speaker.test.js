@@ -3,6 +3,45 @@ import { it } from "node:test";
 
 import { joinSpeaker } from "../public/media-speaker.js";
 
+it("keeps deliberately muted rejoining from capturing the microphone", async () => {
+  const paths = [];
+  let options;
+  await joinSpeaker({
+    button: {},
+    microphoneWanted: false,
+    mediaDevices: {
+      async getUserMedia(value) {
+        options = value;
+        return {
+          getVideoTracks: () => [{ stop() {} }],
+          getAudioTracks: () => [],
+          getTracks: () => [{ stop() {} }],
+        };
+      },
+    },
+    async request(path) {
+      paths.push(path);
+      return path === "/speaker-token"
+        ? { token: "synthetic", url: "wss://synthetic.example", side: "A" }
+        : { eventStatus: "live", state: { state: "running" } };
+    },
+    connect: async () => ({
+      localParticipant: {
+        identity: "speaker-1",
+        setCameraEnabled: async () => ({ track: {} }),
+      },
+    }),
+    tracks: { attach() {} },
+    setSide() {},
+    setPreparedMicrophone() {
+      assert.fail("muted rejoin must not retain a microphone");
+    },
+    refresh: async () => {},
+  });
+  assert.equal(options.audio, false);
+  assert.equal(paths.includes("/device-check"), false);
+});
+
 it("shows the first speaker's camera and permits reconnect after a pause", async () => {
   const button = { disabled: false };
   const steps = [];

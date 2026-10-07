@@ -72,7 +72,7 @@ describe("yaparena API", () => {
     const policy = response.headers["content-security-policy"];
     assert.match(policy, /connect-src 'self' ws:\/\/localhost:7880/);
     assert.match(policy, /http:\/\/localhost:7880/);
-    assert.match(policy, /media-src 'self' http:\/\/localhost:8333/);
+    assert.match(policy, /media-src 'self' blob: http:\/\/localhost:8333/);
     assert.doesNotMatch(policy, /upgrade-insecure-requests/);
     const productionApp = createApp({
       messages,

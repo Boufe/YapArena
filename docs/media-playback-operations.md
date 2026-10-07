@@ -1,0 +1,172 @@
+# Adaptive playback and recovery
+
+This implementation is an isolated checkpoint on `feat/media-playback-reliability`,
+based on `bc3e92f`. It does not include the concurrent uncommitted SSE/database/security
+work in the original checkout. Merge these changes through review and rerun the combined
+quality, database-isolation and deployment gates. Do not copy `.env` or provider credentials
+between worktrees. There are no schema changes in this checkpoint.
+
+See [acceptance requirements](media-playback-requirements.md) for the proposed envelope
+and targets, and [trial evidence](media-playback-trial.md) for performed checks.
+
+## Live preparation and recovery
+
+On a live page, GET media state supplies the configured public LiveKit URL; the browser
+calls `Room.prepareConnection(url)` without requesting a grant, joining, or capturing
+devices. Viewer tap starts diagnostics before authorization and calls `startAudio` in
+the gesture. If the browser still requires activation, **Enable sound** remains available.
+Preparation is best effort; a failed warmup leaves cold joining available.
+
+The SDK owns transport recovery while reconnecting. Only after a terminal recoverable
+disconnect does the application request a fresh token, for viewers and speakers. Five
+retries use 250/750/1500/3000/5000 ms bases with 25% jitter. Retries suspend while offline
+or hidden. Online/foreground return schedules eligible recovery; each grant rechecks
+current server authorization. Authorization refusal, permission denial, voluntary leave,
+duplicate identity, participant removal, deleted/closed room, cancellation and debate end
+stop retries. A generation guard rejects late grants after cancellation. Leave also
+clears speaker autojoin intent for subsequent refreshes.
+
+Speaker choices and deliberate mute are remembered in tab session storage, scoped to
+event and authenticated seat. A muted rejoin captures only camera and relies on the
+existing recent server device check; an expired check requires a deliberate new check.
+Publishing requires user microphone intent, running state, the current side and current
+LiveKit microphone permission. Permission/state changes re-evaluate the gate. Late
+publish completion rechecks intent and permission before enabling the checked track.
+No camera/microphone capture happens during connection preparation.
+
+Connection messages are independent from periodic event presentation so polling does
+not announce healthy playback during a known disconnect. Room closure stops capture
+and detaches media elements. Pagehide releases timers and observers. Existing server
+clock ownership, webhook delivery and permission reconciliation remain deployment gates;
+browser recovery does not repair a failed server permission change or resume a paused
+debate. The operator still owns deliberate incident resume.
+
+## Produce and publish replay
+
+Egress continues producing the verified private MP4 source. An operator runs the explicit
+packaging command for a completed recording before publishing adaptive replay. Packaging
+is not yet a managed transcoding queue: assign an operator/worker owner and do not put
+FFmpeg in the web request path. Inspect/repair a failed package before another upload;
+conditional writes reject overwriting an existing rendition. Use a new recording/package
+identity for re-encoding, or remove only a failed unpublished package through reviewed
+storage operations. Never overwrite segments that may be cached.
+
+1. Download the verified synthetic/staging MP4 to a private local working directory
+   using scoped storage access. Match its key to the event's recording key.
+2. Produce captions manually or with a transcription service outside this change.
+   A human reviews timing, speaker attribution, punctuation and accuracy, especially
+   proper names and sensitive claims, against the entire recording. Do not upload
+   unreviewed text. Record reviewer, language, source revision and review date in the
+   private operating record. The current player supports English captions.
+3. With FFmpeg on PATH, encode locally:
+
+   ```sh
+   node scripts/package-replay.js /private/path/source.mp4 /private/path/new-hls /private/path/reviewed.vtt
+   ```
+
+4. Repeat with a **new output directory** and the verified recording key to upload to
+   the configured private bucket (load staging variables through your approved secret
+   mechanism):
+
+   ```sh
+   node --env-file=.env.media scripts/package-replay.js /private/path/source.mp4 /private/path/new-upload-hls /private/path/reviewed.vtt debates/EVENT_UUID/RECORDING_UUID.mp4
+   ```
+
+The ladder is H.264 baseline/AAC, 30 fps, 240p ~348 kbps including audio, 480p ~1064 kbps
+and 720p ~2496 kbps, with aligned two-second independently decodable MPEG-TS segments.
+Bandwidth declarations include configured peak video rate and audio. Validate perceived
+quality, loudness, source aspect ratio and codec compatibility in the trial device set.
+The low rendition is first in the master. FFmpeg packaging checks nonempty segment
+references; upload writes `ready.json` last. Access and operator Publish replay require
+that completion marker when edge delivery is enabled. Legacy MP4 recordings must be
+packaged before enabling adaptive replay for their catalog.
+
+The [FFmpeg HLS muxer](https://ffmpeg.org/ffmpeg-formats.html#hls-2) produces the ladder;
+[HLS.js](https://hlsjs.video-dev.org/api-docs/hls.js.hls) supplies browser adaptation.
+Native HLS is preferred where supported; other supported browsers load the separate
+HLS.js bundle on demand. It starts at the low rendition and then selects quality
+automatically, bounded by player dimensions and bandwidth. HLS.js demuxing uses a worker.
+
+Only the main event replay is prepared, while visible and without browser Data Saver.
+Native preparation requests metadata only; that is a browser hint without a hard byte
+guarantee. HLS.js preparation uses a 2 MB buffer budget and stops after the first low
+rendition fragment. No other recordings are prefetched. Tap enables the larger bounded
+playback buffer. Source renewal preserves time, playback rate, caption mode and deliberate
+pause. Renewals are coalesced; technical recovery has five bounded retries, suspended
+offline. Retries reset only after ten seconds without a waiting event.
+
+## Authenticated edge deployment
+
+Deploy `edge/replay-worker.js` separately with an R2 binding to the private recording
+bucket. Adapt `edge/wrangler.example.toml`; provision a HTTPS custom domain, disable public
+bucket URLs and set `APP_ORIGIN` to the exact application origin. Install a high-entropy
+`REPLAY_SIGNING_SECRET` in the worker secret store, and the identical value as
+`MEDIA_REPLAY_SIGNING_SECRET` in the service secret store. Set `MEDIA_REPLAY_EDGE_URL`
+to the exact HTTPS origin. Both application variables are required together. Never put
+the secret in TOML, a client bundle, logs, a signed-URL example, or a trial artifact.
+
+The app issues a five-minute HMAC capability scoped to one recording's HLS prefix.
+Anonymous eligible public replay viewers can receive it; public availability is still
+server-authorized. All playlists, segments and captions go through the worker. Playlist
+rewriting propagates the capability to allowlisted children. Every GET/HEAD verifies
+method, path, signature, expiry and scope **before** consulting a shared segment cache.
+Only immutable segments use a token-independent edge cache key; playlists and mutable
+reviewed captions bypass shared cache. Responses to viewers use `private, no-store` so
+the edge cache cannot bypass the credential check. CORS permits only the application
+origin; ranges support seeking. The app CSP admits the configured edge origin and
+media/worker blob URLs. No S3 credential reaches the browser.
+
+Access renews 30 seconds before expiry. Each renewal checks publication, replay state,
+recording readiness and key. Removed recordings refuse renewal. Already issued
+credentials can fetch remaining objects until expiry: **at most five minutes from
+issuance**, including through the edge cache. Already downloaded/decoded data cannot
+be recalled; buffered media can play longer and screenshots/downloads cannot be revoked.
+For urgent removal delete the private package and purge the segment cache; that operation
+is outside this implementation. Rotate the signing secret to revoke all capabilities.
+Clock synchronization between app and edge is required.
+
+Caption corrections use the existing authenticated operator endpoint; it writes plain
+WebVTT to the edge prefix before updating the reviewed database copy. Failure is surfaced;
+retry and reconcile the storage/database copy if the database update fails after upload.
+The edge never caches captions. New capability renewal updates the caption URL.
+
+Roll out first with synthetic staging recordings, check deny/tamper/expiry/cross-recording
+requests, CORS, seeking, captions, segment-cache hits and removal/renewal. Then test the
+physical-device/load envelope. With edge variables absent, the existing signed-MP4 path
+remains a staging fallback with a one-hour remaining credential window; it does **not**
+satisfy the adaptive replay acceptance scope. Roll back both edge variables together to
+that fallback only after recording the degraded release gate. HLS/browser assets must
+deploy together; the existing Docker build produces both bundles.
+
+## Operational measurement
+
+The browser holds a bounded 10,000-record diagnostic ring in memory, accessible for
+synthetic trials as `window.yapMediaDiagnostics.export()`. It contains no account/room IDs,
+device IDs, private captions, URLs, grants or raw user-agent. It records every attempted
+start, authorization, failure, abandonment, first rendered video, advancing audible-element
+proxy, sound activation, interruptions, restoration, and available allowlisted WebRTC
+statistics. Missing statistics are recorded; disabled tracks and deliberate pauses are
+not technical failures. Diagnostics disappear when the page is closed unless exported.
+
+A bounded reporter submits anonymous, allowlisted health counters/durations in batches
+to the origin-protected media API under a dedicated 1,500-request/minute/IP
+health-report limit. Reports do not consume the ordinary write allowance. The existing
+600-request/minute/IP live-state polling limit remains; many viewers sharing one IP can
+exceed it, so shared-IP admission and polling budgets require the load trial. No browser identifier is added
+or persisted and no product watch-consent behavior is changed. These operational counters
+are separate from consented product usage measurement. Raw user-agent and room/session
+identifiers are not metric labels. Supported browser/device family labels are finite.
+Prometheus exposes `yaparena_playback_events_total`, `yaparena_playback_duration_seconds`
+and `yaparena_playback_active_seconds_total`. Aggregate deployments/geographies using
+scrape metadata; exact OS/browser versions and controlled network/load belong in trial
+artifacts. Client reports are untrusted and can be lost or duplicated: use them to diagnose
+health, not as proof of failure denominators or release acceptance. In-flight batches
+are not retried without a deduplication protocol. Queue overflow/loss is counted locally.
+
+Active-viewing time is sampled at one-second intervals and capped to avoid background
+timer inflation. Audio timing is explicitly a proxy. Use external synchronized/acoustic
+measurements for audio onset and capture-to-playback delay. Export before the diagnostic
+ring wraps; the report command rejects dropped records and always returns `releaseReady:
+false` pending reviewed release evidence. Never infer a 0.1% failure objective from a
+small successful trial. At least 3,840 zero-failure independent eligible attempts are needed
+even for a Wilson 95% upper bound below 0.1%; cohort dependence still requires analysis.

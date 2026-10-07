@@ -80,8 +80,32 @@ function parseMedia(environment: NodeJS.ProcessEnv, nodeEnvironment: string) {
     "MEDIA_S3_ACCESS_KEY",
     "MEDIA_S3_SECRET_KEY",
   ] as const;
+  if (
+    Boolean(environment.MEDIA_REPLAY_EDGE_URL) !==
+    Boolean(environment.MEDIA_REPLAY_SIGNING_SECRET)
+  )
+    throw new Error(
+      "replay edge URL and signing secret must be configured together",
+    );
+  if (environment.MEDIA_REPLAY_EDGE_URL) {
+    const edge = new URL(environment.MEDIA_REPLAY_EDGE_URL);
+    if (
+      edge.protocol !== "https:" ||
+      edge.origin !== environment.MEDIA_REPLAY_EDGE_URL ||
+      edge.username ||
+      edge.password ||
+      environment.MEDIA_REPLAY_SIGNING_SECRET!.length < 32
+    )
+      throw new Error(
+        "replay edge requires an HTTPS origin and a secret of at least 32 characters",
+      );
+  }
   const set = names.filter((name) => Boolean(environment[name]));
-  if (set.length === 0) return undefined;
+  if (set.length === 0) {
+    if (environment.MEDIA_REPLAY_EDGE_URL)
+      throw new Error("replay edge requires media configuration");
+    return undefined;
+  }
   if (set.length !== names.length)
     throw new Error(`media configuration requires ${names.join(", ")}`);
   const livekitUrl = new URL(environment.LIVEKIT_URL!);
@@ -130,6 +154,8 @@ function parseMedia(environment: NodeJS.ProcessEnv, nodeEnvironment: string) {
     s3Bucket: environment.MEDIA_S3_BUCKET!,
     s3AccessKey: environment.MEDIA_S3_ACCESS_KEY!,
     s3SecretKey: environment.MEDIA_S3_SECRET_KEY!,
+    replayEdgeUrl: environment.MEDIA_REPLAY_EDGE_URL,
+    replaySigningSecret: environment.MEDIA_REPLAY_SIGNING_SECRET,
   });
 }
 

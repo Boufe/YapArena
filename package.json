@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Backend foundation for a live debate platform",
   "scripts": {
-    "build": "tsc --project tsconfig.json && esbuild public/media-entry.js --bundle --minify --format=iife --outfile=public/media.bundle.js",
+    "build": "tsc --project tsconfig.json && esbuild public/media-entry.js --bundle --minify --format=iife --outfile=public/media.bundle.js && esbuild public/replay-entry.js --bundle --minify --format=iife --outfile=public/replay.bundle.js",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.js",
     "test:revocation": "npm run build && node --test tests/session-revocation-postgres.test.js",
@@ -20,7 +20,9 @@
     "inventory:database": "node scripts/inventory-database.js",
     "seed:discovery": "node --env-file-if-exists=.env scripts/seed-discovery.js",
     "initialize": "node scripts/initialize-project.js",
-    "verify:community-delivery": "npm run build && COMMUNITY_DURABLE_TRIAL=1 node scripts/verify-community-local.js"
+    "verify:community-delivery": "npm run build && COMMUNITY_DURABLE_TRIAL=1 node scripts/verify-community-local.js",
+    "verify:media-packaging": "node scripts/verify-media-packaging.js",
+    "report:playback": "node scripts/report-playback.js"
   },
   "keywords": [],
   "author": "",
@@ -42,6 +44,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.2",
     "helmet": "^8.3.0",
+    "hls.js": "1.7.3",
     "livekit-client": "^2.22.3",
     "livekit-server-sdk": "^2.19.1",
     "node-pg-migrate": "^9.0.0",

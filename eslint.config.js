@@ -11,6 +11,7 @@ export default [
       "dist/",
       "public/media.bundle.js",
       ".env.*/**",
+      "public/replay.bundle.js",
     ],
   },
   eslint.configs.recommended,

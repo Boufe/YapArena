@@ -7,3 +7,5 @@ dist/
 public/media.bundle.js
 .DS_Store
 npm-debug.log*
+
+public/replay.bundle.js

@@ -1,0 +1,267 @@
+import assert from "node:assert/strict";
+import { it } from "node:test";
+import { createReplayPlayer } from "../public/media-replay.js";
+
+function fixture({ native = true, supported = true } = {}) {
+  const handlers = new Map();
+  const jobs = new Map();
+  const records = [];
+  let timerId = 0;
+  let network = true;
+  let requests = 0;
+  let requestError;
+  let playError;
+  let sound;
+  const instances = [];
+  const video = {
+    currentTime: 27,
+    playbackRate: 1.5,
+    paused: true,
+    textTracks: [{ mode: "showing" }],
+    hidden: true,
+    muted: false,
+    addEventListener(event, fn) {
+      if (!handlers.has(event)) handlers.set(event, new Set());
+      handlers.get(event).add(fn);
+    },
+    removeEventListener(event, fn) {
+      handlers.get(event)?.delete(fn);
+    },
+    emit(event) {
+      for (const fn of handlers.get(event) || []) fn();
+    },
+    canPlayType() {
+      return native ? "probably" : "";
+    },
+    querySelector() {
+      return { src: "", dataset: { originalSrc: "/captions.vtt" } };
+    },
+    load() {},
+    removeAttribute() {},
+    pause() {
+      this.paused = true;
+    },
+    async play() {
+      if (playError) throw playError;
+      this.paused = false;
+      this.emit("playing");
+    },
+  };
+  class FakeHls {
+    static Events = {
+      MANIFEST_PARSED: "manifest",
+      FRAG_BUFFERED: "fragment",
+      ERROR: "error",
+    };
+    static isSupported() {
+      return supported;
+    }
+    constructor(config) {
+      this.config = config;
+      this.events = new Map();
+      instances.push(this);
+    }
+    on(event, fn) {
+      this.events.set(event, fn);
+    }
+    emit(event, data) {
+      this.events.get(event)?.(event, data);
+    }
+    attachMedia(node) {
+      assert.equal(node, video);
+    }
+    loadSource(url) {
+      this.url = url;
+    }
+    startLoad(position) {
+      this.position = position;
+      this.stopped = false;
+    }
+    stopLoad() {
+      this.stopped = true;
+    }
+    destroy() {
+      this.destroyed = true;
+    }
+  }
+  const player = createReplayPlayer({
+    video,
+    Hls: FakeHls,
+    request: async () => {
+      requests++;
+      if (requestError) throw requestError;
+      return {
+        type: "hls",
+        url: "https://media.example/master.m3u8",
+        captionsUrl: "https://media.example/captions.vtt",
+        expiresIn: 300,
+        expiresAt: new Date(Date.now() + 300000).toISOString(),
+      };
+    },
+    diagnostics: {
+      start: (mode, prepared) =>
+        records.push({ event: "attempt", mode, prepared }),
+      record: (event, data) => records.push({ event, ...data }),
+      finish: (outcome) => records.push({ event: "outcome", outcome }),
+    },
+    say: (message) => records.push({ message }),
+    soundRequired: (value) => {
+      sound = value;
+    },
+    online: () => network,
+    schedule: (fn, ms) => {
+      jobs.set(++timerId, { fn, ms });
+      return timerId;
+    },
+    cancel: (id) => jobs.delete(id),
+  });
+  return {
+    player,
+    video,
+    instances,
+    jobs,
+    records,
+    handlers,
+    get requests() {
+      return requests;
+    },
+    get sound() {
+      return sound;
+    },
+    setError: (error) => {
+      requestError = error;
+    },
+    setPlayError: (error) => {
+      playError = error;
+    },
+    offline: () => {
+      network = false;
+    },
+    online: () => {
+      network = true;
+    },
+    async run(ms) {
+      const found = [...jobs].find(
+        ([, job]) => ms === undefined || job.ms === ms,
+      );
+      assert.ok(found, "expected timer");
+      jobs.delete(found[0]);
+      await found[1].fn();
+      await new Promise((resolve) => setImmediate(resolve));
+    },
+  };
+}
+it("prepares one native replay and preserves position, speed, captions and paused state on renewal", async () => {
+  const f = fixture();
+  await f.player.prepare();
+  await f.player.prepare();
+  assert.equal(f.requests, 1);
+  assert.equal(f.video.paused, true);
+  f.video.emit("loadedmetadata");
+  assert.equal(f.video.currentTime, 27);
+  assert.equal(f.video.playbackRate, 1.5);
+  assert.equal(f.video.textTracks[0].mode, "showing");
+  await f.player.start();
+  assert.equal(f.records.find((r) => r.event === "attempt").prepared, true);
+  assert.equal(f.video.paused, false);
+  f.video.currentTime = 68;
+  f.video.playbackRate = 2;
+  f.video.textTracks[0].mode = "disabled";
+  f.video.pause();
+  f.player.online();
+  await new Promise((resolve) => setImmediate(resolve));
+  f.video.emit("loadedmetadata");
+  assert.equal(f.video.currentTime, 68);
+  assert.equal(f.video.playbackRate, 2);
+  assert.equal(f.video.paused, true);
+  assert.equal(f.video.textTracks[0].mode, "disabled");
+  f.player.destroy();
+  assert.equal(f.jobs.size, 0);
+  for (const handlers of f.handlers.values()) assert.equal(handlers.size, 0);
+});
+it("starts cold HLS at the low rendition then enables adaptation with bounded preload", async () => {
+  const f = fixture({ native: false });
+  await f.player.prepare();
+  const hls = f.instances[0];
+  assert.equal(hls.config.startLevel, 0);
+  assert.equal(hls.config.maxBufferSize, 2000000);
+  hls.emit("manifest");
+  hls.emit("fragment");
+  assert.equal(hls.stopped, true);
+  await f.player.start();
+  assert.equal(hls.config.maxBufferLength, 15);
+  assert.equal(hls.stopped, false);
+  f.video.emit("loadedmetadata");
+  f.video.emit("waiting");
+  await f.run(270000);
+  assert.equal(hls.destroyed, true);
+  const renewed = f.instances[1];
+  f.video.emit("loadedmetadata");
+  assert.equal(f.video.paused, false);
+  hls.emit("manifest");
+  hls.emit("fragment");
+  hls.emit("error", { fatal: true });
+  assert.equal(f.jobs.size, 2);
+  renewed.emit("error", { fatal: false });
+  f.player.destroy();
+  const cold = fixture({ native: false });
+  await cold.player.start();
+  assert.equal(cold.records.find((r) => r.event === "attempt").prepared, false);
+  cold.player.destroy();
+});
+it("exposes sound activation separately and stops access on authorization revocation", async () => {
+  const f = fixture();
+  f.setPlayError({ name: "NotAllowedError" });
+  await f.player.start();
+  assert.equal(f.sound, true);
+  assert.ok(f.records.some((r) => r.event === "sound_activation_required"));
+  f.setPlayError(undefined);
+  await f.player.activateSound();
+  assert.equal(f.sound, false);
+  assert.equal(f.video.muted, false);
+  f.setError({ status: 404 });
+  f.player.online();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(f.records.some((r) => r.outcome === "authorization_denied"));
+  assert.equal(f.jobs.size, 0);
+  assert.equal(f.video.paused, true);
+  f.player.destroy();
+});
+it("suspends offline recovery, bounds failed retries, and rejects unsupported HLS", async () => {
+  const f = fixture();
+  await f.player.start();
+  f.offline();
+  f.player.offline();
+  f.video.emit("error");
+  assert.equal(f.jobs.size, 1); // ten-second stability timer is also cancelled on interruption below
+  f.video.emit("waiting");
+  assert.equal(f.jobs.size, 0);
+  f.online();
+  f.setError(new Error("temporary"));
+  f.player.online();
+  await new Promise((resolve) => setImmediate(resolve));
+  for (let i = 0; i < 5; i++) await f.run();
+  assert.ok(f.records.some((r) => r.outcome === "technical_failure"));
+  f.player.destroy();
+  const unsupported = fixture({ native: false, supported: false });
+  await assert.rejects(unsupported.player.start(), /not supported/);
+  assert.ok(unsupported.records.some((r) => r.event === "replay_recovery"));
+  unsupported.player.destroy();
+});
+it("discards an outstanding access response after leave and coalesces renewal", async () => {
+  const f = fixture();
+  await f.player.start();
+  f.video.emit("loadedmetadata");
+  await f.run(10000);
+  assert.ok(f.records.some((r) => r.event === "recovery_stable"));
+  f.player.online();
+  f.player.online();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(f.requests, 2);
+  f.player.stop();
+  f.player.offline();
+  f.player.online();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(f.requests, 2);
+  f.player.destroy();
+});

@@ -125,7 +125,8 @@ function fixture() {
     ].map((name) => [name, name]),
   );
   class Room {
-    constructor() {
+    constructor(options = {}) {
+      this.options = options;
       this.handlers = new Map();
       this.remoteParticipants = new Map();
       this.canPlaybackAudio = false;
@@ -168,6 +169,11 @@ function fixture() {
     async disconnect() {
       calls.push("disconnect");
       this.emit("Disconnected", 1);
+    }
+    sdkPageLeave() {
+      // LiveKit's default beforeunload handler emits CLIENT_INITIATED before
+      // application pagehide cleanup. Preserve this order in the regression.
+      if (this.options.disconnectOnPageLeave !== false) void this.disconnect();
     }
   }
   const storage = new Map();
@@ -285,6 +291,8 @@ function fixture() {
   });
   return {
     rooms,
+    storage,
+    intervals,
     requests,
     calls,
     jobs,
@@ -348,6 +356,23 @@ it("prepares without joining or capturing and rejoins viewers only after termina
   assert.equal(f.element("leave").hidden, true);
   f.listeners.get("pagehide")();
   assert.equal(f.jobs.size, 0);
+});
+it("preserves speaker rejoin and mute intent through SDK navigation while releasing page resources", async () => {
+  const f = fixture();
+  f.speaker();
+  await f.start();
+  await f.element("speaker").click();
+  await f.element("mute").click();
+  const key = "media-speaker:33333333-3333-4333-8333-333333333333:1";
+  assert.equal(f.storage.get(key), "1");
+  for (const room of f.rooms) room.sdkPageLeave();
+  f.listeners.get("pagehide")();
+  await settle();
+  assert.equal(f.storage.get(key), "1");
+  assert.equal(f.storage.get(`${key}:muted`), "1");
+  assert.ok(f.calls.includes("disconnect"));
+  assert.equal(f.jobs.size, 0);
+  assert.equal(f.intervals.size, 0);
 });
 it("cancels joins whose authorization response arrives after leave", async () => {
   const f = fixture();

@@ -18,6 +18,13 @@ import { createMediaTracks } from "./media-tracks.js";
 
 const root = document.querySelector("[data-media-event]");
 if (root) {
+  // Application pagehide owns cleanup. SDK beforeunload would report a voluntary
+  // leave first and erase the saved speaker intent needed after a page refresh.
+  const roomOptions = {
+    adaptiveStream: true,
+    dynacast: true,
+    disconnectOnPageLeave: false,
+  };
   const id = root.dataset.mediaEvent;
   const status = root.querySelector("[data-media-status]");
   const clock = root.querySelector("[data-media-clock]");
@@ -240,8 +247,7 @@ if (root) {
     await stopMediaSession(previousRoom, mediaTracks);
     if (epoch !== recovery.generation || !recovery.intent || disposed)
       throw Object.assign(new Error("Join cancelled"), { name: "AbortError" });
-    const nextRoom =
-      preparedRoom || new Room({ adaptiveStream: true, dynacast: true });
+    const nextRoom = preparedRoom || new Room(roomOptions);
     preparedRoom = undefined;
     room = nextRoom;
     nextRoom.on(
@@ -369,7 +375,7 @@ if (root) {
     recovery.start("viewer");
     diagnostics.start("live", preparationComplete);
     leave.hidden = false;
-    preparedRoom ||= new Room({ adaptiveStream: true, dynacast: true });
+    preparedRoom ||= new Room(roomOptions);
     void preparedRoom.startAudio().catch(() => {
       sound.hidden = false;
     });
@@ -587,7 +593,7 @@ if (root) {
       if (!room && !recovery.intent && video.hidden) say(presentation.message);
       if (live && !preparationStarted) {
         preparationStarted = true;
-        preparedRoom ||= new Room({ adaptiveStream: true, dynacast: true });
+        preparedRoom ||= new Room(roomOptions);
         void preparedRoom
           .prepareConnection(result.preparationUrl)
           .then(() => {

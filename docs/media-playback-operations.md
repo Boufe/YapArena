@@ -36,6 +36,12 @@ LiveKit microphone permission. Permission/state changes re-evaluate the gate. La
 publish completion rechecks intent and permission before enabling the checked track.
 No camera/microphone capture happens during connection preparation.
 
+The application owns pagehide cleanup with SDK `disconnectOnPageLeave: false`. The SDK's
+default beforeunload disconnect otherwise arrives as a voluntary leave and clears speaker
+autojoin before pagehide, which was reproduced in real Chrome and a failing regression.
+Refresh retains joined/mute/device intent; pagehide still stops capture, disconnects the room,
+and releases timers. Explicit Leave, terminal removal and event end still clear joined intent.
+
 Connection messages are independent from periodic event presentation so polling does
 not announce healthy playback during a known disconnect. Room closure stops capture
 and detaches media elements. Pagehide releases timers and observers. Existing server

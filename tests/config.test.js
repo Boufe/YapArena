@@ -378,3 +378,40 @@ it("validates the optional replay edge as an HTTPS origin with paired secrets", 
       loadConfig({ DATABASE_URL: "postgres://localhost/test", ...fields }),
     );
 });
+it("validates a bounded room allowlist for incremental replay rollout", () => {
+  const id = "33333333-3333-4333-8333-333333333333";
+  const environment = {
+    DATABASE_URL: "postgres://localhost/test",
+    LIVEKIT_URL: "https://live.example",
+    LIVEKIT_PUBLIC_URL: "wss://live.example",
+    LIVEKIT_API_KEY: "key",
+    LIVEKIT_API_SECRET: "secret",
+    MEDIA_S3_REGION: "auto",
+    MEDIA_S3_BUCKET: "synthetic",
+    MEDIA_S3_ACCESS_KEY: "key",
+    MEDIA_S3_SECRET_KEY: "secret",
+    MEDIA_REPLAY_EDGE_URL: "https://edge.example",
+    MEDIA_REPLAY_SIGNING_SECRET: "a".repeat(32),
+  };
+  const config = loadConfig({
+    ...environment,
+    MEDIA_REPLAY_EDGE_ROOMS: `${id},${id}`,
+  });
+  assert.deepEqual(config.media.replayEdgeRooms, [id]);
+  assert.equal(Object.isFrozen(config.media.replayEdgeRooms), true);
+  for (const value of ["*", `${id},`, ` ${id}`, Array(101).fill(id).join(",")])
+    assert.throws(
+      () => loadConfig({ ...environment, MEDIA_REPLAY_EDGE_ROOMS: value }),
+      /replay edge rooms/,
+    );
+  assert.throws(
+    () =>
+      loadConfig({
+        ...environment,
+        MEDIA_REPLAY_EDGE_URL: undefined,
+        MEDIA_REPLAY_SIGNING_SECRET: undefined,
+        MEDIA_REPLAY_EDGE_ROOMS: id,
+      }),
+    /replay edge rooms/,
+  );
+});

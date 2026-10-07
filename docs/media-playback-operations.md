@@ -83,6 +83,16 @@ references; upload writes `ready.json` last. Access and operator Publish replay 
 that completion marker when edge delivery is enabled. Legacy MP4 recordings must be
 packaged before enabling adaptive replay for their catalog.
 
+Use `MEDIA_REPLAY_EDGE_ROOMS` (at most 100 comma-separated lower-case event UUIDs) for
+an incremental rollout. Only selected rooms use HLS and the completion marker; other
+recordings retain their existing signed-MP4 path and database captions. The CSP admits
+both configured delivery origins during this transition. Start with the synthetic trial
+room; remove the allowlist only after the whole eligible catalog is packaged and validated.
+An absent/empty allowlist selects the whole catalog when the paired edge variables are set.
+The allowlist is an operator rollout control, not an authorization bypass: every grant
+still checks current public eligibility. Roll back the edge variables together; retain
+the private packages for investigation until their separately approved storage cleanup.
+
 The [FFmpeg HLS muxer](https://ffmpeg.org/ffmpeg-formats.html#hls-2) produces the ladder;
 [HLS.js](https://hlsjs.video-dev.org/api-docs/hls.js.hls) supplies browser adaptation.
 Native HLS is preferred where supported; other supported browsers load the separate

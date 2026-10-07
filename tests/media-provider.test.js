@@ -81,6 +81,32 @@ it("preserves the explicit signed MP4 fallback and source recording behavior", a
   assert.equal(defaultStorage.playbackOrigin, "https:");
   await defaultStorage.replayUrl(recording);
 });
+it("limits adaptive rollout to selected rooms while preserving existing MP4 access and captions", async (t) => {
+  const commands = [];
+  t.mock.method(S3Client.prototype, "send", async (command) => {
+    commands.push(command);
+    return {};
+  });
+  const provider = createMediaProvider({
+    ...config,
+    replayEdgeUrl: "https://edge.example",
+    replaySigningSecret: "synthetic-replay-secret-32-characters",
+    replayEdgeRooms: [id],
+  });
+  assert.deepEqual(provider.playbackOrigins, [
+    "https://edge.example",
+    "https://storage.example",
+  ]);
+  assert.equal((await provider.replayAccess(recording)).type, "hls");
+  const other = "debates/44444444-4444-4444-8444-444444444444/recording.mp4";
+  assert.equal((await provider.replayAccess(other)).type, "mp4");
+  assert.equal(commands.at(-1).input.Key, other);
+  const count = commands.length;
+  await provider.publishCaptions(other, "WEBVTT\n");
+  assert.equal(commands.length, count);
+  await provider.publishCaptions(recording, "WEBVTT\n");
+  assert.match(commands.at(-1).input.Key, /hls\/captions.vtt$/);
+});
 it("issues subscribe-only viewer grants and permits microphone only to the current speaker", async (t) => {
   const updates = [];
   t.mock.method(RoomServiceClient.prototype, "listParticipants", async () => [

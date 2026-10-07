@@ -100,6 +100,24 @@ function parseMedia(environment: NodeJS.ProcessEnv, nodeEnvironment: string) {
         "replay edge requires an HTTPS origin and a secret of at least 32 characters",
       );
   }
+  let replayEdgeRooms: readonly string[] | undefined;
+  if (environment.MEDIA_REPLAY_EDGE_ROOMS) {
+    const rooms = environment.MEDIA_REPLAY_EDGE_ROOMS.split(",");
+    if (
+      !environment.MEDIA_REPLAY_EDGE_URL ||
+      rooms.length > 100 ||
+      rooms.some(
+        (id) =>
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+            id,
+          ),
+      )
+    )
+      throw new Error(
+        "replay edge rooms require a configured edge and at most 100 lower-case UUIDs",
+      );
+    replayEdgeRooms = Object.freeze([...new Set(rooms)]);
+  }
   const set = names.filter((name) => Boolean(environment[name]));
   if (set.length === 0) {
     if (environment.MEDIA_REPLAY_EDGE_URL)
@@ -156,6 +174,7 @@ function parseMedia(environment: NodeJS.ProcessEnv, nodeEnvironment: string) {
     s3SecretKey: environment.MEDIA_S3_SECRET_KEY!,
     replayEdgeUrl: environment.MEDIA_REPLAY_EDGE_URL,
     replaySigningSecret: environment.MEDIA_REPLAY_SIGNING_SECRET,
+    replayEdgeRooms,
   });
 }
 

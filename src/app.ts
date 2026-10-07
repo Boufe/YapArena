@@ -144,10 +144,18 @@ export function createApp({
                 "'self'",
                 mediaUrl!.origin,
                 mediaHttpOrigin!,
-                mediaProvider.playbackOrigin,
+                ...(mediaProvider.playbackOrigins ?? [
+                  mediaProvider.playbackOrigin,
+                ]),
               ],
               "worker-src": ["'self'", "blob:"],
-              "media-src": ["'self'", "blob:", mediaProvider.playbackOrigin],
+              "media-src": [
+                "'self'",
+                "blob:",
+                ...(mediaProvider.playbackOrigins ?? [
+                  mediaProvider.playbackOrigin,
+                ]),
+              ],
               "upgrade-insecure-requests":
                 environment === "production" ? [] : null,
             },

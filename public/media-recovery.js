@@ -15,6 +15,8 @@ export function createMediaRecovery({
   let timer;
   let running = false;
   let transportRecovering = false;
+  let transportConnected = false;
+  let connectionGeneration = 0;
   const delays = [250, 750, 1500, 3000, 5000];
   const clear = () => {
     if (timer !== undefined) cancel(timer);
@@ -31,6 +33,7 @@ export function createMediaRecovery({
     )
       return;
     if (attempt >= delays.length) {
+      stop();
       exhausted();
       return;
     }
@@ -43,7 +46,6 @@ export function createMediaRecovery({
       running = true;
       try {
         await join(role, () => epoch === generation && intent === role);
-        if (epoch === generation) attempt = 0;
       } catch (error) {
         if (
           [401, 403, 404, 409].includes(error.status) ||
@@ -62,6 +64,8 @@ export function createMediaRecovery({
     generation++;
     attempt = 0;
     transportRecovering = false;
+    transportConnected = false;
+    connectionGeneration++;
   }
   return {
     start(role) {
@@ -72,26 +76,50 @@ export function createMediaRecovery({
     retry,
     transportRecovering() {
       transportRecovering = true;
+      transportConnected = false;
+      connectionGeneration++;
       clear();
     },
     connected() {
       transportRecovering = true;
-      attempt = 0;
+      transportConnected = true;
+      connectionGeneration++;
       clear();
     },
     disconnected(recoverable) {
       transportRecovering = false;
+      transportConnected = false;
+      connectionGeneration++;
       if (recoverable) retry();
       else stop();
     },
     offline() {
+      connectionGeneration++;
       clear();
+    },
+    // The caller measures uninterrupted media progress before supplying the
+    // captured connection generation. Transport success alone cannot replenish
+    // the budget, and evidence from a previous connection must not reset it.
+    playbackStable(epoch) {
+      if (
+        !intent ||
+        !transportConnected ||
+        epoch !== connectionGeneration ||
+        !online() ||
+        !available(intent)
+      )
+        return false;
+      attempt = 0;
+      return true;
     },
     get intent() {
       return intent;
     },
     get generation() {
       return generation;
+    },
+    get connectionGeneration() {
+      return connectionGeneration;
     },
   };
 }

@@ -148,3 +148,91 @@ it("does not rejoin when offline or unavailable by the time the retry fires", as
   await f.run();
   assert.equal(current(), false);
 });
+
+it("exhausts the retry budget across transport joins that immediately fail without stable playback", async () => {
+  for (const role of ["viewer", "speaker"]) {
+    let joins = 0;
+    let exhausted = 0;
+    const f = setup({
+      join: async () => {
+        joins++;
+        f.controller.connected();
+        f.controller.disconnected(true);
+      },
+      exhausted: () => exhausted++,
+    });
+    f.controller.start(role);
+    f.controller.retry();
+    for (const delay of [250, 750, 1500, 3000, 5000]) {
+      assert.equal(f.jobs.values().next().value.ms, delay);
+      await f.run();
+    }
+    assert.equal(joins, 5);
+    assert.equal(exhausted, 1);
+    assert.equal(f.jobs.size, 0);
+    assert.equal(f.controller.intent, undefined);
+    f.controller.retry();
+    f.controller.disconnected(true);
+    assert.equal(exhausted, 1);
+    assert.equal(f.jobs.size, 0);
+    f.controller.start(role);
+    f.controller.retry();
+    assert.equal(f.jobs.values().next().value.ms, 250);
+    f.controller.stop();
+  }
+});
+
+it("replenishes retries only after stable media evidence for the current connection", async () => {
+  const f = setup();
+  f.controller.start("viewer");
+  assert.equal(
+    f.controller.playbackStable(f.controller.connectionGeneration),
+    false,
+  );
+  f.controller.retry();
+  await f.run();
+  const oldConnection = f.controller.connectionGeneration;
+  f.controller.disconnected(true);
+  assert.equal(f.jobs.values().next().value.ms, 750);
+  assert.equal(f.controller.playbackStable(oldConnection), false);
+  await f.run();
+  assert.equal(f.controller.playbackStable(oldConnection), false);
+  assert.equal(
+    f.controller.playbackStable(f.controller.connectionGeneration),
+    true,
+  );
+  f.controller.disconnected(true);
+  assert.equal(f.jobs.values().next().value.ms, 250);
+  await f.run();
+  f.controller.stop();
+});
+
+it("rejects stable media evidence after SDK reconnecting, offline return or a new user session", () => {
+  const f = setup();
+  f.controller.start("speaker");
+  f.controller.connected();
+  const beforeReconnect = f.controller.connectionGeneration;
+  f.controller.transportRecovering();
+  assert.equal(f.controller.playbackStable(beforeReconnect), false);
+  f.controller.connected();
+  assert.equal(f.controller.playbackStable(beforeReconnect), false);
+  const beforeOffline = f.controller.connectionGeneration;
+  f.offline();
+  f.controller.offline();
+  const whileOffline = f.controller.connectionGeneration;
+  assert.equal(f.controller.playbackStable(whileOffline), false);
+  f.online();
+  assert.equal(f.controller.playbackStable(beforeOffline), false);
+  assert.equal(f.controller.playbackStable(whileOffline), true);
+  f.controller.stop();
+  assert.equal(f.controller.playbackStable(whileOffline), false);
+  f.controller.start("speaker");
+  f.controller.connected();
+  assert.equal(f.controller.playbackStable(whileOffline), false);
+  f.unavailable();
+  assert.equal(
+    f.controller.playbackStable(f.controller.connectionGeneration),
+    false,
+  );
+  f.controller.stop();
+});

@@ -1,0 +1,145 @@
+{
+  "result": "PASS",
+  "verifiedAt": "2026-10-08T03:30:33.999Z",
+  "checksFinishedAt": "2026-10-08T03:29:46.564Z",
+  "sourceCommit": "89d7a6a1787bb7fdf7ecefbd364698d5bbc42695",
+  "scope": "All eligible staging recordings, with user-requested removal of unfinished backlog recordings; future eligible recordings remain automatic",
+  "recordingCreatedForRollout": false,
+  "configuration": {
+    "allEligibleScopeOnWebAndWorker": true,
+    "packagingEnabledOnWebAndWorker": true,
+    "restrictedRuntimeDatabaseIdentity": true,
+    "originalSettingsPreservedExceptRoomScope": true,
+    "workerPlan": "0.5c-512mb",
+    "workerConcurrency": 1,
+    "explicitlyObservedLegacyMp4FallbacksBeforeConversion": 1,
+    "checks": {
+      "runtimeMigrationAndSourcesVerified": "PASS",
+      "scopeRemovedOtherSettingsPreserved": "PASS",
+      "existingReplayMp4FallbackBeforeConversion": "PASS",
+      "matchingDeploymentsAndWorkerStartup": "PASS"
+    }
+  },
+  "deployments": [
+    {
+      "service": "web",
+      "status": "live",
+      "commit": "89d7a6a1787bb7fdf7ecefbd364698d5bbc42695",
+      "finishedAt": "2026-10-08T02:33:40.280488Z"
+    },
+    {
+      "service": "worker",
+      "status": "live",
+      "commit": "89d7a6a1787bb7fdf7ecefbd364698d5bbc42695",
+      "finishedAt": "2026-10-08T02:34:10.090385Z"
+    }
+  ],
+  "backlog": {
+    "auditedRecordings": 10,
+    "retainedRecordings": 9,
+    "ready": 9,
+    "userRequestedRemovedRecordings": 1,
+    "userRequestedRemovalChecks": {
+      "removedMediaSnapshotMatches": "PASS",
+      "originalSourceAbsent": "PASS",
+      "freshReplayGrantDenied": "PASS",
+      "noNonCancelledReplayJobs": "PASS",
+      "domainStatusAndAutomaticHistoryCountPreserved": "PASS"
+    },
+    "removedObjects": 2,
+    "failed": 0,
+    "originalReplayCount": 8,
+    "retainedOriginalReplayCount": 7,
+    "endedEventsAutomaticallyPublished": 2,
+    "originallyAuditedInputBytes": 438343195,
+    "retainedInputBytes": 378222011,
+    "removedInputBytes": 60121184,
+    "retainedFirstJobCreatedAt": "2026-10-08T02:34:09.854Z",
+    "lastRetainedReadyAt": "2026-10-08T03:19:13.760Z",
+    "retainedQueueElapsedMs": 2703906,
+    "retainedTotalAttempts": 9,
+    "maxAttemptsForOneRecording": 1,
+    "retainedRetries": 0,
+    "retainedPackagedDurationSeconds": {
+      "total": 1002.540999,
+      "min": 11.331333,
+      "max": 187.06
+    },
+    "packageFilesExcludingReadyMarkers": 1554,
+    "packageBytesExcludingReadyMarkers": 504372507,
+    "reviewedCaptionPackages": 0,
+    "apiValidationScope": "HLS grants and three advertised master-playlist renditions for every retained replay; decoding checked on one representative retained replay",
+    "checks": {
+      "allRetainedRecordingsReady": "PASS",
+      "allDomainAndLiveFinancialFieldsPreserved": "PASS",
+      "retainedSourcesAndMediaRowsPreserved": "PASS",
+      "userRequestedRecordingRemovalVerified": "PASS",
+      "endedEventsPublishedExactlyOnce": "PASS",
+      "actorlessAutomaticPublication": "PASS",
+      "readyMarkersMatchCurrentPointers": "PASS",
+      "publicHlsGrantsAndAllThreeRenditionsForEveryReplay": "PASS",
+      "allEligibleScopeConfiguredOnBothServices": "PASS",
+      "matchingLiveBuildsAndWorkerPlanPreserved": "PASS",
+      "restrictedRuntimeDatabaseIdentityOnBothServices": "PASS"
+    }
+  },
+  "playback": {
+    "result": "PASS",
+    "browser": "desktop headless Chrome",
+    "nativeHls": true,
+    "sourceCommit": "89d7a6a1787bb7fdf7ecefbd364698d5bbc42695",
+    "checks": {
+      "currentReadyPackageAndPublicHlsGrant": "PASS",
+      "productKeyboardAndAdvancingPresentedFrames": "PASS",
+      "all240480720RenditionsDecoded": "PASS",
+      "seekPauseRateAndResumedPresentedFrames": "PASS",
+      "domainAndRecordingUnchanged": "PASS"
+    },
+    "measurements": {
+      "keyboardToAdvancingDecodedFramesMs": 1883
+    },
+    "renditions": [
+      {
+        "height": 240,
+        "width": 426,
+        "advancingSeconds": 0.548671,
+        "presentedFrames": 16
+      },
+      {
+        "height": 480,
+        "width": 854,
+        "advancingSeconds": 0.540718,
+        "presentedFrames": 16
+      },
+      {
+        "height": 720,
+        "width": 1280,
+        "advancingSeconds": 0.521652,
+        "presentedFrames": 16
+      }
+    ],
+    "stateWrites": false,
+    "screenshotsTaken": false
+  },
+  "resources": {
+    "resolutionSeconds": 30,
+    "sampledPeakContainerBytes": 243015680,
+    "sampledPeakCpuCores": 0.5,
+    "measuredFrom": "2026-10-08T02:34:00.000Z",
+    "measuredThrough": "2026-10-08T03:30:24.451Z",
+    "finalWorkerInstances": [
+      {
+        "status": "RUNNING",
+        "ready": true
+      }
+    ]
+  },
+  "limitations": [
+    "Packaged-duration and queue-elapsed aggregates cover retained recordings; resource samples also include processing of the subsequently removed recording",
+    "Existing short staging recordings do not establish two-hour or 4K encoding capacity",
+    "Resource samples have 30-second resolution and may miss brief peaks",
+    "Browser validation used one existing replay on headless desktop Chrome; physical devices and audible output were not assessed",
+    "The single startup timing is not a percentile latency acceptance result",
+    "The earlier synthetic trial established graceful cancellation and replacement recovery; abrupt host loss and OOM recovery remain untested"
+  ]
+}

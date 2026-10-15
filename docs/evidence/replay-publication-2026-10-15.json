@@ -1,0 +1,51 @@
+{
+  "result": "PASS",
+  "verifiedAt": "2026-10-15T16:03:04.609Z",
+  "sourceCommit": "b11a11b917f3e166154a633d0bf8effc12ac9963",
+  "pullRequest": 28,
+  "tests": {
+    "node": "24.19.0",
+    "passed": 393,
+    "failed": 0,
+    "ciChecks": 5,
+    "postgresReadOnlyCases": 20,
+    "stagingSnapshots": 13
+  },
+  "hostedChecks": {
+    "matchingWebAndWorkerLive": "PASS",
+    "workerStartupAndExistingPlan": "PASS",
+    "settingsPreserved": "PASS",
+    "serverOwnedPublicationPolicy": "PASS",
+    "newBrowserBundleDelivered": "PASS",
+    "replayElementHasNoAutoplay": "PASS",
+    "existingEventsAndMediaPreserved": "PASS"
+  },
+  "eligibleStagingSnapshots": 10,
+  "failedRecordingSnapshotsCorrectlyExcluded": 3,
+  "worker": {
+    "plan": "0.5c-512mb",
+    "concurrency": 1
+  },
+  "browser": {
+    "scope": "Local synthetic media panel with mocked state/grant endpoints",
+    "fixtureOnly": true,
+    "realRecordingsAccessed": false,
+    "actualMediaDecodingAssessed": false,
+    "checks": {
+      "automaticPreparationCopyAndHiddenPublishAction": "PASS",
+      "publishedReplayShowsPlayAndRemainsPausedWithoutAutoplay": "PASS",
+      "noUnhandledBrowserErrors": "PASS"
+    },
+    "playback": {
+      "playCalls": 0,
+      "paused": true,
+      "hidden": true,
+      "autoplay": false
+    }
+  },
+  "notes": [
+    "The existing worker publishes after verified package completion; the release aligns page guidance and operator actions with that workflow.",
+    "Read-only staging verification preserved all existing event and media rows.",
+    "Publication and click-to-play are separate; the user must press Play to start watching."
+  ]
+}

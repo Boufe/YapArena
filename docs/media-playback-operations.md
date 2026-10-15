@@ -1,12 +1,15 @@
 # Adaptive playback and recovery
 
-The original media checkpoint `1bc118f` was isolated on `feat/media-playback-reliability`.
-It is now integrated as `095e997` in `feature/community-delivery`, after the reviewed main
-security fixes and SSE checkpoint `ab59ebb`. Shared-file conflicts preserve community
-stream admission, media telemetry abuse limits, database isolation and both browser bundles.
-There are no media schema changes. Combined checks and actual deployed validation are recorded
-in the trial documents; integration does not close the physical-device or hosting gates.
-Do not copy provider credentials between worktrees.
+The original media checkpoint `1bc118f` was integrated as `095e997`, then merged with the
+security fixes, SSE and automatic replay in [PR #27](https://github.com/Boufe/YapArena/pull/27).
+That playback checkpoint had no media schema changes; the later automatic encoder requires
+`1791385198189_automatic-replay-packaging.js`. Both browser bundles and current server code
+must deploy together. Do not replay the obsolete integration branch or copy credentials between worktrees.
+
+The [hosted replay report](replay-starter-trial-2026-10-07.md) supersedes the earlier one-room
+canary cleanup: a separate paid encoder is running in the last saved evidence, the October 8
+rollout removed the allowlist and October 15 verified matching builds/publication guidance.
+These are recorded staging observations, not physical-device, acoustic or production-capacity approval.
 
 See [acceptance requirements](media-playback-requirements.md) for the proposed envelope
 and targets, and [trial evidence](media-playback-trial.md) for performed checks.
@@ -84,7 +87,7 @@ storage operations. Never overwrite segments that may be cached.
 
 1. Download the verified synthetic/staging MP4 to a private local working directory
    using scoped storage access. Match its key to the event's recording key.
-2. Produce captions manually or with a transcription service outside this change.
+2. If captions are supplied, produce them manually or with a transcription service outside this change.
    A human reviews timing, speaker attribution, punctuation and accuracy, especially
    proper names and sensitive claims, against the entire recording. Do not upload
    unreviewed text. Record reviewer, language, source revision and review date in the
@@ -102,6 +105,9 @@ storage operations. Never overwrite segments that may be cached.
    ```sh
    node --env-file=.env.media scripts/package-replay.js /private/path/source.mp4 /private/path/new-upload-hls /private/path/reviewed.vtt debates/EVENT_UUID/RECORDING_UUID.mp4
    ```
+
+Replace the caption-file argument with `-` to upload a package without captions. In automatic
+mode use the worker instead: this CLI does not establish the queue’s database-ready pointer.
 
 The ladder is H.264 baseline/AAC, 30 fps, 240p ~348 kbps including audio, 480p ~1064 kbps
 and 720p ~2496 kbps, with aligned two-second independently decodable MPEG-TS segments.
@@ -134,7 +140,8 @@ guarantee. HLS.js preparation uses a 2 MB buffer budget and stops after the firs
 rendition fragment. No other recordings are prefetched. Tap enables the larger bounded
 playback buffer. Source renewal preserves time, playback rate, caption mode and deliberate
 pause. Renewals are coalesced; technical recovery has five bounded retries, suspended
-offline. Retries reset only after ten seconds without a waiting event.
+offline. Retries reset only after ten successive one-second media-time advances; pause, seek,
+end, offline and errors cancel that stability window.
 
 ## Authenticated edge deployment
 
@@ -190,10 +197,11 @@ statistics. Missing statistics are recorded; disabled tracks and deliberate paus
 not technical failures. Diagnostics disappear when the page is closed unless exported.
 
 A bounded reporter submits anonymous, allowlisted health counters/durations in batches
-to the origin-protected media API under a dedicated 1,500-request/minute/IP
-health-report limit. Reports do not consume the ordinary write allowance. The existing
-600-request/minute/IP live-state polling limit remains; many viewers sharing one IP can
-exceed it, so shared-IP admission and polling budgets require the load trial. No browser identifier is added
+to the origin-protected media API through the separate lease/room, browser, network and
+process admission budgets in [delivery controls](media-delivery-controls.md#shared-network-admission).
+Reports and allowlisted public/bootstrap reads do not consume the ordinary write allowance.
+Those controls supersede the earlier 1,500-report/600-live-read IP limits for these routes;
+they remain process-local and still require hosted shared-network/load validation. No measurement identifier is added
 or persisted and no product watch-consent behavior is changed. These operational counters
 are separate from consented product usage measurement. Raw user-agent and room/session
 identifiers are not metric labels. Supported browser/device family labels are finite.

@@ -6,6 +6,15 @@ behavior and first-release scope; its [companion outlines](product-specification
 track unresolved financial designs and evidence required before accepting real funds. References
 below to a play-money template example do not define or stage YAP Arena's planned paid release.
 
+Current-state note — 2026-10-15: the checked criteria and completion evidence below record the
+original template delivery. They are not a fresh certification of today's product-heavy checkout.
+The [template guide](getting-started.md) records a reproduced initializer/database-identity mismatch
+and the existing initialization marker. Current initializer tests do not exercise the generated
+database deployment, and FR2’s interactive/default CLI path remains unimplemented.
+FR1/FR2/FR7 require renewed end-to-end verification before claiming that the
+current repository generates a working renamed service. Preserve those requirements rather than
+treating this documentation correction as their completion.
+
 ## Status
 
 - Owner: repository maintainers

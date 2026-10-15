@@ -2,7 +2,10 @@
 
 This implementation preserves opaque cookies, server-side token hashes, independent normal
 sign-ins, wallet-only accounts, stable account ownership, and the nonfinancial preview. It
-addresses F03; the original audit is historical evidence and has not been rewritten.
+addresses F03, merged in PR #21 before the final F02 credential routes in PR #22. The original
+auth audit is an untracked historical local artifact, not a portable repository source of truth.
+Use the current contract below and [F03 handoff](f03-integration-handoff.md) for implementation
+evidence; live provider-grant revocation remains separate work.
 
 ## Owner controls and semantics
 

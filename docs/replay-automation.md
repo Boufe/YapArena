@@ -9,6 +9,14 @@ service and makes no claim about automatic caption generation or caption quality
 Worker startup verifies ffprobe, libx264/AAC encoding and HLS muxing before claiming a job;
 missing tools/codecs fail startup, preserving durable attempt budgets.
 
+Current evidence note — 2026-10-15: implementation merged in
+[PR #27](https://github.com/Boufe/YapArena/pull/27). The
+[hosted replay report](replay-starter-trial-2026-10-07.md) records the separate paid encoder,
+successful no-caption provider conversion/publication, graceful worker replacement/retry,
+removal/renewal/expiry and the October 8 all-eligible staging rollout. October 15 evidence verifies
+the automatic-publication interface and matching builds. The local checkpoint results below are
+historical evidence, not a statement that deployment is still pending.
+
 The earlier operator workflow in [decision 0004](decisions/0004-live-debate-replay.md)
 describes the prototype. This subsequent decision authorizes automatic **ended → replay**
 publication after a verified adaptive package. It changes neither live-end timestamps,
@@ -40,8 +48,8 @@ and [FFmpeg HLS muxing](https://ffmpeg.org/ffmpeg-formats.html#hls-2).
 The web service never starts FFmpeg. A separate worker requires Node 24, FFmpeg/ffprobe
 with libx264/AAC, runtime PostgreSQL credentials, private bucket credentials, and an
 available authenticated replay edge/signing configuration. It requires no database-owner
-credential or Cloudflare deployment token. No worker or paid service is provisioned by
-this checkpoint. Main process/configuration/CI wiring accompanies the integration commit.
+credential or Cloudflare deployment token. Worker provisioning is separate from the web Blueprint;
+the hosted report records the existing service. Main process/configuration/CI wiring is merged.
 
 ## Queue and publication invariants
 
@@ -133,9 +141,9 @@ Run with Node 24 from the repository root:
 npm ci
 npm run check
 npm run verify:media-packaging
-node scripts/verify-replay-pipeline.js
+npm run verify:replay-pipeline
 # Optional native local cluster instead of disposable Docker PostgreSQL:
-REPLAY_POSTGRES_MODE=host node scripts/verify-replay-pipeline.js
+REPLAY_POSTGRES_MODE=host npm run verify:replay-pipeline
 ```
 
 The pipeline trial defaults to disposable Docker PostgreSQL 18.4. Native host mode
@@ -220,8 +228,9 @@ MP4 fallback is degraded delivery and does not meet the adaptive acceptance requ
 Never rewrite a ready prefix, delete queue tables while object cleanup is pending, or
 restore a removed recording solely because a stale worker completed.
 
-Release still requires actual storage/edge conditional-write and cache verification,
-full-duration worker soak/crash trials, provider reconciliation evidence, and the
+Actual storage conditional-write and edge access/expiry checks are recorded in the local-storage
+and hosted reports. Observed cache-hit provenance remains unverified. Release still requires
+full-duration worker soak, abrupt-loss/OOM and provider-reconciliation failure trials, and the
 [playback envelope](media-playback-requirements.md), including provisional physical
 iPhone SE (2nd generation)/Pixel 4a, browser cohorts, controlled recovery, capture-to-playback
 delay and sustained media load. No current local check closes those gates or changes billing.

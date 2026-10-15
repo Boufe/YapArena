@@ -61,7 +61,8 @@ participation is designed.
   fulfilled. Expired SIWE challenges and wallet operations are purged after one day; identity audit entries are purged
   after 90 days by scheduled cleanup. A session expires after the configured duration (seven
   days by default) and expired sessions are purged by the existing cleanup task. Backups follow
-  the operations runbook's retention and restore policy.
+  the deployment’s approved retention and restore policy; the repository does not set provider
+  backup expiry or establish a restore objective.
 - A user's current nonfinancial account data comprises their account identifier and email if
   present, profile, wallet addresses and chain IDs, follows, and the remaining audit activity.
   The authenticated account APIs expose those records in pages. A single download/export
@@ -76,6 +77,10 @@ participation is designed.
   silent user deletion.
   Deletion from backups follows backup expiry. No request channel or service-level target is
   advertised in the preview until an operator support process exists.
+- The manual export/deletion policy above is not a complete executable support tool. Later
+  community receipts, moderation holds and replay cleanup tombstones require dependency and
+  retention review before an operator removes an account. No tested whole-account deletion
+  workflow or support request channel is supplied.
 - These preview rules need privacy and legal review before a paid launch. Future financial
   records, eligibility checks, and regulatory retention may require different treatment; this
   decision does not authorize their collection or deletion.
@@ -86,5 +91,7 @@ The route tests check ownership, role restrictions, malformed input, one-use cha
 binding, and wallet conflicts. A PostgreSQL integration check exercises migration-backed profile,
 follow, audit, and wallet-link behavior. EOA signatures are tested with an actual signer. Contract
 wallet verification still needs a representative live RPC test before those wallets are promised
-in a deployed environment. Browser interaction, accessibility, and representative-load checks
+in a deployed environment. [F02](../security/f02-integration-handoff.md) and
+[F03](../security/f03-integration-handoff.md) record local browser and real PostgreSQL race checks.
+Physical-device/assistive-technology, real wallet extension and representative-load acceptance
 remain release tasks.

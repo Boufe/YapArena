@@ -1,5 +1,13 @@
 # Community local trial — 2026-10-01
 
+Current-state note — 2026-10-15: Historical local/feedback trials. [PR #26](https://github.com/Boufe/YapArena/pull/26) merged
+immediate chat feedback; [PR #27](https://github.com/Boufe/YapArena/pull/27) added durable SSE
+and body-free receipts that preserve submission identity after message-body purge. The
+purge-and-reuse behavior observed on October 6 below is superseded by
+[the current receipt contract](community-operations.md#chat-submission-migration-and-rollout).
+Later [delivery trials](community-delivery-trial.md) supply scoped hosted multi-viewer and
+capacity evidence; physical-device, screen-reader, privacy and sustained-load gates remain open.
+
 The Work Package 5 implementation was exercised against local PostgreSQL and the local Docker
 app. Synthetic accounts and event records were removed after the browser run. The test event
 had no media provider, so this record verifies media-independent community behavior only.

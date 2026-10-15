@@ -22,6 +22,13 @@ values are not founder-approved event economics. Older `preview-1` event snapsho
 and cannot start a timed media session. No media state implies a winner, financial cutoff, or open
 market.
 
+Current-state note — 2026-10-15: the architecture below records the initial prototype.
+[Delivery controls](../media-delivery-controls.md) add database clock coordination, canonical
+permission repair and periodic recording reconciliation. The [hosted replay report](../replay-starter-trial-2026-10-07.md)
+records completed provider recording, automatic conversion/publication and scoped browser checks.
+The manual Publish replay flow below applies when automatic packaging is disabled or out of scope;
+physical-device, acoustic, controlled-network and sustained-load acceptance remains open.
+
 ## Prototype architecture
 
 - The app signs short-lived, room-scoped LiveKit tokens. Only the two reserved participant accounts
@@ -54,8 +61,8 @@ With `.env` configured, run from the repository root:
 
 ```sh
 docker compose -f compose.yaml -f compose.media.yaml up --detach --wait db redis-media livekit object-store egress
-docker compose -f compose.yaml -f compose.media.yaml run --rm --build app \
-  node node_modules/node-pg-migrate/bin/node-pg-migrate.js up
+docker compose -f compose.yaml -f compose.media.yaml --profile release run --rm --build provision
+docker compose -f compose.yaml -f compose.media.yaml --profile release run --rm migrate
 docker compose -f compose.yaml -f compose.media.yaml up --detach --build --wait app
 ```
 

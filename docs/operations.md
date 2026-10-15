@@ -3,7 +3,7 @@
 This runbook covers the local production-like stack. Adapt commands, credentials, storage, and
 approval procedures before using them in a hosted environment.
 
-It covers the current backend only. Starting or deploying this service does not activate either
+It covers the current service and local reference deployment. Starting or deploying it does not activate either
 planned financial market. Follow the [product PRD](product-prd.md) and the
 [pre-funds evidence checklist](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds)
 before any real-fund release; the Compose health check and migrations below are only part of that
@@ -15,6 +15,11 @@ For event chat, reports, case review, appeals, share assets, and retention, use 
 During an incident, inspect the event's media state and history, pause the clock, and verify Egress
 and object storage before resuming or publishing replay. Recording stop failures are retried by the
 server worker and surfaced as an incident in media state.
+The [playback runbook](media-playback-operations.md), [delivery controls](media-delivery-controls.md)
+and [automatic replay guide](replay-automation.md) supersede the prototype's routine manual
+packaging/publication requirement when packaging is enabled. The separate encoder publishes only
+after verifying the package; recording readiness alone is not adaptive readiness. The
+[hosted trial](replay-starter-trial-2026-10-07.md) records the existing encoder and staging rollout.
 
 Run local commands from the repository root, where `compose.yaml` is located. The setup requires
 Docker with Compose and an active Docker daemon. Commands containing values such as
@@ -360,7 +365,10 @@ before migrating; deploy compatible authentication code and account assets toget
 sessions are retired by F03. Keep its generation guards if rolling back application code.
 
 The [wallet authorization design](security/wallet-authorization.md) defines lock order,
-operation expiry, notifications and containment. The historical auth audit remains unchanged.
+operation expiry, notifications and containment. The original auth audit is a historical local
+artifact, not a tracked repository document. Use the linked security contracts and their dated
+evidence for the merged implementation; remaining incident and hosted-isolation checks require
+their own evidence.
 A successful wallet change creates identity activity and an in-app account notification in the
 same transaction. Inspect those records by account using the supported owner process; never
 capture passwords, signatures, cookies or operation proofs in incident artifacts.

@@ -1,5 +1,13 @@
 # Shared SSE/media integration handoff
 
+Current-state note — 2026-10-15: Archived integration handoff: [PR #27](https://github.com/Boufe/YapArena/pull/27) is merged.
+Do not recreate its worktree or replay its commits. Later [delivery controls](media-delivery-controls.md)
+address shared-network media admission, database clock ownership and permission repair; the
+600/minute media-read and uncoordinated-clock gaps listed below describe the earlier checkpoint.
+The [hosted replay report](replay-starter-trial-2026-10-07.md) supersedes the cleaned one-room
+canary and no-encoder status: the existing encoder processed the eligible staging catalog.
+Physical-device/acoustic/load, long soak, hosted API isolation and whole-app scaling gates remain open.
+
 For “Create worktree and follow plan”: media commit `1bc118f` is integrated as `095e997`
 in `/private/tmp/yaparena-sse-release`, branch `feature/community-delivery`,
 [PR #27](https://github.com/Boufe/YapArena/pull/27). The base is reviewed main `78d72ef`,

@@ -10,6 +10,7 @@
 - [ ] Database migration behavior verified, or no schema change
 - [ ] Production image and deployment behavior verified, or not applicable
 - [ ] Security, operations, and rollback impact considered
+- [ ] Documentation links, commands and implementation status checked, or not applicable
 
 ## Deployment notes
 

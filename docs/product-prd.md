@@ -8,6 +8,12 @@ Version 1.0 · September 29, 2026 · Product direction and implementation handof
 
 The companion [specification outlines](product-specification-outlines.md) contain four separate specification outlines, worked accounting examples, evidence requirements, and primary sources. API, database, contract, infrastructure, and deployment designs belong in those subsequent technical specifications. Repository implementation must be inspected before claiming feature status. The [template PRD](template-prd.md) records the reusable backend foundation; this document governs YAP Arena product behavior when the two differ.
 
+Current implementation is indexed in the [nonfinancial plan](nonfinancial-implementation-plan.md#current-implementation-and-evidence).
+The dated requirements below remain authoritative product intent; they do not describe which
+features have shipped. The later [measurement contract](measurement-operations.md#28-day-returning-participant-metric--definition-approved-gate-pending)
+records approval of the nonfinancial returning-participant definition only; the 30% gate and
+financial measurement remain unapproved.
+
 ## 1. Product vision and the user problem
 
 **Make debate a continuing public competition where people can argue, financially support positions, and follow the history and market value of ideas.**

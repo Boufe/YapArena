@@ -23,7 +23,7 @@ receive **only this identity's `DATABASE_URL`**. They reject known provisioning,
 inspection and fixture secrets in their environment. This guard does not discover arbitrary secret
 names: operators must also inspect the actual service secret configuration and mounted files.
 
-All 32 repository application tables, their owned sequences/indexes and three trigger functions live
+Repository application tables, their owned sequences/indexes and trigger functions live
 in `yaparena`. Migration history lives in `yaparena_migrations.pgmigrations`. Neither private schema
 may appear in hosted exposed schemas. Application connections and trigger functions use
 `pg_catalog, yaparena, pg_temp`; provider/public objects cannot shadow application table names.
@@ -45,7 +45,8 @@ the migration owner never needs CREATE in `public`.
 
 Runtime table grants follow actual repository queries in the migration's `runtimeGrants` manifest.
 They exclude TRUNCATE, REFERENCES, TRIGGER, grant options and arbitrary DDL. `users` grants UPDATE
-only on `id` because wallet unlink uses `SELECT FOR UPDATE`; password/email changes are not granted.
+on `id` for row locking and, through F03, on `auth_generation` for session revocation;
+password/email changes are not granted. The original manifest is extended by later additive migrations.
 `sponsors` currently has no runtime grant. Sequence USAGE supports generated IDs without permitting
 `setval`. Runtime can only SELECT migration metadata and cannot use its sequence.
 
@@ -61,7 +62,7 @@ authorized queries. `account_roles` allows reads and insertion of only `particip
 the assignment trigger without enabling runtime operator/moderator assignment. Operator role
 provisioning remains a separate controlled owner operation. Existing table owners bypass RLS when
 performing migrations; runtime never bypasses it. FORCE status is inventoried, not used as a
-substitute for identity separation. The three triggers remain SECURITY INVOKER with fixed search
+substitute for identity separation. Application trigger functions remain SECURITY INVOKER with fixed search
 paths and no externally callable EXECUTE grants. Runtime's data privileges allow their audit and
 completion writes; no SECURITY DEFINER bypass is introduced.
 
@@ -200,10 +201,13 @@ authorization and invalidate old deployment copies; runtime must never receive i
 legacy-upgrade trials on Supabase PostgreSQL 17.11, verified owner/runtime TLS logins, normal backend
 journeys, catalog evidence for every non-system schema, and valid anonymous/authenticated REST,
 RPC and GraphQL controls/denials. It found and corrected three defects hidden by superuser-only
-provisioning tests. The F04 migration is still unreleased and absent from the actual staging
-migration history; its pending guard was corrected before deployment. No applied hosted migration
-was rewritten. These trials do not establish the actual staging cutover or close the remaining
-service/configuration and TEMPORARY gates. F04 remains open.
+provisioning tests. Those were temporary-clone observations before the staging cutover. The subsequent
+[community release record](../community-delivery-trial.md#authorized-release-follow-up--2026-10-07)
+verifies actual staging runtime/owner identities, private search path, client TLS and separate
+migration handling; the [October 15 replay check](../replay-starter-trial-2026-10-07.md#automatic-publication-interface--2026-10-15)
+records runtime-only web/worker configuration. F04 merged in PR #20 and is no longer an
+unreleased migration. These observations do not complete the actual project’s Dashboard/API,
+alternate-access-path, historical credential-rotation or TEMPORARY checks. F04 remains open.
 
 Record each item with project/environment identifier, UTC date, reviewed commit/image digest and
 operator. Hosted changes and probes are separate authorization scopes from this local task.

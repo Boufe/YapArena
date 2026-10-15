@@ -1,6 +1,8 @@
 # Decision 0006 — Durable public community delivery
 
-Status: implemented locally behind `COMMUNITY_STREAM_ENABLED=false`; hosted release acceptance
+Status: merged in PR #27, with scoped local and hosted staging evidence in the
+[delivery trial](../community-delivery-trial.md). `COMMUNITY_STREAM_ENABLED=false` remains the
+repository default; the dated release record observed it enabled in staging. Full hosted release acceptance
 remains open. Provisional budgets were recorded before implementation and are not approved capacity.
 
 Use the existing HTTPS write APIs, private PostgreSQL state and one SSE connection per eligible

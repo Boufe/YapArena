@@ -1,5 +1,12 @@
 # Durable community delivery trial — 2026-10-07 UTC
 
+Current-state note — 2026-10-15: Historical phased trial: later sections supersede the initial dirty-tree/local-only status.
+The full implementation merged in PR #27. Subsequent [delivery controls](media-delivery-controls.md)
+addressed media shared-network admission and clock coordination, and the
+[hosted replay report](replay-starter-trial-2026-10-07.md) supersedes the one-room canary cleanup
+with the existing encoder and all-eligible rollout. The recorded Free restart failure and
+unperformed physical-device/long-soak/whole-app acceptance are not closed by those changes.
+
 The initial phase below covers local implementation evidence and read-only hosting observations.
 It is not production release approval. The service flag remains false in the Blueprint. The
 authorized release follow-up at the end records later staging actions separately.

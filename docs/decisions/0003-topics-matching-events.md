@@ -82,5 +82,7 @@ gates, and failure responses. A PostgreSQL integration check exercises two concu
 acceptances for the same target, direct and queue side mapping, rescheduling, no-show,
 readiness, timestamps, notifications, and the ability to match again after an event ends.
 Browser accessibility, notification usability, representative-load measurements, and an
-operator incident drill remain release checks. The media package must define the
-recording/readiness evidence before `live` and `replay` become real media states.
+operator incident drill remain release checks. The later [media decision](0004-live-debate-replay.md)
+and [replay automation](../replay-automation.md) now define the recording/readiness gates;
+[hosted trials](../replay-starter-trial-2026-10-07.md) verify selected real media paths without
+closing physical-device or production-capacity acceptance.

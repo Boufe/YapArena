@@ -23,7 +23,7 @@ template uses them.
 - **Docker Compose:** the tool that reads `compose.yaml` and manages this project's related containers,
   networks, environment settings, and persistent volumes as one stack.
 - **Environment variable:** a named runtime setting such as `DATABASE_URL` or `PORT`. For local work,
-  this project loads values from `.env`; production secrets require protected storage.
+  Compose reads `.env`, while `npm run dev` loads runtime-only `.env.runtime`; production secrets require protected storage.
 - **GHCR (GitHub Container Registry):** GitHub's service for storing and distributing container images.
 - **Grafana:** the optional local web interface that displays this service's Prometheus metrics in
   dashboards.

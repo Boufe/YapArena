@@ -4,7 +4,10 @@ The current backend supplies professional application and delivery foundations. 
 YAP Arena production-ready by itself. Record owners and evidence for every applicable item. The
 [product PRD](product-prd.md) defines the intended product, and the
 [release evidence checklist](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds)
-defines additional gates before accepting real funds.
+defines additional gates before accepting real funds. The
+[current implementation and evidence](nonfinancial-implementation-plan.md#current-implementation-and-evidence)
+records completed foundations and scoped trials. An unchecked item below means overall adoption
+acceptance is still open; it does not mean every underlying capability is missing.
 
 Terms used below: **RPO** is acceptable data loss, **RTO** is acceptable recovery time, **SLO** is a
 measurable reliability target, and an **error budget** is the tolerated amount of SLO failure.

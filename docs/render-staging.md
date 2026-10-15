@@ -1,10 +1,17 @@
 # Low cost staging
 
-The staging stack uses one Render web service, Supabase Postgres, LiveKit Cloud, and Cloudflare R2.
+The staging stack uses one Render web service, a separately configured replay encoder, Supabase
+Postgres, LiveKit Cloud, and Cloudflare R2.
 Render runs the existing Node app and its background clock in one process. Supabase only hosts
 PostgreSQL; the application continues to own accounts, sessions, and authorization. LiveKit carries
-the live video and records it to a private R2 bucket. The browser reads replays through short-lived
-signed URLs created by the app.
+the live video and records it to a private R2 bucket. The browser reads verified adaptive replays
+through the authenticated private edge; eligible recordings without a ready adaptive package retain
+the signed-MP4 fallback. Playback starts on the viewer's click.
+
+Latest saved state: the [hosted replay report](replay-starter-trial-2026-10-07.md) records the
+existing paid `0.5c-512mb` encoder, the October 8 all-eligible rollout and matching web/worker
+builds at `b11a11b` on October 15. It supersedes older notes saying no worker exists or the
+edge is limited to a deleted trial room. This documentation audit did not inspect live providers.
 
 `render.yaml` creates **one Free Render web service**. It does not create a Render database or
 worker. Its start command only starts the runtime application; migrations run in a separate
@@ -33,7 +40,8 @@ activity. Do not use this environment for promised live events or real user data
    pooler using a real connection; do not assume the default `postgres` URL authenticates the new role.
    This supports the app's persistent `pg` pool on an IPv4 network. Do not use the transaction
    pooler URL (port 6543) for this deployment. Replace the password placeholder without its square
-   brackets, URL-encode reserved password characters, and require SSL with `sslmode=require`. Keep
+   brackets, URL-encode reserved password characters, and use certificate-verified TLS with
+   `sslmode=verify-full` and the provider CA configured through the approved secret/file mechanism. Keep
    the URL and password out of Git and chat.
 
 ## Deploy the web service
@@ -87,7 +95,8 @@ the Blueprint; enabling it requires an authorized hosted trial following the
 runtime LISTEN session per web process in addition to its ordinary ten-connection pool, verify its
 actual direct/session-pooler identity, and measure Chrome's HTTP/2 protocol and timely frames on the
 real SSE route with `scripts/verify-community-edge.js`. A file's port/settings do not establish these
-facts. The existing media polling, clock and whole-app single-instance restrictions still apply.
+facts. [Delivery controls](media-delivery-controls.md) now coordinate media clocks and shared-network
+read admission, but process-local abuse limits and unverified whole-app scaling still require one instance.
 The Free hosting plan does not become an approved live-event plan by enabling SSE.
 
 1. Create a LiveKit Cloud Build project. Copy its HTTPS API URL, WSS browser URL, API key, and API
@@ -135,7 +144,9 @@ Keep production in separate provider projects and credentials. See
 This is a separate service; the existing Free blueprint does not provision it. Creating a
 Render background worker incurs paid compute. Select resources only after measuring representative
 recordings; the local six-second test does not approve the smallest tier for two-hour/4K inputs.
-No worker or plan upgrade has been purchased by the implementation.
+An encoder already exists in the saved staging evidence; inspect that service before creating
+another. The steps below describe fresh provisioning or a reviewed reconfiguration, not pending
+per-recording operations or evidence that the Blueprint creates a worker.
 
 1. Back up and apply `1791385198189_automatic-replay-packaging.js` through the isolated migration
    operator, then run the runtime database identity/isolation checks. Deploy the reviewed web
@@ -155,9 +166,10 @@ No worker or plan upgrade has been purchased by the implementation.
    immutable upload, validation and ended-to-replay publication. Kill/restart the encoder during
    a second job; confirm automatic lease recovery, no duplicate publication and cleanup of
    abandoned attempts. Test topic/event removal, renewal, seeking and optional/no-caption paths.
-6. Record exact commits/images, worker plan, CPU/RSS/disk/queue age, conversion time and failures;
-   run full-duration and hosted soak trials before broadening the canary. Alert on exhausted jobs.
-   Then remove the room allowlist on both services to enable the eligible catalog.
+6. Record exact commits/images, worker plan, CPU/RSS/disk/queue age, conversion time and failures.
+   Evaluate the remaining capacity gates before approving a production envelope; alert on exhausted
+   jobs. Scope changes require explicit deployment review. The recorded October 8 staging rollout
+   already removed the room allowlist on both services; it did not establish full-duration capacity.
 
 After deployment, new eligible recordings are converted and published automatically. Initial
 service configuration and incident response remain deployment operations, not a per-recording

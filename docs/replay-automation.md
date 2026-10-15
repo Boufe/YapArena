@@ -17,6 +17,12 @@ Only published, non-demo events under a published topic, with ended media and a 
 nonempty recording for the expected Egress key, qualify. Hidden/draft/cancelled/live events
 remain ineligible; no encoder result overrides an operator visibility change.
 
+The page describes automatic preparation while an eligible recording is converted and
+hides the operator's Publish replay action for that path. Publication follows verified
+package completion, so a ready source recording can still need conversion time. Services
+with automatic packaging disabled and rooms outside its scope retain the manual fallback.
+Publication makes Play replay available; viewers must click it to start playback.
+
 ## Delivery choice
 
 Continue recording the verified room-composite MP4, then transcode offline to 240p,

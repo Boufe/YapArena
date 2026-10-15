@@ -1,4 +1,8 @@
-export function mediaPresentation(eventStatus, state) {
+export function mediaPresentation(
+  eventStatus,
+  state,
+  automaticReplayPublication = false,
+) {
   const live = eventStatus === "live";
   const readyRecording = state?.recordingStatus === "ready";
   let message;
@@ -10,7 +14,9 @@ export function mediaPresentation(eventStatus, state) {
     message =
       "Recording failed. Replay is unavailable. Operator review required.";
   else if (eventStatus === "ended" && readyRecording)
-    message = "Recording is ready. An operator can publish the replay.";
+    message = automaticReplayPublication
+      ? "Recording is ready. Replay is being prepared and will be published automatically."
+      : "Recording is ready. An operator can publish the replay.";
   else if (eventStatus === "ended")
     message = "Debate ended. Recording is being prepared.";
   else if (["replay", "finalized"].includes(eventStatus))
@@ -34,7 +40,10 @@ export function mediaPresentation(eventStatus, state) {
         state.recordingStatus === "recording",
       end: live && ["running", "paused"].includes(state?.state),
       replay:
-        eventStatus === "ended" && state?.state === "ended" && readyRecording,
+        eventStatus === "ended" &&
+        state?.state === "ended" &&
+        readyRecording &&
+        !automaticReplayPublication,
     },
   };
 }

@@ -7,6 +7,57 @@ import {
 } from "../dist/features/media/repository.js";
 
 const id = "33333333-3333-4333-8333-333333333333";
+
+describe("public replay publication policy", () => {
+  for (const { name, configuration, expected, roomId = id } of [
+    { name: "unconfigured services", expected: false },
+    {
+      name: "disabled packaging",
+      configuration: { enabled: false },
+      expected: false,
+    },
+    {
+      name: "all eligible rooms",
+      configuration: { enabled: true },
+      expected: true,
+    },
+    {
+      name: "an included canary",
+      configuration: { enabled: true, allowedRooms: [id] },
+      expected: true,
+    },
+    {
+      name: "an included canary with an uppercase request UUID",
+      roomId: "ABCDEF12-3333-4333-8333-333333333333",
+      configuration: {
+        enabled: true,
+        allowedRooms: ["abcdef12-3333-4333-8333-333333333333"],
+      },
+      expected: true,
+    },
+    {
+      name: "a room outside the canary",
+      configuration: { enabled: true, allowedRooms: [] },
+      expected: false,
+    },
+  ]) {
+    it(`passes the configured publication policy for ${name}`, async () => {
+      let parameters;
+      const repository = createMediaRepository(
+        {
+          async query(_sql, values) {
+            parameters = values;
+            return { rows: [] };
+          },
+        },
+        configuration,
+      );
+      assert.equal(await repository.getPublicSnapshot(roomId), null);
+      assert.deepEqual(parameters, [roomId, expected]);
+    });
+  }
+});
+
 const rules = {
   initial_speaking_time_seconds: 60,
   maximum_duration_seconds: 120,

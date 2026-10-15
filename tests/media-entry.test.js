@@ -42,6 +42,7 @@ function node() {
     textContent: "",
     currentTime: 0,
     paused: true,
+    playCalls: 0,
     textTracks: [],
     addEventListener(event, fn) {
       handlers.set(event, fn);
@@ -69,6 +70,7 @@ function node() {
       this.paused = true;
     },
     async play() {
+      this.playCalls++;
       this.paused = false;
     },
     canPlayType() {
@@ -94,7 +96,10 @@ function fixture() {
   ])
     elements.set(`[data-media-${name}]`, node());
   const captionButton = node();
+  const replayAction = node();
+  replayAction.dataset.mediaAction = "replay";
   elements.get("[data-media-operator]").querySelector = () => captionButton;
+  elements.get("[data-media-operator]").querySelectorAll = () => [replayAction];
   const root = {
     dataset: {
       mediaEvent: "33333333-3333-4333-8333-333333333333",
@@ -251,6 +256,13 @@ function fixture() {
       });
     if (url.endsWith("/device-check")) return response({});
     if (url.endsWith("/playback")) return response({}, 204);
+    if (url.endsWith("/replay"))
+      return response({
+        type: "hls",
+        url: "https://media.example/master.m3u8",
+        expiresIn: 300,
+        expiresAt: new Date(Date.now() + 300000).toISOString(),
+      });
     if (stateResponse) return stateResponse;
     return response({
       eventStatus,
@@ -299,6 +311,7 @@ function fixture() {
     calls,
     jobs,
     listeners,
+    replayAction,
     navigator,
     document,
     window,
@@ -329,6 +342,45 @@ function fixture() {
     },
   };
 }
+
+it("keeps an automatically published replay paused until Play replay is pressed", async () => {
+  const f = fixture();
+  const state = { revision: 1, state: "ended", recordingStatus: "ready" };
+  const snapshot = (eventStatus) =>
+    f.response({
+      eventStatus,
+      automaticReplayPublication: true,
+      state,
+      serverNow: new Date().toISOString(),
+    });
+  f.setStateResponse(snapshot("ended"));
+  await f.start();
+  const video = f.element("replay-video");
+  assert.match(f.element("status").textContent, /published automatically/);
+  assert.equal(f.replayAction.hidden, true);
+  assert.equal(f.element("replay").hidden, true);
+  assert.equal(
+    f.requests.some((url) => url.endsWith("/replay")),
+    false,
+  );
+  assert.equal(video.playCalls, 0);
+
+  f.setStateResponse(snapshot("replay"));
+  await f.timer(3000);
+  assert.equal(f.element("replay").hidden, false);
+  assert.equal(f.requests.filter((url) => url.endsWith("/replay")).length, 1);
+  video.handlers.get("loadedmetadata")();
+  await f.timer(3000);
+  assert.equal(video.playCalls, 0);
+  assert.equal(video.paused, true);
+  assert.equal(video.hidden, true);
+
+  await f.element("replay").click();
+  assert.ok(video.playCalls > 0);
+  assert.equal(video.paused, false);
+  assert.equal(video.hidden, false);
+  f.listeners.get("pagehide")();
+});
 
 it("prepares without joining or capturing and rejoins viewers only after terminal transport failure", async () => {
   const f = fixture();

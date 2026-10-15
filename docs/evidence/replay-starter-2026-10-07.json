@@ -1,0 +1,177 @@
+{
+  "result": "PASS",
+  "verifiedAt": "2026-10-08T01:37:22.430Z",
+  "sourceCommit": "89d7a6a1787bb7fdf7ecefbd364698d5bbc42695",
+  "plan": {
+    "name": "Render Starter",
+    "id": "0.5c-512mb",
+    "monthlyUsd": 7,
+    "cpu": 0.5,
+    "memoryMb": 512,
+    "concurrency": 1
+  },
+  "normal": {
+    "provenance": "livekit-provider-webhook",
+    "checks": {
+      "automaticActorlessPublication": "PASS",
+      "noCaptionPrerequisite": "PASS",
+      "liveFinancialFieldsAndSourcePreserved": "PASS",
+      "readyMarkerMatchesDurablePointer": "PASS"
+    },
+    "attempts": 1,
+    "createdAt": "2026-10-07T18:55:48.039Z",
+    "readyAt": "2026-10-07T18:57:30.171Z",
+    "jobElapsedMs": 102132,
+    "successfulAttemptElapsedMs": 102116,
+    "durationSeconds": 62.252667,
+    "packageFiles": 100,
+    "packageBytes": 19466715,
+    "reviewedCaptions": false
+  },
+  "recovery": {
+    "provenance": "controlled-synthetic-source",
+    "checks": {
+      "actualProcessInterruptionAndFreshAttempt": "PASS",
+      "automaticActorlessPublication": "PASS",
+      "noCaptionPrerequisite": "PASS",
+      "liveFinancialFieldsAndSourcePreserved": "PASS",
+      "readyMarkerMatchesDurablePointer": "PASS"
+    },
+    "attempts": 2,
+    "createdAt": "2026-10-07T19:59:45.620Z",
+    "readyAt": "2026-10-07T20:04:23.913Z",
+    "jobElapsedMs": 278293,
+    "successfulAttemptElapsedMs": 191341,
+    "durationSeconds": 120.219333,
+    "packageFiles": 187,
+    "packageBytes": 38106301,
+    "reviewedCaptions": false
+  },
+  "interruption": {
+    "method": "stop/resume",
+    "oldCancelledAt": "2026-10-07T20:01:09.822124846Z",
+    "oldStoppedAt": "2026-10-07T20:01:09.823283963Z",
+    "newAttempts": 2,
+    "actualProcessTerminationObserved": true,
+    "phaseEvidence": "Pinned source, sustained CPU and no package upload; encoding phase inferred from worker ordering",
+    "abruptLossTested": false
+  },
+  "resourceMeasurement": {
+    "resolutionSeconds": 30,
+    "normalPeakContainerBytes": 147456000,
+    "recoveryPeakContainerBytes": 167518200,
+    "cpuMaxCores": 0.5
+  },
+  "playback": {
+    "browser": "Chrome154 native HLS",
+    "checks": {
+      "productKeyboardPlayback": "PASS",
+      "threeDecodedQualities": "PASS",
+      "seekPauseRateAndResume": "PASS"
+    },
+    "keyboardToPlaybackMs": 27364,
+    "renditions": [
+      {
+        "height": 240,
+        "width": 426,
+        "advancingSeconds": 0.5038079999999999
+      },
+      {
+        "height": 480,
+        "width": 854,
+        "advancingSeconds": 0.5230459999999999
+      },
+      {
+        "height": 720,
+        "width": 1280,
+        "advancingSeconds": 0.523856
+      }
+    ],
+    "realRenewalChecks": {
+      "uninstrumentedKeyboardDecodedPlayback": "PASS",
+      "realRenewalPreservesPausedSeekAndRate": "PASS",
+      "realRenewalResumesAtSavedSeek": "PASS"
+    }
+  },
+  "access": {
+    "checks": {
+      "uninstrumentedProductPlayback": "PASS",
+      "edgeCorsHeadRangeAndCachedBytes": "PASS",
+      "unsignedTamperedCrossRoomWrongOriginDenied": "PASS",
+      "hideDeniesFreshGrantAndPollingOrOnlineRevalidationClearsPlayer": "PASS",
+      "actualIssuedMasterAndCachedSegmentExpireNaturally": "PASS"
+    },
+    "lifetimeSeconds": 300,
+    "finishedAt": "2026-10-07T20:25:36.385Z",
+    "clearedPlayerState": {
+      "paused": true,
+      "hasSrc": false,
+      "readyState": 0,
+      "hidden": true,
+      "status": "event not found"
+    }
+  },
+  "cleanup": [
+    {
+      "name": "starter-normal",
+      "at": "2026-10-08T01:36:49.157Z",
+      "result": "PASS",
+      "hiddenBeforeDeletion": true,
+      "freshGrantDenied": true,
+      "workerDrainConfirmed": true,
+      "deletedObjects": 2,
+      "remainingOwnObjects": 0,
+      "retainedCancelledJobs": 1,
+      "retainedAttempts": 1,
+      "globalCachePurge": false
+    },
+    {
+      "name": "starter-recovery",
+      "at": "2026-10-08T01:36:50.783Z",
+      "result": "PASS",
+      "hiddenBeforeDeletion": true,
+      "freshGrantDenied": true,
+      "workerDrainConfirmed": true,
+      "deletedObjects": 1,
+      "remainingOwnObjects": 0,
+      "retainedCancelledJobs": 1,
+      "retainedAttempts": 2,
+      "globalCachePurge": false
+    }
+  ],
+  "finalChecks": {
+    "actualWorkerDrain": "PASS",
+    "accessRemovalAndActualCapabilityExpiry": "PASS",
+    "existingDomainAndChatRowsUnchanged": "PASS",
+    "webAndWorkerHealthyMatchingBuilds": "PASS",
+    "runtimeOnlyConfiguration": "PASS"
+  },
+  "deployments": [
+    {
+      "name": "web",
+      "id": "dep-db3995jtqb8s7380ng70",
+      "commit": "89d7a6a1787bb7fdf7ecefbd364698d5bbc42695",
+      "status": "live"
+    },
+    {
+      "name": "worker",
+      "id": "dep-db3f7d7avr4c739hqu1g",
+      "commit": "89d7a6a1787bb7fdf7ecefbd364698d5bbc42695",
+      "status": "live"
+    }
+  ],
+  "worker": {
+    "plan": "0.5c-512mb",
+    "status": "RUNNING",
+    "ready": true,
+    "applicationStartedAt": "2026-10-08T01:37:17.734574897Z"
+  },
+  "finalScope": "Two-room synthetic canary retained; automatic conversion not expanded to existing staging catalog",
+  "limitations": [
+    "Headless desktop with synthetic camera/audio; audible output and physical devices unassessed",
+    "Encoding at interruption inferred from CPU and upload ordering; no encoder PID inspected",
+    "Short recordings and 30-second resource sampling do not establish full-duration capacity",
+    "Real playback startup included a 27.364-second result; percentile latency objectives unverified",
+    "Canary scope retained; existing staging catalog not enabled for automatic conversion"
+  ]
+}

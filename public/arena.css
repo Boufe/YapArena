@@ -62,7 +62,7 @@ textarea::placeholder {
   width: min(1760px, calc(100% - 40px));
 }
 .arena-nav {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 30px;
   min-height: 72px;
 }
@@ -92,7 +92,8 @@ textarea::placeholder {
 }
 .arena-header-search {
   margin: 0 auto;
-  flex: 1;
+  flex: 1 1 200px;
+  min-width: 0;
   max-width: 450px;
   position: relative;
 }
@@ -191,13 +192,19 @@ textarea::placeholder {
   max-width: 1800px;
   margin: 14px auto 0;
   padding: 0 14px;
-  display: grid;
-  grid-template-columns: minmax(280px, 0.95fr) minmax(470px, 1.72fr) minmax(
-      215px,
-      0.68fr
-    );
+  display: flex;
+  flex-wrap: wrap;
   gap: 13px;
   align-items: start;
+}
+.arena-left {
+  flex: 0.95 1 280px;
+}
+.arena-center {
+  flex: 1.72 1 470px;
+}
+.arena-right {
+  flex: 0.68 1 215px;
 }
 .arena-left,
 .arena-center,
@@ -1330,10 +1337,15 @@ textarea::placeholder {
   .arena-workspace {
     gap: 18px;
     padding-inline: 24px;
-    grid-template-columns: minmax(330px, 1fr) minmax(650px, 1.8fr) minmax(
-        245px,
-        0.7fr
-      );
+  }
+  .arena-left {
+    flex-basis: 330px;
+  }
+  .arena-center {
+    flex-basis: 650px;
+  }
+  .arena-right {
+    flex-basis: 245px;
   }
   .arena-chart-panel {
     padding: 24px 25px 16px;
@@ -1359,14 +1371,14 @@ textarea::placeholder {
   .arena-header-account {
     gap: 9px;
   }
-  .arena-workspace {
-    grid-template-columns: minmax(270px, 0.85fr) minmax(450px, 1.5fr);
-  }
   .arena-left {
-    grid-row: 1 / span 2;
+    flex-basis: 270px;
+  }
+  .arena-center {
+    flex-basis: 450px;
   }
   .arena-right {
-    grid-column: 2;
+    flex-basis: 100%;
     grid-template-columns: 1fr 1fr;
     align-items: start;
   }
@@ -1399,9 +1411,14 @@ textarea::placeholder {
     padding: 5px 10px;
   }
   .arena-workspace {
-    grid-template-columns: minmax(240px, 0.8fr) minmax(390px, 1.3fr);
     padding-inline: 10px;
     gap: 10px;
+  }
+  .arena-left {
+    flex-basis: 240px;
+  }
+  .arena-center {
+    flex-basis: 390px;
   }
   .arena-chart-panel {
     padding: 14px 12px 12px;
@@ -1474,6 +1491,7 @@ textarea::placeholder {
   .arena-workspace {
     display: flex;
     flex-direction: column;
+    flex-wrap: nowrap;
     width: 100%;
     margin-top: 10px;
     padding: 0 10px;
@@ -1492,10 +1510,12 @@ textarea::placeholder {
   }
   .arena-center {
     order: 2;
+    flex-basis: auto;
     width: 100%;
   }
   .arena-right {
     order: 3;
+    flex-basis: auto;
     width: 100%;
     display: grid;
     grid-template-columns: 1fr;

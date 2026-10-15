@@ -633,7 +633,11 @@ if (root) {
       eventStatus = result.eventStatus;
       serverOffset = new Date(result.serverNow).getTime() - Date.now();
       const live = result.eventStatus === "live";
-      const presentation = mediaPresentation(result.eventStatus, result.state);
+      const presentation = mediaPresentation(
+        result.eventStatus,
+        result.state,
+        result.automaticReplayPublication,
+      );
       viewerButton.hidden = !live || speakerConnected || Boolean(room);
       updateSpeakerButton();
       replay.hidden = !presentation.replayVisible;

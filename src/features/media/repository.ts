@@ -68,7 +68,10 @@ function timing(rules: Rules) {
   return { turnMs: turn * 1000, maximumMs: maximum * 1000 };
 }
 
-export function createMediaRepository(db: Pool) {
+export function createMediaRepository(
+  db: Pool,
+  replayPublication?: { enabled: boolean; allowedRooms?: readonly string[] },
+) {
   const readSnapshot = createSharedRead<{
     state: Pick<
       MediaState,
@@ -85,6 +88,7 @@ export function createMediaRepository(db: Pool) {
       | "hasCaptions"
     > | null;
     eventStatus: string;
+    automaticReplayPublication: boolean;
     streamRevision: string;
     serverNow: Date;
   } | null>();
@@ -95,6 +99,10 @@ export function createMediaRepository(db: Pool) {
           Exclude<Awaited<ReturnType<typeof readSnapshot>>, null>
         >(
           `SELECT d.status AS "eventStatus",
+          COALESCE($2::boolean AND NOT d.is_demo AND d.status IN ('ended','replay','finalized')
+            AND m.state='ended' AND m.recording_status='ready' AND m.egress_id IS NOT NULL
+            AND m.recording_key ~ '^debates/[0-9a-f-]{36}/[a-zA-Z0-9-]+[.]mp4$'
+            AND split_part(m.recording_key,'/',2)=d.id::text, false) AS "automaticReplayPublication",
           COALESCE(r.cursor::text, '0') AS "streamRevision", clock_timestamp() AS "serverNow",
           CASE WHEN m.debate_id IS NULL THEN NULL ELSE json_build_object(
             'debateId',m.debate_id,'state',m.state,'activeSide',m.active_side,
@@ -104,7 +112,16 @@ export function createMediaRepository(db: Pool) {
           FROM debates d JOIN topics t ON t.id=d.topic_id
           LEFT JOIN debate_media m ON m.debate_id=d.id LEFT JOIN community_rooms r ON r.room_id=d.id
           WHERE d.id=$1 AND d.publication_state='published' AND t.publication_state='published'`,
-          [debateId],
+          [
+            debateId,
+            Boolean(
+              replayPublication?.enabled &&
+              (replayPublication.allowedRooms === undefined ||
+                replayPublication.allowedRooms.includes(
+                  debateId.toLowerCase(),
+                )),
+            ),
+          ],
         );
         return result.rows[0] ?? null;
       });

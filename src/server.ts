@@ -41,7 +41,12 @@ const identity = createIdentityRepository(database);
 const matching = createMatchingRepository(database);
 const community = createCommunityRepository(database);
 const measurement = createMeasurementRepository(database);
-const media = config.media ? createMediaRepository(database) : undefined;
+const media = config.media
+  ? createMediaRepository(database, {
+      enabled: config.replayPackaging.enabled,
+      allowedRooms: config.media.replayEdgeRooms,
+    })
+  : undefined;
 const replayJobs = config.replayPackaging.enabled
   ? createReplayJobs(database)
   : undefined;

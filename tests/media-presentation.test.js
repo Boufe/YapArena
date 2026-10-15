@@ -4,14 +4,37 @@ import { mediaPresentation } from "../public/media-presentation.js";
 
 describe("media page state", () => {
   it("shows recording failure after a page refresh and offers no replay action", () => {
-    const view = mediaPresentation("ended", {
-      state: "ended",
-      recordingStatus: "failed",
-    });
-    assert.match(view.message, /Recording failed.*Replay is unavailable/);
-    assert.equal(view.replayVisible, false);
-    assert.equal(view.actions.replay, false);
-    assert.equal(view.actions.end, false);
+    for (const automatic of [false, true]) {
+      const view = mediaPresentation(
+        "ended",
+        { state: "ended", recordingStatus: "failed" },
+        automatic,
+      );
+      assert.match(view.message, /Recording failed.*Replay is unavailable/);
+      assert.equal(view.replayVisible, false);
+      assert.equal(view.actions.replay, false);
+      assert.equal(view.actions.end, false);
+    }
+  });
+
+  it("describes automatic publication while preserving the manual fallback", () => {
+    const state = { state: "ended", recordingStatus: "ready" };
+    const automatic = mediaPresentation("ended", state, true);
+    assert.match(automatic.message, /prepared.*published automatically/);
+    assert.equal(automatic.actions.replay, false);
+    assert.equal(automatic.replayVisible, false);
+    for (const manual of [undefined, false]) {
+      const view = mediaPresentation("ended", state, manual);
+      assert.match(view.message, /operator can publish/);
+      assert.equal(view.actions.replay, true);
+      assert.equal(view.replayVisible, false);
+    }
+    for (const status of ["replay", "finalized"]) {
+      const available = mediaPresentation(status, state, true);
+      assert.equal(available.message, "Replay is available.");
+      assert.equal(available.replayVisible, true);
+      assert.equal(available.actions.replay, false);
+    }
   });
 
   it("shows only actions valid for the current media state", () => {

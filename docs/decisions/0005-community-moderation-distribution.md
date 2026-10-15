@@ -47,6 +47,13 @@ not create an individual appeal right. Case and appeal decisions append immutabl
 
 ## Immediate chat feedback and submission identity — 2026-10-06
 
+Historical checkpoint: the polling-only and key-expiry behavior in this section was superseded
+by [decision 0006](0006-durable-community-delivery.md) and additive receipt migration
+`1791345540042_preserve-chat-idempotency.js`. Current keys remain bound for the room/account
+lifetime after body purge; retries return canonical tombstones and conflicting text remains 409.
+See [the current receipt/rollout contract](../community-operations.md#chat-submission-migration-and-rollout).
+The original October 6 behavior below is preserved as decision history.
+
 A new logical submission uses a random UUID v4 `clientMessageId`. The backend binds that key to
 trimmed plain text for the authenticated account and event. A partial unique index and the existing
 transaction/account lock serialize identical and competing requests. Accepted retries return the

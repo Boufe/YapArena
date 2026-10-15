@@ -1,5 +1,12 @@
 # F03 implementation handoff
 
+Current-state note — 2026-10-15: Archived handoff: [PR #21](https://github.com/Boufe/YapArena/pull/21) merged F03, followed by
+F02 in PR #22. Use the combined [revocation contract](account-session-revocation.md) and
+[wallet authorization](wallet-authorization.md); the standalone routes and branch integration
+instructions below are historical. Later staging records show the combined application deployed.
+Account suspension/recovery, external LiveKit revocation and the other listed acceptance gaps
+are separate work; the merge does not close them.
+
 Standalone F03 implementation ready for coordinated integration review, 2026-10-05.
 No deployment, hosted probes, production accounts or PR merges were performed.
 

@@ -6,13 +6,43 @@ the separate event-market, hidden-tally, ongoing-market, and eligibility work. T
 implementation plan, not a new product decision. Its milestones are development increments; the
 confirmed first **paid** release still includes both markets together.
 
+## Current implementation and evidence
+
+Audited 2026-10-15 against fetched `origin/main` at `a9e803f` (merged
+[PR #29](https://github.com/Boufe/YapArena/pull/29)). This section is the implementation status
+index; the work-package criteria below remain requirements, not a list of missing features.
+Source, configuration, migrations, tests, CI and committed sanitized evidence were inspected.
+Hosted facts below are the latest **saved observations**, not a new provider inspection.
+
+| Area                       | Implemented on main                                                                                                                                                                           | Verification and remaining work                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1 — Discovery              | Server-rendered responsive pages, public search/filter/pagination API, profiles/topics/debates, canonical links and offline explanation.                                                      | [Decision 0001](decisions/0001-public-discovery.md); CI covers PostgreSQL fixtures and browser/accessibility journeys. Representative data, approved latency budgets and human accessibility acceptance remain open.                                                                                                                                                                                                                                               |
+| 2 — Identity/social        | Password and SIWE login, profiles/follows, in-app activity/notifications, retained-credential wallet changes and account-wide session revocation.                                             | [Wallet authorization](security/wallet-authorization.md) and [session revocation](security/account-session-revocation.md) have local PostgreSQL race/browser evidence and CI. Self-service export/deletion, password recovery/change, account suspension, live contract-wallet and physical-device acceptance remain absent or unverified.                                                                                                                         |
+| 3 — Topics/events          | Topic creation/publication, direct challenges, open queue joining, readiness, immutable rule snapshots, operator lifecycle/history and no-show handling.                                      | [Decision 0003](decisions/0003-topics-matching-events.md); database concurrency and CI journeys exist. Queue joining is self-service; opponent ranking/recommendations are not implemented. Preview timing rules remain provisional.                                                                                                                                                                                                                               |
+| 4 — Media/replay           | LiveKit speaker/viewer grants, server clock, bounded recovery, canonical permission repair, recording reconciliation, private adaptive HLS and a separate durable automatic encoder.          | [Delivery controls](media-delivery-controls.md) record local shared-network/clock checks. [Hosted replay trials](replay-starter-trial-2026-10-07.md) record real recording/conversion/publication, graceful cancellation/replacement recovery, all-eligible staging rollout and October 15 UI verification. Physical-device/acoustic/network/load targets, abrupt host loss/OOM and full-duration/4K encoder capacity remain unverified.                           |
+| 5 — Community              | Chat with immediate feedback and durable idempotent receipts, likes, reports/cases/appeals, restrictions, QR/share metadata/overlays and feature-gated ordered SSE with HTTP recovery.        | [Community operations](community-operations.md) and [delivery trial](community-delivery-trial.md) record local/browser/hosted checks, including a short 500-stream trial. That trial used owner SQL mutations, not hosted authenticated HTTP-write or media load. Physical devices, screen readers, long hosted soak, privacy review and broadcast/share acceptance remain open. Sponsor tools/placements are deferred.                                            |
+| 6 — Measurement/operations | Consent/withdrawal, bounded nonfinancial events/watch data, operator dashboard/product metrics, retention, isolated database roles, migrations, CI, image release and backup/restore tooling. | Merged [PR #17](https://github.com/Boufe/YapArena/pull/17); [operating trial](operating-readiness-trial.md) and [measurement contract](measurement-operations.md). The returning-participant definition alone is approved; the cohort rate is not published and 30% is not an approved gate. [Hosted API isolation](security/database-isolation.md#hosted-operator-checklist--required-to-close-f04), provider restore/RPO/RTO and incident follow-up remain open. |
+| 7 and financial scope      | Recaps, richer broadcasts, seasons, ratings, native apps, sponsor workflows and both financial markets remain planned.                                                                        | Preserve the [product PRD](product-prd.md) and its [pre-funds gates](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds). No winner, settlement, paid cutoff, financial receipt, extension mechanism or sponsor payment is implemented.                                                                                                                                                                                             |
+
+The latest saved staging check is **2026-10-15 16:03 UTC** on `b11a11b`, with matching web/encoder
+builds, runtime-only credentials, packaging enabled, concurrency one and the existing
+`0.5c-512mb` encoder. The [October 8 rollout](replay-starter-trial-2026-10-07.md#all-eligible-staging-rollout--2026-10-08)
+removed the room allowlist from both services. New eligible recordings therefore follow automatic
+conversion/publication; viewers still click Play. The Free web Blueprint does not provision that
+separately configured paid worker or reproduce all deployed settings.
+
+An old checkout contributed to stale status: the preserved shared branch at `bc3e92f` was
+80 commits behind that fetched main; local `main` was also older. Uncommitted work is not a
+substitute for merged history. Follow [the checkout workflow](../CONTRIBUTING.md#development-workflow)
+before planning or integrating changes. Historical handoffs must not be replayed as pending work.
+
 ## Scope and boundaries
 
 Build public discovery, identity for nonfinancial actions, topics and profiles, matchmaking and
 challenges, hostless live debates, replay, follows, chat, likes, moderation, sponsor presentation,
 sharing, nonfinancial analytics, and the supporting operations. The current Express/PostgreSQL
-service, email/password sessions, migrations, CI, metrics, and example messages API are the starting
-point. No product frontend or debate feature exists yet.
+service now implements the nonfinancial preview summarized above. The sections below preserve the
+intended acceptance scope and remaining requirements; they do not reset completed work to pending.
 
 This plan does **not** implement wallets signing financial actions, deposits, order books, token
 issuance, positions, prices, collateral, fees, payouts, refunds, withdrawals, creator payments,
@@ -178,13 +208,15 @@ tracking** to a separately reviewed package. No sponsor or financial workflow is
 
 The moderation roles, reason codes, content states, retention, and appeal policy for this
 package are defined in [decision 0005](decisions/0005-community-moderation-distribution.md).
-The [media trial gate](media-trial-report.md#work-package-5-readiness-gate) remains open until a
-measured desktop and mobile trial is recorded. Community development can proceed while it is
-open; passing code checks alone does not approve a production rollout.
+The [historical media gate](media-trial-report.md#work-package-5-readiness-gate) has later
+[playback](media-playback-trial.md) and [hosted replay](replay-starter-trial-2026-10-07.md)
+evidence. Those records verify selected paths, while the full physical-device and measured
+acceptance envelope remains open. Community development has proceeded; production acceptance
+still requires the outstanding checks.
 
 ## Work package 6 — Measurement and operating readiness
 
-Implementation is in progress on `feature/measurement-operating-readiness`. The
+Implementation merged through [PR #17](https://github.com/Boufe/YapArena/pull/17). The
 [measurement contract and proposed metric](measurement-operations.md) records product approval of
 the 28-day returning participant **definition only**. The 30% threshold and use as a launch gate
 remain unapproved. The [operating trial record](operating-readiness-trial.md) distinguishes CI and local evidence

@@ -5,6 +5,13 @@ coordination code gaps. Automatic replay is described in [replay automation](rep
 These are implementation changes, with the local evidence below. They are not
 approval for financial activity or evidence of hosted media capacity.
 
+Current evidence note — 2026-10-15: the [hosted replay report](replay-starter-trial-2026-10-07.md)
+supersedes the pre-deployment status below. An existing paid encoder converted and automatically
+published real LiveKit recordings, recovered after graceful cancellation/replacement, and processed
+the eligible staging catalog. Matching web/worker builds were last saved at `b11a11b` on October 15.
+This does not establish abrupt host loss/OOM, maximum-duration/4K capacity, physical-device,
+acoustic or sustained 510-participant acceptance. Local results below retain their original scope.
+
 ## Provisional operating envelope
 
 The existing provisional media target remains 500 viewers across five simultaneous
@@ -130,7 +137,8 @@ See [Render Docker configuration](https://render.com/docs/docker).
 
 On Render, a separate continuously running encoder requires paid background-worker
 compute. Adding that service is distinct from upgrading the existing web service or
-workspace. No paid service/plan has been purchased or created. The six-second local
+workspace. The separately configured staging worker is recorded in the hosted report; the Blueprint
+still provisions only the web service. The six-second local
 sample is insufficient to approve the cheapest worker for maximum-duration/4K inputs;
 validate CPU, memory, disk, queue wait and encoding time on the intended compute first.
 The current Free web restart limitation and hosted soak requirements remain recorded
@@ -206,11 +214,11 @@ marker-last validation and 240p/480p/720p delivery without captions. Three SDK s
 failures recovered; all 15 synthetic objects were removed with zero remaining. Encoding
 took 584 ms and upload/HEAD validation 6,054 ms. Earlier TLS/parser failures remain recorded.
 
-Hosted acceptance still requires a paid-worker canary using synthetic recordings with
-actual R2 automatic publication from the deployed encoder,
-restart and removal/renewal. Then measure full-duration encoding, a longer hosted soak,
+The [hosted worker trial](replay-starter-trial-2026-10-07.md) supplies short-recording evidence for
+actual R2 automatic publication, graceful worker replacement and removal/renewal. Still measure
+abrupt host loss/OOM, full-duration encoding, a longer hosted soak,
 browser/acoustic/physical-device behavior and the declared media load. Existing privacy,
-financial, project review/merge and production replay-domain gates remain open.
+financial and production replay-domain gates remain open. The implementation itself merged in PR #27.
 
 ## Diagnosis and rollback
 

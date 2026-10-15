@@ -242,10 +242,11 @@ tabs a risk; verify browser-to-edge HTTP/2 on the actual SSE route before enabli
 Browser fallback has explicit switching: before each stream attempt, any fallback fetch/timer is
 cancelled; after a healthy application/heartbeat no fallback polling runs. On failure polling and
 reconnect backoff begin; background/offline pages suspend public delivery. Own-state reads, manual
-history pagination and unrelated media polling remain separate. Existing 600/min shared-IP live-read
-and general API/IP limits still apply to those HTTP requests; SSE fanout alone does not establish
-whole-app shared-network capacity. The load harness raises general API allowance only in its
-disposable environment to measure stream capacity while retaining authenticated account allowances.
+history pagination and unrelated media polling remain separate. Allowlisted community/media and
+bootstrap reads now use [delivery admission budgets](media-delivery-controls.md#shared-network-admission),
+replacing the earlier 600/min shared-IP read restriction for those routes. Protected writes retain
+their own limits. The isolated SSE harness raises the general API allowance for its trial; that
+configuration does not establish hosted whole-app shared-network or authenticated-write capacity.
 
 Do not point LISTEN at a transaction pooler (including port 6543, rejected when enabling this flag).
 Use the actual direct/session path with runtime credentials, TLS and fixed
@@ -310,8 +311,9 @@ session/direct route; the local two-process fanout trial does not size a hosted 
 service `yaparena-staging-web` is **Free**, with automatic deployment off. The authorized
 follow-up deployed SSE checkpoint `ab59ebb`, applied its additive migration and enabled the flag;
 see the dated trial for actual evidence and subsequent combined release status. Treat this as staging, not an approved
-live-event hosting plan. Existing in-process media clocks and IP abuse controls still require separate
-coordination before adding web instances; only community cross-process fanout is tested here.
+live-event hosting plan. Subsequent [media delivery controls](media-delivery-controls.md) coordinate
+clock advancement and provider repair in PostgreSQL. Process-local abuse counters and whole-app
+hosted acceptance still prevent treating community fanout as approval to add web instances.
 
 Rollback first disables the stream flag and restarts the web process; new clients switch to bounded
 durable HTTP recovery. Retain the additive tables, triggers, keys and revisions. The migration's down

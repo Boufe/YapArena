@@ -1,5 +1,13 @@
 # Playback implementation trial — 2026-10-06
 
+Current-state note — 2026-10-15: Historical checkpoint and subsequent dated trials. [Delivery controls](media-delivery-controls.md)
+subsequently addressed the shared-IP polling and clock ownership code gaps discussed here.
+The [hosted replay report](replay-starter-trial-2026-10-07.md) records the paid encoder, actual
+automatic conversion/publication, graceful replacement recovery, all-eligible staging rollout
+and October 15 publication-interface verification. The source integration merged in PR #27;
+the preserved early acceptance-status paragraphs are not the current aggregate status.
+Physical-device, acoustic/network, long soak and maximum-duration acceptance remain open.
+
 Worktree: `/private/tmp/yaparena-media-playback-20261006`.
 Branch: `feat/media-playback-reliability`; baseline `bc3e92f`.
 Scope: local synthetic encoding, browser orchestration tests, edge authorization/cache

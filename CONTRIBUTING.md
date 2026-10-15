@@ -13,7 +13,26 @@ implementing it. Do not treat a passing backend quality gate as permission to ac
 
 ## Development workflow
 
-1. Update `main` and create a focused branch:
+1. Inspect the checkout before choosing a branch:
+
+   ```sh
+   git status --short
+   git branch -vv
+   git worktree list
+   git fetch origin
+   git rev-list --left-right --count HEAD...origin/main
+   ```
+
+   Report any mismatch with fetched main. If the checkout contains unrelated edits or an older
+   feature branch, preserve it and create a separate worktree:
+
+   ```sh
+   git worktree add -b short-description-of-change /tmp/yaparena-change origin/main
+   cd /tmp/yaparena-change
+   ```
+
+   Choose an unused branch and directory. Do not stash, reset, or overwrite someone else's work
+   as a setup step. For a clean checkout where `main` is available, the ordinary alternative is:
 
    ```sh
    git switch main
@@ -21,9 +40,10 @@ implementing it. Do not treat a passing backend quality gate as permission to ac
    git switch -c short-description-of-change
    ```
 
-   `git switch main` selects the main development branch, `git pull --ff-only` downloads reviewed
-   commits without creating an accidental merge commit, and `git switch -c` creates and selects a new
-   branch. Use a short branch name describing one change.
+   `git pull --ff-only` updates reviewed history without creating an accidental merge commit.
+   Use a short branch name describing one change and the
+   [current implementation and evidence](docs/nonfinancial-implementation-plan.md#current-implementation-and-evidence)
+   to distinguish completed packages from remaining acceptance work.
 
 2. Install locked dependencies:
 
@@ -81,3 +101,19 @@ Review the package, exact version, published provenance, and required lifecycle 
 changing that policy. Supported npm versions report or enforce unreviewed scripts during install.
 
 See the [glossary](docs/glossary.md) for terms such as branch, pull request, migration, image, and CI.
+
+## Documentation changes
+
+Verify claims against the reviewed branch's source, scripts, migrations, workflows and saved trial
+evidence. Update the authoritative runbook and implementation status together when behavior changes.
+Preserve dated reports and decisions; add a current-state note or superseding link when a finding,
+handoff, command or acceptance status is obsolete. Keep implemented, locally tested, hosted-tested
+and planned behavior distinct. Check relative links, anchors, referenced paths and formatting, and
+run `npm run check` before opening a documentation PR. List integration suites skipped locally;
+the five required CI checks are `quality / check`, `container`, `integration`, `monitoring` and
+`deployment` (active ruleset inspected 2026-10-15). Recheck GitHub rules if they change.
+
+When using a separate worktree, report its branch and PR and the state of the original checkout.
+Reconcile Markdown only where local edits can be preserved, and identify conflicts explicitly.
+Never leave a dirty old checkout appearing to represent current main. Merge only within the user's
+authorized scope; opening a PR does not authorize merging it when approval has been reserved.

@@ -19,3 +19,14 @@ depends on severity and whether downstream users need time to update.
 
 Generated projects must replace this contact and response policy with one their maintainers can
 actually operate.
+
+## Current security work and evidence
+
+The [implementation status](docs/nonfinancial-implementation-plan.md#current-implementation-and-evidence)
+links the merged authentication, logging and database work. Use the current
+[session revocation](docs/security/account-session-revocation.md),
+[wallet authorization](docs/security/wallet-authorization.md) and
+[database isolation](docs/security/database-isolation.md) contracts when operating this service.
+Dated handoffs preserve original findings and test results; a merged fix does not close the
+remaining hosted API isolation, historical-log exposure, credential-rotation or provider-grant
+incident checks. Keep incident evidence private under the reporting procedure above.

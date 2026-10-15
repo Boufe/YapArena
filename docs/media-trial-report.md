@@ -1,5 +1,12 @@
 # Live debate and replay validation — 2026-09-29
 
+Current-state note — 2026-10-15: Historical prototype trials. The later [playback trial](media-playback-trial.md),
+[delivery controls](media-delivery-controls.md) and [hosted automatic replay report](replay-starter-trial-2026-10-07.md)
+supersede blanket pending-recording/replay/reconnect statements below with scoped implementation
+and staging evidence. Community work has since merged. Preserve the failures and observations;
+full physical-device, acoustic, controlled-network, accessibility and sustained-load acceptance
+remains open under the [playback requirements](media-playback-requirements.md).
+
 ## Setup and evidence
 
 - Reviewed [media decision](decisions/0004-live-debate-replay.md), [staging runbook](render-staging.md), media API/repository/provider, browser client, worker, and media tests.

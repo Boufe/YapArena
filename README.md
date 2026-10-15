@@ -3,8 +3,11 @@
 YapArena is a live debate platform in development. It currently provides a Node.js 24,
 strict TypeScript, Express, and PostgreSQL service with authentication, migrations, tests,
 monitoring, container releases, public discovery, wallet sign-in, profiles, follows, topics,
-nonfinancial debate matching, and a local live debate and replay prototype. The messages API remains
-an example feature. Voting, incentives, and markets have not been implemented yet.
+nonfinancial debate matching, community chat/likes/moderation, consented measurement, and live
+media with an optional automatic adaptive replay pipeline. Synthetic hosted trials cover recording,
+replay conversion/publication and selected browser recovery paths; production and physical-device
+acceptance remain open. The messages API remains an example feature. Voting, incentives, sponsor
+workflows and markets have not been implemented yet.
 
 ## Product direction and document authority
 
@@ -31,6 +34,9 @@ must pass the combined release gate before the first paid launch.
 The [nonfinancial implementation plan](docs/nonfinancial-implementation-plan.md) orders the
 discovery, debate, replay, community, moderation, and operating work that can proceed while
 financial specifications are resolved.
+Its [current implementation and evidence](docs/nonfinancial-implementation-plan.md#current-implementation-and-evidence)
+is the status index for future agents. Fetch and compare the checkout with `origin/main` before
+treating an old branch or dated handoff as the current implementation; see [CONTRIBUTING.md](CONTRIBUTING.md).
 The [public discovery decision](docs/decisions/0001-public-discovery.md) records the initial
 HTML/API architecture and its release checks.
 The [identity and social decision](docs/decisions/0002-identity-and-social.md) records account
@@ -40,11 +46,13 @@ preview's challenge, scheduling, no-show, audit, and lifecycle rules.
 The [live media decision](docs/decisions/0004-live-debate-replay.md) records prototype timings,
 recording gates, incident behavior, and the validation still needed before a production media choice.
 The [low cost staging runbook](docs/render-staging.md) describes the Render app, Supabase database,
-access gate, and LiveKit/R2 media integration steps.
+deployment procedure and LiveKit/R2 media integration steps. The
+[hosted replay trial](docs/replay-starter-trial-2026-10-07.md) records the existing separate encoder,
+the all-eligible staging rollout and the last saved deployment verification on October 15.
 
 To work on YapArena, follow [Local development](#local-development). The original
-[service template guide](docs/getting-started.md) remains available if you want to create a separate
-project from this foundation.
+[service template guide](docs/getting-started.md) records the older reuse workflow and its current
+initializer/database-identity limitation; it is not a verified setup path for a renamed service.
 
 Cloning a repository already creates its local Git metadata and configures the GitHub repository as
 the `origin` remote. Do not run `git init` after `git clone`.
@@ -91,8 +99,7 @@ cp .env.example .env
 ```
 
 This copies the committed example settings into a new `.env` file used only on this computer. It
-contains development ports, a local-only database password, and the database connection URL. The
-application reads it when started with `npm run dev`, and Docker Compose reads it automatically. The
+contains development ports, a local-only database password, and the database connection URL. Docker Compose reads it automatically. `npm run dev` instead reads `.env.runtime`, described below. The
 file is excluded by `.gitignore`; do not commit it or put production secrets in it. If `.env` already
 exists, inspect it instead of overwriting custom local values.
 
@@ -127,14 +134,25 @@ docker compose --profile release run --rm migrate
 
 Start the API with automatic reload:
 
+Create a separate ignored `.env.runtime` file with only the runtime `DATABASE_URL` and application
+settings from `.env.example`; omit all operator passwords, fixture and migration URLs. For an
+unchanged local setup, the minimum contents are:
+
+```dotenv
+DATABASE_URL=postgresql://yaparena_runtime:local-runtime-only@127.0.0.1:5433/yaparena
+APP_ORIGIN=http://localhost:3000
+```
+
+Adjust the URL to match your local runtime password, database and published PostgreSQL port. Then run:
+
 ```sh
 npm run dev
 ```
 
-Create a separate ignored `.env.runtime` file with only the runtime `DATABASE_URL` and application
-settings from `.env.example`; omit all operator passwords, fixture and migration URLs.
 `npm run dev` starts the TypeScript API directly with Node.js, loads `.env.runtime`, and automatically restarts when source files
-change. `npm run build` compiles production JavaScript into the ignored `dist/` directory. PostgreSQL must still be running in Docker. Open <http://localhost:3000/ready> to confirm the
+change. Run `npm run build` before testing browser media: it compiles production JavaScript into
+the ignored `dist/` directory and generates both browser bundles. The dev command does not bundle them.
+PostgreSQL must still be running in Docker. Open <http://localhost:3000/ready> to confirm the
 API can reach the database. Press `Ctrl-C` to stop the API; the database container keeps running until
 you run `docker compose down`.
 
@@ -150,12 +168,18 @@ The database starts with no public records. To add fictional, clearly marked exa
 development after migrating, run:
 
 ```sh
-npm run seed:discovery
+docker compose --profile release run --rm \
+  --volume "$PWD/scripts:/app/scripts:ro" \
+  migrate node scripts/seed-discovery.js
 ```
 
 The seed is idempotent and refuses `NODE_ENV=production`. It creates sample topics, speakers,
-and listings only. A demo replay listing has no video. In Docker development, run the seed from
-the host against the published database port, then refresh the pages. The old messages migration
+and listings only. A demo replay listing has no video. The one-off `migrate` service supplies the owner
+identity for fixture writes; the read-only script mount supplies the seed, which is not included
+in the production image. The running app keeps runtime credentials. The host script
+`npm run seed:discovery` reads `DATABASE_URL` from `.env`, whose default runtime login lacks the
+fixture writes. Use it only in a separate local operator process with an explicitly supplied owner
+URL and the configured private search path. Refresh the pages after seeding. The old messages migration
 and API remain for existing clients.
 After a first successful visit, the public shell caches a short offline explanation. It does
 not cache debate records; reconnect to see current content.
@@ -273,7 +297,10 @@ See `.env.example` for local ports and monitoring settings, and the
 
 Logs are JSON and include an `X-Request-Id` for correlation. Supply that header when tracing a
 request across services; otherwise the API generates a UUID. Authorization and cookie headers are
-redacted. Set `LOG_LEVEL` in `.env` to control verbosity.
+redacted, including outgoing Set-Cookie and named error fields. See the
+[logging incident procedure](docs/operations.md#credential-logging-follow-up-f01) for the limits
+and outstanding historical-log review. Set `LOG_LEVEL` in `.env.runtime` for host development or
+`.env` for Compose to control verbosity.
 
 ```sh
 docker compose logs --follow app
@@ -372,7 +399,7 @@ at the first record. The response contains only the authenticated user's message
 
 ## Docker
 
-Build and start the production service:
+After provisioning and migrating as described above, build and start the local production-like service:
 
 ```sh
 docker compose up --build

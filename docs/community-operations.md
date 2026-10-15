@@ -99,8 +99,8 @@ draft. An accepted unchanged retry returns the original ID without charging eith
 
 The feed keeps at most 500 visible server rows and watches up to 1,000 IDs for moderation changes.
 Unconfirmed/rejected local rows remain recoverable for the page lifetime. Catch-up drains bounded
-poll pages; the cursor advances from initial/read polling data, never POST or earlier-history
-loads. When retention evicts the latest tail while a reader stays in history, **Jump to latest**
+stream or durable HTTP batches; the room cursor advances only after applying that transport,
+never POST confirmations or earlier-history loads. When retention evicts the latest tail while a reader stays in history, **Jump to latest**
 reloads current history. Confirming a pending row reuses its DOM row and does not add unread count.
 Connection messages announce changes once, and feed announcements report brief new-message counts.
 
@@ -147,9 +147,11 @@ Case and appeal decisions are serialized by database row locks. Account writes u
 transaction lock, so parallel chat, like, and report requests cannot bypass account limits.
 The moderator API has no event-result or future-settlement method.
 
-Live read requests have a separate server limit of 600 per minute per IP so watch and chat
-polling cannot consume the lower general API allowance. That limit is for this staging
-prototype; concurrent audience load and shared-network behavior remain release checks.
+Allowlisted community/media reads now use the separate delivery admission budgets in
+[media delivery controls](media-delivery-controls.md#shared-network-admission), including
+lease/room, browser, shared-network and process bounds. These replace the earlier 600/minute/IP
+read allowance for those routes. Authenticated write and per-account limits remain separate;
+hosted concurrent audience and shared-network acceptance still require measured trials.
 
 ## Failure handling and retention
 
@@ -171,8 +173,11 @@ prototype; concurrent audience load and shared-network behavior remain release c
 ## Verification
 
 Run `npm run check` and the PostgreSQL integration exercise in the CI integration job. Locally,
-after starting PostgreSQL and applying migrations, run `node scripts/verify-community.js` with
-the local `DATABASE_URL` set. The exercise creates and removes synthetic users and a synthetic
+after building and applying migrations to a disposable local database, run
+`node scripts/verify-community.js` in an operator fixture process. Supply an owner connection
+as `DATABASE_FIXTURE_URL` and a runtime connection as both `DATABASE_URL` and
+`COMMUNITY_RUNTIME_URL`; otherwise fixture setup/cleanup can fail under runtime privileges,
+or queries use the owner and do not establish runtime-role behavior. The exercise creates and removes synthetic users and a synthetic
 event. It checks concurrent posts and likes, report limits, removal, preserved private evidence,
 restriction, pause/resume, appeal independence, and no change to event status or rule snapshot.
 

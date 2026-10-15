@@ -1,5 +1,14 @@
 # F04 verification record
 
+Current-state note — 2026-10-15: Historical October 5 pre-cutover record. Its observed privileged login and absent private
+schemas describe that snapshot, not the latest saved staging state. F04 merged in PR #20;
+the [October 7 release follow-up](../community-delivery-trial.md#authorized-release-follow-up--2026-10-07)
+records separate actual owner/runtime identities, private search path, verified client TLS and
+separate migration handling. [October 15 evidence](../replay-starter-trial-2026-10-07.md#automatic-publication-interface--2026-10-15)
+records runtime-only web/worker configuration. Actual-project Data API/exposed-schema and
+alternate-access-path acceptance remain open under the [current F04 checklist](database-isolation.md#hosted-operator-checklist--required-to-close-f04).
+The original observations and failures below are preserved.
+
 Date: **2026-10-05 UTC**. Repository work: `fix/f04-database-isolation`, additive migration
 `1791158400000_isolate_server_database`. Status: **local implementation verified; hosted SQL boundary
 NOT HARDENED; hosted API exposure UNVERIFIED; F04 remains open as a P0 deployment gate**. No hosted configuration, credential rotation,

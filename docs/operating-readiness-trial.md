@@ -1,5 +1,12 @@
 # Work Package 6 operating trial — 2026-10-02
 
+Current-state note — 2026-10-15: Historical Work Package 6 evidence, merged in [PR #17](https://github.com/Boufe/YapArena/pull/17).
+Later [community delivery trials](community-delivery-trial.md), [media playback trials](media-playback-trial.md)
+and the [hosted replay report](replay-starter-trial-2026-10-07.md) supply selected staging evidence
+that was unavailable on October 2. The [current status index](nonfinancial-implementation-plan.md#current-implementation-and-evidence)
+separates those completed checks from physical-device, provider restore, full media-load and
+other open acceptance gates. Original measurements and failures below are unchanged.
+
 ## Environment and evidence
 
 Owner for local checks: implementation maintainer. Environment: macOS host, local Docker Compose Node 24 app and PostgreSQL 18.4, Google Chrome headless at desktop 1280 × 720 and emulated phone 390 × 844. Synthetic event and account fixtures were removed after browser checks. The tested worktree started from `9464f74` on `feature/measurement-operating-readiness`; record the final commit and Render deploy ID after CI and staging deployment. Times below are UTC on 2026-10-02. Tests use local loopback and do not establish LiveKit Cloud, R2, Supabase provider backup, Render cold-start, physical mobile, or production audience behavior.

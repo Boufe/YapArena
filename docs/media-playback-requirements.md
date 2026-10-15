@@ -55,5 +55,7 @@ and [WebRTC statistics](https://www.w3.org/TR/webrtc-stats/).
 
 Release requires lifecycle automation, physical-device and accessibility trials,
 authenticated edge/browser seeking checks and sustained load in this envelope.
-Tests and configuration do not prove the targets. Existing hosting, recording,
-clock-worker ownership and financial gates remain in force.
+Tests and configuration do not prove the targets. [Delivery controls](media-delivery-controls.md)
+now implement database clock coordination, and [hosted replay trials](replay-starter-trial-2026-10-07.md)
+verify selected recording/replay paths. Those implementation and trial results do not close
+the remaining hosting, sustained-load, physical-device or financial gates.

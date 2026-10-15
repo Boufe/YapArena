@@ -4,6 +4,18 @@ Use this guide when you want a new project with its own name and GitHub reposito
 template's application, database, tests, containers, and automation. Commands in this guide run in a
 terminal. Text such as `YOUR-OWNER` is a placeholder that you must replace; do not type it literally.
 
+Current limitation — 2026-10-15: this is a legacy template workflow. YapArena's checked-in
+`.template-initialized` marker prevents rerunning the initializer, including in a direct template
+copy. Even in a disposable copy without that marker, the initializer renames role/schema strings
+in selected Compose files while provisioning, migrations and runtime checks retain fixed
+`yaparena_owner`, `yaparena_runtime` and private-schema names. It also rewrites the host
+`DATABASE_URL` to the bootstrap user. This mismatch was reproduced in a temporary generated copy;
+no generated database startup was verified. The initializer tests establish selected identity
+rewrites and rerun protection, not an end-to-end working renamed service. The CLI also has no
+interactive/default path despite the template PRD’s FR2 requirement. Prepare and verify a
+consistent template/database adaptation before using this guide for a new project. To work on
+YapArena itself, use [the current README setup](../README.md#local-development) and do not initialize it again.
+
 The [YAP Arena product PRD](product-prd.md) and its
 [specification outlines](product-specification-outlines.md) belong to this product. A separate
 project created from the repository should replace or remove those documents rather than inherit
@@ -98,7 +110,8 @@ npm ci
 ```
 
 - `cp .env.example .env` creates this computer's local runtime configuration from safe development
-  defaults. Docker Compose and `npm run dev` read `.env`. Git ignores the file, so local passwords and
+  defaults. Docker Compose reads `.env`; `npm run dev` instead reads a separate runtime-only
+  `.env.runtime` file as described in the README. Git ignores both files, so local passwords and
   overrides are not committed. If the file already exists, inspect it before replacing it.
 - `npm ci` means **clean install**. It downloads the exact dependency versions recorded in
   `package-lock.json` into `node_modules/`; it is unrelated to downloading a CI service. The lockfile
@@ -114,7 +127,8 @@ Run each command only after the previous one succeeds:
 
 ```sh
 docker compose up --detach --wait db
-docker compose run --rm --build app node node_modules/node-pg-migrate/bin/node-pg-migrate.js up
+docker compose --profile release run --rm --build provision
+docker compose --profile release run --rm migrate
 npm run check
 docker compose up --detach --build --wait app
 curl --fail http://localhost:3000/ready
@@ -123,9 +137,10 @@ curl --fail http://localhost:3000/ready
 - `docker compose up --detach --wait db` downloads PostgreSQL if necessary, starts it in a background
   container, and waits for its health check. `db` is the service name in `compose.yaml`; `--detach`
   returns control to your terminal.
-- `docker compose run --rm --build app ... up` builds the application image and runs pending database
-  migrations in a temporary container. Migrations are versioned changes that create or alter the
-  database schema. `--rm` removes that temporary container when done, not the database or its data.
+- `provision` creates/adopts separate administrative, owner and runtime boundaries; `migrate`
+  applies pending migrations in a separate owner-only process. The app uses only runtime access.
+  These commands require the template identity mismatch above to be resolved first for a renamed
+  project. `--rm` removes only the one-off container, not the database or its data.
 - `npm run check` runs linting, formatting checks, tests, and coverage thresholds. This is the same main
   source-code quality gate run by GitHub CI.
 - `docker compose up --detach --build --wait app` starts the application container in the background;
@@ -170,8 +185,10 @@ domain tests do not require a live database.
 
 The example is connected in several places: `src/features/messages/` contains its application code,
 `src/app.ts` mounts its routes, `src/server.ts` creates its repository, `tests/messages.test.js` and
-parts of `tests/app.test.js` test it, and both existing files under `migrations/` refer to its
-`messages` table. Search for `message` before removing it so those references are handled together.
+parts of `tests/app.test.js` test it, and the original message/auth migrations plus the later
+isolation/provisioning manifests reference its `messages` table. There are now many product
+migrations, not just those two originals. Search for `messages` across source, migrations,
+scripts and tests before removing it so those references are handled together.
 
 Migration history determines the safe removal path:
 

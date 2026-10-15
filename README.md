@@ -6,8 +6,20 @@ monitoring, container releases, public discovery, wallet sign-in, profiles, foll
 nonfinancial debate matching, community chat/likes/moderation, consented measurement, and live
 media with an optional automatic adaptive replay pipeline. Synthetic hosted trials cover recording,
 replay conversion/publication and selected browser recovery paths; production and physical-device
-acceptance remain open. The messages API remains an example feature. Voting, incentives, sponsor
-workflows and markets have not been implemented yet.
+acceptance remain open. The messages API remains an example feature. A4 play-money rounds, persistent Yap Coins and labeled Bots mode are described in the
+[financial operations guide](docs/financial-operations.md). Real-money markets, creator
+incentives and sponsor workflows remain unimplemented.
+
+## A4 play-money rounds
+
+Set up the owner/runtime database boundary, apply the new migrations, then follow
+[local play activation](docs/financial-operations.md#local-activation-and-exercise).
+Open `/coins` or the participation panel on a published debate. Sign-in uses the existing
+account flow; a crypto wallet is optional. Starter/refill coins and all bot funding are
+recorded, nonredeemable play issuance. Bots mode defaults to 500 synthetic participants.
+See [A4 rules](docs/a4-mechanism.md), [decision 0007](docs/decisions/0007-a4-adjusted-ftm.md)
+and the [financial implementation plan](docs/financial-implementation-plan.md).
+Default activation is disabled; no hosted migration or deployment follows from this change.
 
 ## Product direction and document authority
 

@@ -14,6 +14,7 @@ import type { loadConfig } from "./config.ts";
 
 export function createRuntime({
   app,
+  a4,
   database,
   sessions,
   identity,
@@ -34,6 +35,7 @@ export function createRuntime({
   clearIntervalFn = clearInterval,
 }: {
   app?: Express;
+  a4?: { tick(): Promise<void> };
   database: Pick<Pool, "end">;
   sessions: Pick<ReturnType<typeof createSessionRepository>, "deleteExpired">;
   identity?: Pick<
@@ -75,6 +77,9 @@ export function createRuntime({
   clearIntervalFn?: typeof clearInterval;
 }) {
   let server: Server | undefined;
+  let a4Timer: NodeJS.Timeout | undefined;
+  let a4Task: Promise<void> | undefined;
+  let a4Ticking = false;
   let cleanupTimer: NodeJS.Timeout | undefined;
   let mediaTimer: NodeJS.Timeout | undefined;
   let mediaTicking = false;
@@ -179,6 +184,22 @@ export function createRuntime({
       }
 
       if (backgroundJobs) {
+        if (a4) {
+          a4Timer = setIntervalFn(() => {
+            if (a4Ticking || stopping) return a4Task;
+            a4Ticking = true;
+            a4Task = a4
+              .tick()
+              .catch((error) =>
+                logger.error({ error }, "A4 recovery tick failed"),
+              )
+              .finally(() => {
+                a4Ticking = false;
+              });
+            return a4Task;
+          }, 1000);
+          if (app) a4Timer.unref();
+        }
         cleanupTimer = setIntervalFn(cleanupSessions, cleanupIntervalMs);
         if (app) cleanupTimer.unref();
         if (media) {
@@ -194,6 +215,8 @@ export function createRuntime({
 
     async stop() {
       stopping = true;
+      if (a4Timer) clearIntervalFn(a4Timer);
+      await a4Task;
       if (cleanupTimer) clearIntervalFn(cleanupTimer);
       if (mediaTimer) clearIntervalFn(mediaTimer);
       await Promise.all([mediaTask, mediaOperations?.stop()]);

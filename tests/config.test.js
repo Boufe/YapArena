@@ -66,6 +66,8 @@ describe("configuration", () => {
       replayPackaging,
       backgroundJobs: true,
       communityStream,
+      a4Mode: "disabled",
+      a4Funding: { starterCoins: 1000, refillCoins: 1000, botCoins: 1000 },
     });
   });
 
@@ -103,10 +105,46 @@ describe("configuration", () => {
         replayPackaging,
         backgroundJobs: true,
         communityStream,
+        a4Mode: "disabled",
+        a4Funding: { starterCoins: 1000, refillCoins: 1000, botCoins: 1000 },
       },
     );
   });
 
+  it("permits only explicit play modes and fails closed for real funds", () => {
+    for (const mode of ["disabled", "yap-coins", "bots"])
+      assert.equal(
+        loadConfig({ DATABASE_URL: databaseUrl, A4_MODE: mode }).a4Mode,
+        mode,
+      );
+    for (const mode of ["real", "fiat", "crypto", "true"])
+      assert.throws(
+        () => loadConfig({ DATABASE_URL: databaseUrl, A4_MODE: mode }),
+        /real funds/,
+      );
+  });
+  it("bounds explicit play-credit policies", () => {
+    const v = loadConfig({
+      DATABASE_URL: databaseUrl,
+      A4_STARTER_COINS: "250",
+      A4_REFILL_COINS: "50",
+      A4_BOT_COINS: "105",
+    });
+    assert.deepEqual(v.a4Funding, {
+      starterCoins: 250,
+      refillCoins: 50,
+      botCoins: 105,
+    });
+    for (const override of [
+      { A4_STARTER_COINS: "0" },
+      { A4_REFILL_COINS: "1000001" },
+      { A4_BOT_COINS: "104" },
+    ])
+      assert.throws(
+        () => loadConfig({ DATABASE_URL: databaseUrl, ...override }),
+        /A4_/,
+      );
+  });
   it("rejects an unsupported environment", () => {
     assert.throws(
       () => loadConfig({ NODE_ENV: "staging", DATABASE_URL: databaseUrl }),

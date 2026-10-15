@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import type { createDiscoveryRepository, DebateStatus } from "./repository.ts";
 import {
+  renderCoins,
   renderAbout,
   renderAccount,
   renderDebate,
@@ -84,9 +85,11 @@ function html(response: Response, body: string, status = 200) {
 
 export function createDiscoveryRouter({
   discovery,
+  a4Enabled = false,
   applicationOrigin,
 }: {
   discovery: Repository;
+  a4Enabled?: boolean;
   applicationOrigin: string;
 }) {
   const router = Router();
@@ -151,6 +154,9 @@ export function createDiscoveryRouter({
     ]);
     return html(response, renderHome(origin, debates, topics));
   });
+  router.get("/coins", (_request, response) =>
+    html(response, renderCoins(origin)),
+  );
   router.get("/match", (_request, response) =>
     html(response, renderMatchmaking(origin)),
   );
@@ -197,7 +203,7 @@ export function createDiscoveryRouter({
     const key = slug(request.params.slug);
     const debate = key ? await discovery.getDebate(key) : null;
     return debate
-      ? html(response, renderDebate(origin, debate))
+      ? html(response, renderDebate(origin, debate, a4Enabled))
       : html(response, renderNotFound(origin), 404);
   });
   router.get("/people/:handle", async (request, response) => {

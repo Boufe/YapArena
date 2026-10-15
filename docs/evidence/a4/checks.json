@@ -1,0 +1,33 @@
+{
+  "baseline": "c63308e",
+  "branch": "feat/a4-yap-coins",
+  "node": "24.19.0",
+  "postgres": "17.10",
+  "quality": {
+    "passed": 467,
+    "failed": 0,
+    "skipped": 0,
+    "lineCoverage": 98.14,
+    "branchCoverage": 92.83,
+    "functionCoverage": 95.69
+  },
+  "a4Postgres": {
+    "fresh": 15,
+    "upgrade": 15,
+    "runtimeIdentity": "yaparena_runtime",
+    "ownerFixtures": "separate owner connection",
+    "backendTerminationRecovery": true
+  },
+  "botScenario": {
+    "population": 500,
+    "freshCreateSettleMs": 110,
+    "upgradeCreateSettleMs": 110
+  },
+  "community": "local PostgreSQL/runtime/browser + 500 streams, 30 seconds PASS",
+  "replay": "local PostgreSQL + FFmpeg + stalled-heartbeat shutdown PASS",
+  "activation": "disabled by default",
+  "hostedMigration": false,
+  "hostedDeployment": false,
+  "realFunds": false,
+  "physicalDeviceEvidence": false
+}

@@ -4,6 +4,14 @@ Version 1.0 · September 29, 2026 · Companion to the [YAP Arena product PRD](pr
 
 This document contains four separate specification outlines and a pre-funds acceptance checklist. It is an implementation brief, not an approved technical design. **Confirmed** refers to founder choices in the PRD; **Proposed** and **Open decision** require explicit resolution. Mathematical deductions and prototype options below are reviewer analysis. Source identifiers P1–P9 refer to the linked primary sources listed at the end.
 
+**Later A4 decision (October 15, 2026):** [Decision 0007](decisions/0007-a4-adjusted-ftm.md)
+selects A4 adjusted FTM for nonredeemable Yap Coins and labeled Bots mode. Its
+[exact mechanism](a4-mechanism.md) supersedes the historical event money-share movement,
+paired issuance/matching, clipped payout curve and special draw refunds for A4. The historical
+rules below remain provenance, not the A4 implementation contract. A4 neither chooses a debate
+winner nor implements the ongoing market or sponsor/creator payouts. Other product decisions
+and real-fund release dependencies remain unchanged. See [current financial work](financial-implementation-plan.md).
+
 ## A. Event-market economics specification outline
 
 ### A1. Purpose, definitions, and source of truth

@@ -1,0 +1,30 @@
+{
+  "base": "isolated loopback web runtime",
+  "viewport": [1440, 1000, 390, 844],
+  "account": "synthetic email registration",
+  "population": 500,
+  "humanParticipants": 1,
+  "checks": [
+    "starter coins",
+    "NO conversion review",
+    "keyboard dialog focus",
+    "binding submit",
+    "reload receipt",
+    "pause/run/step/speed",
+    "sealed response",
+    "worker settlement",
+    "paginated revealed diagnostics",
+    "bot-only observer",
+    "archive/reset isolation",
+    "mobile overflow",
+    "axe WCAG A/AA"
+  ],
+  "accessibility": [],
+  "errors": [],
+  "screenshots": [
+    "inline-debate-desktop.png",
+    "commitment-desktop.png",
+    "settled-desktop.png",
+    "settled-mobile.png"
+  ]
+}

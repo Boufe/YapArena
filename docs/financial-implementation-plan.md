@@ -19,8 +19,12 @@ No executable A3/A4 simulator was found. External simulator parity is unverified
 The engine, private-schema migrations, balanced ledger/reservations, durable lifecycle,
 account/session authorization, APIs, debate integration, receipts and bot controls are implemented
 on this branch. [Local acceptance evidence](evidence/a4/acceptance-2026-10-15.md) records actual
-quality, PostgreSQL, browser, community and replay results. Hosted/device/paid acceptance remains
-open. The runbook documents default-off local activation and operational recovery.
+quality, PostgreSQL, browser, community and replay results. A subsequent founder-authorized
+[staging functional trial](https://github.com/Boufe/YapArena/pull/31) deployed `fcb162d`
+and verified one 500-bot/one-human round through settlement. Wider hosted capacity,
+physical-device and paid acceptance remain open. The [live/replay workspace](debate-workspace.md)
+records the later UI extension and its separate evidence. The runbook documents
+default-off configuration and operational recovery.
 
 ## Work packages
 
@@ -55,4 +59,6 @@ Provider/custody, currencies/chains, chargebacks/reorgs, withdrawal authorizatio
 operational epsilon/fee/capacity policy, five-day event schedule, related-party access,
 post-finality correction reserves, creator rewards and the ongoing instrument remain dependencies.
 Affected boundaries: `funding.ts`, asset registry, session configuration, account lifecycle,
-ledger reversal policy and paid-mode activation. No hosted migration, deployment or merge is authorized.
+ledger reversal policy and paid-mode activation. The original coding task reserved hosted
+changes; its subsequent staging trial was explicitly authorized. Merging and real-fund
+activation remain separate decisions.

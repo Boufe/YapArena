@@ -18,6 +18,7 @@ import { renderModeration, renderMyModeration, renderOverlay } from "./web.ts";
 import type { ProductActionRecorder } from "../measurement/router.ts";
 import type { createCommunityStreams } from "./streams.ts";
 import { parseRoomCursor } from "./delivery.ts";
+import { createPlaybackPresence } from "./presence.ts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const submissionUuid =
@@ -108,6 +109,7 @@ export function createCommunityRouter({
   streams?: Pick<ReturnType<typeof createCommunityStreams>, "subscribe">;
 }) {
   const router = Router();
+  const presence = createPlaybackPresence();
   const participant = createRequireRole(identity, ["participant"]);
   const moderator = createRequireRole(identity, ["moderator"]);
   // Guests keep public reads; authenticated authors opt into private correlation.
@@ -151,6 +153,30 @@ export function createCommunityRouter({
     response.type("html").send(renderModeration()),
   );
 
+  router.post(
+    "/api/community/events/:id/presence",
+    async (request, response) => {
+      const id = pathId(request);
+      const value = request.body;
+      if (
+        !id ||
+        !value ||
+        typeof value !== "object" ||
+        Object.keys(value).some((k) => k !== "connection" && k !== "active") ||
+        typeof value.connection !== "string" ||
+        !submissionUuid.test(value.connection) ||
+        typeof value.active !== "boolean"
+      )
+        return response
+          .status(400)
+          .json({ error: "invalid playback presence" });
+      // The same publication gate used by public community reads runs first.
+      return attempt(response, async () => {
+        await community.summary(id);
+        return presence.heartbeat(id, value.connection, value.active);
+      });
+    },
+  );
   router.get("/api/community/events/:id", async (request, response) => {
     const id = pathId(request);
     if (!id) return response.status(404).json({ error: "event not found" });

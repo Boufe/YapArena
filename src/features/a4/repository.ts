@@ -33,6 +33,7 @@ import {
 } from "./ledger.ts";
 import { generateBots } from "./bots.ts";
 import { requirePlayAsset } from "./funding.ts";
+import { readTimeline } from "./timeline.ts";
 
 export type PlayFundingPolicy = {
   starterCoins: number;
@@ -1152,6 +1153,12 @@ export function createA4Repository(
             : {}),
         };
       }, actor);
+    },
+    async timeline(actor: Actor, debateId: string, scope: "human" | "sandbox") {
+      return transaction(
+        (client) => readTimeline(client, actor.userId, debateId, scope),
+        actor,
+      );
     },
     async list(actor: Actor, debateId?: string, offset = 0) {
       return transaction(async (client) => {

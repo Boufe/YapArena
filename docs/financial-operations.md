@@ -1,5 +1,11 @@
 # Yap Coins operations
 
+The founder-authorized October 15 [staging trial](https://github.com/Boufe/YapArena/pull/31)
+applied the three A4 migrations separately as owner, then deployed `fcb162d` with
+runtime-only credentials and `A4_MODE=bots`. This is a recorded play-mode trial,
+not a change to the default-off configuration. The [live/replay workspace](debate-workspace.md)
+extends that UI without schema changes; its dated evidence records its own checks.
+
 The [mechanism](a4-mechanism.md) and [implementation plan](financial-implementation-plan.md)
 govern play rounds. No deposits, cash-out, minting, conversion or real payment adapters exist.
 

@@ -76,6 +76,28 @@ export function createA4Router(
     legacyHeaders: false,
   });
   router.get("/wallet", async (r, s) => s.json(await a4.wallet(actor(r))));
+  router.get("/debates/:id/workspace", async (r, s) => {
+    const current = actor(r),
+      debateId = id(r.params.id);
+    const runId = r.query.runId === undefined ? undefined : id(r.query.runId);
+    const runs = await a4.list(current, debateId);
+    const run = runId ? await a4.view(current, runId, 0, 1) : null;
+    if (run && (run.debateId !== debateId || run.mode === "observer"))
+      throw new A4Error("run not found", 404);
+    const wallet = run ?? (await a4.wallet(current));
+    const timeline = await a4.timeline(
+      current,
+      debateId,
+      run?.mode === "mixed" ? "sandbox" : "human",
+    );
+    return s.json({ accountId: current.userId, run, wallet, runs, timeline });
+  });
+  router.get("/debates/:id/timeline", async (r, s) => {
+    const scope = r.query.scope ?? "human";
+    if (scope !== "human" && scope !== "sandbox")
+      throw new A4Error("invalid timeline scope", 400);
+    return s.json(await a4.timeline(actor(r), id(r.params.id), scope));
+  });
   router.get("/history", async (r, s) =>
     s.json(await a4.history(actor(r), page(r.query.offset, 10000, 0))),
   );

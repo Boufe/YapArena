@@ -144,6 +144,49 @@ function fixture({
 }
 
 describe("community API and share surfaces", () => {
+  it("reports bounded ephemeral playback tabs through the publication gate", async () => {
+    const { app } = fixture({ signedIn: false });
+    const path = `/api/community/events/${eventId}/presence`,
+      connection = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    assert.equal(
+      (await request(app).post(path).send({ connection, active: true })).body
+        .activePlaybackTabs,
+      1,
+    );
+    assert.equal(
+      (await request(app).post(path).send({ connection, active: true })).body
+        .activePlaybackTabs,
+      1,
+    );
+    assert.equal(
+      (await request(app).post(path).send({ connection, active: false })).body
+        .activePlaybackTabs,
+      0,
+    );
+    for (const body of [
+      {},
+      { connection, active: "true" },
+      { connection: "bad", active: true },
+      { connection, active: true, userId: "1" },
+    ])
+      assert.equal((await request(app).post(path).send(body)).status, 400);
+    assert.equal(
+      (
+        await request(app)
+          .post("/api/community/events/bad/presence")
+          .send({ connection, active: true })
+      ).status,
+      400,
+    );
+    const hidden = fixture({
+      failure: new CommunityNotFoundError("event not found"),
+    });
+    assert.equal(
+      (await request(hidden.app).post(path).send({ connection, active: true }))
+        .status,
+      404,
+    );
+  });
   it("serves public durable recovery and validates private owner reconciliation", async () => {
     const { app, auth, calls } = fixture();
     await request(app)

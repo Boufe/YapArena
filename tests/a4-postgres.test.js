@@ -140,6 +140,76 @@ describe(
       await pool?.end();
       await owner?.end();
     });
+    it("charts only finalized settlements, separates private creators and excludes observer/pending information", async () => {
+      const a = await actor(),
+        b = await actor();
+      const first = await run(a, { population: 10 }),
+        other = await run(b, { population: 10 });
+      assert.deepEqual((await a4.timeline(a, debateId, "sandbox")).items, []);
+      await a4.control(a, key(), first.id, "step");
+      assert.deepEqual((await a4.timeline(a, debateId, "sandbox")).items, []);
+      await finish(first.id);
+      await finish(other.id);
+      const own = await a4.timeline(a, debateId, "sandbox");
+      assert.equal(own.items.length, 1);
+      assert.equal(own.items[0].runId, first.id);
+      assert.equal(own.items[0].bots, 10);
+      assert.equal(own.totals.botCommitments, 10);
+      assert.deepEqual((await a4.timeline(a, debateId, "human")).items, []);
+      assert.equal(
+        (await a4.timeline(b, debateId, "sandbox")).items[0].runId,
+        other.id,
+      );
+      const observer = await run(a, { population: 10 }, "observer");
+      await finish(observer.id);
+      assert.equal((await a4.timeline(a, debateId, "sandbox")).items.length, 1);
+      const human = await run(a, { population: 0 }, "human");
+      await a4.submit(a, key(), human.rounds[0].id, {
+        side: "YES",
+        limit: "1",
+        quantity: 1,
+        rule: human.config.rule,
+      });
+      await a4.submit(b, key(), human.rounds[0].id, {
+        side: "NO",
+        limit: "0",
+        quantity: 1,
+        rule: human.config.rule,
+      });
+      await finish(human.id);
+      const settled = await a4.timeline(b, debateId, "human");
+      assert.equal(settled.items.length, 1);
+      assert.equal(settled.items[0].humans, 2);
+      assert.equal(settled.items[0].bots, 0);
+      assert.deepEqual(settled.items[0].share, { n: "1", d: "2" });
+      assert.equal(settled.totals.premium, "1000001");
+      for (const item of settled.items)
+        for (const secret of [
+          "seed",
+          "snapshot",
+          "user_id",
+          "pricing",
+          "outcome",
+          "payout",
+          "net",
+        ])
+          assert.equal(item[secret], undefined);
+      await owner.query(
+        "UPDATE topics SET publication_state='draft' WHERE id=$1",
+        [topicId],
+      );
+      try {
+        await assert.rejects(
+          a4.timeline(a, debateId, "human"),
+          /debate not found/,
+        );
+      } finally {
+        await owner.query(
+          "UPDATE topics SET publication_state='published' WHERE id=$1",
+          [topicId],
+        );
+      }
+    });
     it("uses actual sessions, persistent starter credit, binding review and idempotent receipts", async () => {
       const a = await actor(),
         api = app();

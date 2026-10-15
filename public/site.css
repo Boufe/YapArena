@@ -1,12 +1,12 @@
 :root {
   color-scheme: dark;
-  --bg: #0d0e10;
-  --panel: #17191c;
-  --line: #35383b;
-  --text: #f3f1ed;
-  --muted: #a7a9a8;
-  --acid: #d4f35a;
-  --orange: #f4a978;
+  --bg: #050c15;
+  --panel: #0b1723;
+  --line: #1c3040;
+  --text: #f0f4fa;
+  --muted: #9aabbd;
+  --acid: #40e5a1;
+  --orange: #80caff;
   font-family: Arial, Helvetica, sans-serif;
   font-synthesis: none;
 }

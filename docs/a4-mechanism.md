@@ -106,8 +106,10 @@ sandbox rounds, refunding reservations and center backing; locked/priced obligat
 normally. A new run has a new scope and recorded funding. Void does not publish sealed books
 early. No post-settlement reversal policy or ordinary-user cancellation API is implied.
 
-The debate's compact panel supports inline round selection, balance/refill, labeled 500-bot
-creation and the same exact review/commit flow, while existing media/chat remain mounted.
+The [live/replay workspace](debate-workspace.md) supports inline round selection,
+balance/refill, labeled 500-bot creation and the same exact review/commit flow while
+media/chat remain mounted. Its authenticated timeline charts only final, revealed
+settlements; human activity and the creator's own bot sandboxes stay separate.
 The full `/coins` page supplies advanced run controls and paginated diagnostics in a separate tab.
 
 ## Bots and research

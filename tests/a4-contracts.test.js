@@ -381,6 +381,7 @@ function apiFixture(error) {
   const a4 = { mode: "bots" };
   for (const method of [
     "wallet",
+    "timeline",
     "history",
     "list",
     "create",
@@ -392,6 +393,7 @@ function apiFixture(error) {
     a4[method] = async (...args) => {
       calls.push([method, ...args]);
       if (error) throw error;
+      if (method === "view") return { ok: true, debateId: id, mode: "mixed" };
       return { ok: true };
     };
   const app = createApp({
@@ -413,9 +415,58 @@ function apiFixture(error) {
       .set("Cookie", "session=synthetic-cookie")
       .set("Idempotency-Key", "test-key-123")
       .send(body);
-  return { app, call, calls };
+  return { app, call, calls, a4 };
 }
 describe("A4 HTTP contracts", () => {
+  it("combines workspace reads into one account-bound response and rejects unrelated/observer runs", async () => {
+    const f = apiFixture();
+    assert.equal(
+      (await request(f.app).get(`/api/a4/debates/${id}/workspace`)).status,
+      401,
+    );
+    const empty = await f.call("get", `debates/${id}/workspace`);
+    assert.equal(empty.status, 200);
+    assert.equal(empty.body.accountId, "1");
+    assert.equal(empty.body.run, null);
+    assert.equal(f.calls.findLast((c) => c[0] === "timeline")[3], "human");
+    const run = await f.call("get", `debates/${id}/workspace?runId=${id}`);
+    assert.equal(run.status, 200);
+    assert.equal(run.body.run.mode, "mixed");
+    assert.equal(f.calls.findLast((c) => c[0] === "timeline")[3], "sandbox");
+    f.a4.view = async () => ({ debateId: id, mode: "observer" });
+    assert.equal(
+      (await f.call("get", `debates/${id}/workspace?runId=${id}`)).status,
+      404,
+    );
+    f.a4.view = async () => ({ debateId: "other", mode: "human" });
+    assert.equal(
+      (await f.call("get", `debates/${id}/workspace?runId=${id}`)).status,
+      404,
+    );
+    assert.equal(
+      (await f.call("get", `debates/${id}/workspace?runId=bad`)).status,
+      404,
+    );
+  });
+  it("authenticates settlement timelines and rejects arbitrary scope selectors", async () => {
+    const f = apiFixture();
+    assert.equal(
+      (await request(f.app).get(`/api/a4/debates/${id}/timeline`)).status,
+      401,
+    );
+    for (const suffix of ["", "?scope=sandbox"]) {
+      const response = await f.call("get", `debates/${id}/timeline${suffix}`);
+      assert.equal(response.status, 200);
+      assert.match(response.headers["cache-control"], /private, no-store/);
+      assert.equal(f.calls.at(-1)[0], "timeline");
+      assert.equal(f.calls.at(-1)[1].userId, "1");
+    }
+    assert.equal(
+      (await f.call("get", `debates/${id}/timeline?scope=observer`)).status,
+      400,
+    );
+    assert.equal((await f.call("get", `debates/bad/timeline`)).status, 404);
+  });
   it("derives actors from auth and converts NO ceilings exactly through all routes", async () => {
     const f = apiFixture();
     for (const path of [

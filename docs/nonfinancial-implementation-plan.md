@@ -12,6 +12,11 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+The [live/replay workspace](debate-workspace.md) adds the navy theme, shared
+search/balance header, settlement chart, round navigation and video enlargement.
+Its [dated evidence](evidence/debate-workspace/acceptance-2026-10-15.md) distinguishes
+local UI/database verification from hosted and physical-device media acceptance.
+
 Audited 2026-10-15 against fetched `origin/main` at `a9e803f` (merged
 [PR #29](https://github.com/Boufe/YapArena/pull/29)). This section is the implementation status
 index; the work-package criteria below remain requirements, not a list of missing features.

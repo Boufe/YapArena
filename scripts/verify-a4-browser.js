@@ -1,3 +1,4 @@
+import { verifyArenaBrowser } from "./verify-arena-browser.js";
 /* global window, document */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -285,6 +286,18 @@ try {
     `${artifactDir}/browser-evidence.json`,
     `${JSON.stringify({ base: "isolated loopback web runtime", viewport: [1440, 1000, 390, 844], account: "synthetic email registration", population: 500, humanParticipants: 1, checks: ["starter coins", "NO conversion review", "keyboard dialog focus", "binding submit", "reload receipt", "pause/run/step/speed", "sealed response", "worker settlement", "paginated revealed diagnostics", "bot-only observer", "archive/reset isolation", "mobile overflow", "axe WCAG A/AA"], accessibility, errors, screenshots }, null, 2)}\n`,
   );
+  await owner.query(
+    "UPDATE debates SET status='live',proposition='Should cities prioritize walkability over cars?' WHERE id=$1",
+    [debate],
+  );
+  await verifyArenaBrowser({
+    base,
+    context,
+    debateSlug: `a4-browser-${tag}`,
+    artifactDir: `${artifactDir}/arena`,
+    setReplay: () =>
+      owner.query("UPDATE debates SET status='replay' WHERE id=$1", [debate]),
+  });
   console.log(`A4 browser PASS; evidence ${artifactDir}`);
 } finally {
   await browser?.close();

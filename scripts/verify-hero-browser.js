@@ -10,6 +10,7 @@ import express from "express";
 import { chromium } from "playwright-core";
 import axe from "axe-core";
 import { createDiscoveryRouter } from "../dist/features/discovery/router.js";
+import { buildReplayThumbnail } from "../dist/features/media/replay-thumbnail.js";
 
 // Component trial only: synthetic local media, no hosted target or account writes.
 const directory = "/private/tmp/yaparena-hero-browser";
@@ -33,6 +34,8 @@ await promisify(execFile)("ffmpeg", [
   "-an",
   videoPath,
 ]);
+const thumbnailPath = join(fixtures, "thumbnail.jpg");
+await buildReplayThumbnail(videoPath, thumbnailPath);
 const topic = {
   id: "11111111-1111-4111-8111-111111111111",
   slug: "cities",
@@ -71,6 +74,9 @@ app.use(
   express.static(new URL("../public/", import.meta.url).pathname),
 );
 app.get("/fixture.webm", (_r, s) => s.sendFile(videoPath));
+app.get("/api/media/events/:id/thumbnail", (_r, s) =>
+  s.sendFile(thumbnailPath),
+);
 app.get("/api/media/events/:id/replay", (_r, s) => {
   grants++;
   if (deny) return s.status(404).json({ error: "unavailable" });
@@ -157,6 +163,23 @@ try {
   );
   await page.screenshot({ path: directory + "/desktop.png", fullPage: true });
   await page.getByRole("button", { name: "Pause video preview" }).click();
+  await page.waitForFunction(
+    () => document.querySelector("[data-featured-thumbnail]").naturalWidth > 0,
+  );
+  await page.waitForFunction(
+    () =>
+      Number(
+        window.getComputedStyle(document.querySelector("[data-featured-media]"))
+          .opacity,
+      ) === 0,
+  );
+  assert.equal(await page.locator(".arena-featured-backdrop").count(), 0);
+  assert.match(
+    await page.locator("[data-featured-thumbnail]").getAttribute("src"),
+    new RegExp(`/events/${debate.id}/thumbnail`),
+  );
+  await page.screenshot({ path: directory + "/thumbnail.png", fullPage: true });
+  checks.pausedPreviewShowsOwnRecordingThumbnail = true;
   assert.equal(
     await page
       .locator("[data-featured-video]")
@@ -257,6 +280,12 @@ try {
     () => new Promise((resolve) => window.setTimeout(resolve, 2000)),
   );
   assert.equal(grants, beforeSaved);
+  assert.equal(
+    await saved
+      .locator("[data-featured-thumbnail]")
+      .evaluate((image) => image.naturalWidth > 0),
+    true,
+  );
   checks.saveDataSkipsAutoplay = true;
   deny = true;
   await saved.getByRole("button", { name: "Play video preview" }).click();

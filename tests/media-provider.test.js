@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 import { S3Client } from "@aws-sdk/client-s3";
+import { Readable } from "node:stream";
 import { EgressStatus } from "@livekit/protocol";
 import {
   EgressClient,
@@ -22,6 +23,16 @@ const config = {
   s3AccessKey: "synthetic-key",
   s3SecretKey: "synthetic-secret",
 };
+it("reads a small private thumbnail without exposing signed recording URLs", async (t) => {
+  const jpeg = Buffer.from([255, 216, 255, 0, 255, 217]);
+  t.mock.method(S3Client.prototype, "send", async (command) => {
+    assert.equal(command.constructor.name, "GetObjectCommand");
+    assert.equal(command.input.Key, `debates/${id}/recording/thumbnail.jpg`);
+    return { ContentLength: jpeg.length, Body: Readable.from([jpeg]) };
+  });
+  const bytes = await createMediaProvider(config).thumbnail(recording);
+  assert.deepEqual(Buffer.from(bytes), jpeg);
+});
 it("gates HLS access on package completion and delivers captions only to private storage", async (t) => {
   const commands = [];
   t.mock.method(S3Client.prototype, "send", async (command) => {

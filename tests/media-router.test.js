@@ -106,6 +106,10 @@ function fixture(overrides = {}) {
     async replayAccess(key) {
       return { url: await this.replayUrl(key), expiresIn: 3600 };
     },
+    async thumbnail() {
+      calls.push("thumbnail");
+      return Buffer.from([255, 216, 255, 0, 255, 217]);
+    },
     async publishCaptions() {
       calls.push("publishCaptions");
     },
@@ -153,6 +157,34 @@ function fixture(overrides = {}) {
 }
 
 describe("media API", () => {
+  it("serves a recording thumbnail only for a published verified replay without issuing a media grant", async () => {
+    const f = fixture();
+    const path = `/api/media/events/${id}/thumbnail`;
+    assert.equal((await request(f.app).get(path)).status, 404);
+    f.event.status = "replay";
+    f.state.recordingStatus = "ready";
+    const image = await request(f.app).get(path);
+    assert.equal(image.status, 200);
+    assert.match(image.headers["content-type"], /image\/jpeg/);
+    assert.equal(image.headers["cache-control"], "no-store");
+    assert.deepEqual(image.body, Buffer.from([255, 216, 255, 0, 255, 217]));
+    f.event.publicationState = "hidden";
+    assert.equal((await request(f.app).get(path)).status, 404);
+    assert.equal(f.calls.filter((call) => call === "thumbnail").length, 1);
+    assert.equal(
+      (await request(f.app).get("/api/media/events/BAD/thumbnail")).status,
+      404,
+    );
+    f.event.publicationState = "published";
+    f.provider.thumbnail = async () => {
+      throw new Error("private storage detail");
+    };
+    const missing = await request(f.app).get(path);
+    assert.equal(missing.status, 404);
+    assert.doesNotMatch(missing.text, /private storage/);
+    f.media.getPublicEvent = async () => null;
+    assert.equal((await request(f.app).get(path)).status, 404);
+  });
   it("shows only published state and restricts viewer grants to live events", async () => {
     const f = fixture();
     assert.equal(

@@ -24,12 +24,14 @@ export function createReplayWorker({
   logger,
   options = {},
   packageMedia = buildReplayPackage,
+  idleWork,
 }: {
   jobs: ReturnType<typeof createReplayJobs>;
   storage: ReturnType<typeof createReplayStorage>;
   logger: Pick<Logger, "info" | "warn">;
   options?: ReplayWorkerOptions;
   packageMedia?: typeof buildReplayPackage;
+  idleWork?: (signal: AbortSignal) => Promise<void>;
 }) {
   const limits = {
     concurrency: 1,
@@ -197,6 +199,15 @@ export function createReplayWorker({
       const results = await Promise.allSettled(work);
       for (const result of results)
         if (result.status === "rejected") throw result.reason;
+      if (!stopped && idleWork) {
+        const controller = new AbortController();
+        controllers.add(controller);
+        try {
+          await idleWork(controller.signal);
+        } finally {
+          controllers.delete(controller);
+        }
+      }
     })().finally(() => {
       ticking = undefined;
     });

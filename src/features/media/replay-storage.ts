@@ -3,6 +3,7 @@ import { createReadStream } from "node:fs";
 import { lstat, open } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Readable } from "node:stream";
+import { createReplayThumbnailStorage } from "./replay-thumbnail.ts";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   DeleteObjectsCommand,
@@ -179,6 +180,7 @@ export function createReplayStorage(
     throw new ReplayFailure("upload_retry_exhausted");
   }
   return Object.freeze({
+    thumbnails: createReplayThumbnailStorage(config, client),
     async download(
       sourceKey: string,
       destination: string,

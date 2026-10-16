@@ -16,6 +16,8 @@ The [homepage preview](homepage-preview.md) features a muted live/replay hero,
 ranked by revealed human Yap Coins volume, with deferred playback and hover entry.
 Its [dated evidence](evidence/homepage-preview/2026-10-16.md) separates local
 component checks from the user's staging acceptance.
+The [thumbnail update](evidence/homepage-preview/thumbnail-2026-10-16.md) uses each
+recording's own image while the preview is inactive and backfills existing replays.
 The [live/replay workspace](debate-workspace.md) adds the navy theme, shared
 search/balance header, settlement chart, round navigation and video enlargement.
 The [October 16 inspector update](evidence/debate-workspace/inspector-2026-10-16.md)

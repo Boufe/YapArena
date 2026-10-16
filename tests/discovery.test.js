@@ -109,6 +109,11 @@ describe("public discovery", () => {
     );
     const home = await request(configured).get("/");
     assert.match(home.text, /data-featured-preview/);
+    assert.match(
+      home.text,
+      /data-featured-thumbnail src="\/api\/media\/events\/[a-f0-9-]+\/thumbnail"/,
+    );
+    assert.doesNotMatch(home.text, /<div class="arena-featured-backdrop"/);
     assert.match(home.text, /data-mode="live"/);
     assert.match(home.text, /Should &lt;cities&gt; change\?/);
     assert.match(home.text, /B &amp; C/);

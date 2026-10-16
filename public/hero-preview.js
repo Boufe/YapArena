@@ -6,6 +6,7 @@ import { createReplayLibraryLoader } from "./media-replay-library.js";
 const root = document.querySelector("[data-featured-preview]");
 if (root) {
   const link = root.querySelector("[data-featured-open]"),
+    thumbnail = root.querySelector("[data-featured-thumbnail]"),
     video = root.querySelector("[data-featured-video]"),
     toggle = root.querySelector("[data-featured-toggle]"),
     status = root.querySelector("[data-featured-status]"),
@@ -20,6 +21,8 @@ if (root) {
     abort,
     budget,
     startup,
+    thumbnailTimer,
+    thumbnailRetries = 0,
     failed = false,
     pageHidden = false;
   const loadHls = createReplayLibraryLoader({
@@ -27,6 +30,37 @@ if (root) {
     source: root.dataset.hlsSource,
     getLibrary: () => window.yapReplayHls,
   });
+  function retryThumbnail() {
+    if (
+      !thumbnail.hidden ||
+      thumbnailTimer ||
+      pageHidden ||
+      document.hidden ||
+      thumbnailRetries >= 3
+    )
+      return;
+    thumbnailTimer = window.setTimeout(() => {
+      thumbnailTimer = undefined;
+      if (pageHidden || document.hidden) return;
+      thumbnailRetries++;
+      const source = new URL(thumbnail.src);
+      source.searchParams.set("retry", String(thumbnailRetries));
+      thumbnail.src = source.href;
+    }, 5000);
+  }
+  thumbnail.addEventListener("load", () => {
+    thumbnail.hidden = false;
+    window.clearTimeout(thumbnailTimer);
+    thumbnailTimer = undefined;
+  });
+  thumbnail.addEventListener("error", () => {
+    thumbnail.hidden = true;
+    retryThumbnail();
+  });
+  if (thumbnail.complete && !thumbnail.naturalWidth) {
+    thumbnail.hidden = true;
+    retryThumbnail();
+  }
   const allowed = () =>
     !paused &&
     !failed &&
@@ -187,6 +221,17 @@ if (root) {
     }
   });
   document.addEventListener("visibilitychange", reconcile);
+  document.addEventListener("visibilitychange", retryThumbnail);
+  video.addEventListener("waiting", () => {
+    root.dataset.playing = "false";
+    cancelIntent();
+  });
+  video.addEventListener("pause", () => {
+    if (root.dataset.playing === "true" && active) {
+      paused = true;
+      stop();
+    }
+  });
   window.addEventListener("offline", reconcile);
   window.addEventListener("online", () => {
     failed = false;
@@ -202,11 +247,14 @@ if (root) {
   });
   window.addEventListener("pagehide", () => {
     pageHidden = true;
+    window.clearTimeout(thumbnailTimer);
+    thumbnailTimer = undefined;
     stop();
   });
   window.addEventListener("pageshow", () => {
     pageHidden = false;
     reconcile();
+    retryThumbnail();
   });
   const observer = new IntersectionObserver(
     ([entry]) => {

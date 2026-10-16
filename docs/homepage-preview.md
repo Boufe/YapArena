@@ -25,6 +25,29 @@ path. Normal publication and media eligibility are checked again by the existing
 viewer-token/replay endpoints. Selection is recalculated on each homepage visit.
 No schema migration, public database grant or new dependency is required.
 
+## Recording thumbnails
+
+The featured recording's own JPEG thumbnail sits behind the video and remains
+visible while playback loads, buffers, pauses or is disabled. The YES/NO text
+backdrop is removed from featured debates. The page requests one small image from
+`GET /api/media/events/:id/thumbnail`, without initializing a video decoder or SDK.
+That endpoint rechecks the public debate/topic and verified replay, serves at most
+300 KB from private storage and never exposes a recording key or signed media URL.
+
+The existing replay worker generates thumbnails after its encoding batch drains.
+It scans eligible ready packages, downloads only their first 720p segment (at most
+4 MB), and extracts a representative 960×540 JPEG. FFmpeg runs only in the encoder,
+with one thread, a ten-second process limit and a 25-second task deadline. Each
+image uses an immutable key derived from its source recording. Existing packages
+are backfilled without re-encoding recordings; stored images survive restarts.
+Completion hints are bounded and failures retry after five minutes. No database
+migration, new worker or hosting-plan change is needed.
+
+If a thumbnail is still being generated, the browser makes at most three delayed
+retries while visible. Without a usable image, the question stays on plain navy;
+it never substitutes artwork from another debate. A live event without a completed
+recording has no derived recording thumbnail yet.
+
 ## Playback and entry
 
 The small homepage controller waits for page load and idle time before obtaining
@@ -66,6 +89,7 @@ recency ties, live priority and hidden/private/pending exclusions.
 ```sh
 A4_QUALITY=true DATABASE_TEST_MODE=host node scripts/verify-database-isolation.js
 node scripts/verify-hero-browser.js
+REPLAY_POSTGRES_MODE=host node scripts/verify-replay-pipeline.js
 ```
 
 The browser trial serves synthetic WebM on loopback. It checks actual muted

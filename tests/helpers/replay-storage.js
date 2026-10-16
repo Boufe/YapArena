@@ -6,10 +6,16 @@ export function replayStorageFixture(onCommand = async () => {}, retry = {}) {
   const objects = new Map();
   const commands = [];
   let closed = false;
-  const put = (key, body, metadata = {}) =>
+  const put = (
+    key,
+    body,
+    metadata = {},
+    contentType = "application/octet-stream",
+  ) =>
     objects.set(key, {
       body: Buffer.from(body),
       metadata,
+      contentType,
       etag: `"${createHash("sha256").update(body).digest("hex")}"`,
     });
   const client = {
@@ -30,20 +36,34 @@ export function replayStorageFixture(onCommand = async () => {}, retry = {}) {
             ContentLength: object.body.length,
             ETag: object.etag,
             Metadata: object.metadata,
+            ContentType: object.contentType,
           };
         case "GetObjectCommand":
-          if (!object || command.input.IfMatch !== object.etag)
+          if (
+            !object ||
+            (command.input.IfMatch !== undefined &&
+              command.input.IfMatch !== object.etag)
+          )
             throw new Error("synthetic precondition");
-          return { Body: Readable.from([object.body]) };
+          return {
+            Body: Readable.from([object.body]),
+            ContentLength: object.body.length,
+          };
         case "PutObjectCommand": {
           if (objects.has(Key))
             throw Object.assign(new Error("synthetic immutable precondition"), {
               $metadata: { httpStatusCode: 412 },
             });
           const chunks = [];
-          if (typeof Body === "string") chunks.push(Buffer.from(Body));
+          if (typeof Body === "string" || Body instanceof Uint8Array)
+            chunks.push(Buffer.from(Body));
           else for await (const chunk of Body) chunks.push(chunk);
-          put(Key, Buffer.concat(chunks), command.input.Metadata);
+          put(
+            Key,
+            Buffer.concat(chunks),
+            command.input.Metadata,
+            command.input.ContentType,
+          );
           return {};
         }
         case "ListObjectsV2Command":

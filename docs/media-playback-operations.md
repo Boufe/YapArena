@@ -1,5 +1,11 @@
 # Adaptive playback and recovery
 
+The [homepage thumbnail flow](homepage-preview.md#recording-thumbnails) uses the
+existing encoder after encoding work drains. It backfills JPEGs from ready HLS
+segments without re-encoding recordings or running FFmpeg in the web process.
+Thumbnails share the source recording's private storage namespace; the public
+image endpoint rechecks publication and replay eligibility on every request.
+
 The original media checkpoint `1bc118f` was integrated as `095e997`, then merged with the
 security fixes, SSE and automatic replay in [PR #27](https://github.com/Boufe/YapArena/pull/27).
 That playback checkpoint had no media schema changes; the later automatic encoder requires

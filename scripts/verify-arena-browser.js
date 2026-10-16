@@ -67,6 +67,10 @@ export async function verifyArenaBrowser({
     await page.goto(base + "/debates/" + debateSlug);
     if (await dismiss.isVisible()) await dismiss.click();
     await page.locator("[data-inline-access]").waitFor({ state: "visible" });
+    await page
+      .locator("[data-arena-sync]")
+      .filter({ hasText: "Connected" })
+      .waitFor();
     if (
       (await page.locator("[data-inline-setup]").getAttribute("open")) === null
     )
@@ -113,13 +117,39 @@ export async function verifyArenaBrowser({
       { timeout: 45000 },
     );
     checks.chartUpdatedAfterRealSettlements = true;
+    const history = await api(`a4/debates/${debate.id}/timeline?scope=sandbox`),
+      first = history.items[0],
+      latest = history.items.at(-1);
+    async function expectInspection(point) {
+      await page.waitForFunction(
+        (id) =>
+          document.querySelector("[data-chart-badges]").dataset.roundId ===
+            id && document.querySelector("[data-price-round]").value === id,
+        point.id,
+      );
+      const yes = (100 * Number(point.share.n)) / Number(point.share.d);
+      assert.equal(
+        await page.locator('[data-chart-badge="yes"] text').textContent(),
+        `${yes.toFixed(0)}%`,
+      );
+      assert.equal(
+        await page.locator('[data-chart-badge="no"] text').textContent(),
+        `${(100 - yes).toFixed(0)}%`,
+      );
+      assert.equal(
+        await page.locator("[data-price-yes]").textContent(),
+        `${((100 * Number(point.offer.n)) / Number(point.offer.d)).toFixed(2)}¢`,
+      );
+      assert.match(
+        await page.locator("[data-price-context]").textContent(),
+        new RegExp(`Round ${point.number}`),
+      );
+    }
+    await expectInspection(latest);
     const beforeHover = await page.locator("[data-inline-runs]").inputValue();
-    await page.locator("[data-chart-round]").first().hover();
-    await page.locator("[data-chart-tooltip]").waitFor({ state: "visible" });
-    assert.match(
-      await page.locator("[data-chart-tooltip]").textContent(),
-      /YES .*NO .*Offered p:/,
-    );
+    await page.locator(`[data-chart-round="${first.id}"]`).hover();
+    await expectInspection(first);
+    assert.equal(await page.locator("[data-chart-tooltip]").count(), 0);
     assert.match(
       await page.locator("[data-chart-cursor]").textContent(),
       /R\d+.*(Opening case|Cost analysis)/,
@@ -133,6 +163,43 @@ export async function verifyArenaBrowser({
       await page.locator("[data-inline-runs]").inputValue(),
       beforeHover,
     );
+    const response = await page.waitForResponse(
+      (r) =>
+        r.url().includes(`/api/a4/debates/${debate.id}/workspace`) &&
+        r.request().method() === "GET",
+    );
+    await response.finished();
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          window.requestAnimationFrame(() =>
+            window.requestAnimationFrame(resolve),
+          ),
+        ),
+    );
+    await expectInspection(first);
+    const graphBounds = await page.locator(".arena-chart").boundingBox(),
+      scaleBounds = await page.locator(".arena-price-scale").boundingBox();
+    assert.ok(
+      Math.abs(scaleBounds.y - graphBounds.y - graphBounds.height) <= 4,
+      "median scale directly adjoins the X-axis canvas",
+    );
+    assert.equal(
+      await page
+        .locator(".arena-price-inspector")
+        .evaluate(
+          (node) =>
+            node.firstElementChild.matches(".arena-price-scale") &&
+            node.previousElementSibling.matches(".arena-chart-plot"),
+        ),
+      true,
+    );
+    await page.screenshot({ path: directory + "/hover.png", fullPage: true });
+    await page.locator(".arena-chart-question").hover();
+    await expectInspection(latest);
+    assert.equal(await page.locator("[data-chart-cursor] > *").count(), 0);
+    checks.latestBadgesAndMedianRestoreTogether = true;
+    checks.hoverSurvivesRefreshAndScaleAdjoinsAxis = true;
     const sidebar = await page.locator("[data-arena-sidecar]").boundingBox(),
       graph = await page.locator("[data-arena-graph-main]").boundingBox();
     assert.ok(

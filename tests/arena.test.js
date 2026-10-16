@@ -7,11 +7,24 @@ import {
   chartPoints,
   nearestRound,
   roundProgress,
+  chartBadges,
 } from "../public/arena-chart.js";
 import { roundPrices, priceText } from "../public/arena-price.js";
 import { runConfig } from "../dist/features/a4/repository.js";
 
 describe("settlement dashboard boundaries", () => {
+  it("keeps dynamic YES/NO badges readable at crossing, extreme and empty rounds", () => {
+    for (const n of [0, 1, 49, 50, 51, 99, 100]) {
+      const badges = chartBadges({ n: String(n), d: "100" });
+      assert.equal(badges[0].value, n);
+      assert.equal(badges[1].value, 100 - n);
+      assert.ok(Math.abs(badges[0].y - badges[1].y) >= 32);
+      assert.ok(badges.every((b) => b.y >= 30 && b.y <= 266));
+      if (n > 50) assert.ok(badges[0].y < badges[1].y);
+      if (n < 50) assert.ok(badges[0].y > badges[1].y);
+    }
+    assert.ok(chartBadges(null).every((b) => b.value === null));
+  });
   it("derives the countdown from round timestamps and clamps before opening and after cutoff", () => {
     const opens = "2026-10-16T04:00:00Z",
       closes = "2026-10-16T04:01:00Z";

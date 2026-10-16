@@ -17,6 +17,8 @@ search/balance header, settlement chart, round navigation and video enlargement.
 The [October 16 inspector update](evidence/debate-workspace/inspector-2026-10-16.md)
 adds right-column participation, median/offered-price inspection, argument labels
 and hover markers, and a round countdown bar.
+The [hover refinement](evidence/debate-workspace/hover-2026-10-16.md) places the
+median scale directly under the X axis and synchronizes it with the numeric badges.
 Its [dated evidence](evidence/debate-workspace/acceptance-2026-10-15.md) distinguishes
 local UI/database verification from hosted and physical-device media acceptance.
 

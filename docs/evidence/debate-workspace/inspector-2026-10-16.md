@@ -1,5 +1,9 @@
 # Compact participation and round inspector — October 16, 2026
 
+Current-state note: the [subsequent hover refinement](hover-2026-10-16.md) moves
+the scale directly below the X axis and replaces the plot's floating text card
+with synchronized numeric badges. The evidence below records the earlier layout.
+
 This extends the [October 15 workspace](acceptance-2026-10-15.md) on
 `feat/neon-debate-dashboard`, using the user's screenshots and countdown request.
 The [workspace contract](../../debate-workspace.md) describes current behavior.

@@ -59,14 +59,14 @@ export function createPriceInspector(root, onSelect) {
       : "Start or select a round to inspect its offered price.";
     el("yes").textContent = priceText(p.offer);
     el("no").textContent = priceText(p.noOffer);
-    const x = (value) => 36 + value * 6.48;
+    const x = (value) => 46 + value * 6.06;
     if (p.interval)
       drawing.append(
         node("line", {
           x1: x(p.a),
           x2: x(p.b),
-          y1: 49,
-          y2: 49,
+          y1: 28,
+          y2: 28,
           class: "arena-price-interval",
         }),
       );
@@ -75,8 +75,8 @@ export function createPriceInspector(root, onSelect) {
         node(
           "text",
           {
-            x: Math.max(150, Math.min(570, x((p.a + p.b) / 2))),
-            y: 90,
+            x: Math.max(150, Math.min(558, x((p.a + p.b) / 2))),
+            y: 66,
             "text-anchor": "middle",
           },
           `Median interval ${priceText(p.a)}–${priceText(p.b)}`,
@@ -90,8 +90,8 @@ export function createPriceInspector(root, onSelect) {
       const marker = node("line", {
         x1: x(value),
         x2: x(value),
-        y1: 38,
-        y2: 60,
+        y1: 19,
+        y2: 37,
         class: "arena-price-median",
       });
       marker.append(node("title", {}, `${label}: ${priceText(value)}`));
@@ -106,8 +106,8 @@ export function createPriceInspector(root, onSelect) {
       const marker = node("line", {
         x1: x(value),
         x2: x(value),
-        y1: kind === "limit" ? 15 : 29,
-        y2: 75,
+        y1: kind === "limit" ? 2 : 8,
+        y2: 46,
         class: `arena-price-${kind}`,
       });
       marker.append(
@@ -122,7 +122,7 @@ export function createPriceInspector(root, onSelect) {
         drawing.append(
           node("circle", {
             cx: x(value),
-            cy: 49,
+            cy: 28,
             r: 7,
             class: "arena-price-offer-dot",
           }),
@@ -132,7 +132,7 @@ export function createPriceInspector(root, onSelect) {
             "text",
             {
               x: Math.max(105, Math.min(615, x(value))),
-              y: 17,
+              y: 10,
               "text-anchor": "middle",
               class: "arena-price-offer-label",
             },
@@ -163,8 +163,8 @@ export function createPriceInspector(root, onSelect) {
       select.disabled = true;
       show(null);
     },
-    update(data, selectedId, pending = []) {
-      points = [...data.items, ...pending];
+    update(data, selectedId) {
+      points = data.items;
       const next = JSON.stringify(
         points.map((p) => [p.id, p.number, p.argumentLabel, p.state]),
       );

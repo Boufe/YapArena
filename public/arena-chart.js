@@ -25,6 +25,24 @@ export function nearestRound(points, x) {
   );
 }
 
+export function chartBadges(share) {
+  const yes = sharePercent(share);
+  const badges = [
+    { side: "yes", value: yes },
+    { side: "no", value: yes === null ? null : 100 - yes },
+  ].map((badge) => ({
+    ...badge,
+    y: Math.max(30, Math.min(266, 284 - (badge.value ?? 50) * 2.5 - 13)),
+  }));
+  if (Math.abs(badges[0].y - badges[1].y) < 32) {
+    const middle = (badges[0].y + badges[1].y) / 2;
+    const yesAbove = (yes ?? 50) >= 50;
+    badges[0].y = middle + (yesAbove ? -16 : 16);
+    badges[1].y = middle + (yesAbove ? 16 : -16);
+  }
+  return badges;
+}
+
 export function roundProgress(opensAt, closesAt, now = Date.now()) {
   const opens = new Date(opensAt).getTime(),
     closes = new Date(closesAt).getTime();
@@ -46,7 +64,7 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
   const ticks = root.querySelector("[data-chart-ticks]");
   const empty = root.querySelector("[data-chart-empty]");
   const cursor = root.querySelector("[data-chart-cursor]");
-  const tooltip = root.querySelector("[data-chart-tooltip]");
+  const badges = root.querySelector("[data-chart-badges]");
   const svg = (name, attributes = {}, text) => {
     const node = document.createElementNS("http://www.w3.org/2000/svg", name);
     for (const [key, value] of Object.entries(attributes))
@@ -57,17 +75,51 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
   let revision,
     points = [],
     inspected;
+  function renderBadges(point) {
+    badges.replaceChildren();
+    badges.dataset.roundId = point?.id ?? "";
+    if (!point) return;
+    for (const { side, value, y } of chartBadges(point.share)) {
+      const group = svg("g", {
+        role: "img",
+        "data-chart-badge": side,
+        "aria-label": `Round ${point.number}: ${side.toUpperCase()} ${value === null ? "unavailable" : value.toFixed(2) + "%"}`,
+      });
+      group.append(
+        svg("rect", {
+          x: 662,
+          y,
+          width: 55,
+          height: 27,
+          rx: 6,
+          class: `arena-chart-badge ${side}`,
+        }),
+        svg(
+          "text",
+          {
+            x: 689,
+            y: y + 18,
+            "text-anchor": "middle",
+            class: "arena-chart-badge-text",
+          },
+          value === null ? "—" : `${value.toFixed(0)}%`,
+        ),
+      );
+      badges.append(group);
+    }
+  }
   function inspect(point) {
     inspected = point?.id;
     cursor.replaceChildren();
-    tooltip.hidden = !point;
+    const displayed = point ?? points.at(-1);
+    renderBadges(displayed);
+    onInspect(displayed ?? null);
     for (const group of series.querySelectorAll("[data-chart-round]"))
       group.classList.toggle(
         "is-inspected",
         group.dataset.chartRound === point?.id,
       );
     if (!point) {
-      onInspect(null);
       return;
     }
     cursor.append(
@@ -118,21 +170,6 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
         `◆ R${point.number} · ${label.length > 27 ? label.slice(0, 26) + "…" : label}`,
       ),
     );
-    const title = document.createElement("strong"),
-      argument = document.createElement("span"),
-      rates = document.createElement("span"),
-      offer = document.createElement("span");
-    title.textContent = `Round ${point.number}`;
-    argument.textContent = label;
-    rates.textContent =
-      point.yes === null
-        ? "No locked endorsements"
-        : `YES ${point.yes.toFixed(2)}% · NO ${(100 - point.yes).toFixed(2)}%`;
-    const price = sharePercent(point.offer);
-    offer.textContent = `Offered p: ${price === null ? "—" : price.toFixed(2) + "¢"}`;
-    tooltip.replaceChildren(title, argument, rates, offer);
-    tooltip.style.left = `${Math.max(2, Math.min(58, (point.x / 720) * 100 - 15))}%`;
-    onInspect(point);
   }
   function fromPointer(event) {
     const transform = canvas.getScreenCTM();
@@ -150,9 +187,10 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
       return null;
     return nearestRound(points, position.x);
   }
-  canvas.addEventListener("pointermove", (event) =>
-    inspect(fromPointer(event)),
-  );
+  canvas.addEventListener("pointermove", (event) => {
+    const point = fromPointer(event);
+    if (point?.id !== inspected) inspect(point);
+  });
   canvas.addEventListener("pointerleave", () => inspect(null));
   canvas.addEventListener("click", (event) => {
     const point = fromPointer(event);
@@ -170,7 +208,8 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
       series.replaceChildren();
       ticks.replaceChildren();
       cursor.replaceChildren();
-      tooltip.hidden = true;
+      badges.replaceChildren();
+      delete badges.dataset.roundId;
       points = [];
       inspected = undefined;
       empty.hidden = false;
@@ -178,14 +217,16 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
     },
     render(data, selectedId) {
       const nextRevision = `${data.revision}:${selectedId}`;
-      if (nextRevision === revision) return;
+      if (nextRevision === revision) {
+        inspect(points.find((p) => p.id === inspected));
+        return;
+      }
       revision = nextRevision;
       const oldInspection = inspected;
       points = chartPoints(data.items);
       series.replaceChildren();
       ticks.replaceChildren();
       cursor.replaceChildren();
-      tooltip.hidden = true;
       empty.hidden = points.some((p) => p.yes !== null);
       empty.textContent = "Results will appear as rounds settle.";
       for (const side of ["yes", "no"]) {
@@ -271,13 +312,6 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
             fill: "transparent",
           }),
         );
-        group.append(
-          svg(
-            "title",
-            {},
-            `Round ${point.number} · ${point.argumentLabel || "Argument not labeled"} · ${new Date(point.settledAt).toLocaleString()}`,
-          ),
-        );
         group.addEventListener("focus", () => inspect(point));
         group.addEventListener("keydown", (event) => {
           if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
@@ -306,37 +340,10 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
         });
         series.append(group);
       }
-      const last = points.findLast((p) => p.yes !== null);
-      if (last)
-        for (const [side, value] of [
-          ["yes", last.yes],
-          ["no", 100 - last.yes],
-        ]) {
-          const y = Math.max(30, Math.min(266, 284 - value * 2.5 - 13));
-          series.append(
-            svg("rect", {
-              x: 662,
-              y,
-              width: 55,
-              height: 27,
-              rx: 6,
-              class: `arena-chart-badge ${side}`,
-            }),
-          );
-          series.append(
-            svg(
-              "text",
-              {
-                x: 689,
-                y: y + 18,
-                "text-anchor": "middle",
-                class: "arena-chart-badge-text",
-              },
-              `${value.toFixed(0)}%`,
-            ),
-          );
-        }
-      if (oldInspection) inspect(points.find((p) => p.id === oldInspection));
+      inspect(points.find((p) => p.id === oldInspection));
+    },
+    preview(id) {
+      inspect(points.find((p) => p.id === id));
     },
   };
 }

@@ -32,20 +32,30 @@ original bounds. Keyboard focus stays inside the enlarged video until restored.
   remain inside the repository transactions. No existing rate limit is increased.
 - Every chart point is the exact unweighted YES share for one final round; NO is
   its complement. Empty rounds break the line and have no invented percentage.
-  Hover/touch/focus inspects the nearest round, with a crosshair, YES/NO rates,
-  offered price and an X-axis diamond naming its round and argument. Inspection
+  Hover/touch/focus inspects the nearest round. The existing green/red numeric
+  badges show that round's YES/NO rates, while its offer/medians appear on the
+  scale immediately below the X axis inside the same graph panel. The argument
+  diamond stays below the axis; no floating text card covers the plot. Inspection
   never switches the commitment target; clicking or Enter selects the round's run
   and its own receipts. Arrow keys, Home/End and the price inspector's round picker
   provide keyboard navigation. Hovering does not issue backend requests.
   Visible tabs refresh every five seconds, including after the selected run completes.
   A reconnect catches up from durable PostgreSQL state. No speculative values,
   pending counts, provisional payouts, hidden books or secret seeds enter the feed.
+- The price scale is the first element after the X-axis canvas; its heading,
+  navigation and compact summaries follow it. The graph badges and scale share
+  one inspection state. They show the latest settled round by default and restore
+  it on pointer leave/focus exit, including after a historical commitment target
+  was selected. A background refresh preserves an ongoing hover, and a new
+  settlement updates both default displays together. Empty latest rounds show
+  unavailable rates rather than substituting an older round or a fictitious share.
 - The inspector below the graph replaces the old horizontal round strip. It shows
   the settled median NO floor and YES ceiling, offered YES price and complementary
   NO price, final YES share and the signed-in user's own YES-scale limit. Missing
   sides and nonpositive median intervals are labeled explicitly; fallback offers
-  may lie outside the reported medians. Pending selections show only already
-  permitted offers and the user's own limit, with medians/final rates sealed.
+  may lie outside the reported medians. It inspects settled chart history; the
+  current commitment form and countdown continue to represent their active run.
+  Pending medians/final rates remain sealed.
   Prices on this scale use hundredths of one Yap Coin, denoted `¢`, with no cash value.
 - A horizontal countdown inside the chart section derives its remaining fraction
   from the round's actual opening/cutoff timestamps. It updates every second,

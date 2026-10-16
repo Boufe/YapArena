@@ -40,8 +40,7 @@ if (root) {
     selectedRound,
     busy = false,
     listSignature,
-    pinnedPrice,
-    inspectedPrice;
+    defaultPrice;
   const selectRound = (item) =>
     act(async () => {
       selectedRound = item.id;
@@ -49,10 +48,12 @@ if (root) {
       await list(run.id);
       await refresh();
     });
-  const prices = createPriceInspector(root, selectRound);
+  const prices = createPriceInspector(root, (item) => {
+    chart.preview(item.id);
+    selectRound(item);
+  });
   const chart = createRoundChart(root, selectRound, (point) => {
-    inspectedPrice = point;
-    prices.show(point ?? pinnedPrice);
+    prices.show(point ?? defaultPrice);
   });
   function clearPrivate() {
     userId = null;
@@ -67,8 +68,7 @@ if (root) {
     el("access").hidden = true;
     el("receipt").textContent = "Sign in to view your commitments.";
     ui("history").textContent = "Sign in to view your history.";
-    pinnedPrice = null;
-    inspectedPrice = null;
+    defaultPrice = null;
     prices.clear();
     ui("volume").textContent = "— Yap Coins";
     ui("participants").textContent = "Finalized commitments";
@@ -110,8 +110,7 @@ if (root) {
       ) {
         timeline = null;
         chart.clear("This debate's settled history is unavailable.");
-        pinnedPrice = null;
-        inspectedPrice = null;
+        defaultPrice = null;
         prices.clear();
         ui("volume").textContent = "— Yap Coins";
         ui("participants").textContent = "History unavailable";
@@ -234,27 +233,8 @@ if (root) {
         : run
           ? "The round is processing. Your existing commitment remains recorded."
           : "Choose a round or start a sandbox to participate.";
-    const pendingPrices = (run?.rounds.filter((r) => !r.revealed) ?? []).map(
-      (r, i) => ({
-        ...r,
-        runId: run.id,
-        number: (timeline?.items.at(-1)?.number ?? 0) + i + 1,
-        argumentLabel: run.config.argumentLabel,
-        ownLimit: r.receipt?.limit ?? null,
-        share: null,
-        medianNo: null,
-        medianYes: null,
-      }),
-    );
-    pinnedPrice =
-      [...timeline.items, ...pendingPrices].find(
-        (r) => r.id === selectedRound,
-      ) ?? timeline.items.at(-1);
-    prices.update(timeline, selectedRound, pendingPrices);
-    if (inspectedPrice) {
-      inspectedPrice = timeline.items.find((r) => r.id === inspectedPrice.id);
-      prices.show(inspectedPrice ?? pinnedPrice);
-    }
+    defaultPrice = timeline.items.at(-1);
+    prices.update(timeline, defaultPrice?.id);
     countdown();
   }
   function countdown() {

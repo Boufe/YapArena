@@ -155,6 +155,10 @@ jobs:
             migrate node scripts/verify-measurement.js
 
           curl --fail --silent --show-error http://localhost:3000/ \
+            | grep --fixed-strings 'class="arena-home-logo"'
+          curl --fail --silent --show-error http://localhost:3000/live \
+            | grep --fixed-strings '/topics/ai-and-human-creativity'
+          curl --fail --silent --show-error http://localhost:3000/debates \
             | grep --fixed-strings 'can-ai-make-us-more-creative'
           curl --fail --silent --show-error \
             'http://localhost:3000/api/public/debates?status=scheduled&limit=2' \

@@ -108,6 +108,8 @@ policy, live subscription/cleanup and HLS preview limits. The disposable databas
 quality gate supplies the existing explicit A4 database URLs to the featured
 ranking test, which refuses hosted databases. It verifies volume beats likes,
 recency ties, live priority and hidden/private/pending exclusions.
+The CI integration smoke check verifies the logo at `/` and seeded discovery
+content at `/live`, alongside the existing public API checks.
 
 ```sh
 A4_QUALITY=true DATABASE_TEST_MODE=host node scripts/verify-database-isolation.js

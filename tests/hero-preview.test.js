@@ -5,6 +5,7 @@ import { createHeroLive } from "../public/hero-live.js";
 import {
   createHoverIntent,
   previewAutoplayAllowed,
+  selectPreview,
 } from "../public/hero-policy.js";
 
 it("suppresses automatic video for motion, data and very slow connection preferences", () => {
@@ -14,6 +15,21 @@ it("suppresses automatic video for motion, data and very slow connection prefere
   for (const effectiveType of ["2g", "slow-2g"])
     assert.equal(previewAutoplayAllowed({ effectiveType }), false);
   assert.equal(previewAutoplayAllowed({ effectiveType: "4g" }), true);
+});
+
+it("runs one eligible preview, keeps selection stable and honors deliberate selection", () => {
+  const hero = { eligible: () => true };
+  let visible = true;
+  const card = { eligible: () => visible };
+  const hidden = { eligible: () => false };
+  const previews = [hero, card, hidden];
+  assert.equal(selectPreview(previews), hero);
+  assert.equal(selectPreview(previews, card), card);
+  assert.equal(selectPreview(previews, hero, card), card);
+  assert.equal(selectPreview(previews, hero, hidden), hero);
+  visible = false;
+  assert.equal(selectPreview(previews, card, hidden), hero);
+  assert.equal(selectPreview([hidden]), undefined);
 });
 
 it("requires a continuous hover and cancels or restarts its entry countdown", () => {

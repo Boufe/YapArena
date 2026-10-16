@@ -8,6 +8,14 @@ export function previewAutoplayAllowed({
   );
 }
 
+// Keep one eligible preview until it leaves view, or the viewer deliberately
+// selects another. Stable selection avoids reconnecting while merely scrolling.
+export function selectPreview(previews, current, preferred) {
+  if (preferred?.eligible()) return preferred;
+  if (current?.eligible()) return current;
+  return previews.find((preview) => preview.eligible());
+}
+
 export function createHoverIntent({
   open,
   schedule = setTimeout,

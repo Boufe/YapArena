@@ -1,3 +1,4 @@
+import { renderVideoDebateCard } from "./video-card-web.ts";
 import { renderFeaturedDebate } from "./featured-web.ts";
 import { renderDebateWorkspace } from "./debate-web.ts";
 import { randomUUID } from "node:crypto";
@@ -59,7 +60,7 @@ function layout(
   metadata = "",
   bodyClass = "",
 ) {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark"><title>${escape(title)} · YAP Arena</title><meta name="description" content="${escape(description)}"><link rel="canonical" href="${escape(canonical)}">${metadata}<link rel="stylesheet" href="${asset("site.css")}"><link rel="stylesheet" href="${asset("arena.css")}"><script defer src="${asset("site.js")}"></script><script defer src="${asset("measurement.js")}"></script></head><body class="${escape(bodyClass)}"><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><div class="container nav arena-nav"><a class="brand" href="/" aria-label="YAP Arena home"><svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/><path d="M9 35 31 5"/></svg><span>YAP ARENA</span></a><nav aria-label="Main navigation"><a href="/debates?status=live">Live</a><a href="/debates">Explore</a><a href="/match">Create</a></nav><form class="arena-header-search" action="/debates" method="get" role="search"><label class="sr-only" for="header-search">Search debates</label><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="header-search" type="search" name="q" maxlength="80" placeholder="Search debates…"><button type="submit" class="sr-only">Search</button></form><div class="arena-header-account"><details class="arena-wallet-menu"><summary aria-label="Yap Coins balance and actions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8V5H5a2 2 0 0 1 0-4h13v4M3 3v16a2 2 0 0 0 2 2h15V8H5a2 2 0 0 1-2-2m17 5h-6v6h6"/></svg><span data-header-balance>Yap Coins</span><span class="arena-chevron" aria-hidden="true">⌄</span></summary><div class="arena-wallet-popover"><strong>Your play balance</strong><span data-header-reserved>Sign in to view balances.</span><a href="/coins">Balances &amp; activity →</a><a href="/account">Manage account →</a></div></details><a href="/account" class="arena-avatar" data-header-account aria-label="Your account">↗</a></div></div></header><main id="main">${content}</main><footer class="site-footer"><div class="container footer-inner"><span>YAP ARENA <span class="muted">/ Ideas under pressure.</span></span><span><a href="/topics">Topics</a> · <a href="/coins">Yap Coins</a> · <a href="/about">About</a> · Play money</span></div></footer></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark"><title>${escape(title)} · YAP Arena</title><meta name="description" content="${escape(description)}"><link rel="canonical" href="${escape(canonical)}">${metadata}<link rel="stylesheet" href="${asset("site.css")}"><link rel="stylesheet" href="${asset("arena.css")}"><script defer src="${asset("site.js")}"></script><script defer src="${asset("measurement.js")}"></script></head><body class="${escape(bodyClass)}"><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><div class="container nav arena-nav"><a class="brand" href="/" aria-label="YAP Arena home"><svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/><path d="M9 35 31 5"/></svg><span>YAP ARENA</span></a><nav aria-label="Main navigation"><a href="/live">Live</a><a href="/debates">Explore</a><a href="/match">Create</a></nav><form class="arena-header-search" action="/debates" method="get" role="search"><label class="sr-only" for="header-search">Search debates</label><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="header-search" type="search" name="q" maxlength="80" placeholder="Search debates…"><button type="submit" class="sr-only">Search</button></form><div class="arena-header-account"><details class="arena-wallet-menu"><summary aria-label="Yap Coins balance and actions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8V5H5a2 2 0 0 1 0-4h13v4M3 3v16a2 2 0 0 0 2 2h15V8H5a2 2 0 0 1-2-2m17 5h-6v6h6"/></svg><span data-header-balance>Yap Coins</span><span class="arena-chevron" aria-hidden="true">⌄</span></summary><div class="arena-wallet-popover"><strong>Your play balance</strong><span data-header-reserved>Sign in to view balances.</span><a href="/coins">Balances &amp; activity →</a><a href="/account">Manage account →</a></div></details><a href="/account" class="arena-avatar" data-header-account aria-label="Your account">↗</a></div></div></header><main id="main">${content}</main><footer class="site-footer"><div class="container footer-inner"><span>YAP ARENA <span class="muted">/ Ideas under pressure.</span></span><span><a href="/topics">Topics</a> · <a href="/coins">Yap Coins</a> · <a href="/about">About</a> · Play money</span></div></footer></body></html>`;
 }
 
 function badge(debate: PublicDebate) {
@@ -96,17 +97,27 @@ function listPath(
   return `${base}${base.includes("?") ? "&" : "?"}${parameters}`;
 }
 
-export function renderHome(
-  origin: string,
-  debates: PublicList<PublicDebate>,
-  topics: PublicList<PublicTopic>,
-  featured: PublicDebate | null = null,
-) {
-  const content = `${renderFeaturedDebate(featured, assetRevision)}<section class="container section"><div class="section-heading"><div><span class="eyebrow">01 / THE CONVERSATION</span><h2>Debates to watch</h2></div><a class="text-link" href="/debates">All debates <span aria-hidden="true">↗</span></a></div>${debates.items.length ? `<div class="card-grid">${debates.items.map(debateCard).join("")}</div>` : `<div class="empty-state"><h3>No public debates yet.</h3><p>Published debates will appear here when they are ready.</p></div>`}</section><section class="container section"><div class="section-heading"><div><span class="eyebrow">02 / EXPLORE IDEAS</span><h2>Topics in play</h2></div><a class="text-link" href="/topics">All topics <span aria-hidden="true">↗</span></a></div>${topics.items.length ? `<div class="card-grid">${topics.items.map(topicCard).join("")}</div>` : `<div class="empty-state"><h3>No public topics yet.</h3><p>Published topics will appear here when they are ready.</p></div>`}</section><section class="container note-band"><span class="eyebrow">ABOUT THIS PREVIEW</span><p>YAP Arena is under development. Demo listings are examples, not real events. Profiles, wallet sign-in, and follows are available. Live debate and replay require configured media. Yap Coins and labeled bot rounds are available when enabled; real funds are unavailable.</p></section>`;
+export function renderHome(origin: string) {
   return layout(
-    "Ideas under pressure",
-    "Discover public debates and topics on YAP Arena.",
+    "Home",
+    "YAP Arena. Ideas under pressure.",
     `${origin}/`,
+    `<a class="arena-home-logo" href="/live" aria-label="YAP Arena — explore live debates"><svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/><path d="M9 35 31 5"/></svg><h1>YAP ARENA</h1></a>`,
+    "",
+    "arena-home",
+  );
+}
+
+export function renderLive(
+  origin: string,
+  debates: PublicDebate[],
+  topics: PublicList<PublicTopic>,
+) {
+  const content = `${renderFeaturedDebate(debates[0] ?? null, assetRevision)}<section class="container section"><div class="section-heading"><div><span class="eyebrow">01 / THE CONVERSATION</span><h2>Debates to watch</h2></div><a class="text-link" href="/debates">All debates <span aria-hidden="true">↗</span></a></div>${debates.length ? `<div class="card-grid arena-video-grid">${debates.map((debate) => renderVideoDebateCard(debate, assetRevision)).join("")}</div>` : `<div class="empty-state"><h3>No watchable debates yet.</h3><p>Live debates and ready replays will appear here.</p></div>`}</section><section class="container section"><div class="section-heading"><div><span class="eyebrow">02 / EXPLORE IDEAS</span><h2>Topics in play</h2></div><a class="text-link" href="/topics">All topics <span aria-hidden="true">↗</span></a></div>${topics.items.length ? `<div class="card-grid">${topics.items.map(topicCard).join("")}</div>` : `<div class="empty-state"><h3>No public topics yet.</h3><p>Published topics will appear here when they are ready.</p></div>`}</section><section class="container note-band"><span class="eyebrow">ABOUT THIS PREVIEW</span><p>YAP Arena is under development. Demo listings are examples, not real events. Profiles, wallet sign-in, and follows are available. Live debate and replay require configured media. Yap Coins and labeled bot rounds are available when enabled; real funds are unavailable.</p></section>${debates.length ? `<script type="module" src="${asset("hero-preview.js")}"></script>` : ""}`;
+  return layout(
+    "Live",
+    "Discover public debates and topics on YAP Arena.",
+    `${origin}/live`,
     content,
   );
 }

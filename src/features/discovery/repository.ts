@@ -125,12 +125,11 @@ const debateJoins = `FROM debates d
   LEFT JOIN public_profiles pb ON pb.id = d.speaker_b_profile_id AND pb.publication_state = 'published'`;
 
 export function createDiscoveryRepository(database: Pool) {
-  return Object.freeze({
-    async getFeaturedDebate(): Promise<PublicDebate | null> {
-      // Rank recent playable debates by revealed human YAP premium volume.
-      // Media access is still reauthorized by the normal playback endpoints.
-      const result = await database.query<DebateRow>(
-        `WITH candidates AS MATERIALIZED (
+  async function watchableDebates(limit: number): Promise<PublicDebate[]> {
+    // Rank recent playable debates by revealed human YAP premium volume.
+    // Media access is still reauthorized by the normal playback endpoints.
+    const result = await database.query<DebateRow>(
+      `WITH candidates AS MATERIALIZED (
           SELECT ${debateColumns},
             CASE WHEN d.status = 'live' THEN 0 ELSE 1 END AS priority,
             COALESCE(d.live_started_at, d.live_ended_at, d.created_at) AS recent
@@ -154,9 +153,17 @@ export function createDiscoveryRepository(database: Pool) {
               ORDER BY r.revealed_at DESC, r.id DESC LIMIT 100
             ) settled JOIN a4_submissions o ON o.round_id = settled.id
             WHERE o.kind = 'human' AND (o.outcome->>'executed')::boolean), 0) DESC,
-          c.recent DESC, c.id DESC LIMIT 1`,
-      );
-      return result.rows[0] ? mapDebate(result.rows[0]) : null;
+          c.recent DESC, c.id DESC LIMIT $1`,
+      [limit],
+    );
+    return result.rows.map(mapDebate);
+  }
+  return Object.freeze({
+    async getFeaturedDebate(): Promise<PublicDebate | null> {
+      return (await watchableDebates(1))[0] ?? null;
+    },
+    async listWatchableDebates(): Promise<PublicDebate[]> {
+      return watchableDebates(9);
     },
     async listTopics({
       query = "",

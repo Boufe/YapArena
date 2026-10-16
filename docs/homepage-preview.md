@@ -1,8 +1,15 @@
-# Featured debate preview
+# Live discovery and debate previews
 
-The homepage replaces its introductory illustration with a full-width, navy
-video hero. Its question, topic, speakers and opposing positions are rendered
-with the HTML. A configured live broadcast takes priority; otherwise a playable
+The former homepage content now lives at `/live`, reached through the shared
+Live navigation link. `/` contains a centered YapArena logo linking to Live,
+with the shared navigation and footer; it performs no discovery or media query.
+The Live page retains the full-width navy video hero, Topics in play and preview
+note. Under Debates to watch, video cards replace the former text panels while
+keeping the three-column grid, 14px gutters and 320px minimum card height
+(two columns on tablet, one on mobile). Footage fills the card with `object-fit: cover`; its question, topic, state and public speakers sit over a navy gradient.
+
+The hero uses the first playable debate in the ranked feed. Its question, topic,
+speakers and opposing positions are rendered with the HTML. A configured live broadcast takes priority; otherwise a playable
 replay is explicitly labeled. Fictional demos, hidden debates/topics and unready
 recordings are excluded. With no eligible media, a branded static hero retains
 discovery links and makes no media request. There is no Watch now button.
@@ -17,19 +24,22 @@ Fees, reservations, failed/unexecuted commitments, pending rounds, future reveal
 times, private mixed Bots sandboxes and observer runs contribute nothing. Likes
 do not affect selection. A newer debate wins a zero-volume or equal-volume tie.
 This is play-coin volume, not cash or a new real-fund feature. No totals or private
-receipt details are embedded in the homepage.
+receipt details are embedded in the page.
 
 Selection uses existing indexed debate/session/round/submission relationships.
 The SQL has bounded candidate/settled windows and no provider request on the HTML
 path. Normal publication and media eligibility are checked again by the existing
-viewer-token/replay endpoints. Selection is recalculated on each homepage visit.
+viewer-token/replay endpoints. A single ranked query returns up to nine debates
+for the hero and cards on each Live visit. Upcoming listings remain accessible through Explore; the video feed
+excludes unready media instead of pretending those listings are playing.
 No schema migration, public database grant or new dependency is required.
 
 ## Recording thumbnails
 
-The featured recording's own JPEG thumbnail sits behind the video and remains
+Each recording's own JPEG thumbnail sits behind its video and remains
 visible while playback loads, buffers, pauses or is disabled. The YES/NO text
-backdrop is removed from featured debates. The page requests one small image from
+backdrop is removed from featured debates. Card images are lazy-loaded; each
+preview requests its small image from
 `GET /api/media/events/:id/thumbnail`, without initializing a video decoder or SDK.
 That endpoint rechecks the public debate/topic and verified replay, serves at most
 300 KB from private storage and never exposes a recording key or signed media URL.
@@ -50,9 +60,9 @@ recording has no derived recording thumbnail yet.
 
 ## Playback and entry
 
-The small homepage controller waits for page load and idle time before obtaining
-media. It renders into reserved hero space. LiveKit is imported only for an actual
-live preview; the HLS library loads only for a replay needing it. Native replay
+The shared preview controller waits for page load and idle time before obtaining
+media. It renders into reserved hero/card space. LiveKit is imported only for
+an actual live preview; the HLS library loads only for a replay needing it. Native replay
 does not fetch either SDK. Live preview uses viewer-only grants, subscribes to
 camera video at LOW quality and does not subscribe to audio or capture devices.
 HLS preview stays on the lowest rendition with a 2–4 second / 2 MB configured
@@ -61,14 +71,27 @@ buffer. Native video buffering remains browser-managed.
 Playback is muted and inline. Offscreen, hidden-tab, offline and page-exit events
 release the player/connection and cancel pending access. Automatic playback is
 skipped for reduced motion, Save-Data and 2G/slow-2G connections; explicit Play
-preview can opt in. A pause/play control is always available. Each preview run
-stops after 30 seconds of playback; a preview without frames stops after 12 seconds.
+preview can opt in. A pause/play control is always available. One shared scheduler
+allows **at most one active transport across the hero and every card**, including
+while loading.
+The current preview remains selected while sufficiently visible (25% hero, 50%
+card); hovering or focusing another visible card transfers playback after releasing
+the previous player. Scrolling selects the next eligible card. Nonselected cards
+keep their own thumbnails and do not request playback grants or video bytes.
+
+The hero retains its 30-second teaser limit. A selected replay card loops whenever
+it reaches the end and continues until paused, deselected or outside the viewport.
+A preview without frames stops after 12 seconds.
 Denied access, blocked autoplay and media
 failure preserve the readable question and functioning debate link.
 
-Hover emphasizes the video. Continuous mouse hover on its link for 2.6 seconds
+Hover emphasizes the video. Cards open only on click/tap/Enter, with their own
+preview toggle; there is no automatic hover navigation in the grid. Continuous
+mouse hover on the hero link for 2.6 seconds
 shows a themed progress indicator and opens the ordinary watching interface.
-Leaving, scrolling, Escape, pause, backgrounding or loss of playback cancels it.
+Leaving, scrolling, Escape, pause or backgrounding cancels it. Buffering resets
+the countdown; when playback resumes with the mouse still over the hero, a fresh
+continuous countdown begins.
 There is no hover navigation under reduced motion or on touch; click/tap and
 keyboard Enter open immediately. Preview controls never trigger entry. Full
 watching controls retain their existing behavior.
@@ -92,11 +115,14 @@ node scripts/verify-hero-browser.js
 REPLAY_POSTGRES_MODE=host node scripts/verify-replay-pipeline.js
 ```
 
-The browser trial serves synthetic WebM on loopback. It checks actual muted
-playback, no unnecessary SDK requests, pause/offscreen cleanup, hover cancellation
+The browser trial serves six synthetic WebM cards on loopback. It checks the logo
+homepage and Live navigation, original grid geometry, one active preview, hover
+and keyboard handoff, actual replay end-to-start looping, hidden-tab release, and
+actual muted playback, no unnecessary SDK requests, pause/offscreen cleanup, hover cancellation
 and entry, click/touch layout, reduced motion, data saving, denial fallback and axe.
 It does not establish LiveKit/R2 delivery quality, physical-device behavior or
 production load. The user performs staging acceptance; no hosted account or smoke
 round is created for this release.
 
-See the [dated local evidence and staging handoff](evidence/homepage-preview/2026-10-16.md).
+See the [Live-page update and staging handoff](evidence/homepage-preview/live-feed-2026-10-16.md)
+and [original hero evidence](evidence/homepage-preview/2026-10-16.md).

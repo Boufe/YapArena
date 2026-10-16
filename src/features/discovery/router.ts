@@ -8,6 +8,7 @@ import {
   renderDebate,
   renderDebates,
   renderHome,
+  renderLive,
   renderMatchmaking,
   renderNotFound,
   renderProfile,
@@ -149,13 +150,13 @@ export function createDiscoveryRouter({
     return response.json(item);
   });
 
-  router.get("/", async (_request, response) => {
-    const [debates, topics, featured] = await Promise.all([
-      discovery.listDebates({ limit: 3 }),
+  router.get("/", (_request, response) => html(response, renderHome(origin)));
+  router.get("/live", async (_request, response) => {
+    const [debates, topics] = await Promise.all([
+      mediaEnabled ? discovery.listWatchableDebates() : [],
       discovery.listTopics({ limit: 3 }),
-      mediaEnabled ? discovery.getFeaturedDebate() : null,
     ]);
-    return html(response, renderHome(origin, debates, topics, featured));
+    return html(response, renderLive(origin, debates, topics));
   });
   router.get("/coins", (_request, response) =>
     html(response, renderCoins(origin)),

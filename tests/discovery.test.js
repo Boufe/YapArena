@@ -9,6 +9,7 @@ import {
   renderDebate,
   renderDebates,
   renderHome,
+  renderLive,
   renderProfile,
   renderTopic,
   renderTopics,
@@ -99,7 +100,10 @@ describe("public discovery", () => {
       proposition: "Should <cities> change?",
       speakerB: { displayName: "B & C", handle: "other" },
     };
-    const featured = { ...discovery, getFeaturedDebate: async () => selected };
+    const featured = {
+      ...discovery,
+      listWatchableDebates: async () => (selected ? [selected] : []),
+    };
     const configured = express().use(
       createDiscoveryRouter({
         discovery: featured,
@@ -107,11 +111,11 @@ describe("public discovery", () => {
         applicationOrigin: "https://arena.example",
       }),
     );
-    const home = await request(configured).get("/");
+    const home = await request(configured).get("/live");
     assert.match(home.text, /data-featured-preview/);
     assert.match(
       home.text,
-      /data-featured-thumbnail src="\/api\/media\/events\/[a-f0-9-]+\/thumbnail"/,
+      /data-preview-thumbnail src="\/api\/media\/events\/[a-f0-9-]+\/thumbnail"/,
     );
     assert.doesNotMatch(home.text, /<div class="arena-featured-backdrop"/);
     assert.match(home.text, /data-mode="live"/);
@@ -124,16 +128,23 @@ describe("public discovery", () => {
       /Watch now|viewer-token|recordingKey|media\.bundle/,
     );
     selected = { ...debate, status: "replay", speakerA: null };
-    const replay = await request(configured).get("/");
+    const replay = await request(configured).get("/live");
     assert.match(replay.text, /FEATURED REPLAY/);
     assert.doesNotMatch(replay.text, /arena-featured-speakers/);
+    assert.match(replay.text, /data-card-preview/);
+    assert.match(replay.text, /loading="lazy"/);
+    assert.match(replay.text, /Watch debate: Should we debate this\?/);
+    assert.match(
+      replay.text,
+      /rel="canonical" href="https:\/\/arena\.example\/live"/,
+    );
     selected = null;
     assert.doesNotMatch(
-      (await request(configured).get("/")).text,
+      (await request(configured).get("/live")).text,
       /data-featured-preview/,
     );
     assert.doesNotMatch(
-      (await request(appWith(featured)).get("/")).text,
+      (await request(appWith(featured)).get("/live")).text,
       /data-featured-preview/,
     );
   });
@@ -141,8 +152,15 @@ describe("public discovery", () => {
   it("serves the public journey and stable canonical links without login", async () => {
     const home = await request(app).get("/");
     assert.equal(home.status, 200);
-    assert.match(home.text, /href="\/debates\/public-debate"/);
-    assert.match(home.text, /href="\/topics\/public-topic"/);
+    assert.match(home.text, /class="arena-home-logo" href="\/live"/);
+    assert.doesNotMatch(
+      home.text,
+      /data-debate-preview|Debates to watch|Topics in play/,
+    );
+    assert.match(
+      (await request(app).get("/live")).text,
+      /href="\/topics\/public-topic"/,
+    );
     assert.equal(home.headers["cache-control"], "no-store");
     const page = await request(app).get("/debates/public-debate");
     assert.equal(page.status, 200);
@@ -155,6 +173,32 @@ describe("public discovery", () => {
     assert.doesNotMatch(page.text, /winner|tally|payout/i);
     assert.equal((await request(app).get("/people/alex-public")).status, 200);
     assert.equal((await request(app).get("/topics/public-topic")).status, 200);
+  });
+
+  it("keeps the logo homepage independent of discovery and media availability", async () => {
+    const unavailable = () => {
+      throw new Error("database unavailable");
+    };
+    const shell = express().use(
+      createDiscoveryRouter({
+        discovery: {
+          ...discovery,
+          listTopics: unavailable,
+          listDebates: unavailable,
+          listWatchableDebates: unavailable,
+        },
+        mediaEnabled: true,
+        applicationOrigin: "https://arena.example",
+      }),
+    );
+    const home = await request(shell).get("/");
+    assert.equal(home.status, 200);
+    assert.match(home.text, /class="arena-home-logo" href="\/live"/);
+    assert.match(home.text, /href="\/live">Live/);
+    assert.doesNotMatch(
+      home.text,
+      /data-debate-preview|hero-preview|Debates to watch/,
+    );
   });
 
   it("validates filters, search length, and pagination", async () => {
@@ -326,8 +370,9 @@ describe("public discovery", () => {
       items: [debate],
       pagination: { limit: 1, offset: 1, hasMore: false },
     };
-    assert.match(renderHome(origin, empty, empty), /No public debates yet/);
-    assert.match(renderHome(origin, empty, empty), /No public topics yet/);
+    assert.match(renderHome(origin), /arena-home-logo/);
+    assert.match(renderLive(origin, [], empty), /No watchable debates yet/);
+    assert.match(renderLive(origin, [], empty), /No public topics yet/);
     assert.match(renderTopics(origin, empty, "missing"), /No topics found/);
     assert.match(
       renderDebates(origin, empty, "missing", "all"),
@@ -405,7 +450,10 @@ describe("discovery repository visibility", () => {
     await repository.getTopic("missing");
     await repository.getProfile("missing");
     assert.equal(await repository.getFeaturedDebate(), null);
-    assert.equal(queries.length, 6);
+    assert.deepEqual(await repository.listWatchableDebates(), []);
+    assert.equal(queries.length, 7);
+    assert.deepEqual(queries[5].values, [1]);
+    assert.deepEqual(queries[6].values, [9]);
     assert.ok(queries[0].sql.includes("d.publication_state = 'published'"));
     assert.ok(queries[0].sql.includes("t.publication_state = 'published'"));
     assert.ok(queries[0].sql.includes("pa.publication_state = 'published'"));
@@ -459,6 +507,10 @@ describe("discovery repository visibility", () => {
     assert.equal(list.items[0].sponsor, null);
     assert.equal((await repository.getDebate(debate.slug)).slug, debate.slug);
     assert.equal((await repository.getFeaturedDebate()).slug, debate.slug);
+    assert.equal(
+      (await repository.listWatchableDebates())[0].slug,
+      debate.slug,
+    );
     assert.equal((await repository.getTopic(topic.slug)).slug, topic.slug);
     assert.equal(
       (await repository.getProfile(profile.handle)).handle,

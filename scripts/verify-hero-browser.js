@@ -13,7 +13,7 @@ import { createDiscoveryRouter } from "../dist/features/discovery/router.js";
 import { buildReplayThumbnail } from "../dist/features/media/replay-thumbnail.js";
 
 // Component trial only: synthetic local media, no hosted target or account writes.
-const directory = "/private/tmp/yaparena-hero-browser";
+const directory = "/private/tmp/yaparena-live-feed-browser";
 await mkdir(directory, { recursive: true });
 const fixtures = await mkdtemp(join(tmpdir(), "yaparena-hero-fixture-"));
 const videoPath = join(fixtures, "preview.webm");
@@ -26,7 +26,7 @@ await promisify(execFile)("ffmpeg", [
   "-i",
   "testsrc2=size=960x540:rate=12",
   "-t",
-  "4",
+  "8",
   "-c:v",
   "libvpx",
   "-b:v",
@@ -62,6 +62,21 @@ const debate = {
   speakerB: { handle: "morgan", displayName: "Morgan Lee" },
   sponsor: null,
 };
+const catalog = [
+  debate,
+  ...[
+    "Should public transit be free?",
+    "Can technology make cities greener?",
+    "Should housing be a public service?",
+    "Does remote work strengthen communities?",
+    "Should cities invest more in public spaces?",
+  ].map((proposition, index) => ({
+    ...debate,
+    id: `33333333-3333-4333-8333-${String(index + 1).padStart(12, "0")}`,
+    slug: `synthetic-debate-${index + 1}`,
+    proposition,
+  })),
+];
 const list = (items) => ({
   items,
   pagination: { limit: 3, offset: 0, hasMore: false },
@@ -96,10 +111,11 @@ app.get("/api/media/events/:id", (_r, s) =>
 app.use(
   createDiscoveryRouter({
     discovery: {
-      getFeaturedDebate: async () => debate,
+      listWatchableDebates: async () => catalog,
       listDebates: async () => list([debate]),
       listTopics: async () => list([topic]),
-      getDebate: async () => debate,
+      getDebate: async (slug) =>
+        catalog.find((debate) => debate.slug === slug) ?? null,
     },
     mediaEnabled: true,
     applicationOrigin: "http://localhost",
@@ -132,6 +148,19 @@ try {
   page.on("request", (request) => requests.push(request.url()));
   await page.mouse.move(0, 0);
   await page.goto(base);
+  assert.equal(await page.locator("#main").textContent(), "YAP ARENA");
+  assert.equal(await page.locator("[data-debate-preview]").count(), 0);
+  assert.equal(
+    requests.some((url) => url.includes("/api/media/")),
+    false,
+  );
+  await page.screenshot({ path: directory + "/home.png" });
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Live", exact: true })
+    .click();
+  await page.waitForURL("**/live");
+  checks.logoHomeAndLiveNavigation = true;
   await page.waitForFunction(
     () =>
       document.querySelector("[data-featured-preview]").dataset.playing ===
@@ -140,7 +169,7 @@ try {
   assert.equal(await page.locator("h1").textContent(), debate.proposition);
   assert.equal(
     await page
-      .locator("[data-featured-video]")
+      .locator("[data-featured-preview] [data-preview-video]")
       .evaluate(
         (video) => video.muted && !video.paused && video.currentTime >= 0,
       ),
@@ -157,36 +186,52 @@ try {
   await page.waitForFunction(
     () =>
       Number(
-        window.getComputedStyle(document.querySelector("[data-featured-media]"))
-          .opacity,
+        window.getComputedStyle(
+          document.querySelector(
+            "[data-featured-preview] [data-preview-media]",
+          ),
+        ).opacity,
       ) === 1,
   );
   await page.screenshot({ path: directory + "/desktop.png", fullPage: true });
-  await page.getByRole("button", { name: "Pause video preview" }).click();
+  await page
+    .locator("[data-featured-preview]")
+    .getByRole("button", { name: "Pause video preview" })
+    .click();
   await page.waitForFunction(
-    () => document.querySelector("[data-featured-thumbnail]").naturalWidth > 0,
+    () =>
+      document.querySelector("[data-featured-preview] [data-preview-thumbnail]")
+        .naturalWidth > 0,
   );
   await page.waitForFunction(
     () =>
       Number(
-        window.getComputedStyle(document.querySelector("[data-featured-media]"))
-          .opacity,
+        window.getComputedStyle(
+          document.querySelector(
+            "[data-featured-preview] [data-preview-media]",
+          ),
+        ).opacity,
       ) === 0,
   );
   assert.equal(await page.locator(".arena-featured-backdrop").count(), 0);
   assert.match(
-    await page.locator("[data-featured-thumbnail]").getAttribute("src"),
+    await page
+      .locator("[data-featured-preview] [data-preview-thumbnail]")
+      .getAttribute("src"),
     new RegExp(`/events/${debate.id}/thumbnail`),
   );
   await page.screenshot({ path: directory + "/thumbnail.png", fullPage: true });
   checks.pausedPreviewShowsOwnRecordingThumbnail = true;
   assert.equal(
     await page
-      .locator("[data-featured-video]")
+      .locator("[data-featured-preview] [data-preview-video]")
       .evaluate((video) => video.paused && !video.getAttribute("src")),
     true,
   );
-  await page.getByRole("button", { name: "Play video preview" }).click();
+  await page
+    .locator("[data-featured-preview]")
+    .getByRole("button", { name: "Play video preview" })
+    .click();
   await page.waitForFunction(
     () =>
       document.querySelector("[data-featured-preview]").dataset.playing ===
@@ -199,7 +244,7 @@ try {
       "false",
   );
   const stopped = grants;
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
   await page.waitForFunction(
     () =>
       document.querySelector("[data-featured-preview]").dataset.playing ===
@@ -207,7 +252,7 @@ try {
   );
   assert.ok(grants > stopped);
   checks.pauseAndOffscreenRelease = true;
-  await page.locator("[data-featured-open]").hover();
+  await page.locator("[data-featured-preview] [data-preview-open]").hover();
   await page.waitForFunction(() =>
     document
       .querySelector("[data-featured-preview]")
@@ -216,7 +261,7 @@ try {
   await page.keyboard.press("Escape");
   assert.equal(await page.locator(".is-entering").count(), 0);
   await page.mouse.move(0, 0);
-  await page.locator("[data-featured-open]").hover();
+  await page.locator("[data-featured-preview] [data-preview-open]").hover();
   await page.mouse.move(0, 0);
   assert.equal(await page.locator(".is-entering").count(), 0);
   checks.hoverCancellation = true;
@@ -234,26 +279,181 @@ try {
   );
   assert.deepEqual(violations, []);
   checks.axeNoViolations = true;
-  await page.locator("[data-featured-open]").hover();
+  // Preserve the old card grid geometry while exercising actual video handoff.
+  const cards = page.locator("[data-card-preview]");
+  assert.equal(await cards.count(), 6);
+  await page.evaluate(() => {
+    window.scrollTo(
+      0,
+      document.querySelector(".arena-video-grid").getBoundingClientRect().top +
+        window.scrollY -
+        120,
+    );
+  });
+  await cards.first().locator("[data-preview-video]").waitFor();
+  await page.waitForFunction(
+    () =>
+      document.querySelector("[data-card-preview]").dataset.playing === "true",
+  );
+  const grid = await page.locator(".arena-video-grid").evaluate((node) => ({
+    columns: window.getComputedStyle(node).gridTemplateColumns.split(" ")
+      .length,
+    gap: window.getComputedStyle(node).gap,
+    height: node.firstElementChild.getBoundingClientRect().height,
+    video: (() => {
+      const rect = node.querySelector("video").getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    })(),
+    width: node.firstElementChild.getBoundingClientRect().width,
+  }));
+  assert.equal(grid.columns, 3);
+  assert.equal(grid.gap, "14px");
+  assert.equal(grid.height, 320);
+  assert.equal(grid.video.height, grid.height - 2);
+  assert.ok(Math.abs(grid.video.width - (grid.width - 2)) < 1);
+  await cards.nth(1).locator("[data-preview-open]").hover();
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll("[data-card-preview]")[1].dataset.playing ===
+      "true",
+  );
+  assert.equal(
+    await page.locator('[data-debate-preview][data-active="true"]').count(),
+    1,
+  );
+  assert.equal(
+    await cards
+      .first()
+      .locator("video")
+      .evaluate((video) => video.paused && !video.getAttribute("src")),
+    true,
+  );
+  await cards
+    .nth(1)
+    .locator("video")
+    .evaluate((video) => {
+      video.currentTime = video.duration - 0.3;
+    });
+  await page.waitForFunction(() => {
+    const video = document.querySelectorAll("[data-card-preview] video")[1];
+    return (
+      video.currentTime < 2 &&
+      video.currentTime > 0 &&
+      !video.paused &&
+      video.loop
+    );
+  });
+  checks.visibleVideoGridAndReplayLoop = true;
+  await cards.nth(2).locator("[data-preview-open]").focus();
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll("[data-card-preview]")[2].dataset.playing ===
+      "true",
+  );
+  assert.equal(
+    await page.locator('[data-debate-preview][data-active="true"]').count(),
+    1,
+  );
+  checks.hoverAndKeyboardTransferSinglePreview = true;
+  await page.waitForFunction(
+    () =>
+      Number(
+        window.getComputedStyle(
+          document.querySelectorAll(
+            "[data-card-preview] [data-preview-media]",
+          )[2],
+        ).opacity,
+      ) === 1,
+  );
+  await page.screenshot({ path: directory + "/grid.png" });
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", {
+      value: true,
+      configurable: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  assert.equal(
+    await page.locator('[data-debate-preview][data-active="true"]').count(),
+    0,
+  );
+  assert.equal(
+    await cards
+      .locator("video")
+      .evaluateAll((videos) =>
+        videos.every((v) => v.paused && !v.getAttribute("src")),
+      ),
+    true,
+  );
+  checks.hiddenTabReleasesAllVideo = true;
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", {
+      value: false,
+      configurable: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+    document.activeElement.blur();
+    window.scrollTo({ top: 0, behavior: "instant" });
+  });
+  await page.mouse.move(0, 0);
+  await page.waitForFunction(
+    () =>
+      document.querySelector("[data-featured-preview]").dataset.playing ===
+      "true",
+  );
+  // Let the programmatic scroll finish dispatching its cancellation event.
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        window.requestAnimationFrame(() =>
+          window.requestAnimationFrame(resolve),
+        ),
+      ),
+  );
+  await page.locator("[data-featured-preview] [data-preview-open]").hover();
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector("[data-featured-preview]")
+        .classList.contains("is-entering"),
+    null,
+    { timeout: 5000 },
+  );
+  await page
+    .locator("[data-featured-preview] video")
+    .evaluate((video) => video.dispatchEvent(new Event("waiting")));
+  assert.equal(await page.locator(".is-entering").count(), 0);
+  await page
+    .locator("[data-featured-preview] video")
+    .evaluate((video) => video.dispatchEvent(new Event("playing")));
+  await page.waitForFunction(() =>
+    document
+      .querySelector("[data-featured-preview]")
+      .classList.contains("is-entering"),
+  );
+  checks.bufferingRestartsHoverCountdown = true;
   await page.waitForURL("**/debates/the-walkable-city");
   assert.equal(await page.locator("[data-media-event]").count(), 1);
   checks.sustainedHoverEntersWatchingInterface = true;
   await page.emulateMedia({ reducedMotion: "reduce" });
   const beforeReduced = grants;
-  await page.goto(base);
+  await page.goto(base + "/live");
   await page.waitForFunction(
     () =>
-      document.querySelector("[data-featured-status]").textContent ===
-      "Preview paused",
+      document.querySelector("[data-featured-preview] [data-preview-status]")
+        .textContent === "Preview paused",
   );
-  await page.getByRole("button", { name: "Play video preview" }).click();
+  await page
+    .locator("[data-featured-preview]")
+    .getByRole("button", { name: "Play video preview" })
+    .click();
   await page.waitForFunction(
     () =>
       document.querySelector("[data-featured-preview]").dataset.playing ===
       "true",
   );
   assert.equal(grants, beforeReduced + 1);
-  await page.locator("[data-featured-open]").hover();
+  await page.locator("[data-featured-preview] [data-preview-open]").hover();
   assert.equal(await page.locator(".is-entering").count(), 0);
   checks.reducedMotionUsesExplicitPlay = true;
   await page.setViewportSize({ width: 390, height: 844 });
@@ -263,7 +463,7 @@ try {
     ),
   );
   await page.screenshot({ path: directory + "/mobile.png", fullPage: true });
-  await page.locator("[data-featured-open]").click();
+  await page.locator("[data-featured-preview] [data-preview-open]").click();
   await page.waitForURL("**/debates/the-walkable-city");
   checks.mobileAndClickEntry = true;
   const saved = await context.newPage();
@@ -274,25 +474,31 @@ try {
     }),
   );
   const beforeSaved = grants;
-  await saved.goto(base);
-  await saved.getByRole("button", { name: "Play video preview" }).waitFor();
+  await saved.goto(base + "/live");
+  await saved
+    .locator("[data-featured-preview]")
+    .getByRole("button", { name: "Play video preview" })
+    .waitFor();
   await saved.evaluate(
     () => new Promise((resolve) => window.setTimeout(resolve, 2000)),
   );
   assert.equal(grants, beforeSaved);
   assert.equal(
     await saved
-      .locator("[data-featured-thumbnail]")
+      .locator("[data-featured-preview] [data-preview-thumbnail]")
       .evaluate((image) => image.naturalWidth > 0),
     true,
   );
   checks.saveDataSkipsAutoplay = true;
   deny = true;
-  await saved.getByRole("button", { name: "Play video preview" }).click();
+  await saved
+    .locator("[data-featured-preview]")
+    .getByRole("button", { name: "Play video preview" })
+    .click();
   await saved.waitForFunction(
     () =>
-      document.querySelector("[data-featured-status]").textContent ===
-      "Preview unavailable",
+      document.querySelector("[data-featured-preview] [data-preview-status]")
+        .textContent === "Preview unavailable",
   );
   assert.equal(await saved.locator("h1").textContent(), debate.proposition);
   checks.deniedPreviewKeepsUsableHero = true;

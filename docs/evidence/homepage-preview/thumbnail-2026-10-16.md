@@ -1,5 +1,8 @@
 # Recording thumbnails — October 16, 2026
 
+Current state: [Live discovery](live-feed-2026-10-16.md) now uses these same
+per-recording thumbnails in its hero and video cards at `/live`.
+
 The homepage now shows the featured recording's own JPEG behind its video. It
 remains visible while the preview loads, buffers, is paused or is disabled by
 motion/data preferences. The YES/NO backdrop is removed from featured debates.

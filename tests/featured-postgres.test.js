@@ -142,6 +142,13 @@ it(
       }
       const repository = createDiscoveryRepository(runtime);
       assert.equal((await repository.getFeaturedDebate()).id, b);
+      const feed = (await repository.listWatchableDebates()).map(
+        ({ id }) => id,
+      );
+      assert.deepEqual(
+        feed.filter((id) => debateIds.includes(id)),
+        [b, a, c, replay],
+      );
       await volume(a, 100);
       assert.equal(
         (await repository.getFeaturedDebate()).id,
@@ -160,6 +167,12 @@ it(
         [topicId],
       );
       assert.notEqual((await repository.getFeaturedDebate())?.id, replay);
+      assert.equal(
+        (await repository.listWatchableDebates()).some(({ id }) =>
+          debateIds.includes(id),
+        ),
+        false,
+      );
     } finally {
       if (sessionIds.length) {
         await owner.query(

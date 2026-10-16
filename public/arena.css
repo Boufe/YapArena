@@ -2148,7 +2148,17 @@ textarea::placeholder {
 .arena-featured[data-playing="true"] .arena-featured-media {
   opacity: 1;
 }
+.arena-video-card[data-playing="true"] .arena-featured-media {
+  opacity: 1;
+}
 .arena-featured video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.arena-video-card video {
   display: block;
   width: 100%;
   height: 100%;
@@ -2382,6 +2392,146 @@ textarea::placeholder {
     transition: none;
   }
   .arena-featured:hover .arena-featured-media {
+    transform: none;
+  }
+}
+
+/* Live discovery keeps the existing three-column footprint and gutters. */
+.arena-video-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 26px;
+  min-height: 320px;
+  background: #07111c;
+}
+.arena-video-card::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    #030b14a8,
+    #030b1410 32%,
+    #030b1480 58%,
+    #030b14f5
+  );
+}
+.arena-video-card-top,
+.arena-video-card-copy {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+.arena-video-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.arena-video-card-topic {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-left: auto;
+  font-size: 0.77rem;
+  color: #e5edf6;
+  text-shadow: 0 1px 6px #000;
+}
+.arena-video-card-copy {
+  margin-top: auto;
+  padding-top: 60px;
+  padding-right: 26px;
+}
+.arena-video-card h3 {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+  text-shadow: 0 2px 16px #0009;
+}
+.arena-video-card-copy p {
+  margin: 10px 0 0;
+  color: #bccddd;
+  font-size: 0.8rem;
+}
+.arena-video-card-entry {
+  display: block;
+  margin-top: 18px;
+  color: #91ddc4;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.arena-video-card-controls {
+  position: absolute;
+  z-index: 4;
+  right: 14px;
+  bottom: 16px;
+}
+.arena-video-card .arena-featured-toggle {
+  width: 34px;
+  height: 34px;
+  background: #091725cc;
+}
+.arena-video-card .arena-featured-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+.arena-video-card:focus-within {
+  border-color: var(--ice);
+}
+.arena-video-card .arena-featured-open:focus-visible {
+  border-radius: 12px;
+}
+.arena-home #main {
+  min-height: calc(100svh - 73px);
+  display: grid;
+  place-items: center;
+  padding: 60px 24px;
+}
+.arena-home-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  color: #f2f7fd;
+}
+.arena-home-logo svg {
+  width: clamp(64px, 9vw, 100px);
+  height: clamp(72px, 10vw, 112px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+}
+.arena-home-logo h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.6rem);
+  letter-spacing: 0.2em;
+}
+@media (hover: hover) {
+  .arena-video-card:hover {
+    border-color: #54807e;
+  }
+  .arena-video-card:hover .arena-featured-media {
+    transform: scale(1.035);
+  }
+}
+@media (max-width: 600px) {
+  .arena-video-card {
+    min-height: 320px;
+  }
+  .arena-home #main {
+    min-height: calc(100svh - 150px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arena-video-card .arena-featured-media {
+    transition: none;
+  }
+  .arena-video-card:hover .arena-featured-media {
     transform: none;
   }
 }

@@ -1,0 +1,78 @@
+# Featured debate preview
+
+The homepage replaces its introductory illustration with a full-width, navy
+video hero. Its question, topic, speakers and opposing positions are rendered
+with the HTML. A configured live broadcast takes priority; otherwise a playable
+replay is explicitly labeled. Fictional demos, hidden debates/topics and unready
+recordings are excluded. With no eligible media, a branded static hero retains
+discovery links and makes no media request. There is no Watch now button.
+
+## Selection and coin volume
+
+The server considers the 50 most recent eligible debates, with live first. Within
+each live/replay group it ranks by executed human Yap Coins premium volume from
+the latest 100 settled, revealed rounds, then by recency and ID. This matches the
+existing settlement chart's bounded history window and uses exact numeric sums.
+Fees, reservations, failed/unexecuted commitments, pending rounds, future reveal
+times, private mixed Bots sandboxes and observer runs contribute nothing. Likes
+do not affect selection. A newer debate wins a zero-volume or equal-volume tie.
+This is play-coin volume, not cash or a new real-fund feature. No totals or private
+receipt details are embedded in the homepage.
+
+Selection uses existing indexed debate/session/round/submission relationships.
+The SQL has bounded candidate/settled windows and no provider request on the HTML
+path. Normal publication and media eligibility are checked again by the existing
+viewer-token/replay endpoints. Selection is recalculated on each homepage visit.
+No schema migration, public database grant or new dependency is required.
+
+## Playback and entry
+
+The small homepage controller waits for page load and idle time before obtaining
+media. It renders into reserved hero space. LiveKit is imported only for an actual
+live preview; the HLS library loads only for a replay needing it. Native replay
+does not fetch either SDK. Live preview uses viewer-only grants, subscribes to
+camera video at LOW quality and does not subscribe to audio or capture devices.
+HLS preview stays on the lowest rendition with a 2–4 second / 2 MB configured
+buffer. Native video buffering remains browser-managed.
+
+Playback is muted and inline. Offscreen, hidden-tab, offline and page-exit events
+release the player/connection and cancel pending access. Automatic playback is
+skipped for reduced motion, Save-Data and 2G/slow-2G connections; explicit Play
+preview can opt in. A pause/play control is always available. Each preview run
+stops after 30 seconds of playback; a preview without frames stops after 12 seconds.
+Denied access, blocked autoplay and media
+failure preserve the readable question and functioning debate link.
+
+Hover emphasizes the video. Continuous mouse hover on its link for 2.6 seconds
+shows a themed progress indicator and opens the ordinary watching interface.
+Leaving, scrolling, Escape, pause, backgrounding or loss of playback cancels it.
+There is no hover navigation under reduced motion or on touch; click/tap and
+keyboard Enter open immediately. Preview controls never trigger entry. Full
+watching controls retain their existing behavior.
+
+These previews do not send playback-presence heartbeats or watch sessions and do
+not change measurement consent. They consume actual media bandwidth and decoding
+time after the page loads; lazy loading is not a claim of zero resource cost or
+proof of production-scale performance.
+
+## Verification
+
+`npm run check` covers selection/publication rendering, hover intent, autoplay
+policy, live subscription/cleanup and HLS preview limits. The disposable database
+quality gate supplies the existing explicit A4 database URLs to the featured
+ranking test, which refuses hosted databases. It verifies volume beats likes,
+recency ties, live priority and hidden/private/pending exclusions.
+
+```sh
+A4_QUALITY=true DATABASE_TEST_MODE=host node scripts/verify-database-isolation.js
+node scripts/verify-hero-browser.js
+```
+
+The browser trial serves synthetic WebM on loopback. It checks actual muted
+playback, no unnecessary SDK requests, pause/offscreen cleanup, hover cancellation
+and entry, click/touch layout, reduced motion, data saving, denial fallback and axe.
+It does not establish LiveKit/R2 delivery quality, physical-device behavior or
+production load. The user performs staging acceptance; no hosted account or smoke
+round is created for this release.
+
+See the [dated local evidence and staging handoff](evidence/homepage-preview/2026-10-16.md).

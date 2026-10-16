@@ -12,6 +12,10 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+The [homepage preview](homepage-preview.md) features a muted live/replay hero,
+ranked by revealed human Yap Coins volume, with deferred playback and hover entry.
+Its [dated evidence](evidence/homepage-preview/2026-10-16.md) separates local
+component checks from the user's staging acceptance.
 The [live/replay workspace](debate-workspace.md) adds the navy theme, shared
 search/balance header, settlement chart, round navigation and video enlargement.
 The [October 16 inspector update](evidence/debate-workspace/inspector-2026-10-16.md)
@@ -44,7 +48,8 @@ The latest saved staging check is **2026-10-15 16:03 UTC** on `b11a11b`, with ma
 builds, runtime-only credentials, packaging enabled, concurrency one and the existing
 `0.5c-512mb` encoder. The [October 8 rollout](replay-starter-trial-2026-10-07.md#all-eligible-staging-rollout--2026-10-08)
 removed the room allowlist from both services. New eligible recordings therefore follow automatic
-conversion/publication; viewers still click Play. The Free web Blueprint does not provision that
+conversion/publication; the full watching interface retains Play while the homepage
+supports its separate muted preview. The Free web Blueprint does not provision that
 separately configured paid worker or reproduce all deployed settings.
 
 An old checkout contributed to stale status: the preserved shared branch at `bc3e92f` was

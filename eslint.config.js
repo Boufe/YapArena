@@ -12,6 +12,7 @@ export default [
       "public/media.bundle.js",
       ".env.*/**",
       "public/replay.bundle.js",
+      "public/hero-live.bundle.js",
     ],
   },
   eslint.configs.recommended,

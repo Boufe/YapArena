@@ -263,6 +263,7 @@ export function createApp({
       createDiscoveryRouter({
         discovery,
         a4Enabled: a4?.mode !== undefined && a4.mode !== "disabled",
+        mediaEnabled: Boolean(media && mediaProvider && matching && identity),
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",
       }),
     );

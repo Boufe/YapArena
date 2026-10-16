@@ -6,6 +6,7 @@ export function createReplayPlayer({
   diagnostics,
   say,
   soundRequired,
+  preview = false,
   online = () => navigator.onLine,
   visible = () => globalThis.document?.visibilityState !== "hidden",
   schedule = setTimeout,
@@ -133,9 +134,10 @@ export function createReplayPlayer({
         autoStartLoad: false,
         startLevel: 0,
         capLevelToPlayerSize: true,
-        maxBufferLength: preload ? 2 : 15,
-        maxMaxBufferLength: preload ? 4 : 30,
-        maxBufferSize: preload ? 2_000_000 : 20_000_000,
+        maxBufferLength: preload || preview ? 2 : 15,
+        maxMaxBufferLength: preload || preview ? 4 : 30,
+        maxBufferSize: preload || preview ? 2_000_000 : 20_000_000,
+        autoLevelCapping: preview ? 0 : -1,
         enableWorker: true,
       });
       const activePlayer = player;
@@ -270,9 +272,9 @@ export function createReplayPlayer({
         if (new Date(grant.expiresAt).getTime() <= Date.now() + 30_000)
           await renew();
         if (player) {
-          player.config.maxBufferLength = 15;
-          player.config.maxMaxBufferLength = 30;
-          player.config.maxBufferSize = 20_000_000;
+          player.config.maxBufferLength = preview ? 2 : 15;
+          player.config.maxMaxBufferLength = preview ? 4 : 30;
+          player.config.maxBufferSize = preview ? 2_000_000 : 20_000_000;
           player.startLoad(video.currentTime);
         }
         if (loading && restore) restore.paused = false;

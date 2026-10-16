@@ -86,10 +86,12 @@ function html(response: Response, body: string, status = 200) {
 export function createDiscoveryRouter({
   discovery,
   a4Enabled = false,
+  mediaEnabled = false,
   applicationOrigin,
 }: {
   discovery: Repository;
   a4Enabled?: boolean;
+  mediaEnabled?: boolean;
   applicationOrigin: string;
 }) {
   const router = Router();
@@ -148,11 +150,12 @@ export function createDiscoveryRouter({
   });
 
   router.get("/", async (_request, response) => {
-    const [debates, topics] = await Promise.all([
+    const [debates, topics, featured] = await Promise.all([
       discovery.listDebates({ limit: 3 }),
       discovery.listTopics({ limit: 3 }),
+      mediaEnabled ? discovery.getFeaturedDebate() : null,
     ]);
-    return html(response, renderHome(origin, debates, topics));
+    return html(response, renderHome(origin, debates, topics, featured));
   });
   router.get("/coins", (_request, response) =>
     html(response, renderCoins(origin)),

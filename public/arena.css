@@ -2089,3 +2089,287 @@ textarea::placeholder {
     padding: 14px;
   }
 }
+
+/* The home preview loads independently; its reserved geometry never shifts. */
+.arena-featured {
+  position: relative;
+  isolation: isolate;
+  min-height: clamp(520px, 70vw, 760px);
+  overflow: hidden;
+  background: #07111c;
+  border-bottom: 1px solid #203748;
+}
+.arena-featured-backdrop,
+.arena-featured-media,
+.arena-featured-open {
+  position: absolute;
+  inset: 0;
+}
+.arena-featured-backdrop {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 1px;
+  background:
+    radial-gradient(ellipse at 75% 20%, #20587270, transparent 65%),
+    radial-gradient(ellipse at 25% 60%, #0f5d4e50, transparent 65%), #07111c;
+}
+.arena-featured-backdrop span {
+  color: #83bdd41a;
+  font-size: clamp(3rem, 10vw, 10rem);
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.06em;
+  text-align: center;
+  overflow-wrap: anywhere;
+  padding: 8%;
+}
+.arena-featured-backdrop span + span {
+  color: #28d49c1a;
+}
+.arena-featured-media {
+  opacity: 0;
+  transition:
+    opacity 650ms ease,
+    transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.arena-featured[data-playing="true"] .arena-featured-media {
+  opacity: 1;
+}
+.arena-featured video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.arena-featured-live {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  background: #07111c;
+}
+.arena-featured-live:empty {
+  display: none;
+}
+.arena-featured-live video {
+  width: 50%;
+  flex: 1;
+  min-width: 0;
+}
+.arena-featured::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, #050e18e8, #050e1885 45%, #050e1820 80%),
+    linear-gradient(0deg, #050e18 0%, #050e18ad 15%, transparent 65%);
+  transition: opacity 500ms ease;
+}
+.arena-featured-open {
+  z-index: 3;
+}
+.arena-featured-open:focus-visible {
+  outline: 2px solid #8cdbff;
+  outline-offset: -6px;
+}
+.arena-featured-copy {
+  position: relative;
+  z-index: 2;
+  padding-top: clamp(100px, 12vw, 180px);
+  padding-bottom: 110px;
+  pointer-events: none;
+}
+.arena-featured-copy h1 {
+  max-width: 850px;
+  margin: 24px 0;
+  font-size: clamp(2.25rem, 4.5vw, 4.75rem);
+  line-height: 1.06;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+  color: #f2f7ff;
+  text-shadow: 0 4px 35px #02080ecc;
+}
+.arena-featured-eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  color: #bed0df;
+  font-size: 0.8rem;
+}
+.arena-featured-eyebrow .status {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  padding: 7px 10px;
+}
+.arena-featured-speakers {
+  color: #dce9f3;
+  font-size: 1.05rem;
+}
+.arena-featured-sides {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  color: #b0c5d8;
+  font-size: 0.9rem;
+}
+.arena-featured-sides span:nth-child(2) {
+  color: #60829a;
+  font-size: 0.75rem;
+}
+.arena-featured-instruction {
+  color: #9eb8cd;
+  font-size: 0.8rem;
+  margin-top: 32px;
+}
+.arena-featured-touch-hint {
+  display: none;
+}
+.arena-featured-controls {
+  position: absolute;
+  z-index: 4;
+  right: max(24px, calc((100vw - 1280px) / 2));
+  bottom: 45px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.arena-featured-state {
+  color: #b3c9d9;
+  font-size: 0.72rem;
+  text-shadow: 0 2px 6px #000;
+}
+.arena-featured-toggle {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 50%;
+  background: #061422c9;
+  border: 1px solid #8db6ce66;
+  color: #e1f0fa;
+  backdrop-filter: blur(8px);
+}
+.arena-featured-toggle svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.arena-featured-toggle:hover {
+  background: #17384d;
+  border-color: #9bdcfa;
+}
+.arena-featured-intent {
+  position: absolute;
+  z-index: 2;
+  left: max(24px, calc((100vw - 1280px) / 2));
+  bottom: 35px;
+  width: min(260px, 45vw);
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 180ms ease,
+    transform 240ms ease;
+  pointer-events: none;
+}
+.arena-featured-intent > span:first-child {
+  color: #d0ebf7;
+  font-size: 0.76rem;
+}
+.arena-featured-intent small {
+  display: block;
+  color: #94b0c5;
+  font-size: 0.65rem;
+  margin-top: 7px;
+}
+.arena-featured-intent-track {
+  display: block;
+  height: 3px;
+  background: #50768a55;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+.arena-featured-intent-track > span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #3da6cd, #20e5ac);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.arena-featured.is-entering .arena-featured-intent {
+  opacity: 1;
+  transform: none;
+}
+.arena-featured.is-entering .arena-featured-intent-track > span {
+  transform: scaleX(1);
+  transition: transform 2600ms linear;
+}
+.arena-featured-empty .arena-featured-copy {
+  pointer-events: auto;
+}
+.arena-featured-empty p {
+  max-width: 540px;
+  color: #adc4d5;
+}
+@media (hover: hover) {
+  .arena-featured:hover .arena-featured-media {
+    transform: scale(1.035);
+  }
+  .arena-featured:hover::after {
+    opacity: 0.82;
+  }
+}
+@media (max-width: 740px) {
+  .arena-featured {
+    min-height: 580px;
+  }
+  .arena-featured-copy {
+    padding-top: 140px;
+    padding-bottom: 140px;
+  }
+  .arena-featured-copy h1 {
+    font-size: clamp(2rem, 7vw, 3.2rem);
+  }
+  .arena-featured::after {
+    background: linear-gradient(0deg, #050e18 0%, #050e18b5 60%, #050e1840);
+  }
+  .arena-featured-eyebrow {
+    gap: 10px;
+    font-size: 0.7rem;
+  }
+  .arena-featured-instruction {
+    max-width: 240px;
+  }
+  .arena-featured-controls {
+    right: 20px;
+    bottom: 30px;
+  }
+}
+@media (hover: none) {
+  .arena-featured-desktop-hint {
+    display: none;
+  }
+  .arena-featured-touch-hint {
+    display: inline;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arena-featured-media,
+  .arena-featured::after,
+  .arena-featured-intent {
+    transition: none;
+  }
+  .arena-featured:hover .arena-featured-media {
+    transform: none;
+  }
+}

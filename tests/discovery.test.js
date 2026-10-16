@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import request from "../scripts/test-http-request.js";
+import express from "express";
 
 import { createApp } from "../dist/app.js";
 import { createDiscoveryRepository } from "../dist/features/discovery/repository.js";
@@ -13,6 +14,7 @@ import {
   renderTopics,
 } from "../dist/features/discovery/web.js";
 import { createLogger } from "../dist/platform/logger.js";
+import { createDiscoveryRouter } from "../dist/features/discovery/router.js";
 
 const topic = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -89,6 +91,47 @@ const discovery = {
 
 describe("public discovery", () => {
   const app = appWith(discovery);
+
+  it("renders a real featured preview only when media is configured, without embedding grants", async () => {
+    let selected = {
+      ...debate,
+      status: "live",
+      proposition: "Should <cities> change?",
+      speakerB: { displayName: "B & C", handle: "other" },
+    };
+    const featured = { ...discovery, getFeaturedDebate: async () => selected };
+    const configured = express().use(
+      createDiscoveryRouter({
+        discovery: featured,
+        mediaEnabled: true,
+        applicationOrigin: "https://arena.example",
+      }),
+    );
+    const home = await request(configured).get("/");
+    assert.match(home.text, /data-featured-preview/);
+    assert.match(home.text, /data-mode="live"/);
+    assert.match(home.text, /Should &lt;cities&gt; change\?/);
+    assert.match(home.text, /B &amp; C/);
+    assert.match(home.text, /muted autoplay playsinline loop preload="none"/);
+    assert.match(home.text, /hero-preview\.js\?v=/);
+    assert.doesNotMatch(
+      home.text,
+      /Watch now|viewer-token|recordingKey|media\.bundle/,
+    );
+    selected = { ...debate, status: "replay", speakerA: null };
+    const replay = await request(configured).get("/");
+    assert.match(replay.text, /FEATURED REPLAY/);
+    assert.doesNotMatch(replay.text, /arena-featured-speakers/);
+    selected = null;
+    assert.doesNotMatch(
+      (await request(configured).get("/")).text,
+      /data-featured-preview/,
+    );
+    assert.doesNotMatch(
+      (await request(appWith(featured)).get("/")).text,
+      /data-featured-preview/,
+    );
+  });
 
   it("serves the public journey and stable canonical links without login", async () => {
     const home = await request(app).get("/");
@@ -356,7 +399,8 @@ describe("discovery repository visibility", () => {
     await repository.getDebate("missing");
     await repository.getTopic("missing");
     await repository.getProfile("missing");
-    assert.equal(queries.length, 5);
+    assert.equal(await repository.getFeaturedDebate(), null);
+    assert.equal(queries.length, 6);
     assert.ok(queries[0].sql.includes("d.publication_state = 'published'"));
     assert.ok(queries[0].sql.includes("t.publication_state = 'published'"));
     assert.ok(queries[0].sql.includes("pa.publication_state = 'published'"));
@@ -409,6 +453,7 @@ describe("discovery repository visibility", () => {
     assert.equal(list.items[0].speakerB, null);
     assert.equal(list.items[0].sponsor, null);
     assert.equal((await repository.getDebate(debate.slug)).slug, debate.slug);
+    assert.equal((await repository.getFeaturedDebate()).slug, debate.slug);
     assert.equal((await repository.getTopic(topic.slug)).slug, topic.slug);
     assert.equal(
       (await repository.getProfile(profile.handle)).handle,

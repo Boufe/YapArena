@@ -1,5 +1,9 @@
 # Live and replay debate workspace
 
+The [homepage preview](homepage-preview.md) can open this workspace on click or
+continuous mouse hover. Its automatic muted preview is separate from the full
+watching controls and does not change speaker capture or settlement behavior.
+
 The October 15 visual reference selects a navy interface, blue-gray panel borders,
 green YES/red NO accents, and a shared header with Live, Explore, Create, debate
 search, a Yap Coins balance menu and account avatar. The same workspace renders

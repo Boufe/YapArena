@@ -9,3 +9,4 @@ public/media.bundle.js
 npm-debug.log*
 
 public/replay.bundle.js
+public/hero-live.bundle.js

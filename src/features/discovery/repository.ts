@@ -126,6 +126,38 @@ const debateJoins = `FROM debates d
 
 export function createDiscoveryRepository(database: Pool) {
   return Object.freeze({
+    async getFeaturedDebate(): Promise<PublicDebate | null> {
+      // Rank recent playable debates by revealed human YAP premium volume.
+      // Media access is still reauthorized by the normal playback endpoints.
+      const result = await database.query<DebateRow>(
+        `WITH candidates AS MATERIALIZED (
+          SELECT ${debateColumns},
+            CASE WHEN d.status = 'live' THEN 0 ELSE 1 END AS priority,
+            COALESCE(d.live_started_at, d.live_ended_at, d.created_at) AS recent
+          ${debateJoins}
+          INNER JOIN debate_media m ON m.debate_id = d.id
+          WHERE d.publication_state = 'published' AND NOT d.is_demo
+            AND ((d.status = 'live' AND m.state IN ('running', 'paused'))
+              OR (d.status IN ('replay', 'finalized')
+                AND m.recording_status = 'ready' AND m.recording_key IS NOT NULL))
+          ORDER BY priority, recent DESC, d.id DESC LIMIT 50
+        )
+        SELECT c.* FROM candidates c
+        ORDER BY c.priority,
+          COALESCE((SELECT sum((o.outcome->>'premium')::numeric)
+            FROM (
+              SELECT r.id FROM a4_rounds r
+              JOIN a4_sessions s ON s.id = r.session_id
+              WHERE s.debate_id = c.id AND s.mode = 'human' AND s.asset = 'YAP'
+                AND r.state = 'settled' AND r.revealed_at IS NOT NULL
+                AND s.reveal_at <= clock_timestamp() AND r.revealed_at <= clock_timestamp()
+              ORDER BY r.revealed_at DESC, r.id DESC LIMIT 100
+            ) settled JOIN a4_submissions o ON o.round_id = settled.id
+            WHERE o.kind = 'human' AND (o.outcome->>'executed')::boolean), 0) DESC,
+          c.recent DESC, c.id DESC LIMIT 1`,
+      );
+      return result.rows[0] ? mapDebate(result.rows[0]) : null;
+    },
     async listTopics({
       query = "",
       limit = 12,

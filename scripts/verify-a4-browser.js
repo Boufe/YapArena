@@ -131,9 +131,7 @@ try {
   screenshots.push("inline-debate-desktop.png");
   [page] = await Promise.all([
     context.waitForEvent("page"),
-    debatePage
-      .getByRole("link", { name: "Full controls ↗" })
-      .click(),
+    debatePage.getByRole("link", { name: "Full controls ↗" }).click(),
   ]);
   page.on("pageerror", (error) => errors.push(error.message));
   await page.locator("[data-a4-content]").waitFor({ state: "visible" });

@@ -148,19 +148,15 @@ try {
   page.on("request", (request) => requests.push(request.url()));
   await page.mouse.move(0, 0);
   await page.goto(base);
-  assert.equal(await page.locator("#main").textContent(), "YAP ARENA");
+  assert.equal(await page.locator("h1").textContent(), "Where ideas move.");
   assert.equal(await page.locator("[data-debate-preview]").count(), 0);
   assert.equal(
     requests.some((url) => url.includes("/api/media/")),
     false,
   );
-  await page.screenshot({ path: directory + "/home.png" });
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Live", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Watch debates", exact: true }).click();
   await page.waitForURL("**/live");
-  checks.logoHomeAndLiveNavigation = true;
+  checks.homeAndLiveNavigation = true;
   await page.waitForFunction(
     () =>
       document.querySelector("[data-featured-preview]").dataset.playing ===

@@ -100,6 +100,7 @@ export function createApp({
   wallets,
   logger,
   environment = "development",
+  homepageReferenceEnabled = false,
   metrics = createMetrics(),
   applicationOrigin,
   trustProxy = false,
@@ -129,6 +130,7 @@ export function createApp({
   wallets?: ReturnType<typeof createWalletRepository>;
   logger: Logger;
   environment?: string;
+  homepageReferenceEnabled?: boolean;
   metrics?: ReturnType<typeof createMetrics>;
   applicationOrigin?: string;
   trustProxy?: number | false;
@@ -262,6 +264,8 @@ export function createApp({
     app.use(
       createDiscoveryRouter({
         discovery,
+        homepageReferenceEnabled:
+          homepageReferenceEnabled && environment !== "production",
         a4Enabled: a4?.mode !== undefined && a4.mode !== "disabled",
         mediaEnabled: Boolean(media && mediaProvider && matching && identity),
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",

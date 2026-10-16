@@ -180,6 +180,11 @@ function parseMedia(environment: NodeJS.ProcessEnv, nodeEnvironment: string) {
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
   const nodeEnvironment = environment.NODE_ENV ?? "development";
+  const homepageReference = environment.HOMEPAGE_REFERENCE_ENABLED ?? "false";
+  if (!["true", "false"].includes(homepageReference))
+    throw new Error("HOMEPAGE_REFERENCE_ENABLED must be true or false");
+  if (homepageReference === "true" && nodeEnvironment === "production")
+    throw new Error("homepage reference data is development/test only");
   const host = environment.HOST ?? "0.0.0.0";
   const rawPort = environment.PORT ?? "3000";
   const port = parseInteger(rawPort, "PORT", { minimum: 1, maximum: 65535 });
@@ -354,6 +359,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
 
   return Object.freeze({
     environment: nodeEnvironment,
+    homepageReferenceEnabled: homepageReference === "true",
     host,
     port,
     databaseUrl,

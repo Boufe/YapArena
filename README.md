@@ -176,6 +176,13 @@ The read-only JSON API lives under `/api/public`. It supports bounded `q`, `stat
 `profile`, `limit`, and `offset` query parameters as applicable. Debate pages show only public
 event fields; they never infer a winner or expose a hidden tally.
 
+The [wide homepage](docs/wide-homepage.md) connects published topics, playable
+debates, follows and the existing Yap Coins header to the supplied visual design.
+Unavailable topic-market figures stay explicitly unknown. For local reference
+comparisons only, enable `HOMEPAGE_REFERENCE_ENABLED=true` in the runtime-only
+environment and visit `/?reference=1`; this labeled sample mode is disabled by
+default and forbidden in production.
+
 The database starts with no public records. To add fictional, clearly marked examples in local
 development after migrating, run:
 

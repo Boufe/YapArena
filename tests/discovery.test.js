@@ -152,7 +152,7 @@ describe("public discovery", () => {
   it("serves the public journey and stable canonical links without login", async () => {
     const home = await request(app).get("/");
     assert.equal(home.status, 200);
-    assert.match(home.text, /class="arena-home-logo" href="\/live"/);
+    assert.match(home.text, /id="ya-market-v4"/);
     assert.doesNotMatch(
       home.text,
       /data-debate-preview|Debates to watch|Topics in play/,
@@ -175,7 +175,7 @@ describe("public discovery", () => {
     assert.equal((await request(app).get("/topics/public-topic")).status, 200);
   });
 
-  it("keeps the logo homepage independent of discovery and media availability", async () => {
+  it("renders an unavailable homepage without substituting sample activity", async () => {
     const unavailable = () => {
       throw new Error("database unavailable");
     };
@@ -192,9 +192,14 @@ describe("public discovery", () => {
       }),
     );
     const home = await request(shell).get("/");
-    assert.equal(home.status, 200);
-    assert.match(home.text, /class="arena-home-logo" href="\/live"/);
-    assert.match(home.text, /href="\/live">Live/);
+    assert.equal(home.status, 503);
+    assert.match(home.text, /id="ya-market-v4"/);
+    assert.match(home.text, /Discovery temporarily unavailable/);
+    assert.match(home.text, /History unavailable/);
+    assert.doesNotMatch(
+      home.text,
+      /Concept · Sample data|AI models should be open source/,
+    );
     assert.doesNotMatch(
       home.text,
       /data-debate-preview|hero-preview|Debates to watch/,
@@ -370,7 +375,7 @@ describe("public discovery", () => {
       items: [debate],
       pagination: { limit: 1, offset: 1, hasMore: false },
     };
-    assert.match(renderHome(origin), /arena-home-logo/);
+    assert.match(renderHome(origin), /No public ideas yet/);
     assert.match(renderLive(origin, [], empty), /No watchable debates yet/);
     assert.match(renderLive(origin, [], empty), /No public topics yet/);
     assert.match(renderTopics(origin, empty, "missing"), /No topics found/);

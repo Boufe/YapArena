@@ -12,10 +12,18 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+The [wide homepage](wide-homepage.md) replaces the temporary root logo with the
+supplied idea-discovery design, native SSR and progressive carousel, chart and
+inline expansion interactions. Published topics, canonical playable debates,
+authenticated follows and the existing Yap Coins header are connected. Topic
+market/argument histories remain unavailable; a separately gated, labeled local
+reference dataset supports visual acceptance. The [local evidence](evidence/homepage/2026-10-16.md)
+records comparison viewports and checks; this change is not merged or deployed.
+
 The [Live discovery preview](homepage-preview.md) moves the former homepage to
 `/live`, with video cards in the existing grid and a shared one-preview playback
-budget. Replays loop, hover/focus transfers playback and `/` becomes a centered
-logo. The [Live-page evidence](evidence/homepage-preview/live-feed-2026-10-16.md)
+budget. Replays loop and hover/focus transfers playback. The temporary root logo
+is superseded by the wide homepage above. The [Live-page evidence](evidence/homepage-preview/live-feed-2026-10-16.md)
 records local verification and the manual staging handoff. The page features a muted live/replay hero,
 ranked by revealed human Yap Coins volume, with deferred playback and hover entry.
 Its [dated evidence](evidence/homepage-preview/2026-10-16.md) separates local

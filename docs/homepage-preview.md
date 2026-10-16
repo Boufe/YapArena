@@ -1,8 +1,8 @@
 # Live discovery and debate previews
 
 The former homepage content now lives at `/live`, reached through the shared
-Live navigation link. `/` contains a centered YapArena logo linking to Live,
-with the shared navigation and footer; it performs no discovery or media query.
+Live navigation link. The subsequent [wide homepage](wide-homepage.md) replaces
+the temporary centered logo at `/`; its Watch debates link reaches Live.
 The Live page retains the full-width navy video hero, Topics in play and preview
 note. Under Debates to watch, video cards replace the former text panels while
 keeping the three-column grid, 14px gutters and 320px minimum card height
@@ -108,7 +108,7 @@ policy, live subscription/cleanup and HLS preview limits. The disposable databas
 quality gate supplies the existing explicit A4 database URLs to the featured
 ranking test, which refuses hosted databases. It verifies volume beats likes,
 recency ties, live priority and hidden/private/pending exclusions.
-The CI integration smoke check verifies the logo at `/` and seeded discovery
+The CI integration smoke check verifies the wide homepage at `/` and seeded discovery
 content at `/live`, alongside the existing public API checks.
 
 ```sh
@@ -117,7 +117,7 @@ node scripts/verify-hero-browser.js
 REPLAY_POSTGRES_MODE=host node scripts/verify-replay-pipeline.js
 ```
 
-The browser trial serves six synthetic WebM cards on loopback. It checks the logo
+The browser trial serves six synthetic WebM cards on loopback. It checks the
 homepage and Live navigation, original grid geometry, one active preview, hover
 and keyboard handoff, actual replay end-to-start looping, hidden-tab release, and
 actual muted playback, no unnecessary SDK requests, pause/offscreen cleanup, hover cancellation

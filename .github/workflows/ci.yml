@@ -155,7 +155,7 @@ jobs:
             migrate node scripts/verify-measurement.js
 
           curl --fail --silent --show-error http://localhost:3000/ \
-            | grep --fixed-strings 'class="arena-home-logo"'
+            | grep --fixed-strings 'id="ya-market-v4"'
           curl --fail --silent --show-error http://localhost:3000/live \
             | grep --fixed-strings '/topics/ai-and-human-creativity'
           curl --fail --silent --show-error http://localhost:3000/debates \

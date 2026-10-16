@@ -50,6 +50,7 @@ describe("configuration", () => {
   it("provides safe development defaults", () => {
     assert.deepEqual(loadConfig({ DATABASE_URL: databaseUrl }), {
       environment: "development",
+      homepageReferenceEnabled: false,
       host: "0.0.0.0",
       port: 3000,
       databaseUrl,
@@ -89,6 +90,7 @@ describe("configuration", () => {
       }),
       {
         environment: "production",
+        homepageReferenceEnabled: false,
         host: "127.0.0.1",
         port: 8080,
         databaseUrl,

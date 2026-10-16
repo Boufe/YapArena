@@ -1,3 +1,5 @@
+import { publicHomepage } from "./homepage-model.ts";
+import { referenceHomepage } from "./homepage-reference.ts";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import type { createDiscoveryRepository, DebateStatus } from "./repository.ts";
@@ -88,11 +90,13 @@ export function createDiscoveryRouter({
   discovery,
   a4Enabled = false,
   mediaEnabled = false,
+  homepageReferenceEnabled = false,
   applicationOrigin,
 }: {
   discovery: Repository;
   a4Enabled?: boolean;
   mediaEnabled?: boolean;
+  homepageReferenceEnabled?: boolean;
   applicationOrigin: string;
 }) {
   const router = Router();
@@ -150,7 +154,29 @@ export function createDiscoveryRouter({
     return response.json(item);
   });
 
-  router.get("/", (_request, response) => html(response, renderHome(origin)));
+  router.get("/", async (request, response) => {
+    if (request.query.reference !== undefined) {
+      if (!homepageReferenceEnabled || request.query.reference !== "1")
+        return html(response, renderNotFound(origin), 404);
+      return html(response, renderHome(origin, referenceHomepage()));
+    }
+    try {
+      const [topics, playable] = await Promise.all([
+        discovery.listTopics({ limit: 12 }),
+        mediaEnabled ? discovery.listWatchableDebates() : [],
+      ]);
+      return html(
+        response,
+        renderHome(origin, publicHomepage(topics.items, playable)),
+      );
+    } catch {
+      return html(
+        response,
+        renderHome(origin, { ...publicHomepage([], []), available: false }),
+        503,
+      );
+    }
+  });
   router.get("/live", async (_request, response) => {
     const [debates, topics] = await Promise.all([
       mediaEnabled ? discovery.listWatchableDebates() : [],

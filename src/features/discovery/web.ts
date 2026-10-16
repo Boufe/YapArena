@@ -1,3 +1,5 @@
+import { homepageMarkup } from "./homepage-view.ts";
+import { publicHomepage, type HomeData } from "./homepage-model.ts";
 import { renderVideoDebateCard } from "./video-card-web.ts";
 import { renderFeaturedDebate } from "./featured-web.ts";
 import { renderDebateWorkspace } from "./debate-web.ts";
@@ -60,7 +62,12 @@ function layout(
   metadata = "",
   bodyClass = "",
 ) {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark"><title>${escape(title)} · YAP Arena</title><meta name="description" content="${escape(description)}"><link rel="canonical" href="${escape(canonical)}">${metadata}<link rel="stylesheet" href="${asset("site.css")}"><link rel="stylesheet" href="${asset("arena.css")}"><script defer src="${asset("site.js")}"></script><script defer src="${asset("measurement.js")}"></script></head><body class="${escape(bodyClass)}"><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><div class="container nav arena-nav"><a class="brand" href="/" aria-label="YAP Arena home"><svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/><path d="M9 35 31 5"/></svg><span>YAP ARENA</span></a><nav aria-label="Main navigation"><a href="/live">Live</a><a href="/debates">Explore</a><a href="/match">Create</a></nav><form class="arena-header-search" action="/debates" method="get" role="search"><label class="sr-only" for="header-search">Search debates</label><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="header-search" type="search" name="q" maxlength="80" placeholder="Search debates…"><button type="submit" class="sr-only">Search</button></form><div class="arena-header-account"><details class="arena-wallet-menu"><summary aria-label="Yap Coins balance and actions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8V5H5a2 2 0 0 1 0-4h13v4M3 3v16a2 2 0 0 0 2 2h15V8H5a2 2 0 0 1-2-2m17 5h-6v6h6"/></svg><span data-header-balance>Yap Coins</span><span class="arena-chevron" aria-hidden="true">⌄</span></summary><div class="arena-wallet-popover"><strong>Your play balance</strong><span data-header-reserved>Sign in to view balances.</span><a href="/coins">Balances &amp; activity →</a><a href="/account">Manage account →</a></div></details><a href="/account" class="arena-avatar" data-header-account aria-label="Your account">↗</a></div></div></header><main id="main">${content}</main><footer class="site-footer"><div class="container footer-inner"><span>YAP ARENA <span class="muted">/ Ideas under pressure.</span></span><span><a href="/topics">Topics</a> · <a href="/coins">Yap Coins</a> · <a href="/about">About</a> · Play money</span></div></footer></body></html>`;
+  const home = bodyClass.startsWith("arena-market-home");
+  const reference = bodyClass.includes("reference-home");
+  const page = home
+    ? content
+    : `<header class="site-header"><div class="container nav arena-nav"><a class="brand" href="/" aria-label="YAP Arena home"><svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/><path d="M9 35 31 5"/></svg><span>YAP ARENA</span></a><nav aria-label="Main navigation"><a href="/live">Live</a><a href="/debates">Explore</a><a href="/match">Create</a></nav><form class="arena-header-search" action="/debates" method="get" role="search"><label class="sr-only" for="header-search">Search debates</label><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="header-search" type="search" name="q" maxlength="80" placeholder="Search debates…"><button type="submit" class="sr-only">Search</button></form><div class="arena-header-account"><details class="arena-wallet-menu"><summary aria-label="Yap Coins balance and actions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8V5H5a2 2 0 0 1 0-4h13v4M3 3v16a2 2 0 0 0 2 2h15V8H5a2 2 0 0 1-2-2m17 5h-6v6h6"/></svg><span data-header-balance>Yap Coins</span><span class="arena-chevron" aria-hidden="true">⌄</span></summary><div class="arena-wallet-popover"><strong>Your play balance</strong><span data-header-reserved>Sign in to view balances.</span><a href="/coins">Balances &amp; activity →</a><a href="/account">Manage account →</a></div></details><a href="/account" class="arena-avatar" data-header-account aria-label="Your account">↗</a></div></div></header><main id="main">${content}</main><footer class="site-footer"><div class="container footer-inner"><span>YAP ARENA <span class="muted">/ Ideas under pressure.</span></span><span><a href="/topics">Topics</a> · <a href="/coins">Yap Coins</a> · <a href="/about">About</a> · Play money</span></div></footer>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark"><title>${escape(title)} · YAP Arena</title><meta name="description" content="${escape(description)}"><link rel="canonical" href="${escape(canonical)}">${metadata}<link rel="stylesheet" href="${asset("site.css")}"><link rel="stylesheet" href="${asset("arena.css")}"><script defer src="${asset("site.js")}"></script>${reference ? "" : `<script defer src="${asset("measurement.js")}"></script>`}${home ? `<link rel="stylesheet" href="${asset("homepage.css")}"><script defer src="${asset("homepage.bundle.js")}"></script>` : ""}</head><body class="${escape(bodyClass)}"><a class="skip-link" href="#main">Skip to content</a>${page}</body></html>`;
 }
 
 function badge(debate: PublicDebate) {
@@ -97,14 +104,17 @@ function listPath(
   return `${base}${base.includes("?") ? "&" : "?"}${parameters}`;
 }
 
-export function renderHome(origin: string) {
+export function renderHome(
+  origin: string,
+  data: HomeData = publicHomepage([], []),
+) {
   return layout(
-    "Home",
-    "YAP Arena. Ideas under pressure.",
+    "Where ideas move",
+    "Follow an idea. Hear both sides. Take a position.",
     `${origin}/`,
-    `<a class="arena-home-logo" href="/live" aria-label="YAP Arena — explore live debates"><svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/><path d="M9 35 31 5"/></svg><h1>YAP ARENA</h1></a>`,
+    homepageMarkup(data),
     "",
-    "arena-home",
+    `arena-market-home${data.reference ? " reference-home" : ""}`,
   );
 }
 

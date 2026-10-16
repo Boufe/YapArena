@@ -78,49 +78,102 @@ if (headerBalance) {
   void refreshHeader();
 }
 
-for (const button of document.querySelectorAll(".follow-button")) {
-  const type = button.dataset.followType;
-  const slug = button.dataset.followSlug;
-  const endpoint = `/api/me/follows/${type}/${encodeURIComponent(slug)}`;
-  const message = button.nextElementSibling;
-  let following = false;
-  const label = () => {
-    button.setAttribute("aria-pressed", String(following));
-    button.textContent = `${following ? "Following" : "Follow"} ${type === "topics" ? "topic" : "person"}`;
-  };
-  fetch(endpoint, { credentials: "same-origin" })
-    .then((response) => (response.ok ? response.json() : null))
-    .then((data) => {
-      following = Boolean(data?.following);
-      label();
+// One shared follow controller handles initial and progressively inserted controls.
+const followReads = new Map();
+const initializedFollows = new WeakMap();
+const followKey = (type, slug) => `${type}/${slug}`;
+function readFollow(type, slug) {
+  const key = followKey(type, slug);
+  if (!followReads.has(key)) {
+    const read = fetch(`/api/me/follows/${type}/${encodeURIComponent(slug)}`, {
+      credentials: "same-origin",
+      cache: "no-store",
     })
-    .catch(() => {});
-  button.addEventListener("click", async () => {
-    button.disabled = true;
-    try {
-      const response = await fetch(endpoint, {
-        method: following ? "DELETE" : "PUT",
-        credentials: "same-origin",
+      .then(async (response) => {
+        if (!response.ok)
+          throw Object.assign(new Error("Follow status unavailable"), {
+            status: response.status,
+          });
+        return Boolean((await response.json()).following);
+      })
+      .catch((error) => {
+        followReads.delete(key);
+        throw error;
       });
-      if (response.status === 401) {
-        window.location.assign(
-          `/account?next=${encodeURIComponent(window.location.pathname)}`,
-        );
-        return;
-      }
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Could not update follow.");
-      }
-      following = !following;
-      label();
-      message.textContent = following
-        ? "Added to your follows."
-        : "Removed from your follows.";
-    } catch (error) {
-      message.textContent = error.message;
-    } finally {
-      button.disabled = false;
-    }
-  });
+    followReads.set(key, read);
+  }
+  return followReads.get(key);
 }
+function initializeFollows(scope = document) {
+  for (const button of scope.querySelectorAll(".follow-button")) {
+    if (initializedFollows.has(button)) continue;
+    const type = button.dataset.followType,
+      slug = button.dataset.followSlug;
+    const endpoint = `/api/me/follows/${type}/${encodeURIComponent(slug)}`;
+    const message = button.nextElementSibling;
+    let following = false;
+    function label() {
+      button.setAttribute("aria-pressed", String(following));
+      button.textContent = button.dataset.followCompact
+        ? following
+          ? "✓ Following"
+          : "+ Follow"
+        : `${following ? "Following" : "Follow"} ${type === "topics" ? "topic" : "person"}`;
+    }
+    readFollow(type, slug)
+      .then((value) => {
+        following = value;
+        label();
+      })
+      .catch(() => {});
+    initializedFollows.set(button, {
+      set(value) {
+        following = value;
+        label();
+      },
+    });
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        const response = await fetch(endpoint, {
+          method: following ? "DELETE" : "PUT",
+          credentials: "same-origin",
+        });
+        if (response.status === 401) {
+          window.location.assign(
+            `/account?next=${encodeURIComponent(window.location.pathname)}`,
+          );
+          return;
+        }
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Could not update follow.");
+        }
+        following = !following;
+        followReads.set(followKey(type, slug), Promise.resolve(following));
+        label();
+        message.textContent = following
+          ? "Added to your follows."
+          : "Removed from your follows.";
+        window.dispatchEvent(
+          new CustomEvent("yap:follow", { detail: { type, slug, following } }),
+        );
+      } catch (error) {
+        message.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+}
+window.addEventListener("yap:follow", (event) => {
+  for (const button of document.querySelectorAll(".follow-button")) {
+    if (
+      button.dataset.followType === event.detail.type &&
+      button.dataset.followSlug === event.detail.slug
+    )
+      initializedFollows.get(button)?.set(event.detail.following);
+  }
+});
+window.yapFollows = { initialize: initializeFollows, read: readFollow };
+initializeFollows();

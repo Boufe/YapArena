@@ -92,6 +92,7 @@ const app = createApp({
   wallets,
   logger,
   environment: config.environment,
+  homepageReferenceEnabled: config.homepageReferenceEnabled,
   applicationOrigin: config.applicationOrigin,
   trustProxy: config.trustProxy,
   requestBodyLimit: config.requestBodyLimit,

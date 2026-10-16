@@ -1,11 +1,17 @@
 /* global document, Option, window */
-import { createRoundChart, sharePercent } from "./arena-chart.js";
+import {
+  createRoundChart,
+  sharePercent,
+  roundProgress,
+} from "./arena-chart.js";
+import { createPriceInspector } from "./arena-price.js";
 const root = document.querySelector("[data-a4-inline]");
 if (root) {
   const el = (name) => root.querySelector(`[data-inline-${name}]`);
   const ui = (name) => root.querySelector(`[data-arena-${name}]`);
   const status = (text) => {
     if (el("status").textContent !== text) el("status").textContent = text;
+    el("status").title = text;
   };
   const money = (value = "0", precision = 6) => {
     const n = BigInt(value),
@@ -33,30 +39,47 @@ if (root) {
     timeline,
     selectedRound,
     busy = false,
-    listSignature;
-  const chart = createRoundChart(root, (item) =>
+    listSignature,
+    pinnedPrice,
+    inspectedPrice;
+  const selectRound = (item) =>
     act(async () => {
       selectedRound = item.id;
       run = { id: item.runId };
       await list(run.id);
       await refresh();
-    }),
-  );
+    });
+  const prices = createPriceInspector(root, selectRound);
+  const chart = createRoundChart(root, selectRound, (point) => {
+    inspectedPrice = point;
+    prices.show(point ?? pinnedPrice);
+  });
   function clearPrivate() {
     userId = null;
     run = null;
     pending = null;
     timeline = null;
     selectedRound = null;
+    listSignature = undefined;
+    el("runs").replaceChildren(new Option("Choose a round", ""));
+    el("argument").value = "";
     el("review").close();
     el("access").hidden = true;
     el("receipt").textContent = "Sign in to view your commitments.";
     ui("history").textContent = "Sign in to view your history.";
-    ui("round-list").replaceChildren();
-    delete ui("round-list").dataset.signature;
+    pinnedPrice = null;
+    inspectedPrice = null;
+    prices.clear();
     ui("volume").textContent = "— Yap Coins";
     ui("participants").textContent = "Finalized commitments";
     ui("available").textContent = "Your balance —";
+    ui("trade-title").textContent = "Participate in a round";
+    ui("round-label").textContent = "Round history";
+    ui("round-state").textContent = "waiting";
+    ui("countdown").dataset.opens = "";
+    ui("countdown").dataset.closes = "";
+    ui("countdown").dataset.state = "";
+    countdown();
     ui("yes").textContent = "—";
     ui("no").textContent = "—";
     ui("sentiment-bar").style.removeProperty("--yes-share");
@@ -87,8 +110,9 @@ if (root) {
       ) {
         timeline = null;
         chart.clear("This debate's settled history is unavailable.");
-        ui("round-list").replaceChildren();
-        delete ui("round-list").dataset.signature;
+        pinnedPrice = null;
+        inspectedPrice = null;
+        prices.clear();
         ui("volume").textContent = "— Yap Coins";
         ui("participants").textContent = "History unavailable";
         ui("yes").textContent = "—";
@@ -130,7 +154,7 @@ if (root) {
       ...items.map(
         (r) =>
           new Option(
-            `${r.mode === "mixed" ? "BOTS + YOU" : "Human-only"} · ${r.state} · ${r.id.slice(0, 8)}`,
+            `${r.mode === "mixed" ? "BOTS + YOU" : "Human-only"} · ${r.argumentLabel || r.id.slice(0, 8)} · ${r.state}`,
             r.id,
           ),
       ),
@@ -156,60 +180,6 @@ if (root) {
       ? table(history)
       : '<p class="arena-order-empty">No settled commitments in this run yet.</p>';
   }
-  function renderRounds() {
-    const current = run?.rounds.filter((r) => !r.revealed) ?? [];
-    const latestNumber = timeline.items.at(-1)?.number ?? 0;
-    const rows = [
-      ...current.map((r, i) => ({
-        ...r,
-        runId: run.id,
-        number: latestNumber + i + 1,
-        current: true,
-      })),
-      ...[...timeline.items].reverse(),
-    ];
-    const signature = JSON.stringify(
-      rows.map((r) => [
-        r.id,
-        r.state,
-        r.number,
-        r.share,
-        r.id === selectedRound,
-      ]),
-    );
-    const listNode = ui("round-list");
-    if (listNode.dataset.signature === signature) return;
-    listNode.dataset.signature = signature;
-    listNode.replaceChildren();
-    for (const row of rows) {
-      const li = document.createElement("li"),
-        button = document.createElement("button");
-      button.type = "button";
-      button.className = "arena-round-item";
-      button.classList.toggle("is-selected", row.id === selectedRound);
-      button.dataset.roundId = row.id;
-      const percent = sharePercent(row.share);
-      button.innerHTML = `<span class="arena-round-dot"></span><span>Round ${row.number}</span>${row.current ? `<small>${escape(row.state)}</small>` : ""}<strong>${percent === null ? "—" : percent.toFixed(0) + "%"}</strong>`;
-      button.setAttribute(
-        "aria-label",
-        `Round ${row.number}, ${row.current ? row.state : percent === null ? "empty" : percent.toFixed(2) + "% YES"}`,
-      );
-      button.setAttribute("aria-pressed", String(row.id === selectedRound));
-      button.addEventListener("click", () =>
-        act(async () => {
-          selectedRound = row.id;
-          run = { id: row.runId };
-          await list(run.id);
-          await refresh();
-        }),
-      );
-      li.append(button);
-      listNode.append(li);
-    }
-    if (!rows.length)
-      listNode.innerHTML =
-        '<li class="arena-round-empty">No revealed rounds yet. Start a round to get going.</li>';
-  }
   function describeSelection() {
     const active =
       run?.rounds.find((r) => r.id === selectedRound) ??
@@ -230,6 +200,7 @@ if (root) {
       ? `Participate in Round ${number}`
       : "Participate in a round";
     ui("countdown").dataset.closes = active?.closesAt ?? "";
+    ui("countdown").dataset.opens = active?.opensAt ?? "";
     ui("countdown").dataset.state = active?.state ?? "";
     const selected =
       historical ?? timeline?.items.findLast((r) => r.share !== null);
@@ -263,11 +234,55 @@ if (root) {
         : run
           ? "The round is processing. Your existing commitment remains recorded."
           : "Choose a round or start a sandbox to participate.";
+    const pendingPrices = (run?.rounds.filter((r) => !r.revealed) ?? []).map(
+      (r, i) => ({
+        ...r,
+        runId: run.id,
+        number: (timeline?.items.at(-1)?.number ?? 0) + i + 1,
+        argumentLabel: run.config.argumentLabel,
+        ownLimit: r.receipt?.limit ?? null,
+        share: null,
+        medianNo: null,
+        medianYes: null,
+      }),
+    );
+    pinnedPrice =
+      [...timeline.items, ...pendingPrices].find(
+        (r) => r.id === selectedRound,
+      ) ?? timeline.items.at(-1);
+    prices.update(timeline, selectedRound, pendingPrices);
+    if (inspectedPrice) {
+      inspectedPrice = timeline.items.find((r) => r.id === inspectedPrice.id);
+      prices.show(inspectedPrice ?? pinnedPrice);
+    }
     countdown();
   }
   function countdown() {
     const node = ui("countdown");
-    if (!node.dataset.closes) return;
+    const progress = ui("round-progress");
+    const { percent, seconds } = roundProgress(
+      node.dataset.opens,
+      node.dataset.closes,
+    );
+    const open = node.dataset.state === "open";
+    progress.style.setProperty("--round-remaining", `${open ? percent : 0}%`);
+    progress.dataset.urgent = String(open && seconds <= 10);
+    progress.setAttribute(
+      "aria-valuenow",
+      String(open ? Math.round(percent) : 0),
+    );
+    progress.setAttribute(
+      "aria-valuetext",
+      open
+        ? `${seconds} seconds remaining`
+        : node.dataset.state === "settled"
+          ? "Round settled"
+          : "Waiting for an open round",
+    );
+    if (!node.dataset.closes) {
+      node.textContent = "Waiting for a round";
+      return;
+    }
     if (node.dataset.state !== "open") {
       node.textContent =
         node.dataset.state === "settled"
@@ -275,10 +290,6 @@ if (root) {
           : "Awaiting final reveal";
       return;
     }
-    const seconds = Math.max(
-      0,
-      Math.ceil((new Date(node.dataset.closes) - Date.now()) / 1000),
-    );
     node.textContent = seconds
       ? `Ends in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
       : "Cutoff reached · processing";
@@ -307,6 +318,10 @@ if (root) {
     }
     populateRuns(data.runs, run?.id ?? "");
     run = data.run;
+    if (el("setup").dataset.runId !== (run?.id ?? "")) {
+      el("setup").open = !run;
+      el("setup").dataset.runId = run?.id ?? "";
+    }
     const wallet = data.wallet;
     const balances = wallet.balances,
       available = balances.find((b) => b.kind === "available")?.amount ?? "0",
@@ -327,7 +342,6 @@ if (root) {
       wallet.mode === "yap-coins" || wallet.mode === "disabled";
     timeline = data.timeline;
     describeSelection();
-    renderRounds();
     chart.render(timeline, selectedRound);
     renderReceipts();
     updateEstimate();
@@ -349,8 +363,13 @@ if (root) {
     const result = await api("a4/runs", {
       debateId: root.dataset.a4Inline,
       mode,
+      ...(el("argument").value.trim()
+        ? { config: { argumentLabel: el("argument").value.trim() } }
+        : {}),
     });
     selectedRound = null;
+    el("argument").value = "";
+    el("setup").open = false;
     run = { id: result.id };
     await list(result.id);
     await refresh();
@@ -403,7 +422,7 @@ if (root) {
       (BigInt(quantity) * 1000000n * BigInt(10000 + run.config.feeBps)) /
       10000n;
     el("terms").textContent =
-      `Account ${userId}. ${run.debate.proposition}. ${fields.side}; maximum purchase price ${fields.ceiling} Yap Coins; ${quantity} contracts. Maximum reservation and potential loss ${money(reserve)}, including maximum fee allowance. Actual price is drawn later and execution needs an accepting opposite side. Unused reservation is released. Cutoff ${new Date(round.closesAt).toLocaleString()}; lockup until reveal ${new Date(run.revealAt).toLocaleString()}. No edits or cancellation after commitment.`;
+      `Account ${userId}. ${run.debate.proposition}.${run.config.argumentLabel ? ` Argument: ${run.config.argumentLabel}.` : ""} ${fields.side}; maximum purchase price ${fields.ceiling} Yap Coins; ${quantity} contracts. Maximum reservation and potential loss ${money(reserve)}, including maximum fee allowance. Actual price is drawn later and execution needs an accepting opposite side. Unused reservation is released. Cutoff ${new Date(round.closesAt).toLocaleString()}; lockup until reveal ${new Date(run.revealAt).toLocaleString()}. No edits or cancellation after commitment.`;
     el("review-status").textContent = "";
     el("review").showModal();
     el("commit").focus();

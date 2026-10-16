@@ -18,12 +18,35 @@ export function chartPoints(items) {
   }));
 }
 
-export function createRoundChart(root, onSelect) {
-  root.querySelector(".arena-chart").setAttribute("role", "group");
+export function nearestRound(points, x) {
+  if (!Number.isFinite(x) || !points.length) return null;
+  return points.reduce((nearest, point) =>
+    Math.abs(point.x - x) < Math.abs(nearest.x - x) ? point : nearest,
+  );
+}
+
+export function roundProgress(opensAt, closesAt, now = Date.now()) {
+  const opens = new Date(opensAt).getTime(),
+    closes = new Date(closesAt).getTime();
+  if (!Number.isFinite(opens) || !Number.isFinite(closes) || closes <= opens)
+    return { percent: 0, seconds: 0 };
+  return {
+    percent: Math.max(
+      0,
+      Math.min(100, ((closes - now) / (closes - opens)) * 100),
+    ),
+    seconds: Math.max(0, Math.ceil((closes - now) / 1000)),
+  };
+}
+
+export function createRoundChart(root, onSelect, onInspect = () => {}) {
+  const canvas = root.querySelector(".arena-chart");
+  canvas.setAttribute("role", "group");
   const series = root.querySelector("[data-chart-series]");
   const ticks = root.querySelector("[data-chart-ticks]");
   const empty = root.querySelector("[data-chart-empty]");
-  const markers = root.querySelector("[data-arena-markers]");
+  const cursor = root.querySelector("[data-chart-cursor]");
+  const tooltip = root.querySelector("[data-chart-tooltip]");
   const svg = (name, attributes = {}, text) => {
     const node = document.createElementNS("http://www.w3.org/2000/svg", name);
     for (const [key, value] of Object.entries(attributes))
@@ -31,13 +54,125 @@ export function createRoundChart(root, onSelect) {
     if (text !== undefined) node.textContent = text;
     return node;
   };
-  let revision;
+  let revision,
+    points = [],
+    inspected;
+  function inspect(point) {
+    inspected = point?.id;
+    cursor.replaceChildren();
+    tooltip.hidden = !point;
+    for (const group of series.querySelectorAll("[data-chart-round]"))
+      group.classList.toggle(
+        "is-inspected",
+        group.dataset.chartRound === point?.id,
+      );
+    if (!point) {
+      onInspect(null);
+      return;
+    }
+    cursor.append(
+      svg("line", {
+        x1: point.x,
+        x2: point.x,
+        y1: 34,
+        y2: 284,
+        class: "arena-chart-hover-line",
+      }),
+    );
+    for (const value of point.yes === null ? [] : [point.yes, 100 - point.yes])
+      cursor.append(
+        svg("circle", {
+          cx: point.x,
+          cy: 284 - value * 2.5,
+          r: 6,
+          class: "arena-chart-hover-dot",
+        }),
+      );
+    const badgeX = Math.max(153, Math.min(545, point.x));
+    cursor.append(
+      svg("path", {
+        d: `M${point.x},292 l5,6 -5,6 -5,-6 Z`,
+        class: "arena-chart-argument-symbol",
+      }),
+    );
+    cursor.append(
+      svg("rect", {
+        x: badgeX - 145,
+        y: 321,
+        width: 290,
+        height: 27,
+        rx: 5,
+        class: "arena-chart-axis-badge",
+      }),
+    );
+    const label = point.argumentLabel || "Argument not labeled";
+    cursor.append(
+      svg(
+        "text",
+        {
+          x: badgeX,
+          y: 339,
+          "text-anchor": "middle",
+          class: "arena-chart-axis-label",
+        },
+        `◆ R${point.number} · ${label.length > 27 ? label.slice(0, 26) + "…" : label}`,
+      ),
+    );
+    const title = document.createElement("strong"),
+      argument = document.createElement("span"),
+      rates = document.createElement("span"),
+      offer = document.createElement("span");
+    title.textContent = `Round ${point.number}`;
+    argument.textContent = label;
+    rates.textContent =
+      point.yes === null
+        ? "No locked endorsements"
+        : `YES ${point.yes.toFixed(2)}% · NO ${(100 - point.yes).toFixed(2)}%`;
+    const price = sharePercent(point.offer);
+    offer.textContent = `Offered p: ${price === null ? "—" : price.toFixed(2) + "¢"}`;
+    tooltip.replaceChildren(title, argument, rates, offer);
+    tooltip.style.left = `${Math.max(2, Math.min(58, (point.x / 720) * 100 - 15))}%`;
+    onInspect(point);
+  }
+  function fromPointer(event) {
+    const transform = canvas.getScreenCTM();
+    if (!transform || !points.length) return null;
+    const coordinate = canvas.createSVGPoint();
+    coordinate.x = event.clientX;
+    coordinate.y = event.clientY;
+    const position = coordinate.matrixTransform(transform.inverse());
+    if (
+      position.x < 36 ||
+      position.x > 662 ||
+      position.y < 24 ||
+      position.y > 350
+    )
+      return null;
+    return nearestRound(points, position.x);
+  }
+  canvas.addEventListener("pointermove", (event) =>
+    inspect(fromPointer(event)),
+  );
+  canvas.addEventListener("pointerleave", () => inspect(null));
+  canvas.addEventListener("click", (event) => {
+    const point = fromPointer(event);
+    if (point) {
+      inspect(point);
+      onSelect(point);
+    }
+  });
+  canvas.addEventListener("focusout", (event) => {
+    if (!canvas.contains(event.relatedTarget)) inspect(null);
+  });
   return {
     clear(message = "Sign in to see settled rounds and participate.") {
       revision = undefined;
       series.replaceChildren();
       ticks.replaceChildren();
-      markers.replaceChildren();
+      cursor.replaceChildren();
+      tooltip.hidden = true;
+      points = [];
+      inspected = undefined;
       empty.hidden = false;
       empty.textContent = message;
     },
@@ -45,10 +180,12 @@ export function createRoundChart(root, onSelect) {
       const nextRevision = `${data.revision}:${selectedId}`;
       if (nextRevision === revision) return;
       revision = nextRevision;
-      const points = chartPoints(data.items);
+      const oldInspection = inspected;
+      points = chartPoints(data.items);
       series.replaceChildren();
       ticks.replaceChildren();
-      markers.replaceChildren();
+      cursor.replaceChildren();
+      tooltip.hidden = true;
       empty.hidden = points.some((p) => p.yes !== null);
       empty.textContent = "Results will appear as rounds settle.";
       for (const side of ["yes", "no"]) {
@@ -93,45 +230,44 @@ export function createRoundChart(root, onSelect) {
               `R${point.number}`,
             ),
           );
-        if (point.yes === null) continue;
         const group = svg("g", {
           role: "button",
-          tabindex: "0",
-          "aria-label": `Round ${point.number}: YES ${point.yes.toFixed(1)}%, NO ${(100 - point.yes).toFixed(1)}%`,
+          tabindex:
+            point.id === selectedId ||
+            (!points.some((p) => p.id === selectedId) &&
+              index === points.length - 1)
+              ? "0"
+              : "-1",
+          "aria-label": `Round ${point.number}: ${point.argumentLabel || "Argument not labeled"}. ${point.yes === null ? "No endorsements" : `YES ${point.yes.toFixed(2)}%, NO ${(100 - point.yes).toFixed(2)}%`}. Offered price ${sharePercent(point.offer) === null ? "unavailable" : sharePercent(point.offer).toFixed(2) + " cents"}.`,
           class: `arena-chart-point${point.id === selectedId ? " is-selected" : ""}`,
           "data-chart-round": point.id,
         });
+        if (point.yes !== null) {
+          for (const [side, value] of [
+            ["yes", point.yes],
+            ["no", 100 - point.yes],
+          ])
+            group.append(
+              svg("circle", {
+                cx: point.x,
+                cy: 284 - value * 2.5,
+                r: 4,
+                class: side,
+              }),
+            );
+        }
         group.append(
-          svg("line", {
-            x1: point.x,
-            x2: point.x,
-            y1: 34,
-            y2: 284,
-            class: "arena-chart-crosshair",
-          }),
-        );
-        group.append(
-          svg("circle", {
-            cx: point.x,
-            cy: 284 - point.yes * 2.5,
-            r: 4,
-            class: "yes",
-          }),
-        );
-        group.append(
-          svg("circle", {
-            cx: point.x,
-            cy: 284 - (100 - point.yes) * 2.5,
-            r: 4,
-            class: "no",
+          svg("path", {
+            d: `M${point.x},294 l4,5 -4,5 -4,-5 Z`,
+            class: "arena-chart-argument-symbol",
           }),
         );
         group.append(
           svg("rect", {
-            x: point.x - 10,
+            x: point.x - 6,
             y: 30,
-            width: 20,
-            height: 260,
+            width: 12,
+            height: 280,
             fill: "transparent",
           }),
         );
@@ -139,11 +275,30 @@ export function createRoundChart(root, onSelect) {
           svg(
             "title",
             {},
-            `Round ${point.number} · YES ${point.yes.toFixed(2)}% · ${new Date(point.settledAt).toLocaleString()}`,
+            `Round ${point.number} · ${point.argumentLabel || "Argument not labeled"} · ${new Date(point.settledAt).toLocaleString()}`,
           ),
         );
-        group.addEventListener("click", () => onSelect(point));
+        group.addEventListener("focus", () => inspect(point));
         group.addEventListener("keydown", (event) => {
+          if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+            event.preventDefault();
+            const next =
+              event.key === "Home"
+                ? 0
+                : event.key === "End"
+                  ? points.length - 1
+                  : Math.max(
+                      0,
+                      Math.min(
+                        points.length - 1,
+                        index + (event.key === "ArrowLeft" ? -1 : 1),
+                      ),
+                    );
+            series
+              .querySelector(`[data-chart-round="${points[next].id}"]`)
+              ?.focus();
+          }
+          if (event.key === "Escape") inspect(null);
           if (["Enter", " "].includes(event.key)) {
             event.preventDefault();
             onSelect(point);
@@ -181,19 +336,7 @@ export function createRoundChart(root, onSelect) {
             ),
           );
         }
-      for (const point of points.slice(-8)) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "arena-round-marker";
-        button.textContent = `Round ${point.number}`;
-        button.setAttribute(
-          "aria-label",
-          `Inspect settled round ${point.number}`,
-        );
-        button.setAttribute("aria-pressed", String(point.id === selectedId));
-        button.addEventListener("click", () => onSelect(point));
-        markers.append(button);
-      }
+      if (oldInspection) inspect(points.find((p) => p.id === oldInspection));
     },
   };
 }

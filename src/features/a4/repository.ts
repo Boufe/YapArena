@@ -43,6 +43,7 @@ export type PlayFundingPolicy = {
 export type A4Mode = "disabled" | "yap-coins" | "bots";
 export type Actor = { userId: string; tokenHash: string };
 export type RunConfig = Terms & {
+  argumentLabel?: string;
   population: number;
   preset: "heterogeneous" | "reference";
   quantity: number;
@@ -140,6 +141,19 @@ export function runConfig(
     roundSeconds: human ? 300 : 60,
     ...input,
   };
+  if (config.argumentLabel !== undefined) {
+    if (
+      typeof config.argumentLabel !== "string" ||
+      !config.argumentLabel.trim() ||
+      config.argumentLabel.trim().length > 80 ||
+      /\p{Cc}/u.test(config.argumentLabel)
+    )
+      throw new A4Error(
+        "argument label must be 1–80 characters on one line",
+        400,
+      );
+    config.argumentLabel = config.argumentLabel.trim();
+  }
   validateTerms(config);
   if (
     !Number.isInteger(config.population) ||
@@ -1163,7 +1177,7 @@ export function createA4Repository(
     async list(actor: Actor, debateId?: string, offset = 0) {
       return transaction(async (client) => {
         const result = await client.query(
-          `SELECT s.id,s.debate_id AS "debateId",s.mode,s.state,s.created_at AS "createdAt" FROM a4_sessions s JOIN debates d ON d.id=s.debate_id JOIN topics t ON t.id=d.topic_id
+          `SELECT s.id,s.debate_id AS "debateId",s.mode,s.state,s.created_at AS "createdAt",s.config->>'argumentLabel' AS "argumentLabel" FROM a4_sessions s JOIN debates d ON d.id=s.debate_id JOIN topics t ON t.id=d.topic_id
           WHERE (s.creator_id=$1 OR (s.mode='human' AND ((d.publication_state='published' AND t.publication_state='published') OR EXISTS(SELECT 1 FROM a4_submissions o JOIN a4_rounds r ON r.id=o.round_id WHERE r.session_id=s.id AND o.user_id=$1)))) AND ($2::uuid IS NULL OR s.debate_id=$2) ORDER BY s.created_at DESC,s.id LIMIT 21 OFFSET $3`,
           [actor.userId, debateId ?? null, offset],
         );

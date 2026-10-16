@@ -56,15 +56,40 @@ export async function verifyArenaBrowser({
         await api("a4/runs", {
           debateId: debate.id,
           mode: "mixed",
-          config: { population: 500, roundSeconds: 10 },
+          config: {
+            population: 500,
+            roundSeconds: 10,
+            argumentLabel: i ? "Cost analysis" : "Opening case",
+          },
           speed: 20,
         }),
       );
     await page.goto(base + "/debates/" + debateSlug);
     if (await dismiss.isVisible()) await dismiss.click();
     await page.locator("[data-inline-access]").waitFor({ state: "visible" });
+    if (
+      (await page.locator("[data-inline-setup]").getAttribute("open")) === null
+    )
+      await page.locator("[data-inline-setup] summary").click();
+    await page.locator("[data-inline-argument]").fill("Pilot studies");
     await page.locator("[data-inline-bots]").click();
     await page.locator("[data-inline-form]").waitFor({ state: "visible" });
+    const remaining = Number(
+      await page
+        .locator("[data-arena-round-progress]")
+        .getAttribute("aria-valuenow"),
+    );
+    assert.ok(remaining > 0 && remaining <= 100);
+    await page.waitForFunction(
+      (before) =>
+        Number(
+          document
+            .querySelector("[data-arena-round-progress]")
+            .getAttribute("aria-valuenow"),
+        ) < before,
+      remaining,
+    );
+    checks.roundProgressDrains = true;
     phase = "live chat";
     await page.waitForFunction(
       () =>
@@ -88,6 +113,33 @@ export async function verifyArenaBrowser({
       { timeout: 45000 },
     );
     checks.chartUpdatedAfterRealSettlements = true;
+    const beforeHover = await page.locator("[data-inline-runs]").inputValue();
+    await page.locator("[data-chart-round]").first().hover();
+    await page.locator("[data-chart-tooltip]").waitFor({ state: "visible" });
+    assert.match(
+      await page.locator("[data-chart-tooltip]").textContent(),
+      /YES .*NO .*Offered p:/,
+    );
+    assert.match(
+      await page.locator("[data-chart-cursor]").textContent(),
+      /R\d+.*(Opening case|Cost analysis)/,
+    );
+    assert.match(
+      await page.locator("[data-price-explanation]").textContent(),
+      /Median interval|NO median/,
+    );
+    assert.notEqual(await page.locator("[data-price-yes]").textContent(), "—");
+    assert.equal(
+      await page.locator("[data-inline-runs]").inputValue(),
+      beforeHover,
+    );
+    const sidebar = await page.locator("[data-arena-sidecar]").boundingBox(),
+      graph = await page.locator("[data-arena-graph-main]").boundingBox();
+    assert.ok(
+      Math.abs(sidebar.y + sidebar.height - graph.y - graph.height) <= 2,
+      "participation card ends at the main graph boundary",
+    );
+    checks.hoverPricesArgumentsAndCompactSidebar = true;
     const media = await page.locator("[data-media-event]").elementHandle(),
       chat = await page.locator("[data-community-chat-panel]").elementHandle();
     phase = "expand";
@@ -145,10 +197,7 @@ export async function verifyArenaBrowser({
     assert.equal(await media.evaluate((n) => n.isConnected), true);
     assert.equal(await chat.evaluate((n) => n.isConnected), true);
     phase = "round selection";
-    await page
-      .getByRole("button", { name: /Inspect settled round/ })
-      .first()
-      .click();
+    await page.locator("[data-chart-round]").first().click();
     await page.waitForFunction(
       (id) => document.querySelector("[data-inline-runs]").value !== id,
       active,

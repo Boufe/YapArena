@@ -1,5 +1,9 @@
 # Debate workspace acceptance — October 15, 2026
 
+Current-state note: the [October 16 inspector update](inspector-2026-10-16.md)
+supersedes this report's participation placement and round-navigation layout.
+The observations below remain evidence for the revision recorded here.
+
 Source baseline: clean `origin/main` at `c63308e`, with the already implemented and
 staging-deployed A4 commit `fcb162d` one commit ahead. The UI branch
 `feat/neon-debate-dashboard` starts from that A4 commit; the original shared main

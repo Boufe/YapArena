@@ -132,7 +132,7 @@ try {
   [page] = await Promise.all([
     context.waitForEvent("page"),
     debatePage
-      .getByRole("link", { name: "Full Bots controls, history and research ↗" })
+      .getByRole("link", { name: "Full controls ↗" })
       .click(),
   ]);
   page.on("pageerror", (error) => errors.push(error.message));

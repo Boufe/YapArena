@@ -116,6 +116,7 @@ export function createA4Router(
       b.config === undefined
         ? undefined
         : (body(b.config, [
+            "argumentLabel",
             "epsilon",
             "feeBps",
             "population",

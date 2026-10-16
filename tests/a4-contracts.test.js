@@ -480,7 +480,14 @@ describe("A4 HTTP contracts", () => {
       assert.match(r.headers["cache-control"], /no-store/);
     }
     for (const [path, body] of [
-      ["runs", { debateId: id, mode: "mixed" }],
+      [
+        "runs",
+        {
+          debateId: id,
+          mode: "mixed",
+          config: { argumentLabel: "Cost analysis" },
+        },
+      ],
       ["refill", {}],
       ["refill", { runId: id }],
       [
@@ -497,6 +504,10 @@ describe("A4 HTTP contracts", () => {
     ])
       assert.ok([200, 201].includes((await f.call("post", path, body)).status));
     const order = f.calls.find((c) => c[0] === "submit");
+    assert.equal(
+      f.calls.find((c) => c[0] === "create")[3].config.argumentLabel,
+      "Cost analysis",
+    );
     assert.equal(order[4].limit, "0.220000");
     assert.equal(order[1].userId, "1");
     assert.notEqual(order[1].tokenHash, "synthetic-cookie");

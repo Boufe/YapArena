@@ -14,6 +14,9 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 The [live/replay workspace](debate-workspace.md) adds the navy theme, shared
 search/balance header, settlement chart, round navigation and video enlargement.
+The [October 16 inspector update](evidence/debate-workspace/inspector-2026-10-16.md)
+adds right-column participation, median/offered-price inspection, argument labels
+and hover markers, and a round countdown bar.
 Its [dated evidence](evidence/debate-workspace/acceptance-2026-10-15.md) distinguishes
 local UI/database verification from hosted and physical-device media acceptance.
 

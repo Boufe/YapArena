@@ -25,6 +25,11 @@ export async function readTimeline(
     mode: "human" | "mixed";
     share: Fraction | null;
     offer: Fraction | null;
+    medianNo: Fraction | null;
+    medianYes: Fraction | null;
+    branch: string | null;
+    argumentLabel: string | null;
+    ownLimit: string | null;
     humans: number;
     bots: number;
     executed: number;
@@ -33,6 +38,7 @@ export async function readTimeline(
   }>(
     `WITH settled AS (
        SELECT r.id,r.session_id,r.period,r.revealed_at,r.closes_at,r.pricing,s.mode,
+         s.config->>'argumentLabel' AS argument_label,
          row_number() OVER (ORDER BY r.revealed_at,r.id)::int AS number
        FROM a4_rounds r JOIN a4_sessions s ON s.id=r.session_id
          JOIN debates d ON d.id=s.debate_id JOIN topics t ON t.id=d.topic_id
@@ -44,13 +50,16 @@ export async function readTimeline(
      ), recent AS (SELECT * FROM settled ORDER BY number DESC LIMIT 101)
      SELECT r.id,r.session_id AS "runId",r.number,r.period,r.revealed_at AS "settledAt",
        r.closes_at AS "closesAt",r.mode,r.pricing->'share' AS share,r.pricing->'price' AS offer,
+       r.pricing->'a' AS "medianNo",r.pricing->'b' AS "medianYes",
+       r.pricing->>'branch' AS branch,r.argument_label AS "argumentLabel",
+       max(o.limit_value) FILTER(WHERE o.user_id=$2) AS "ownLimit",
        count(o.round_id) FILTER(WHERE o.kind='human')::int AS humans,
        count(o.round_id) FILTER(WHERE o.kind='bot')::int AS bots,
        count(o.round_id) FILTER(WHERE (o.outcome->>'executed')::boolean)::int AS executed,
        COALESCE(sum((o.outcome->>'premium')::numeric),0)::text AS premium,
        COALESCE(sum(o.quantity) FILTER(WHERE (o.outcome->>'executed')::boolean),0)::text AS quantity
      FROM recent r LEFT JOIN a4_submissions o ON o.round_id=r.id
-     GROUP BY r.id,r.session_id,r.number,r.period,r.revealed_at,r.closes_at,r.mode,r.pricing
+     GROUP BY r.id,r.session_id,r.number,r.period,r.revealed_at,r.closes_at,r.mode,r.pricing,r.argument_label
      ORDER BY r.number DESC`,
     [debateId, userId, scope],
   );

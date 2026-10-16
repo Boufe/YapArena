@@ -143,7 +143,10 @@ describe(
     it("charts only finalized settlements, separates private creators and excludes observer/pending information", async () => {
       const a = await actor(),
         b = await actor();
-      const first = await run(a, { population: 10 }),
+      const first = await run(a, {
+          population: 10,
+          argumentLabel: "Cost analysis",
+        }),
         other = await run(b, { population: 10 });
       assert.deepEqual((await a4.timeline(a, debateId, "sandbox")).items, []);
       await a4.control(a, key(), first.id, "step");
@@ -154,6 +157,12 @@ describe(
       assert.equal(own.items.length, 1);
       assert.equal(own.items[0].runId, first.id);
       assert.equal(own.items[0].bots, 10);
+      assert.equal(own.items[0].argumentLabel, "Cost analysis");
+      assert.equal(own.items[0].ownLimit, null);
+      const actual = (await a4.view(a, first.id)).rounds[0].diagnostics.pricing;
+      assert.deepEqual(own.items[0].medianNo, actual.a);
+      assert.deepEqual(own.items[0].medianYes, actual.b);
+      assert.deepEqual(own.items[0].offer, actual.price);
       assert.equal(own.totals.botCommitments, 10);
       assert.deepEqual((await a4.timeline(a, debateId, "human")).items, []);
       assert.equal(
@@ -163,7 +172,11 @@ describe(
       const observer = await run(a, { population: 10 }, "observer");
       await finish(observer.id);
       assert.equal((await a4.timeline(a, debateId, "sandbox")).items.length, 1);
-      const human = await run(a, { population: 0 }, "human");
+      const human = await run(
+        a,
+        { population: 0, argumentLabel: "Pilot studies" },
+        "human",
+      );
       await a4.submit(a, key(), human.rounds[0].id, {
         side: "YES",
         limit: "1",
@@ -182,6 +195,12 @@ describe(
       assert.equal(settled.items[0].humans, 2);
       assert.equal(settled.items[0].bots, 0);
       assert.deepEqual(settled.items[0].share, { n: "1", d: "2" });
+      assert.equal(settled.items[0].argumentLabel, "Pilot studies");
+      assert.equal(settled.items[0].ownLimit, "0");
+      assert.equal(
+        (await a4.timeline(a, debateId, "human")).items[0].ownLimit,
+        "1",
+      );
       assert.equal(settled.totals.premium, "1000001");
       for (const item of settled.items)
         for (const secret of [

@@ -6,8 +6,11 @@ search, a Yap Coins balance menu and account avatar. The same workspace renders
 live, upcoming, ended and replay events. Existing discovery/account/matching pages
 use the shared header and palette; `/coins` retains advanced experiment controls.
 
-Desktop has three columns: broadcast/replay and community, settlement chart and
-commitments, and round history/info plus settled sentiment. Narrow screens stack
+Desktop has three columns: broadcast/replay and community, settlement chart with
+its price/median inspector and commitment history, and compact participation/info
+plus settled sentiment. The participation card retains the old round column's
+width and ends at the main graph's lower boundary; its content can scroll when
+expanded setup or text needs more room. Narrow screens stack
 these panels without removing controls. Video enlargement changes CSS on the
 existing surface: it preserves media nodes, tracks, playback and chat. Hover,
 keyboard focus and touch expose the control; Restore or Escape returns its exact
@@ -29,10 +32,31 @@ original bounds. Keyboard focus stays inside the enlarged video until restored.
   remain inside the repository transactions. No existing rate limit is increased.
 - Every chart point is the exact unweighted YES share for one final round; NO is
   its complement. Empty rounds break the line and have no invented percentage.
-  Chart markers and the round list load the selected run and its own receipts.
+  Hover/touch/focus inspects the nearest round, with a crosshair, YES/NO rates,
+  offered price and an X-axis diamond naming its round and argument. Inspection
+  never switches the commitment target; clicking or Enter selects the round's run
+  and its own receipts. Arrow keys, Home/End and the price inspector's round picker
+  provide keyboard navigation. Hovering does not issue backend requests.
   Visible tabs refresh every five seconds, including after the selected run completes.
   A reconnect catches up from durable PostgreSQL state. No speculative values,
   pending counts, provisional payouts, hidden books or secret seeds enter the feed.
+- The inspector below the graph replaces the old horizontal round strip. It shows
+  the settled median NO floor and YES ceiling, offered YES price and complementary
+  NO price, final YES share and the signed-in user's own YES-scale limit. Missing
+  sides and nonpositive median intervals are labeled explicitly; fallback offers
+  may lie outside the reported medians. Pending selections show only already
+  permitted offers and the user's own limit, with medians/final rates sealed.
+  Prices on this scale use hundredths of one Yap Coin, denoted `¢`, with no cash value.
+- A horizontal countdown inside the chart section derives its remaining fraction
+  from the round's actual opening/cutoff timestamps. It updates every second,
+  clamps at zero and changes color for the final ten seconds. Its accessible
+  progress value includes remaining seconds; reduced-motion preferences disable
+  the draining transition. Hovering history does not alter the current countdown.
+- New round setup accepts an optional, single-line argument label (1–80 characters).
+  The server validates and snapshots it in the existing immutable run configuration;
+  all periods in a multi-period advanced run share that label. Historical runs
+  without labels say “Argument not labeled.” This metadata does not change A4
+  pricing, quantity, endorsement or settlement calculations and needs no migration.
 - Volume is executed premium for the displayed settled window, in Yap Coins.
   Counts are labeled human/bot **commitments**, not people or adoption. Sentiment
   explicitly names its settled round; it is not an assertion about truth, a price,

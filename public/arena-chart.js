@@ -1,4 +1,5 @@
 /* global document */
+import { createChartStatement } from "./arena-statement.js";
 export function sharePercent(share) {
   if (!share || !/^\d{1,30}$/.test(share.n) || !/^[1-9]\d{0,29}$/.test(share.d))
     return null;
@@ -65,6 +66,7 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
   const empty = root.querySelector("[data-chart-empty]");
   const cursor = root.querySelector("[data-chart-cursor]");
   const badges = root.querySelector("[data-chart-badges]");
+  const statement = createChartStatement(root);
   const svg = (name, attributes = {}, text) => {
     const node = document.createElementNS("http://www.w3.org/2000/svg", name);
     for (const [key, value] of Object.entries(attributes))
@@ -114,6 +116,7 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
     const displayed = point ?? points.at(-1);
     renderBadges(displayed);
     onInspect(displayed ?? null);
+    statement.show(point);
     for (const group of series.querySelectorAll("[data-chart-round]"))
       group.classList.toggle(
         "is-inspected",
@@ -140,36 +143,6 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
           class: "arena-chart-hover-dot",
         }),
       );
-    const badgeX = Math.max(153, Math.min(545, point.x));
-    cursor.append(
-      svg("path", {
-        d: `M${point.x},292 l5,6 -5,6 -5,-6 Z`,
-        class: "arena-chart-argument-symbol",
-      }),
-    );
-    cursor.append(
-      svg("rect", {
-        x: badgeX - 145,
-        y: 321,
-        width: 290,
-        height: 27,
-        rx: 5,
-        class: "arena-chart-axis-badge",
-      }),
-    );
-    const label = point.argumentLabel || "Argument not labeled";
-    cursor.append(
-      svg(
-        "text",
-        {
-          x: badgeX,
-          y: 339,
-          "text-anchor": "middle",
-          class: "arena-chart-axis-label",
-        },
-        `◆ R${point.number} · ${label.length > 27 ? label.slice(0, 26) + "…" : label}`,
-      ),
-    );
   }
   function fromPointer(event) {
     const transform = canvas.getScreenCTM();
@@ -182,7 +155,7 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
       position.x < 36 ||
       position.x > 662 ||
       position.y < 24 ||
-      position.y > 350
+      position.y > 320
     )
       return null;
     return nearestRound(points, position.x);
@@ -212,6 +185,7 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
       delete badges.dataset.roundId;
       points = [];
       inspected = undefined;
+      statement.clear();
       empty.hidden = false;
       empty.textContent = message;
     },
@@ -224,6 +198,7 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
       revision = nextRevision;
       const oldInspection = inspected;
       points = chartPoints(data.items);
+      statement.reserveLabels(points);
       series.replaceChildren();
       ticks.replaceChildren();
       cursor.replaceChildren();
@@ -297,12 +272,6 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
               }),
             );
         }
-        group.append(
-          svg("path", {
-            d: `M${point.x},294 l4,5 -4,5 -4,-5 Z`,
-            class: "arena-chart-argument-symbol",
-          }),
-        );
         group.append(
           svg("rect", {
             x: point.x - 6,

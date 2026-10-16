@@ -234,7 +234,7 @@ if (root) {
           ? "The round is processing. Your existing commitment remains recorded."
           : "Choose a round or start a sandbox to participate.";
     defaultPrice = timeline.items.at(-1);
-    prices.update(timeline, defaultPrice?.id);
+    prices.update(timeline);
     countdown();
   }
   function countdown() {

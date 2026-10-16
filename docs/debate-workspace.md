@@ -34,8 +34,10 @@ original bounds. Keyboard focus stays inside the enlarged video until restored.
   its complement. Empty rounds break the line and have no invented percentage.
   Hover/touch/focus inspects the nearest round. The existing green/red numeric
   badges show that round's YES/NO rates, while its offer/medians appear on the
-  scale immediately below the X axis inside the same graph panel. The argument
-  diamond stays below the axis; no floating text card covers the plot. Inspection
+  scale immediately below the X axis inside the same graph panel. The inspected
+  argument replaces the debate proposition in the heading beneath “What fraction
+  of participants endorse”; leaving the graph restores the proposition. No argument
+  badge sits below the axis and no floating text card covers the plot. Inspection
   never switches the commitment target; clicking or Enter selects the round's run
   and its own receipts. Arrow keys, Home/End and the price inspector's round picker
   provide keyboard navigation. Hovering does not issue backend requests.
@@ -49,6 +51,10 @@ original bounds. Keyboard focus stays inside the enlarged video until restored.
   was selected. A background refresh preserves an ongoing hover, and a new
   settlement updates both default displays together. Empty latest rounds show
   unavailable rates rather than substituting an older round or a fictitious share.
+  Persistent price/median markers glide horizontally to the inspected round's
+  values; the heading slides and fades between arguments. Rapid scrubbing retargets
+  these transitions without queuing them, and heading space is reserved to keep the
+  graph stationary. Reduced-motion preferences make both changes immediate.
 - The inspector below the graph replaces the old horizontal round strip. It shows
   the settled median NO floor and YES ceiling, offered YES price and complementary
   NO price, final YES share and the signed-in user's own YES-scale limit. Missing

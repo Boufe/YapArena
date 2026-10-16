@@ -19,6 +19,8 @@ adds right-column participation, median/offered-price inspection, argument label
 and hover markers, and a round countdown bar.
 The [hover refinement](evidence/debate-workspace/hover-2026-10-16.md) places the
 median scale directly under the X axis and synchronizes it with the numeric badges.
+The [motion refinement](evidence/debate-workspace/motion-2026-10-16.md) animates
+price/median inspection and moves the inspected argument into the graph heading.
 Its [dated evidence](evidence/debate-workspace/acceptance-2026-10-15.md) distinguishes
 local UI/database verification from hosted and physical-device media acceptance.
 

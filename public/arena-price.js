@@ -47,8 +47,78 @@ export function createPriceInspector(root, onSelect) {
     choose(select.selectedIndex - 1),
   );
   el("next").addEventListener("click", () => choose(select.selectedIndex + 1));
+  const group = (name, children) => {
+    const element = node("g", {
+      class: "arena-price-motion",
+      "data-price-marker": name,
+      "aria-hidden": "true",
+    });
+    element.append(...children);
+    drawing.append(element);
+    return element;
+  };
+  const intervalLine = node("line", {
+    x1: 0,
+    x2: 1,
+    y1: 28,
+    y2: 28,
+    class: "arena-price-interval",
+    "vector-effect": "non-scaling-stroke",
+  });
+  const interval = group("interval", [intervalLine]);
+  const intervalText = node("text", { x: 0, y: 66, "text-anchor": "middle" });
+  const intervalLabel = group("interval-label", [intervalText]);
+  const markers = {};
+  for (const [name, className, start, end] of [
+    ["median-no", "arena-price-median", 19, 37],
+    ["median-yes", "arena-price-median", 19, 37],
+    ["share", "arena-price-share", 8, 46],
+    ["limit", "arena-price-limit", 2, 46],
+    ["offer", "arena-price-offer", 8, 46],
+  ]) {
+    const line = node("line", {
+      x1: 0,
+      x2: 0,
+      y1: start,
+      y2: end,
+      class: className,
+    });
+    const title = node("title", {});
+    line.append(title);
+    const layer = group(name, [line]);
+    markers[name] = { layer, title };
+    if (name === "offer")
+      layer.append(
+        node("circle", { cx: 0, cy: 28, r: 7, class: "arena-price-offer-dot" }),
+      );
+  }
+  const offerText = node("text", {
+    x: 0,
+    y: 10,
+    "text-anchor": "middle",
+    class: "arena-price-offer-label",
+  });
+  const offerLabel = group("offer-label", [offerText]);
+  function place(layer, x, visible, width = 1) {
+    if (!visible) {
+      layer.style.opacity = "0";
+      layer.style.pointerEvents = "none";
+      layer.setAttribute("aria-hidden", "true");
+      return;
+    }
+    const transform = `translate(${x}px, 0px) scaleX(${width})`;
+    if (!layer.dataset.placed) {
+      layer.style.transition = "none";
+      layer.style.transform = transform;
+      layer.getBoundingClientRect();
+      layer.style.removeProperty("transition");
+      layer.dataset.placed = "true";
+    } else layer.style.transform = transform;
+    layer.style.opacity = "1";
+    layer.style.removeProperty("pointer-events");
+    layer.setAttribute("aria-hidden", "false");
+  }
   function show(point) {
-    drawing.replaceChildren();
     const p = roundPrices(point);
     select.value = point?.id ?? "";
     el("previous").disabled = select.selectedIndex <= 0;
@@ -60,96 +130,49 @@ export function createPriceInspector(root, onSelect) {
     el("yes").textContent = priceText(p.offer);
     el("no").textContent = priceText(p.noOffer);
     const x = (value) => 46 + value * 6.06;
-    if (p.interval)
-      drawing.append(
-        node("line", {
-          x1: x(p.a),
-          x2: x(p.b),
-          y1: 28,
-          y2: 28,
-          class: "arena-price-interval",
-        }),
-      );
-    if (p.interval)
-      drawing.append(
-        node(
-          "text",
-          {
-            x: Math.max(150, Math.min(558, x((p.a + p.b) / 2))),
-            y: 66,
-            "text-anchor": "middle",
-          },
-          `Median interval ${priceText(p.a)}–${priceText(p.b)}`,
-        ),
-      );
-    for (const [value, label] of [
-      [p.a, "Median NO floor"],
-      [p.b, "Median YES ceiling"],
+    place(
+      interval,
+      x(p.a ?? 0),
+      p.interval,
+      p.interval ? (p.b - p.a) * 6.06 : 1,
+    );
+    intervalText.textContent = p.interval
+      ? `Median interval ${priceText(p.a)}–${priceText(p.b)}`
+      : "";
+    place(
+      intervalLabel,
+      Math.max(150, Math.min(558, x(((p.a ?? 0) + (p.b ?? 0)) / 2))),
+      p.interval,
+    );
+    for (const [name, value, label] of [
+      ["median-no", p.a, "Median NO floor"],
+      ["median-yes", p.b, "Median YES ceiling"],
+      ["share", p.share, "Final YES share"],
+      ["limit", p.ownLimit, "Your YES-scale limit"],
+      ["offer", p.offer, "Shared YES offer"],
     ]) {
-      if (value === null) continue;
-      const marker = node("line", {
-        x1: x(value),
-        x2: x(value),
-        y1: 19,
-        y2: 37,
-        class: "arena-price-median",
-      });
-      marker.append(node("title", {}, `${label}: ${priceText(value)}`));
-      drawing.append(marker);
+      const marker = markers[name];
+      marker.title.textContent =
+        value === null
+          ? ""
+          : `${label}: ${name === "share" ? value.toFixed(2) + "%" : priceText(value)}`;
+      place(marker.layer, x(value ?? 0), value !== null);
     }
-    for (const [value, kind, label] of [
-      [p.share, "share", "Final YES share"],
-      [p.ownLimit, "limit", "Your YES-scale limit"],
-      [p.offer, "offer", "Shared YES offer"],
-    ]) {
-      if (value === null) continue;
-      const marker = node("line", {
-        x1: x(value),
-        x2: x(value),
-        y1: kind === "limit" ? 2 : 8,
-        y2: 46,
-        class: `arena-price-${kind}`,
-      });
-      marker.append(
-        node(
-          "title",
-          {},
-          `${label}: ${kind === "share" ? value.toFixed(2) + "%" : priceText(value)}`,
-        ),
-      );
-      drawing.append(marker);
-      if (kind === "offer") {
-        drawing.append(
-          node("circle", {
-            cx: x(value),
-            cy: 28,
-            r: 7,
-            class: "arena-price-offer-dot",
-          }),
-        );
-        drawing.append(
-          node(
-            "text",
-            {
-              x: Math.max(105, Math.min(615, x(value))),
-              y: 10,
-              "text-anchor": "middle",
-              class: "arena-price-offer-label",
-            },
-            `p = ${priceText(value)}`,
-          ),
-        );
-      }
-    }
+    offerText.textContent = `p = ${priceText(p.offer)}`;
+    place(
+      offerLabel,
+      Math.max(105, Math.min(615, x(p.offer ?? 0))),
+      p.offer !== null,
+    );
     const revealed = point && point.revealed !== false;
-    const interval = p.interval
+    const intervalDescription = p.interval
       ? `Median interval ${priceText(p.a)}–${priceText(p.b)}`
       : p.a !== null && p.b !== null
         ? `NO median ${priceText(p.a)} ≥ YES median ${priceText(p.b)} · no positive interval`
         : "Median interval unavailable · one side is missing";
     const description = !revealed
       ? "Medians and final endorsement rates remain sealed until final reveal."
-      : `${interval}${point.branch ? ` · ${point.branch} offer` : ""}.${p.ownLimit !== null ? ` Your YES-scale limit ${priceText(p.ownLimit)}.` : ""}`;
+      : `${intervalDescription}${point.branch ? ` · ${point.branch} offer` : ""}.${p.ownLimit !== null ? ` Your YES-scale limit ${priceText(p.ownLimit)}.` : ""}`;
     el("explanation").textContent = description;
     root.querySelector("#arena-price-scale-title").textContent =
       `${el("context").textContent}. Shared YES offer ${priceText(p.offer)}. ${description}${p.share !== null ? ` Final YES ${p.share.toFixed(2)}%, NO ${(100 - p.share).toFixed(2)}%.` : ""} Prices are hundredths of one Yap Coin.`;
@@ -159,16 +182,23 @@ export function createPriceInspector(root, onSelect) {
     clear() {
       points = [];
       signature = undefined;
+      for (const layer of drawing.children) {
+        layer.style.transition = "none";
+        layer.style.opacity = "0";
+        layer.style.removeProperty("transform");
+        delete layer.dataset.placed;
+      }
       select.replaceChildren(new Option("No settled rounds", ""));
       select.disabled = true;
       show(null);
     },
-    update(data, selectedId) {
+    update(data) {
       points = data.items;
       const next = JSON.stringify(
         points.map((p) => [p.id, p.number, p.argumentLabel, p.state]),
       );
       if (next !== signature) {
+        const selected = select.value;
         signature = next;
         select.replaceChildren(
           ...points.map(
@@ -180,9 +210,9 @@ export function createPriceInspector(root, onSelect) {
           ),
         );
         if (!points.length) select.add(new Option("No settled rounds", ""));
+        select.value = selected;
       }
       select.disabled = !points.length;
-      show(points.find((p) => p.id === selectedId) ?? points.at(-1));
     },
   };
 }

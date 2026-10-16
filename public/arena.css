@@ -1906,16 +1906,23 @@ textarea::placeholder {
   stroke: #0b2237;
   stroke-width: 2;
 }
-.arena-chart-argument-symbol {
-  fill: #8fc9ef;
+.arena-chart-panel .arena-statement-heading {
+  position: relative;
+  display: grid;
 }
-.arena-chart-axis-badge {
-  fill: #15334a;
-  stroke: #5383a1;
+.arena-statement-reserve {
+  display: grid;
+  grid-area: 1 / 1;
+  visibility: hidden;
+  pointer-events: none;
 }
-.arena-chart .arena-chart-axis-label {
-  fill: #e3f3ff;
-  font-size: 11px;
+.arena-statement-reserve > span {
+  grid-area: 1 / 1;
+}
+.arena-statement-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 .arena-chart-point.is-inspected circle {
   filter: drop-shadow(0 0 5px #c7f7ff);
@@ -2018,6 +2025,22 @@ textarea::placeholder {
   stroke: #c1c4ff;
   stroke-width: 2;
   fill: #c1c4ff;
+}
+.arena-price-offer-dot {
+  filter: drop-shadow(0 0 5px #b4baff88);
+}
+.arena-price-motion {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  opacity: 0;
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .arena-price-motion {
+    transition: none;
+  }
 }
 .arena-price-scale .arena-price-offer-label {
   fill: #d3d5ff;

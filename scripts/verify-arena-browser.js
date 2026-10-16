@@ -15,6 +15,7 @@ export async function verifyArenaBrowser({
   await mkdir(directory, { recursive: true });
   const page = await context.newPage(),
     errors = [];
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   page.on("pageerror", (e) => errors.push(e.message));
   await page.setViewportSize({ width: 1440, height: 1050 });
   let phase = "register";
@@ -146,13 +147,63 @@ export async function verifyArenaBrowser({
       );
     }
     await expectInspection(latest);
-    const beforeHover = await page.locator("[data-inline-runs]").inputValue();
+    const graphGeometry = () =>
+      page.locator(".arena-chart").evaluate((node) => {
+        const bounds = node.getBoundingClientRect(),
+          panel = node.closest(".arena-chart-panel").getBoundingClientRect();
+        return {
+          x: bounds.x - panel.x,
+          y: bounds.y - panel.y,
+          width: bounds.width,
+          height: bounds.height,
+        };
+      });
+    const beforeHover = await page.locator("[data-inline-runs]").inputValue(),
+      originalStatement = await page
+        .locator("[data-chart-statement]")
+        .textContent(),
+      originalGraph = await graphGeometry(),
+      offerMarker = await page
+        .locator('[data-price-marker="offer"]')
+        .elementHandle();
+    await offerMarker.evaluate(async (node) => {
+      await Promise.all(
+        node.getAnimations().map((animation) => animation.finished),
+      );
+      window.__arenaMotion = [];
+      window.__arenaHeadingMotion = false;
+      node.addEventListener("transitionrun", (event) => {
+        if (event.propertyName === "transform")
+          window.__arenaMotion.push({
+            current: new window.DOMMatrixReadOnly(
+              window.getComputedStyle(node).transform,
+            ).m41,
+            target: new window.DOMMatrixReadOnly(node.style.transform).m41,
+          });
+      });
+      new window.MutationObserver(() => {
+        if (
+          document
+            .querySelector("#arena-chart-title")
+            .getAnimations({ subtree: true }).length
+        )
+          window.__arenaHeadingMotion = true;
+      }).observe(document.querySelector("#arena-chart-title"), {
+        childList: true,
+      });
+    });
     await page.locator(`[data-chart-round="${first.id}"]`).hover();
     await expectInspection(first);
     assert.equal(await page.locator("[data-chart-tooltip]").count(), 0);
-    assert.match(
-      await page.locator("[data-chart-cursor]").textContent(),
-      /R\d+.*(Opening case|Cost analysis)/,
+    assert.equal(
+      await page.locator("[data-chart-statement]").textContent(),
+      `“${first.argumentLabel}”`,
+    );
+    assert.equal(
+      await page
+        .locator(".arena-chart-axis-badge, .arena-chart-argument-symbol")
+        .count(),
+      0,
     );
     assert.match(
       await page.locator("[data-price-explanation]").textContent(),
@@ -178,6 +229,18 @@ export async function verifyArenaBrowser({
         ),
     );
     await expectInspection(first);
+    assert.equal(await offerMarker.evaluate((node) => node.isConnected), true);
+    assert.equal(await page.evaluate(() => window.__arenaHeadingMotion), true);
+    assert.equal(
+      await page.evaluate(() =>
+        window.__arenaMotion.some(
+          ({ current, target }) => Math.abs(current - target) > 0.001,
+        ),
+      ),
+      true,
+    );
+    assert.deepEqual(await graphGeometry(), originalGraph);
+    checks.persistentPriceMarkersSlideAndHeadingAnimatesWithoutLayoutShift = true;
     const graphBounds = await page.locator(".arena-chart").boundingBox(),
       scaleBounds = await page.locator(".arena-price-scale").boundingBox();
     assert.ok(
@@ -197,9 +260,43 @@ export async function verifyArenaBrowser({
     await page.screenshot({ path: directory + "/hover.png", fullPage: true });
     await page.locator(".arena-chart-question").hover();
     await expectInspection(latest);
+    assert.equal(
+      await page.locator("[data-chart-statement]").textContent(),
+      originalStatement,
+    );
     assert.equal(await page.locator("[data-chart-cursor] > *").count(), 0);
     checks.latestBadgesAndMedianRestoreTogether = true;
     checks.hoverSurvivesRefreshAndScaleAdjoinsAxis = true;
+    for (const point of [first, latest, first])
+      await page.locator(`[data-chart-round="${point.id}"]`).hover();
+    await expectInspection(first);
+    assert.equal(
+      await page.locator("[data-chart-statement]").textContent(),
+      `“${first.argumentLabel}”`,
+    );
+    assert.ok((await page.locator(".arena-statement-layer").count()) <= 2);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.locator(`[data-chart-round="${latest.id}"]`).hover();
+    await expectInspection(latest);
+    assert.equal(
+      await offerMarker.evaluate(
+        (node) => window.getComputedStyle(node).transitionDuration,
+      ),
+      "0s",
+    );
+    assert.equal(
+      await page
+        .locator("#arena-chart-title")
+        .evaluate((node) => node.getAnimations({ subtree: true }).length),
+      0,
+    );
+    await page.locator(".arena-chart-question").hover();
+    assert.equal(
+      await page.locator("[data-chart-statement]").textContent(),
+      originalStatement,
+    );
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    checks.rapidScrubbingAndReducedMotion = true;
     const sidebar = await page.locator("[data-arena-sidecar]").boundingBox(),
       graph = await page.locator("[data-arena-graph-main]").boundingBox();
     assert.ok(

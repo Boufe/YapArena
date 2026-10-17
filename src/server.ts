@@ -1,4 +1,5 @@
 import { createA4Repository } from "./features/a4/repository.ts";
+import { createPublicBotRepository } from "./features/a4/public-bots.ts";
 import { createApp } from "./app.ts";
 import { createMessageRepository } from "./features/messages/repository.ts";
 import { createDiscoveryRepository } from "./features/discovery/repository.ts";
@@ -77,6 +78,7 @@ const wallets = createWalletRepository(database);
 const app = createApp({
   messages,
   a4,
+  publicBots: createPublicBotRepository(database),
   discovery,
   identity,
   matching,

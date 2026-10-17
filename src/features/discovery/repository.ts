@@ -159,6 +159,13 @@ export function createDiscoveryRepository(database: Pool) {
     return result.rows.map(mapDebate);
   }
   return Object.freeze({
+    async listHomepageDebates(topicIds: string[]): Promise<PublicDebate[]> {
+      const result = await database.query<DebateRow>(
+        `SELECT ${debateColumns} ${debateJoins} WHERE d.publication_state='published' AND d.topic_id=ANY($1::uuid[]) ORDER BY d.created_at DESC,d.id DESC LIMIT 100`,
+        [topicIds],
+      );
+      return result.rows.map(mapDebate);
+    },
     async getFeaturedDebate(): Promise<PublicDebate | null> {
       return (await watchableDebates(1))[0] ?? null;
     },

@@ -183,6 +183,11 @@ comparisons only, enable `HOMEPAGE_REFERENCE_ENABLED=true` in the runtime-only
 environment and visit `/?reference=1`; this labeled sample mode is disabled by
 default and forbidden in production.
 
+[Shared bot discovery](docs/shared-bot-discovery.md) additionally supports stored,
+clearly labeled heterogeneous simulations and opted-in settled mixed/observer
+aggregates. Homepage and debate charts update together; Live remains accessible
+from the header. Public simulations never spend account balances.
+
 The database starts with no public records. To add fictional, clearly marked examples in local
 development after migrating, run:
 

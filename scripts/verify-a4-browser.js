@@ -1,4 +1,5 @@
 import { verifyArenaBrowser } from "./verify-arena-browser.js";
+import { verifyPublicBotsBrowser } from "./verify-public-bots-browser.js";
 /* global window, document */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -295,6 +296,15 @@ try {
     artifactDir: `${artifactDir}/arena`,
     setReplay: () =>
       owner.query("UPDATE debates SET status='replay' WHERE id=$1", [debate]),
+  });
+  await verifyPublicBotsBrowser({
+    base,
+    context,
+    owner,
+    debate,
+    topic,
+    debateSlug: `a4-browser-${tag}`,
+    artifactDir: `${artifactDir}/shared-bots`,
   });
   console.log(`A4 browser PASS; evidence ${artifactDir}`);
 } finally {

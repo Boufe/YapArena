@@ -661,6 +661,29 @@ export function createA4Repository(
   }
   return Object.freeze({
     mode,
+    async publication(actor: Actor, publish?: boolean) {
+      return transaction(async (client) => {
+        if (publish === true)
+          await client.query(
+            "INSERT INTO a4_public_publishers(user_id) VALUES($1) ON CONFLICT DO NOTHING",
+            [actor.userId],
+          );
+        if (publish === false)
+          await client.query(
+            "DELETE FROM a4_public_publishers WHERE user_id=$1",
+            [actor.userId],
+          );
+        const result = await client.query(
+          "SELECT 1 FROM a4_public_publishers WHERE user_id=$1",
+          [actor.userId],
+        );
+        if (publish !== undefined)
+          await audit(client, null, actor.userId, "discovery.publication", {
+            published: publish,
+          });
+        return { published: Boolean(result.rowCount) };
+      }, actor);
+    },
     async create(
       actor: Actor,
       key: string,

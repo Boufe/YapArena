@@ -1762,3 +1762,12 @@ body.arena-market-home {
 #ya-market-v4 strong {
   font-weight: 500;
 }
+#ya-market-v4 .ya-nav a {
+  font-weight: 600;
+  padding: 8px 0;
+  color: var(--ya-sub);
+  text-decoration: none;
+}
+#ya-market-v4 .ya-nav a:hover {
+  color: var(--ya-accent);
+}

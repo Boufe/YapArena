@@ -1,4 +1,5 @@
 import { createA4Router } from "./features/a4/router.ts";
+import type { createPublicBotRepository } from "./features/a4/public-bots.ts";
 import type { createA4Repository } from "./features/a4/repository.ts";
 import cookieParser from "cookie-parser";
 import express from "express";
@@ -101,6 +102,7 @@ export function createApp({
   logger,
   environment = "development",
   homepageReferenceEnabled = false,
+  publicBots,
   metrics = createMetrics(),
   applicationOrigin,
   trustProxy = false,
@@ -131,6 +133,7 @@ export function createApp({
   logger: Logger;
   environment?: string;
   homepageReferenceEnabled?: boolean;
+  publicBots?: ReturnType<typeof createPublicBotRepository>;
   metrics?: ReturnType<typeof createMetrics>;
   applicationOrigin?: string;
   trustProxy?: number | false;
@@ -264,6 +267,7 @@ export function createApp({
     app.use(
       createDiscoveryRouter({
         discovery,
+        publicBots,
         homepageReferenceEnabled:
           homepageReferenceEnabled && environment !== "production",
         a4Enabled: a4?.mode !== undefined && a4.mode !== "disabled",

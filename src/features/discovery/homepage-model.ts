@@ -1,8 +1,9 @@
 import type { PublicDebate, PublicTopic } from "./repository.ts";
+import type { PublicBotActivity } from "../a4/public-bots.ts";
 
 export interface HomeDebate {
   id: string;
-  kind: "live" | "replay";
+  kind: "live" | "replay" | "upcoming";
   title: string;
   names: string[];
   meta: string;
@@ -30,6 +31,7 @@ export interface HomeIdea {
   no: string;
   arguments: { stance: string; text: string; rate: number | null }[];
   debates: HomeDebate[];
+  activity?: PublicBotActivity;
 }
 export interface HomeData {
   reference: boolean;
@@ -50,12 +52,24 @@ const initials = (name: string) =>
 export function publicHomepage(
   topics: PublicTopic[],
   playable: PublicDebate[],
+  activity: Record<string, PublicBotActivity> = {},
 ): HomeData {
   return {
     reference: false,
     available: true,
     following: [],
     ideas: topics.map((topic) => {
+      const history = activity[topic.id];
+      const synthetic = history && history.items.length ? history : undefined;
+      const last = synthetic?.items.at(-1);
+      const percent = (share: { n: string; d: string } | null | undefined) =>
+        share ? (Number(share.n) * 100) / Number(share.d) : null;
+      const latest = percent(last?.share);
+      const first = percent(
+        synthetic?.items.find(
+          (r) => Date.parse(r.settledAt) > Date.now() - 86400000,
+        )?.share,
+      );
       const debates: HomeDebate[] = playable
         .filter((debate) => debate.topic.slug === topic.slug)
         .map((debate) => {
@@ -63,11 +77,26 @@ export function publicHomepage(
           const b = debate.speakerB?.displayName ?? "Speaker B";
           return {
             id: debate.id,
-            kind: debate.status === "live" ? "live" : "replay",
+            kind:
+              debate.status === "live"
+                ? "live"
+                : ["replay", "finalized"].includes(debate.status)
+                  ? "replay"
+                  : "upcoming",
             title: debate.proposition,
             names: [a, b, initials(a), initials(b)],
-            meta: debate.status === "live" ? "Live debate" : "Recording ready",
-            stamp: debate.status === "live" ? "Live" : "Replay",
+            meta:
+              debate.status === "live"
+                ? "Live debate"
+                : ["replay", "finalized"].includes(debate.status)
+                  ? "Replay debate"
+                  : "Upcoming / awaiting media",
+            stamp:
+              debate.status === "live"
+                ? "Live"
+                : ["replay", "finalized"].includes(debate.status)
+                  ? "Replay"
+                  : "Upcoming",
             href: `/debates/${encodeURIComponent(debate.slug)}`,
           };
         });
@@ -75,26 +104,36 @@ export function publicHomepage(
         id: topic.id,
         topicSlug: topic.slug,
         href: `/topics/${encodeURIComponent(topic.slug)}`,
-        cat: "Ideas",
+        cat: synthetic?.category ?? "Ideas",
         title: topic.title,
         short: topic.title,
         reference: false,
         demo: topic.isDemo,
-        pct: null,
-        delta: null,
-        vol: null,
-        people: null,
-        price: null,
-        points: [],
+        pct: latest,
+        delta:
+          latest !== null && first !== null
+            ? Math.round((latest - first) * 10) / 10
+            : null,
+        vol: synthetic
+          ? synthetic.items
+              .filter((r) => Date.parse(r.settledAt) > Date.now() - 86400000)
+              .reduce((n, r) => n + Number(r.premium), 0) / 1e9
+          : null,
+        people: last ? last.humans + last.bots : null,
+        price: last?.offer ? Number(last.offer.n) / Number(last.offer.d) : null,
+        points: synthetic
+          ? synthetic.items.filter((r) => r.share).map((r) => percent(r.share)!)
+          : [],
         viewers: null,
         live: debates.filter((debate) => debate.kind === "live").length,
         yes: topic.sideALabel,
         no: topic.sideBLabel,
-        arguments: [
+        arguments: synthetic?.arguments ?? [
           { stance: "for", text: topic.sideALabel, rate: null },
           { stance: "against", text: topic.sideBLabel, rate: null },
         ],
         debates,
+        ...(synthetic ? { activity: synthetic } : {}),
       };
     }),
   };

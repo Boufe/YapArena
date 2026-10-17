@@ -12,13 +12,21 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+The [shared bot discovery](shared-bot-discovery.md) adds stored heterogeneous
+demonstration histories, independent argument endorsements and opt-in aggregate
+mixed/observer results. Homepage and debate visuals refresh from the same final-only
+feed; Live regains a visible header link. [Local evidence](evidence/shared-bots/2026-10-16.md)
+distinguishes disposable browser/database checks from hosted manual acceptance.
+
 The [wide homepage](wide-homepage.md) replaces the temporary root logo with the
 supplied idea-discovery design, native SSR and progressive carousel, chart and
 inline expansion interactions. Published topics, canonical playable debates,
 authenticated follows and the existing Yap Coins header are connected. Topic
 market/argument histories remain unavailable; a separately gated, labeled local
 reference dataset supports visual acceptance. The [local evidence](evidence/homepage/2026-10-16.md)
-records comparison viewports and checks; this change is not merged or deployed.
+records comparison viewports and checks. [PR #33](https://github.com/Boufe/YapArena/pull/33)
+records the authorized staging deployment of homepage revision `c73822b`; it remains
+unmerged.
 
 The [Live discovery preview](homepage-preview.md) moves the former homepage to
 `/live`, with video cards in the existing grid and a shared one-preview playback

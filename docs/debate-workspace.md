@@ -1,5 +1,11 @@
 # Live and replay debate workspace
 
+The later [shared bot discovery](shared-bot-discovery.md) adds a clearly labeled
+shared simulation history, including signed-out viewing, and a History source
+control for authenticated private results. Independent synthetic arguments appear
+below the graph. Publication consent is available beside the round controls;
+personal receipts and balances remain private.
+
 The [homepage preview](homepage-preview.md) can open this workspace on click or
 continuous mouse hover. Its automatic muted preview is separate from the full
 watching controls and does not change speaker capture or settlement behavior.

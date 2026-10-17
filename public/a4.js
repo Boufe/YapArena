@@ -321,10 +321,27 @@ if (root) {
       await history();
     }),
   );
+  el("publish").addEventListener("change", () =>
+    perform(async () => {
+      try {
+        const result = await write("a4/publication", {
+          published: el("publish").checked,
+        });
+        el("publish").checked = result.published;
+      } catch (error) {
+        el("publish").checked = !el("publish").checked;
+        throw error;
+      }
+    }),
+  );
   async function start() {
     try {
       const auth = await api("auth/me");
       accountId = auth.user.id;
+      const publication = await api("a4/publication").catch(() => ({
+        published: false,
+      }));
+      el("publish").checked = publication.published;
       const debates = await api("public/debates?limit=50"),
         items = debates.items;
       const selected = new URLSearchParams(location.search).get("debate");

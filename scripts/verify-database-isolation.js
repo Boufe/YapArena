@@ -21,6 +21,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { deliveryTables } from "../migrations/1791335211412_durable-community-delivery.js";
 import { receiptTables } from "../migrations/1791345540042_preserve-chat-idempotency.js";
 import { a4Tables } from "../migrations/1792093616251_add-a4-yap-coins.js";
+import { publicBotTables } from "../migrations/1792195231830_add-public-bot-discovery.js";
 import { replayJobTables } from "../migrations/1791385198189_automatic-replay-packaging.js";
 import { provisionDatabase } from "./provision-database.js";
 import {
@@ -55,6 +56,7 @@ const applicationTables = [
   ...receiptTables,
   ...replayJobTables,
   ...a4Tables,
+  ...publicBotTables,
 ];
 const container = `yaparena-isolation-${randomUUID().slice(0, 8)}`;
 const evidenceDirectory = `/tmp/${container}-evidence`;

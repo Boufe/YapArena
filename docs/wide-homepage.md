@@ -9,6 +9,12 @@ routes retain their existing contracts.
 
 ## Data and actions
 
+The later [shared bot discovery](shared-bot-discovery.md) fills the same design
+with explicitly labeled database-backed simulations and opted-in mixed/observer
+aggregates. It also restores Live in the homepage header. The unavailable fields
+below describe records without that source; sample figures never become unlabeled
+real activity.
+
 `homepage-model.ts` adapts up to 12 published topics and the existing ranked feed
 of up to nine playable debates. Cards link to canonical topic/debate routes.
 Live/replay eligibility, publication and moderation remain repository concerns;

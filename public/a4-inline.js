@@ -41,8 +41,23 @@ if (root) {
     busy = false,
     listSignature,
     defaultPrice;
+  const sharedTemplate = root.querySelector("[data-shared-bootstrap]");
+  let shared = sharedTemplate
+    ? JSON.parse(sharedTemplate.content.textContent)
+    : null;
+  let usingShared = Boolean(shared?.items.length),
+    sharedSelected,
+    historyChoice = false,
+    sharedTimer,
+    sharedBusy = false;
+  const sharedAbort = new AbortController();
   const selectRound = (item) =>
     act(async () => {
+      if (usingShared) {
+        sharedSelected = item.id;
+        renderShared();
+        return;
+      }
       selectedRound = item.id;
       run = { id: item.runId };
       await list(run.id);
@@ -87,6 +102,7 @@ if (root) {
     ui("signin").hidden = false;
     chart.clear();
     window.dispatchEvent(new CustomEvent("yap:balance", { detail: null }));
+    renderShared();
   }
   async function api(path, body, key) {
     const response = await fetch(`/api/${path}`, {
@@ -118,7 +134,10 @@ if (root) {
         ui("no").textContent = "—";
         ui("sentiment-bar").dataset.empty = "true";
       }
-      throw new Error(result.error ?? "Unable to load Yap Coins");
+      throw Object.assign(
+        new Error(result.error ?? "Unable to load Yap Coins"),
+        { status: response.status },
+      );
     }
     return result;
   }
@@ -129,7 +148,10 @@ if (root) {
       await work();
     } catch (error) {
       status(error.message);
-      ui("sync").textContent = "Connection interrupted · retrying";
+      ui("sync").textContent =
+        shared?.items.length && !userId
+          ? "Shared synthetic history · connected"
+          : "Connection interrupted · retrying";
     } finally {
       busy = false;
     }
@@ -238,6 +260,10 @@ if (root) {
     countdown();
   }
   function countdown() {
+    if (usingShared && !userId && shared?.items.length) {
+      ui("countdown").textContent = "Shared settled history";
+      return;
+    }
     const node = ui("countdown");
     const progress = ui("round-progress");
     const { percent, seconds } = roundProgress(
@@ -320,7 +346,7 @@ if (root) {
     );
     el("bots").hidden =
       wallet.mode === "yap-coins" || wallet.mode === "disabled";
-    timeline = data.timeline;
+    timeline = usingShared && shared?.items.length ? shared : data.timeline;
     describeSelection();
     chart.render(timeline, selectedRound);
     renderReceipts();
@@ -338,6 +364,7 @@ if (root) {
         ? `${run.mode === "mixed" ? run.config.population + " synthetic bots + you" : "Human-only round"} · ${run.state}. ${run.config.feeBps ? "5% premium fee." : "No fee."} ${run.state === "complete" ? "Final results are available." : "Diagnostics stay sealed until final reveal."}`
         : "Choose a round or start a labeled sandbox.",
     );
+    if (usingShared) renderShared();
   }
   async function create(mode) {
     const result = await api("a4/runs", {
@@ -356,6 +383,20 @@ if (root) {
   }
   el("human").addEventListener("click", () => act(() => create("human")));
   el("bots").addEventListener("click", () => act(() => create("mixed")));
+  el("publish").addEventListener("change", () =>
+    act(async () => {
+      try {
+        const result = await api("a4/publication", {
+          published: el("publish").checked,
+        });
+        el("publish").checked = result.published;
+        await loadShared();
+      } catch (error) {
+        el("publish").checked = !el("publish").checked;
+        throw error;
+      }
+    }),
+  );
   el("refill").addEventListener("click", () =>
     act(async () => {
       await api("a4/refill", run ? { runId: run.id } : {});
@@ -434,10 +475,128 @@ if (root) {
       el("commit").disabled = false;
     }
   });
-  setInterval(countdown, 1000);
-  setInterval(() => {
+  function renderShared() {
+    const controls = root.querySelector("[data-shared-controls]");
+    controls.hidden = !shared?.items.length;
+    const args = root.querySelector("[data-shared-arguments]");
+    args.hidden = !usingShared || !shared?.arguments.length;
+    if (!usingShared || !shared?.items.length) return;
+    timeline = shared;
+    defaultPrice = shared.items.at(-1);
+    prices.update(shared);
+    chart.render(shared, sharedSelected);
+    ui("volume").textContent = money(shared.totals.premium, 2);
+    ui("participants").textContent =
+      `${shared.totals.botCommitments.toLocaleString()} synthetic bot endorsements · ${shared.totals.humanCommitments} shared participant endorsements`;
+    ui("scope").textContent =
+      "Shared simulation · seeded bots + opted-in mixed and observer rounds";
+    ui("sync").textContent = "● Synthetic activity · updates after settlement";
+    const pct = sharePercent(defaultPrice.share);
+    ui("yes").textContent = pct === null ? "—" : pct.toFixed(1) + "%";
+    ui("no").textContent = pct === null ? "—" : (100 - pct).toFixed(1) + "%";
+    ui("sentiment-caption").textContent =
+      `Synthetic / shared round ${defaultPrice.number}`;
+    ui("sentiment-bar").dataset.empty = String(pct === null);
+    ui("sentiment-bar").setAttribute(
+      "aria-label",
+      pct === null
+        ? "No synthetic endorsements"
+        : `Synthetic YES ${pct.toFixed(1)}%, NO ${(100 - pct).toFixed(1)}%`,
+    );
+    ui("sentiment-bar").style.setProperty("--yes-share", (pct ?? 0) + "%");
+    if (!userId) {
+      ui("round-label").textContent = `Round ${shared.items.at(-1).number}`;
+      ui("round-state").textContent = "synthetic";
+      ui("countdown").textContent = "Shared settled history";
+    }
+    const signature = shared.revision;
+    if (args.dataset.revision !== signature) {
+      args.dataset.revision = signature;
+      const list = root.querySelector("[data-shared-argument-list]");
+      list.replaceChildren();
+      for (const a of shared.arguments) {
+        const article = document.createElement("article"),
+          title = document.createElement("strong"),
+          text = document.createElement("p"),
+          meter = document.createElement("progress");
+        title.textContent = `${a.stance === "against" ? "COUNTERARGUMENT" : "FOR THE IDEA"} · ${a.rate.toFixed(1)}%`;
+        text.textContent = a.text;
+        meter.max = 100;
+        meter.value = a.rate;
+        meter.setAttribute(
+          "aria-label",
+          `Synthetic endorsement: ${a.rate.toFixed(1)}%, ${a.endorsed} of ${a.population} bots`,
+        );
+        article.append(title, text, meter);
+        list.append(article);
+      }
+    }
+  }
+  async function loadShared() {
+    if (sharedBusy || document.hidden || sharedAbort.signal.aborted) return;
+    sharedBusy = true;
+    try {
+      const response = await fetch(
+        `/api/public/debates/${root.dataset.a4Inline}/activity`,
+        { cache: "no-store", signal: sharedAbort.signal },
+      );
+      if (response.status === 404) {
+        shared = null;
+        root.querySelector("[data-shared-controls]").hidden = true;
+        root.querySelector("[data-shared-arguments]").hidden = true;
+        if (usingShared) {
+          chart.clear("Shared history is unavailable.");
+          prices.clear();
+          ui("volume").textContent = "— Yap Coins";
+          ui("yes").textContent = "—";
+          ui("no").textContent = "—";
+        }
+        return;
+      }
+      if (!response.ok) throw new Error("Shared activity refresh unavailable");
+      const next = await response.json();
+      if (next.revision !== shared?.revision) {
+        if (!historyChoice && !shared?.items.length && next.items.length)
+          usingShared = true;
+        shared = next;
+        renderShared();
+      }
+    } catch (error) {
+      if (error.name !== "AbortError" && usingShared)
+        ui("sync").textContent =
+          "Shared activity connection interrupted · showing last loaded results";
+    } finally {
+      sharedBusy = false;
+    }
+  }
+  root.querySelector("[data-shared-view]").addEventListener("change", (e) => {
+    historyChoice = true;
+    usingShared = e.target.value === "shared";
+    if (usingShared) {
+      renderShared();
+      if (userId) act(refresh);
+    } else if (userId) act(refresh);
+    else {
+      chart.clear("Sign in to see your private history.");
+      prices.clear();
+    }
+    root.querySelector("[data-shared-arguments]").hidden = !usingShared;
+  });
+  const countdownTimer = setInterval(countdown, 1000);
+  const privateTimer = setInterval(() => {
     if (userId && !busy && !document.hidden && !el("review").open) act(refresh);
   }, 5000);
+  sharedTimer = setInterval(() => void loadShared(), 5000);
+  window.addEventListener(
+    "pagehide",
+    () => {
+      clearInterval(countdownTimer);
+      clearInterval(privateTimer);
+      clearInterval(sharedTimer);
+      sharedAbort.abort();
+    },
+    { once: true },
+  );
   window.addEventListener("focus", () => {
     if (userId && !busy && !el("review").open) act(refresh);
   });
@@ -445,7 +604,12 @@ if (root) {
     userId = (await api("auth/me")).user.id;
     el("access").hidden = false;
     ui("signin").hidden = true;
+    const publication = await api("a4/publication").catch(() => ({
+      published: false,
+    }));
+    el("publish").checked = publication.published;
     await list();
     await refresh();
   });
+  renderShared();
 }

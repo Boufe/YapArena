@@ -15,6 +15,12 @@ export function chartSeries(
   metric: HomeMetric,
   range: HomeRange,
 ): number[] {
+  if (m.activity)
+    return historyRows(m, metric, range).map((r) =>
+      metric === "price"
+        ? Number(r.offer!.n) / Number(r.offer!.d)
+        : (Number(r.share!.n) * 100) / Number(r.share!.d),
+    );
   if (!m.reference || m.price === null) return [];
   if (metric === "price")
     return [
@@ -54,6 +60,16 @@ export function chartSeries(
         ),
   );
 }
+export function historyRows(m: HomeIdea, metric: HomeMetric, range: HomeRange) {
+  const rows = m.activity?.items ?? [];
+  const end = Date.parse(rows.at(-1)?.settledAt ?? "");
+  const span = (range === "1D" ? 1 : range === "1W" ? 7 : 30) * 86400000;
+  return rows.filter(
+    (r) =>
+      Date.parse(r.settledAt) >= end - span &&
+      (metric === "price" ? r.offer : r.share),
+  );
+}
 export function interpolate(points: number[], fraction: number): number | null {
   if (!points.length) return null;
   if (points.length === 1) return points[0]!;
@@ -75,6 +91,11 @@ export function chartGeometry(
     top = 24,
     bottom = 28;
   const points = chartSeries(m, metric, range);
+  const rows = historyRows(m, metric, range),
+    times = rows.map((r) => Date.parse(r.settledAt));
+  const first = times[0] ?? 0,
+    last = times.at(-1) ?? 1,
+    span = Math.max(1, last - first);
   const factor = metric === "price" ? 100 : 1,
     margin = metric === "price" ? 0.06 : 3;
   const lo = points.length
@@ -85,7 +106,23 @@ export function chartGeometry(
     : metric === "price"
       ? 1
       : 100;
-  const x = (i: number) => left + (i * (w - left - right)) / 15;
+  const x = (i: number) =>
+    left +
+    (m.activity
+      ? ((times[i] ?? first) - first) / span
+      : i / Math.max(1, points.length - 1)) *
+      (w - left - right);
+  const valueAt = (fraction: number) => {
+    if (!times.length) return interpolate(points, fraction);
+    const at = first + Math.max(0, Math.min(1, fraction)) * span;
+    if (at <= first) return points[0]!;
+    if (at >= last) return points.at(-1)!;
+    const next = times.findIndex((t) => t >= at);
+    if (next <= 0) return next === 0 ? points[0]! : points.at(-1)!;
+    const part =
+      (at - times[next - 1]!) / Math.max(1, times[next]! - times[next - 1]!);
+    return points[next - 1]! + (points[next]! - points[next - 1]!) * part;
+  };
   const y = (value: number) =>
     top + ((hi - value) / (hi - lo)) * (h - top - bottom);
   let markup = `<title>${points.length ? "Sample" : "Unavailable"} ${metric === "price" ? "YES execution prices, in Yap Coins" : "participant endorsement, in percent"}</title>`;
@@ -95,20 +132,42 @@ export function chartGeometry(
     const path = points
       .map((v, i) => (i ? "L" : "M") + x(i) + "," + y(v))
       .join(" ");
-    markup += `<path d="${path} L${x(15)},${h - bottom} L${x(0)},${h - bottom} Z" fill="var(--ya-accent)" opacity=".07"/><path class="ya-linepath" d="${path}"/>`;
+    markup += `<path d="${path} L${x(points.length - 1)},${h - bottom} L${x(0)},${h - bottom} Z" fill="var(--ya-accent)" opacity=".07"/><path class="ya-linepath" d="${path}"/>`;
     const labels =
       range === "1D"
         ? ["00:00", "08:00", "16:00", "Now"]
         : range === "1W"
           ? ["Oct 9", "Oct 11", "Oct 14", "Oct 16"]
           : ["Sep 16", "Sep 26", "Oct 6", "Oct 16"];
-    [0, 5, 10, 15].forEach((i, j) => {
-      markup += `<text x="${x(i)}" y="${h - 4}" text-anchor="${j === 0 ? "start" : j === 3 ? "end" : "middle"}">${labels[j]}</text>`;
-    });
-    if (range === "1D")
+    [0, 1, 2, 3]
+      .map((i) => Math.round((i * (points.length - 1)) / 3))
+      .forEach((i, j) => {
+        if (m.activity)
+          labels[j] = new Date(times[i]!).toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "UTC",
+          });
+        markup += `<text x="${x(i)}" y="${h - 4}" text-anchor="${j === 0 ? "start" : j === 3 ? "end" : "middle"}">${labels[j]}</text>`;
+      });
+    if (range === "1D" && !m.activity)
       markup += `<line x1="${x(9)}" x2="${x(9)}" y1="${top}" y2="${h - bottom}" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/><circle cx="${x(9)}" cy="${y(points[9]!)}" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>`;
-    markup += `<circle class="ya-endpoint" cx="${x(15)}" cy="${y(points[15]!)}" r="3.5" fill="var(--ya-accent)"/><g class="ya-hover-group" aria-hidden="true"><line data-chart-hover-guide y1="${top}" y2="${h - bottom}" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/><circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/><circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/></g><rect data-chart-hit x="${left}" y="0" width="${w - left - right}" height="${h}" fill="transparent"/>`;
+    markup += `<circle class="ya-endpoint" cx="${x(points.length - 1)}" cy="${y(points.at(-1)!)}" r="3.5" fill="var(--ya-accent)"/><g class="ya-hover-group" aria-hidden="true"><line data-chart-hover-guide y1="${top}" y2="${h - bottom}" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/><circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/><circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/></g><rect data-chart-hit x="${left}" y="0" width="${w - left - right}" height="${h}" fill="transparent"/>`;
   } else
     markup += `<text x="${(w - right) / 2}" y="${h / 2}" text-anchor="middle">History unavailable</text>`;
-  return { w, h, left, right, top, bottom, points, x, y, markup };
+  return {
+    w,
+    h,
+    left,
+    right,
+    top,
+    bottom,
+    points,
+    x,
+    y,
+    markup,
+    rows,
+    times,
+    valueAt,
+  };
 }

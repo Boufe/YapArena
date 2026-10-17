@@ -6,6 +6,11 @@ import pg from "pg";
 import request from "../scripts/test-http-request.js";
 import { createA4Repository } from "../dist/features/a4/repository.js";
 import {
+  createPublicBotRepository,
+  simulationArguments,
+  syntheticRound,
+} from "../dist/features/a4/public-bots.js";
+import {
   account,
   post,
   transfer,
@@ -139,6 +144,95 @@ describe(
     after(async () => {
       await pool?.end();
       await owner?.end();
+    });
+    it("shares only consented settled mixed/observer aggregates, excludes hidden/future/private data and follows new rounds automatically", async () => {
+      const a = await actor(),
+        b = await actor(),
+        publicBots = createPublicBotRepository(pool);
+      const mixed = await run(a, { argumentLabel: "Public cost analysis" }),
+        other = await run(b);
+      await a4.submit(a, key(), mixed.rounds[0].id, {
+        side: "YES",
+        limit: "0.5",
+        quantity: 1,
+        rule: mixed.config.rule,
+      });
+      await finish(mixed.id);
+      await finish(other.id);
+      assert.equal((await publicBots.debate(debateId)).items.length, 0);
+      await a4.publication(a, true);
+      await a4.publication(a, true);
+      const first = await publicBots.debate(debateId);
+      assert.equal(first.items.length, 1);
+      assert.equal(first.items[0].id, mixed.rounds[0].id);
+      assert.equal(first.items[0].humans, 1);
+      assert.equal(first.items[0].argumentLabel, "Public cost analysis");
+      assert.equal(first.items[0].runId, null);
+      assert.equal(JSON.stringify(first).includes(a.userId + "@"), false);
+      assert.equal("balances" in first, false);
+      const observer = await run(a, {}, "observer");
+      assert.equal(
+        (await publicBots.debate(debateId)).revision,
+        first.revision,
+      );
+      await finish(observer.id);
+      const next = await publicBots.debate(debateId);
+      assert.equal(next.items.length, 2);
+      assert.equal(next.items.at(-1).mode, "observer");
+      assert.notEqual(next.revision, first.revision);
+      await owner.query(
+        "UPDATE a4_sessions SET reveal_at=clock_timestamp()+interval '1 hour' WHERE id=$1",
+        [observer.id],
+      );
+      assert.equal((await publicBots.debate(debateId)).items.length, 1);
+      await owner.query(
+        "UPDATE a4_sessions SET reveal_at=clock_timestamp()-interval '1 second' WHERE id=$1",
+        [observer.id],
+      );
+      const catalog = simulationArguments("Should transport be free?");
+      await owner.query(
+        "INSERT INTO a4_synthetic_debates(debate_id,arguments,category) VALUES($1,$2,$3)",
+        [debateId, JSON.stringify(catalog.arguments), catalog.category],
+      );
+      await owner.query(
+        "INSERT INTO a4_synthetic_rounds(id,debate_id,seed_key,simulated_at,seed,result) VALUES($1,$2,$3,clock_timestamp()-interval '1 day','seed',$4)",
+        [key(), debateId, key(), JSON.stringify(syntheticRound("seed", 1, 20))],
+      );
+      const seeded = await publicBots.debate(debateId);
+      assert.equal(seeded.items.length, 3);
+      assert.equal(seeded.arguments.length, 6);
+      assert.equal(seeded.items[0].mode, "seed");
+      assert.equal(
+        (await publicBots.topics([topicId]))[topicId].items.length,
+        3,
+      );
+      await a4.publication(a, false);
+      assert.equal((await publicBots.debate(debateId)).items.length, 1);
+      await owner.query(
+        "UPDATE debates SET publication_state='hidden' WHERE id=$1",
+        [debateId],
+      );
+      assert.equal(await publicBots.debate(debateId), null);
+      assert.equal(
+        (await publicBots.topics([topicId]))[topicId].items.length,
+        0,
+      );
+      await owner.query(
+        "UPDATE debates SET publication_state='published' WHERE id=$1",
+        [debateId],
+      );
+      await request(app()).get("/api/a4/publication").expect(401);
+      await command(app(), a, "publication", { published: "yes" }).expect(400);
+      await command(app(), a, "publication", { published: true }).expect(200);
+      assert.equal((await a4.publication(a)).published, true);
+      await a4.publication(a, false);
+      await assert.rejects(
+        pool.query(
+          "INSERT INTO a4_synthetic_debates(debate_id,arguments,category) VALUES($1,'[]','Ideas')",
+          [key()],
+        ),
+        (error) => error.code === "42501",
+      );
     });
     it("charts only finalized settlements, separates private creators and excludes observer/pending information", async () => {
       const a = await actor(),

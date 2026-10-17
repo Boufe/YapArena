@@ -76,6 +76,15 @@ export function createA4Router(
     legacyHeaders: false,
   });
   router.get("/wallet", async (r, s) => s.json(await a4.wallet(actor(r))));
+  router.get("/publication", async (r, s) =>
+    s.json(await a4.publication(actor(r))),
+  );
+  router.post("/publication", async (r, s) => {
+    const b = body(r.body, ["published"]);
+    if (typeof b.published !== "boolean")
+      throw new A4Error("publication choice required", 400);
+    return s.json(await a4.publication(actor(r), b.published));
+  });
   router.get("/debates/:id/workspace", async (r, s) => {
     const current = actor(r),
       debateId = id(r.params.id);

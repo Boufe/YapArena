@@ -1,8 +1,5 @@
 /* global document, requestAnimationFrame, cancelAnimationFrame */
-import {
-  interpolate,
-  formatValue,
-} from "../src/features/discovery/homepage-chart.ts";
+import { formatValue } from "../src/features/discovery/homepage-chart.ts";
 import { changeText } from "../src/features/discovery/homepage-view.ts";
 export function bindHomepageChart({
   root,
@@ -37,18 +34,23 @@ export function bindHomepageChart({
       metric === "price" ? m.price : m.pct,
       metric,
     );
-    labelEl.textContent = m.reference
+    labelEl.textContent = m.activity
       ? metric === "price"
-        ? "Last executed YES price · completed round"
-        : "Participant endorsement · latest closed round"
-      : metric === "price"
-        ? "Topic execution price history unavailable"
-        : "Topic endorsement history unavailable";
-    changeEl.textContent = m.reference
-      ? metric === "price"
-        ? "YC / YES contract"
-        : changeText(m, true)
-      : "";
+        ? "Shared YES offer · synthetic simulation"
+        : "Synthetic bots + shared participants · settled round"
+      : m.reference
+        ? metric === "price"
+          ? "Last executed YES price · completed round"
+          : "Participant endorsement · latest closed round"
+        : metric === "price"
+          ? "Topic execution price history unavailable"
+          : "Topic endorsement history unavailable";
+    changeEl.textContent =
+      m.reference || m.activity
+        ? metric === "price"
+          ? "YC / YES contract"
+          : changeText(m, true)
+        : "";
     changeEl.classList.toggle("down", metric !== "price" && (m.delta ?? 0) < 0);
   }
   function reset() {
@@ -76,7 +78,7 @@ export function bindHomepageChart({
   slider.disabled = !c.points.length;
   svg.setAttribute(
     "aria-label",
-    `${m.reference ? "Sample" : "Unavailable"} ${metric === "price" ? "YES execution price history in Yap Coins" : "endorsement history across completed rounds"}. ${c.points.length ? "Move across the chart to inspect history." : "No topic-level history is available."}`,
+    `${m.reference ? "Sample" : m.activity ? "Synthetic" : "Unavailable"} ${metric === "price" ? "YES offered price history in Yap Coins" : "endorsement history across completed rounds"}. ${c.points.length ? "Move across the chart to inspect history." : "No topic-level history is available."}`,
   );
   function show(px) {
     if (!c.points.length) return;
@@ -84,10 +86,12 @@ export function bindHomepageChart({
     active = true;
     const chartX = Math.max(c.left, Math.min(c.w - c.right, px)),
       fraction = (chartX - c.left) / (c.w - c.right - c.left),
-      value = interpolate(c.points, fraction),
+      value = c.valueAt(fraction),
       chartY = c.y(value);
-    const end = Date.UTC(2026, 9, 16, 23, 59),
-      span = (range === "1D" ? 1 : range === "1W" ? 7 : 30) * 86400000,
+    const end = c.times.at(-1) ?? Date.UTC(2026, 9, 16, 23, 59),
+      span = c.times.length
+        ? Math.max(1, end - c.times[0])
+        : (range === "1D" ? 1 : range === "1W" ? 7 : 30) * 86400000,
       date = new Date(end - span + fraction * span);
     const stamp =
       date.toLocaleDateString("en-US", {
@@ -112,7 +116,11 @@ export function bindHomepageChart({
     labelEl.textContent =
       stamp +
       " · " +
-      (metric === "price" ? "YES execution price" : "Endorsement");
+      (metric === "price"
+        ? m.activity
+          ? "Shared YES offer"
+          : "YES execution price"
+        : "Endorsement");
     const delta = value - c.points[0];
     changeEl.textContent =
       metric === "price"

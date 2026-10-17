@@ -196,6 +196,7 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
         return;
       }
       revision = nextRevision;
+      const focused = document.activeElement?.getAttribute("data-chart-round");
       const oldInspection = inspected;
       points = chartPoints(data.items);
       statement.reserveLabels(points);
@@ -310,6 +311,10 @@ export function createRoundChart(root, onSelect, onInspect = () => {}) {
         series.append(group);
       }
       inspect(points.find((p) => p.id === oldInspection));
+      if (focused)
+        series
+          .querySelector(`[data-chart-round="${focused}"]`)
+          ?.focus({ preventScroll: true });
     },
     preview(id) {
       inspect(points.find((p) => p.id === id));

@@ -1,0 +1,21 @@
+{
+  "result": "PASS",
+  "checks": {
+    "roundProgressDrains": true,
+    "realLiveChat": true,
+    "chartUpdatedAfterRealSettlements": true,
+    "latestBadgesAndMedianRestoreTogether": true,
+    "hoverSurvivesRefreshAndScaleAdjoinsAxis": true,
+    "hoverPricesArgumentsAndCompactSidebar": true,
+    "expandEscapeRestoreExactBounds": true,
+    "bindingCommitmentAndQuickQuantity": true,
+    "chartSelectionLoadsRound": true,
+    "sidebarTabs": true,
+    "axeNoSeriousViolations": true,
+    "mobileNoOverflow": true,
+    "headerSearch": true,
+    "replayLayoutAndUninterruptedSyntheticPlayback": true,
+    "noPageErrors": true
+  },
+  "scope": "Local browser with real PostgreSQL and actual settlement worker; media provider unavailable, transport not assessed"
+}

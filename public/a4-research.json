@@ -1,0 +1,141 @@
+{
+  "rule": "a4-v1",
+  "seed": "a4-two-person-reference-20261015",
+  "scope": "Local reproducible fixtures; no external simulator source was available",
+  "benchmark": {
+    "a": 0.22000000000000003,
+    "b": 0.3400000000000001
+  },
+  "ideal": [
+    {
+      "epsilon": 0,
+      "rate": 1,
+      "profit": 0.06
+    },
+    {
+      "epsilon": 0.05,
+      "rate": 0.956,
+      "profit": 0.057359999999999994
+    },
+    {
+      "epsilon": 1,
+      "rate": 0.12,
+      "profit": 0.0072
+    }
+  ],
+  "finite": {
+    "cohort": [
+      {
+        "participant": "y",
+        "kind": "bot",
+        "side": "YES",
+        "limit": "0.34",
+        "quantity": 1
+      },
+      {
+        "participant": "n1",
+        "kind": "bot",
+        "side": "NO",
+        "limit": "0.22",
+        "quantity": 1
+      }
+    ],
+    "original": {
+      "participant": "y",
+      "kind": "bot",
+      "side": "YES",
+      "limit": "0.34",
+      "quantity": 1
+    },
+    "best": {
+      "participant": "y",
+      "kind": "bot",
+      "side": "YES",
+      "limit": "0.250000",
+      "quantity": 1
+    },
+    "search": {
+      "mean": 0.045141140999999996,
+      "standardError": 0.000573441970230354,
+      "samples": 2000
+    },
+    "confirmation": {
+      "mean": 0.04477800700000006,
+      "standardError": 0.0005894047364444462,
+      "samples": 2000
+    },
+    "settlement": {
+      "n": "1",
+      "d": "2"
+    },
+    "assumptions": "Finite cohort; endogenous medians, execution and settlement recomputed; fixed quantity; paired draws; unconditional profit including nonexecution; independent confirmation.",
+    "interpretation": "A fixed two-person cohort permits pivotal shading. Candidate changes recompute both medians, settlement and executions. This conditional-cohort counterexample is not a general Bayesian equilibrium result; bots never receive realized settlement as input."
+  },
+  "finitePopulationAudit": {
+    "population": 500,
+    "epsilon": 0.05,
+    "feeBps": 0,
+    "original": {
+      "participant": "bot:0",
+      "kind": "bot",
+      "side": "YES",
+      "limit": "0.163472",
+      "quantity": 1
+    },
+    "best": {
+      "participant": "bot:0",
+      "kind": "bot",
+      "side": "NO",
+      "limit": "0.000000",
+      "quantity": 1
+    },
+    "search": {
+      "mean": 0.2330348199999999,
+      "standardError": 0.004897913393659993,
+      "samples": 100
+    },
+    "confirmation": {
+      "mean": 0.22706528000000004,
+      "standardError": 0.0038700494698918385,
+      "samples": 100
+    },
+    "settlement": {
+      "n": "23",
+      "d": "125"
+    },
+    "assumptions": "Finite cohort; endogenous medians, execution and settlement recomputed; fixed quantity; paired draws; unconditional profit including nonexecution; independent confirmation.",
+    "interpretation": "Conditional on the observed behavioral stress cohort; this evaluates alternative orders under paired price randomness, including nonexecution, with independently confirmed uncertainty. It does not establish an ex ante Bayesian strategy or general honesty result."
+  },
+  "heterogeneous": {
+    "seed": "a4-heterogeneous",
+    "period": 1,
+    "epsilon": 0.05,
+    "population": 500,
+    "model": "Behavioral stress fixture: period belief center uniform on [0.15,0.85); per-bot belief = 0.02+0.96*(0.35*center+0.65*independent uniform); side sampled with center probability. Research and price domains are separate.",
+    "uniqueLimits": 500,
+    "pricing": {
+      "a": {
+        "n": "203373",
+        "d": "500000"
+      },
+      "b": {
+        "n": "841987",
+        "d": "2000000"
+      },
+      "share": {
+        "n": "23",
+        "d": "125"
+      },
+      "price": {
+        "n": "30932115788323020832724319",
+        "d": "73786976294838206464000000"
+      },
+      "branch": "targeted",
+      "reason": null
+    },
+    "executed": 256,
+    "engineMs": 5,
+    "auditMs": 28136
+  },
+  "claims": "No guaranteed truthfulness, uniqueness, Sybil/coalition resistance, calibrated estimator, objective truth or production SLO."
+}

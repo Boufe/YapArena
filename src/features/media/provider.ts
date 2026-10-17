@@ -15,6 +15,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import { createReplayAccess, replayPrefix } from "./replay.ts";
+import { createReplayThumbnailStorage } from "./replay-thumbnail.ts";
 
 export interface MediaProviderConfig {
   livekitUrl: string;
@@ -71,6 +72,10 @@ export function createMediaProvider(
         },
       })
     : storage;
+  const thumbnails = createReplayThumbnailStorage(
+    { bucket: config.s3Bucket },
+    storage,
+  );
   const roomName = (id: string) => `debate-${id}`;
   const usesReplayEdge = (key: string) =>
     Boolean(
@@ -243,6 +248,9 @@ export function createMediaProvider(
         captionsUrl:
           packaged && !packaged.hasCaptions ? undefined : access.captionsUrl,
       };
+    },
+    async thumbnail(key: string) {
+      return thumbnails.read(key, AbortSignal.timeout(5000));
     },
     async publishCaptions(key: string, captions: string) {
       if (usesReplayEdge(key) && !packagedReplay)

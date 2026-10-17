@@ -86,6 +86,14 @@ test("queue accepts bounded scheduling and rejects invalid worker inputs before 
   assert.equal(await f.jobs.bindSource(job, '"source"'), true);
   await f.jobs.fail(job, "encoder_failed", false);
   assert.deepEqual(await f.jobs.ready(room, job.sourceKey), { id: room });
+  await f.jobs.thumbnailCandidates([job.sourceKey]);
+  assert.deepEqual(f.queries.at(-1).values, [null, [job.sourceKey]]);
+  assert.match(f.queries.at(-1).text, /NOT d.is_demo/);
+  assert.match(f.queries.at(-1).text, /LIMIT 50/);
+  await assert.rejects(
+    f.jobs.thumbnailCandidates(Array(1001).fill(job.sourceKey)),
+    RangeError,
+  );
   const cleanup = await f.jobs.claimCleanup();
   assert.deepEqual(cleanup, { id: room });
   assert.equal(

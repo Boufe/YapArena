@@ -272,6 +272,18 @@ export function createReplayJobs(
       );
       return result.rows[0] ?? null;
     },
+    async thumbnailCandidates(excluded: readonly string[] = []) {
+      bounded(excluded.length, 0, 1000);
+      const result = await db.query<{ sourceKey: string; packageKey: string }>(
+        `SELECT j.source_key AS "sourceKey",j.package_key AS "packageKey"
+         FROM yaparena.media_replay_jobs j WHERE j.state='ready' AND ${current}
+         AND ($1::uuid[] IS NULL OR j.debate_id=ANY($1::uuid[]))
+         AND NOT (j.source_key=ANY($2::text[]))
+         ORDER BY j.updated_at DESC,j.id DESC LIMIT 50`,
+        [rooms, excluded],
+      );
+      return result.rows;
+    },
     async claimCleanup(leaseMs = 60_000) {
       bounded(leaseMs, 5000, 300_000);
       const token = randomUUID();

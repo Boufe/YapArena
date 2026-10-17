@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import { createReplayPlayer } from "../public/media-replay.js";
 
-function fixture({ native = true, supported = true } = {}) {
+function fixture({ native = true, supported = true, preview = false } = {}) {
   const handlers = new Map();
   const jobs = new Map();
   const records = [];
@@ -90,6 +90,7 @@ function fixture({ native = true, supported = true } = {}) {
     }
   }
   const player = createReplayPlayer({
+    preview,
     video,
     Hls: FakeHls,
     request: async () => {
@@ -160,6 +161,18 @@ function fixture({ native = true, supported = true } = {}) {
     },
   };
 }
+it("keeps an autoplay preview on the smallest HLS rendition and bounded buffer after preparation", async () => {
+  const f = fixture({ native: false, preview: true });
+  await f.player.prepare();
+  await f.player.start();
+  const hls = f.instances.at(-1);
+  assert.equal(hls.config.autoLevelCapping, 0);
+  assert.equal(hls.config.maxBufferLength, 2);
+  assert.equal(hls.config.maxMaxBufferLength, 4);
+  assert.equal(hls.config.maxBufferSize, 2_000_000);
+  f.player.destroy();
+  assert.equal(hls.destroyed, true);
+});
 it("prepares one native replay and preserves position, speed, captions and paused state on renewal", async () => {
   const f = fixture();
   await f.player.prepare();

@@ -676,7 +676,7 @@ export async function verifyChatClient({
       assert.deepEqual(violations, [], `${name} axe WCAG scan`);
       if (["desktop", "mobile"].includes(name))
         await page
-          .locator(".detail-grid")
+          .locator("[data-arena]")
           .screenshot({ path: `${artifactDir}/chat-feedback-${name}.png` });
     }
     assert.deepEqual(errors, []);

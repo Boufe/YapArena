@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "checks": {
+    "mutedAutoplayAndDeferredTransport": true,
+    "pausedPreviewShowsOwnRecordingThumbnail": true,
+    "pauseAndOffscreenRelease": true,
+    "hoverCancellation": true,
+    "axeNoViolations": true,
+    "sustainedHoverEntersWatchingInterface": true,
+    "reducedMotionUsesExplicitPlay": true,
+    "mobileAndClickEntry": true,
+    "saveDataSkipsAutoplay": true,
+    "deniedPreviewKeepsUsableHero": true
+  },
+  "errors": [],
+  "scope": "Loopback component trial with synthetic WebM; real LiveKit/HLS delivery and devices are not assessed."
+}

@@ -180,6 +180,11 @@ function parseMedia(environment: NodeJS.ProcessEnv, nodeEnvironment: string) {
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
   const nodeEnvironment = environment.NODE_ENV ?? "development";
+  const homepageReference = environment.HOMEPAGE_REFERENCE_ENABLED ?? "false";
+  if (!["true", "false"].includes(homepageReference))
+    throw new Error("HOMEPAGE_REFERENCE_ENABLED must be true or false");
+  if (homepageReference === "true" && nodeEnvironment === "production")
+    throw new Error("homepage reference data is development/test only");
   const host = environment.HOST ?? "0.0.0.0";
   const rawPort = environment.PORT ?? "3000";
   const port = parseInteger(rawPort, "PORT", { minimum: 1, maximum: 65535 });
@@ -260,6 +265,27 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
     maxDurationSeconds: 7200,
     maxFiles: 11000,
   });
+  const a4Mode = environment.A4_MODE ?? "disabled";
+  if (!["disabled", "yap-coins", "bots"].includes(a4Mode))
+    throw new Error(
+      "A4_MODE must be disabled, yap-coins or bots; real funds are unavailable",
+    );
+  const a4Funding = Object.freeze({
+    starterCoins: parseInteger(
+      environment.A4_STARTER_COINS ?? "1000",
+      "A4_STARTER_COINS",
+      { minimum: 1, maximum: 1000000 },
+    ),
+    refillCoins: parseInteger(
+      environment.A4_REFILL_COINS ?? "1000",
+      "A4_REFILL_COINS",
+      { minimum: 1, maximum: 1000000 },
+    ),
+    botCoins: parseInteger(environment.A4_BOT_COINS ?? "1000", "A4_BOT_COINS", {
+      minimum: 105,
+      maximum: 1000000,
+    }),
+  });
   const backgroundJobs = environment.RUN_BACKGROUND_JOBS ?? "true";
   const streamEnabled = environment.COMMUNITY_STREAM_ENABLED ?? "false";
   if (!["true", "false"].includes(streamEnabled))
@@ -333,6 +359,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
 
   return Object.freeze({
     environment: nodeEnvironment,
+    homepageReferenceEnabled: homepageReference === "true",
     host,
     port,
     databaseUrl,
@@ -349,5 +376,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
     replayPackaging,
     backgroundJobs: backgroundJobs === "true",
     communityStream,
+    a4Funding,
+    a4Mode: a4Mode as "disabled" | "yap-coins" | "bots",
   });
 }

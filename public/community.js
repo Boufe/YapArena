@@ -690,7 +690,12 @@ function initEvent(root) {
     window.clearTimeout(timer);
     window.clearTimeout(reconciliationTimer);
     messages.replaceChildren(
-      element("li", "Community activity is unavailable."),
+      element(
+        "li",
+        root.dataset.communityDemo === "true"
+          ? "Chat is unavailable for this synthetic demo. Real live debates support chat; replays preserve their conversation."
+          : "Community activity is unavailable.",
+      ),
     );
     rendered.clear();
     tracked.clear();
@@ -799,7 +804,13 @@ function initEvent(root) {
         streamHealthy = true;
         if (personalRefreshNeeded) void refreshPersonalLike();
       }
-      setText(connection, label);
+      setText(
+        connection,
+        root.dataset.communityDemo === "true" &&
+          label === "This event is no longer public."
+          ? "Demo · read-only"
+          : label,
+      );
     },
     beforeConnect() {
       personalRefreshNeeded = true;

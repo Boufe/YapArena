@@ -50,7 +50,10 @@ async function axeViolations(page, selector) {
     window.eval(source);
   }, axe.source);
   return page.evaluate(async (target) => {
-    const result = await window.axe.run(document.querySelector(target), {
+    const root = document.querySelector(target);
+    if (!root)
+      throw new Error(`Accessibility scan target is missing: ${target}`);
+    const result = await window.axe.run(root, {
       runOnly: {
         type: "tag",
         values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
@@ -252,8 +255,11 @@ try {
     path: `${artifactDir}/community-desktop.png`,
     fullPage: true,
   });
-  assert.deepEqual(await axeViolations(author.page, ".detail-grid"), []);
-  assert.deepEqual(await axeViolations(author.page, ".community-section"), []);
+  assert.deepEqual(await axeViolations(author.page, "[data-arena]"), []);
+  assert.deepEqual(
+    await axeViolations(author.page, "[data-community-event]"),
+    [],
+  );
 
   await reporter.page
     .getByRole("button", { name: "Report message" })
@@ -266,6 +272,7 @@ try {
   await reporter.page
     .getByText("Report submitted privately", { exact: false })
     .waitFor();
+  await reporter.page.getByText("Share & report", { exact: true }).click();
   await reporter.page
     .locator("[data-community-report-form] select")
     .selectOption("other");
@@ -430,8 +437,11 @@ try {
     () => document.documentElement.scrollWidth - window.innerWidth,
   );
   assert.ok(overflow <= 1, `mobile horizontal overflow: ${overflow}px`);
-  assert.deepEqual(await axeViolations(mobilePage, ".detail-grid"), []);
-  assert.deepEqual(await axeViolations(mobilePage, ".community-section"), []);
+  assert.deepEqual(await axeViolations(mobilePage, "[data-arena]"), []);
+  assert.deepEqual(
+    await axeViolations(mobilePage, "[data-community-event]"),
+    [],
+  );
   const touchTargets = await mobilePage
     .locator(".community-message-actions button")
     .evaluateAll((buttons) =>

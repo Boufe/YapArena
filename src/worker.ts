@@ -1,3 +1,4 @@
+import { createA4Repository } from "./features/a4/repository.ts";
 import { createIdentityRepository } from "./features/identity/repository.ts";
 import { createMatchingRepository } from "./features/matching/repository.ts";
 import { createMediaRepository } from "./features/media/repository.ts";
@@ -14,6 +15,7 @@ import { createRuntime } from "./platform/runtime.ts";
 const config = loadConfig();
 const logger = createLogger({ level: config.logLevel });
 const database = createDatabase(config.databaseUrl, logger);
+const a4 = createA4Repository(database, config.a4Mode, config.a4Funding);
 const media = config.media ? createMediaRepository(database) : undefined;
 const baseMediaProvider = config.media
   ? createMediaProvider(config.media)
@@ -28,6 +30,7 @@ const mediaOperations =
       })
     : undefined;
 const runtime = createRuntime({
+  a4,
   database,
   sessions: createSessionRepository(database),
   identity: createIdentityRepository(database),

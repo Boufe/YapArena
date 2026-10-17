@@ -27,6 +27,10 @@ Docker with Compose and an active Docker daemon. Commands containing values such
 replace them with real values before running the command. The [glossary](glossary.md) defines the
 container, migration, image, digest, and deployment terms used below.
 
+For A4 Yap Coins, use [financial operations](financial-operations.md) for explicit play-only
+activation, reconciliation, durable settlement recovery and future adapter dependencies.
+Stopping admission must preserve recovery of existing obligations. The replay encoder remains separate.
+
 ## Start and verify
 
 ```sh

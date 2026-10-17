@@ -1,3 +1,6 @@
+import { createA4Router } from "./features/a4/router.ts";
+import type { createPublicBotRepository } from "./features/a4/public-bots.ts";
+import type { createA4Repository } from "./features/a4/repository.ts";
 import cookieParser from "cookie-parser";
 import express from "express";
 import { fileURLToPath } from "node:url";
@@ -83,6 +86,7 @@ export const handleError: ErrorRequestHandler = (
 
 export function createApp({
   messages,
+  a4,
   discovery,
   identity,
   matching,
@@ -97,6 +101,8 @@ export function createApp({
   wallets,
   logger,
   environment = "development",
+  homepageReferenceEnabled = false,
+  publicBots,
   metrics = createMetrics(),
   applicationOrigin,
   trustProxy = false,
@@ -108,6 +114,7 @@ export function createApp({
   siweRpcUrls = {},
 }: {
   messages: ReturnType<typeof createMessageRepository>;
+  a4?: ReturnType<typeof createA4Repository>;
   discovery?: ReturnType<typeof createDiscoveryRepository>;
   identity?: ReturnType<typeof createIdentityRepository>;
   matching?: ReturnType<typeof createMatchingRepository>;
@@ -125,6 +132,8 @@ export function createApp({
   wallets?: ReturnType<typeof createWalletRepository>;
   logger: Logger;
   environment?: string;
+  homepageReferenceEnabled?: boolean;
+  publicBots?: ReturnType<typeof createPublicBotRepository>;
   metrics?: ReturnType<typeof createMetrics>;
   applicationOrigin?: string;
   trustProxy?: number | false;
@@ -258,6 +267,11 @@ export function createApp({
     app.use(
       createDiscoveryRouter({
         discovery,
+        publicBots,
+        homepageReferenceEnabled:
+          homepageReferenceEnabled && environment !== "production",
+        a4Enabled: a4?.mode !== undefined && a4.mode !== "disabled",
+        mediaEnabled: Boolean(media && mediaProvider && matching && identity),
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",
       }),
     );
@@ -277,6 +291,12 @@ export function createApp({
       rateLimitWindowMs,
     }),
   );
+  if (a4)
+    app.use(
+      "/api/a4",
+      createRequireAuthentication({ sessions, environment }),
+      createA4Router(a4, environment),
+    );
   app.use(
     "/api/messages",
     createRequireAuthentication({ sessions, environment }),

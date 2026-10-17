@@ -14,6 +14,14 @@ features have shipped. The later [measurement contract](measurement-operations.m
 records approval of the nonfinancial returning-participant definition only; the 30% gate and
 financial measurement remain unapproved.
 
+**Later A4 decision (October 15, 2026):** [Decision 0007](decisions/0007-a4-adjusted-ftm.md)
+selects A4 adjusted FTM for nonredeemable Yap Coins and labeled Bots mode. Its
+[exact mechanism](a4-mechanism.md) supersedes the historical event money-share movement,
+paired issuance/matching, clipped payout curve and special draw refunds for A4. The historical
+rules below remain provenance, not the A4 implementation contract. A4 neither chooses a debate
+winner nor implements the ongoing market or sponsor/creator payouts. Other product decisions
+and real-fund release dependencies remain unchanged. See [current financial work](financial-implementation-plan.md).
+
 ## 1. Product vision and the user problem
 
 **Make debate a continuing public competition where people can argue, financially support positions, and follow the history and market value of ideas.**

@@ -1,12 +1,18 @@
+import { publicHomepage } from "./homepage-model.ts";
+import { referenceHomepage } from "./homepage-reference.ts";
+import type { createPublicBotRepository } from "../a4/public-bots.ts";
+import { digest } from "../a4/engine.ts";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import type { createDiscoveryRepository, DebateStatus } from "./repository.ts";
 import {
+  renderCoins,
   renderAbout,
   renderAccount,
   renderDebate,
   renderDebates,
   renderHome,
+  renderLive,
   renderMatchmaking,
   renderNotFound,
   renderProfile,
@@ -84,9 +90,17 @@ function html(response: Response, body: string, status = 200) {
 
 export function createDiscoveryRouter({
   discovery,
+  a4Enabled = false,
+  mediaEnabled = false,
+  homepageReferenceEnabled = false,
+  publicBots,
   applicationOrigin,
 }: {
   discovery: Repository;
+  a4Enabled?: boolean;
+  mediaEnabled?: boolean;
+  homepageReferenceEnabled?: boolean;
+  publicBots?: ReturnType<typeof createPublicBotRepository>;
   applicationOrigin: string;
 }) {
   const router = Router();
@@ -144,13 +158,78 @@ export function createDiscoveryRouter({
     return response.json(item);
   });
 
-  router.get("/", async (_request, response) => {
+  async function homeData() {
+    const topics = await discovery.listTopics({ limit: 12 });
+    const [debates, activity] = await Promise.all([
+      typeof discovery.listHomepageDebates === "function"
+        ? discovery.listHomepageDebates(topics.items.map((t) => t.id))
+        : mediaEnabled
+          ? discovery.listWatchableDebates()
+          : [],
+      publicBots ? publicBots.topics(topics.items.map((t) => t.id)) : {},
+    ]);
+    const visible =
+      typeof discovery.listHomepageDebates === "function"
+        ? topics.items.filter((t) =>
+            debates.some((d) => d.topic.slug === t.slug),
+          )
+        : topics.items;
+    return publicHomepage(visible, debates, activity);
+  }
+  router.get("/api/public/homepage", async (request, response) => {
+    try {
+      const data = await homeData(),
+        revision = digest(data);
+      return request.query.revision === revision
+        ? response.status(204).end()
+        : response.json({ ...data, revision });
+    } catch {
+      return response
+        .status(503)
+        .json({ error: "Homepage activity is unavailable" });
+    }
+  });
+  router.get("/api/public/debates/:id/activity", async (request, response) => {
+    const key = request.params.id;
+    if (
+      !publicBots ||
+      typeof key !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+        key,
+      )
+    )
+      return response.status(404).json({ error: "Debate not found" });
+    const data = await publicBots.debate(key);
+    return data
+      ? response.json(data)
+      : response.status(404).json({ error: "Debate not found" });
+  });
+  router.get("/", async (request, response) => {
+    if (request.query.reference !== undefined) {
+      if (!homepageReferenceEnabled || request.query.reference !== "1")
+        return html(response, renderNotFound(origin), 404);
+      return html(response, renderHome(origin, referenceHomepage()));
+    }
+    try {
+      return html(response, renderHome(origin, await homeData()));
+    } catch {
+      return html(
+        response,
+        renderHome(origin, { ...publicHomepage([], []), available: false }),
+        503,
+      );
+    }
+  });
+  router.get("/live", async (_request, response) => {
     const [debates, topics] = await Promise.all([
-      discovery.listDebates({ limit: 3 }),
+      mediaEnabled ? discovery.listWatchableDebates() : [],
       discovery.listTopics({ limit: 3 }),
     ]);
-    return html(response, renderHome(origin, debates, topics));
+    return html(response, renderLive(origin, debates, topics));
   });
+  router.get("/coins", (_request, response) =>
+    html(response, renderCoins(origin)),
+  );
   router.get("/match", (_request, response) =>
     html(response, renderMatchmaking(origin)),
   );
@@ -197,7 +276,15 @@ export function createDiscoveryRouter({
     const key = slug(request.params.slug);
     const debate = key ? await discovery.getDebate(key) : null;
     return debate
-      ? html(response, renderDebate(origin, debate))
+      ? html(
+          response,
+          renderDebate(
+            origin,
+            debate,
+            a4Enabled,
+            publicBots ? await publicBots.debate(debate.id) : undefined,
+          ),
+        )
       : html(response, renderNotFound(origin), 404);
   });
   router.get("/people/:handle", async (request, response) => {

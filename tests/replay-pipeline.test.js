@@ -557,6 +557,7 @@ function workerFixture(overrides = {}) {
     storage,
     logger,
     options: overrides.options,
+    idleWork: overrides.idleWork,
     packageMedia:
       overrides.packageMedia ??
       (async (_source, dir, captions) => {
@@ -568,6 +569,45 @@ function workerFixture(overrides = {}) {
   return { worker, calls };
 }
 
+test("thumbnail work only uses an idle encoder slot and is aborted during shutdown", async () => {
+  let calls = 0;
+  const f = workerFixture({
+    idleWork: async () => {
+      assert.ok(f.calls.includes("complete"));
+      calls++;
+    },
+  });
+  await f.worker.tick();
+  assert.equal(calls, 1);
+  await f.worker.tick();
+  assert.equal(calls, 2);
+  await f.worker.stop();
+  let enter;
+  const entered = new Promise((resolve) => {
+    enter = resolve;
+  });
+  let cancelled = false;
+  const g = workerFixture({
+    jobs: { claim: async () => null },
+    idleWork: (signal) =>
+      new Promise((resolve) => {
+        enter();
+        signal.addEventListener(
+          "abort",
+          () => {
+            cancelled = true;
+            resolve();
+          },
+          { once: true },
+        );
+      }),
+  });
+  const tick = g.worker.tick();
+  await entered;
+  await g.worker.stop();
+  await tick;
+  assert.equal(cancelled, true);
+});
 test("worker batches once, publishes without captions and removes private temporary media", async (t) => {
   const root = await mkdtemp(resolve(tmpdir(), "yaparena-worker-test-"));
   t.after(() => rm(root, { recursive: true, force: true }));

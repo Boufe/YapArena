@@ -15,6 +15,10 @@ import {
   verifyReplayTools,
 } from "../dist/features/media/replay-packaging.js";
 import { createReplayWorker } from "../dist/features/media/replay-worker.js";
+import {
+  createReplayThumbnailTask,
+  replayThumbnailKey,
+} from "../dist/features/media/replay-thumbnail.js";
 import { verifyRuntimeIdentity } from "../dist/platform/database.js";
 import { replayStorageFixture } from "../tests/helpers/replay-storage.js";
 import { provisionDatabase } from "./provision-database.js";
@@ -260,6 +264,16 @@ try {
     packageKey: job.packageKey,
     hasCaptions: false,
   });
+  assert.ok(
+    (await jobs.thumbnailCandidates()).some(
+      (candidate) => candidate.sourceKey === initial.sourceKey,
+    ),
+  );
+  assert.ok(
+    !(await jobs.thumbnailCandidates([initial.sourceKey])).some(
+      (candidate) => candidate.sourceKey === initial.sourceKey,
+    ),
+  );
   assert.equal(
     (
       await pool.query("DELETE FROM media_replay_attempts WHERE id=$1", [
@@ -642,6 +656,24 @@ try {
       .at(-1).input.Key,
     prefix + "ready.json",
   );
+  const thumbnailTask = createReplayThumbnailTask({
+    jobs: {
+      thumbnailCandidates: async (excluded) =>
+        (await jobs.thumbnailCandidates(excluded)).filter(
+          (candidate) => candidate.sourceKey === synthetic.sourceKey,
+        ),
+    },
+    storage: storage.storage.thumbnails,
+    logger: quiet,
+  });
+  await thumbnailTask(new AbortController().signal);
+  assert.equal(
+    await storage.storage.thumbnails.exists(synthetic.sourceKey),
+    true,
+  );
+  const image = await storage.storage.thumbnails.read(synthetic.sourceKey);
+  assert.ok(image.length > 100 && image.length < 300_000);
+  assert.ok(storage.objects.has(replayThumbnailKey(synthetic.sourceKey)));
   assert.equal(
     (
       await owner.query("SELECT status FROM debates WHERE id=$1", [
@@ -670,6 +702,7 @@ try {
         (process.resourceUsage().maxRSS / 1024).toFixed(2),
       ),
       packageFiles: marker.files,
+      thumbnailBytes: image.length,
       packageBytes: marker.bytes,
       scope:
         "real PostgreSQL runtime transactions + FFmpeg, synthetic in-memory object adapter; no hosted storage/edge or physical-device evidence",

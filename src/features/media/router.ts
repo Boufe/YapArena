@@ -125,6 +125,28 @@ export function createMediaRouter({
         .json({ error: "replay temporarily unavailable" });
     }
   });
+  router.get("/events/:id/thumbnail", async (request, response) => {
+    const id = idOf(request);
+    if (!id) return response.status(404).end();
+    const [event, state] = await Promise.all([
+      media.getPublicEvent(id),
+      media.get(id),
+    ]);
+    if (
+      !event ||
+      event.publicationState !== "published" ||
+      !["replay", "finalized"].includes(event.status) ||
+      state?.recordingStatus !== "ready" ||
+      !state.recordingKey
+    )
+      return response.status(404).end();
+    try {
+      const bytes = await provider.thumbnail(state.recordingKey);
+      return response.type("image/jpeg").send(Buffer.from(bytes));
+    } catch {
+      return response.status(404).end();
+    }
+  });
   router.get("/events/:id/captions.vtt", async (request, response) => {
     const id = idOf(request);
     if (!id) return response.status(404).end();

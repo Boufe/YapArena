@@ -1,0 +1,89 @@
+{
+  "note": "Diagnostic only: pixels with a channel difference above 16/255. Includes text antialiasing, capture boundaries and semantic/accessibility changes. Not a replacement for visual review.",
+  "comparisons": [
+    {
+      "name": "1440-initial",
+      "width": 1440,
+      "height": 1377,
+      "changedPixelsAbove16Levels": 1068,
+      "percent": 0.0539
+    },
+    {
+      "name": "1920-initial",
+      "width": 1920,
+      "height": 1385,
+      "changedPixelsAbove16Levels": 1086,
+      "percent": 0.0408
+    },
+    {
+      "name": "1024-initial",
+      "width": 1024,
+      "height": 1383,
+      "changedPixelsAbove16Levels": 2947,
+      "percent": 0.2081
+    },
+    {
+      "name": "768-initial",
+      "width": 768,
+      "height": 1762,
+      "changedPixelsAbove16Levels": 1964,
+      "percent": 0.1451
+    },
+    {
+      "name": "390-initial",
+      "width": 390,
+      "height": 3426,
+      "changedPixelsAbove16Levels": 6514,
+      "percent": 0.4875
+    },
+    {
+      "name": "320-initial",
+      "width": 320,
+      "height": 3576,
+      "changedPixelsAbove16Levels": 4201,
+      "percent": 0.3671
+    },
+    {
+      "name": "1440-second",
+      "width": 1440,
+      "height": 1377,
+      "changedPixelsAbove16Levels": 1068,
+      "percent": 0.0539
+    },
+    {
+      "name": "1440-hover",
+      "width": 1440,
+      "height": 1377,
+      "changedPixelsAbove16Levels": 2061,
+      "percent": 0.1039
+    },
+    {
+      "name": "1440-expanded",
+      "width": 1440,
+      "height": 2558,
+      "changedPixelsAbove16Levels": 7902,
+      "percent": 0.2145
+    },
+    {
+      "name": "390-second",
+      "width": 390,
+      "height": 3426,
+      "changedPixelsAbove16Levels": 6562,
+      "percent": 0.4911
+    },
+    {
+      "name": "390-hover",
+      "width": 390,
+      "height": 3428,
+      "changedPixelsAbove16Levels": 6009,
+      "percent": 0.4495
+    },
+    {
+      "name": "390-expanded",
+      "width": 390,
+      "height": 5655,
+      "changedPixelsAbove16Levels": 33043,
+      "percent": 1.4982
+    }
+  ]
+}

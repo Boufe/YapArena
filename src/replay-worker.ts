@@ -6,6 +6,7 @@ import { createReplayJobs } from "./features/media/replay-jobs.ts";
 import { createReplayStorage } from "./features/media/replay-storage.ts";
 import { createReplayWorker } from "./features/media/replay-worker.ts";
 import { verifyReplayTools } from "./features/media/replay-packaging.ts";
+import { createReplayThumbnailTask } from "./features/media/replay-thumbnail.ts";
 
 const config = loadConfig();
 if (!config.replayPackaging.enabled || !config.media)
@@ -26,11 +27,17 @@ const storage = createReplayStorage({
   accessKey: config.media.s3AccessKey,
   secretKey: config.media.s3SecretKey,
 });
+const jobs = createReplayJobs(database, config.media.replayEdgeRooms);
 const worker = createReplayWorker({
-  jobs: createReplayJobs(database, config.media.replayEdgeRooms),
+  jobs,
   storage,
   logger,
   options: config.replayPackaging,
+  idleWork: createReplayThumbnailTask({
+    jobs,
+    storage: storage.thumbnails,
+    logger,
+  }),
 });
 try {
   await verifyDatabaseState(

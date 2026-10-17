@@ -6,8 +6,20 @@ monitoring, container releases, public discovery, wallet sign-in, profiles, foll
 nonfinancial debate matching, community chat/likes/moderation, consented measurement, and live
 media with an optional automatic adaptive replay pipeline. Synthetic hosted trials cover recording,
 replay conversion/publication and selected browser recovery paths; production and physical-device
-acceptance remain open. The messages API remains an example feature. Voting, incentives, sponsor
-workflows and markets have not been implemented yet.
+acceptance remain open. The messages API remains an example feature. A4 play-money rounds, persistent Yap Coins and labeled Bots mode are described in the
+[financial operations guide](docs/financial-operations.md). Real-money markets, creator
+incentives and sponsor workflows remain unimplemented.
+
+## A4 play-money rounds
+
+Set up the owner/runtime database boundary, apply the new migrations, then follow
+[local play activation](docs/financial-operations.md#local-activation-and-exercise).
+Open `/coins` or the participation panel on a published debate. Sign-in uses the existing
+account flow; a crypto wallet is optional. Starter/refill coins and all bot funding are
+recorded, nonredeemable play issuance. Bots mode defaults to 500 synthetic participants.
+See [A4 rules](docs/a4-mechanism.md), [decision 0007](docs/decisions/0007-a4-adjusted-ftm.md)
+and the [financial implementation plan](docs/financial-implementation-plan.md).
+Default activation is disabled; no hosted migration or deployment follows from this change.
 
 ## Product direction and document authority
 
@@ -163,6 +175,18 @@ Anonymous visitors can search and browse published debates, topics, and speaker 
 The read-only JSON API lives under `/api/public`. It supports bounded `q`, `status`, `topic`,
 `profile`, `limit`, and `offset` query parameters as applicable. Debate pages show only public
 event fields; they never infer a winner or expose a hidden tally.
+
+The [wide homepage](docs/wide-homepage.md) connects published topics, playable
+debates, follows and the existing Yap Coins header to the supplied visual design.
+Unavailable topic-market figures stay explicitly unknown. For local reference
+comparisons only, enable `HOMEPAGE_REFERENCE_ENABLED=true` in the runtime-only
+environment and visit `/?reference=1`; this labeled sample mode is disabled by
+default and forbidden in production.
+
+[Shared bot discovery](docs/shared-bot-discovery.md) additionally supports stored,
+clearly labeled heterogeneous simulations and opted-in settled mixed/observer
+aggregates. Homepage and debate charts update together; Live remains accessible
+from the header. Public simulations never spend account balances.
 
 The database starts with no public records. To add fictional, clearly marked examples in local
 development after migrating, run:

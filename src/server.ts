@@ -1,3 +1,5 @@
+import { createA4Repository } from "./features/a4/repository.ts";
+import { createPublicBotRepository } from "./features/a4/public-bots.ts";
 import { createApp } from "./app.ts";
 import { createMessageRepository } from "./features/messages/repository.ts";
 import { createDiscoveryRepository } from "./features/discovery/repository.ts";
@@ -41,6 +43,7 @@ const identity = createIdentityRepository(database);
 const matching = createMatchingRepository(database);
 const community = createCommunityRepository(database);
 const measurement = createMeasurementRepository(database);
+const a4 = createA4Repository(database, config.a4Mode, config.a4Funding);
 const media = config.media
   ? createMediaRepository(database, {
       enabled: config.replayPackaging.enabled,
@@ -74,6 +77,8 @@ const sessions = createSessionRepository(database);
 const wallets = createWalletRepository(database);
 const app = createApp({
   messages,
+  a4,
+  publicBots: createPublicBotRepository(database),
   discovery,
   identity,
   matching,
@@ -89,6 +94,7 @@ const app = createApp({
   wallets,
   logger,
   environment: config.environment,
+  homepageReferenceEnabled: config.homepageReferenceEnabled,
   applicationOrigin: config.applicationOrigin,
   trustProxy: config.trustProxy,
   requestBodyLimit: config.requestBodyLimit,
@@ -100,6 +106,7 @@ const app = createApp({
 });
 
 const runtime = createRuntime({
+  a4,
   app,
   database,
   sessions,

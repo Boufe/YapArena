@@ -1,0 +1,22 @@
+{
+  "result": "PASS",
+  "scope": "Local render with read-only public staging data; no hosted browser journey or writes",
+  "results": [
+    {
+      "width": 1440,
+      "removedHeading": true,
+      "movedUp": 73.890625,
+      "gridAndPanelWidthsUnchanged": true,
+      "overflow": false,
+      "allTilesUseQuestions": true
+    },
+    {
+      "width": 390,
+      "removedHeading": true,
+      "movedUp": 55.515625,
+      "gridAndPanelWidthsUnchanged": true,
+      "overflow": false,
+      "allTilesUseQuestions": true
+    }
+  ]
+}

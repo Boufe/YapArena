@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-15T23:24:01.499506+00:00",
+  "baseline": "fcb162da7e7e90fb3188727171c8698851348452",
+  "node": "24.19.0",
+  "postgres": "17.10",
+  "quality": {
+    "tests": 476,
+    "pass": 476,
+    "fail": 0,
+    "skipped": 0,
+    "lineCoverage": 96.67,
+    "branchCoverage": 92.9,
+    "functionCoverage": 95.6
+  },
+  "a4Postgres": {
+    "fresh": 16,
+    "upgrade": 16
+  },
+  "databaseIsolation": "PASS",
+  "existingA4Browser": "PASS",
+  "workspaceBrowser": "PASS",
+  "axeViolations": 0,
+  "physicalDevice": false,
+  "hostedTrial": "Recorded separately on the release PR; these files describe local verification."
+}

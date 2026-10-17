@@ -1,0 +1,378 @@
+/* global document, Option, location, window */
+const root = document.querySelector("[data-a4]");
+if (root) {
+  const el = (name) => document.querySelector(`[data-a4-${name}]`);
+  const notice = (message) => {
+    el("notice").textContent = message;
+  };
+  const money = (value = "0") => {
+    const n = BigInt(value),
+      sign = n < 0n ? "−" : "",
+      a = n < 0n ? -n : n;
+    return `${sign}${a / 1000000n}.${String(a % 1000000n).padStart(6, "0")} Yap Coins`;
+  };
+  const ratio = (v) =>
+    v
+      ? `${((100 * Number(v.n)) / Number(v.d)).toFixed(2)}%`
+      : "Undefined · empty round";
+  const price = (v) =>
+    v ? `${(Number(v.n) / Number(v.d)).toFixed(6)} Yap Coins` : "No offer";
+  const escape = (v) =>
+    String(v).replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[c],
+    );
+  let accountId,
+    run,
+    pending,
+    busy = false,
+    bookOffset = 0,
+    historyOffset = 0,
+    lastRefresh = 0;
+  async function api(path, options = {}) {
+    const response = await fetch(`/api/${path}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+      ...options,
+      headers: { "Content-Type": "application/json", ...options.headers },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      if (response.status === 401) {
+        run = null;
+        pending = null;
+        el("submit").hidden = true;
+        el("content").hidden = true;
+        el("login").hidden = false;
+        el("rounds").replaceChildren();
+        el("history").replaceChildren();
+        el("review").close();
+      }
+      throw new Error(data.error ?? "Request failed");
+    }
+    return data;
+  }
+  async function write(path, body, key = crypto.randomUUID()) {
+    return api(path, {
+      method: "POST",
+      headers: { "Idempotency-Key": key },
+      body: JSON.stringify(body),
+    });
+  }
+  async function perform(action) {
+    if (busy) return;
+    busy = true;
+    const buttons = [...root.querySelectorAll("button")];
+    buttons.forEach((b) => (b.disabled = true));
+    try {
+      await action();
+    } catch (error) {
+      notice(error.message);
+    } finally {
+      busy = false;
+      buttons.forEach((b) => (b.disabled = false));
+      if (run?.rounds) {
+        el("book-prev").disabled = bookOffset === 0;
+        el("book-next").disabled = !run.rounds.some(
+          (r) => r.diagnostics?.pagination.hasMore,
+        );
+      }
+    }
+  }
+  function showFunding(policy) {
+    if (policy)
+      el("funding-policy").textContent =
+        `${policy.starterCoins.toLocaleString()} starter coins per account and scope. Refill adds ${policy.refillCoins.toLocaleString()} once per UTC day. Multiple wallets share one account allowance.`;
+  }
+  function showBalances(balances) {
+    el("balance").textContent = money(
+      balances.find((b) => b.kind === "available")?.amount,
+    );
+    el("reserved").textContent =
+      `Reserved: ${money(balances.find((b) => b.kind === "reserved")?.amount)}`;
+  }
+  function render() {
+    showBalances(run.balances);
+    showFunding(run.fundingPolicy);
+    el("run-summary").innerHTML =
+      `<h3>${escape(run.mode === "human" ? "Human-only" : run.observer ? "BOT-ONLY OBSERVER" : "BOTS + YOU")} · ${escape(run.state)}</h3><p>${escape(run.debate.proposition)}</p><p><a href="/debates/${escape(run.debate.slug)}">Watch debate / chat →</a></p><p>YES endorses this proposition; NO rejects it. ${run.config.population} synthetic bots. Beliefs: ${run.config.preset === "reference" ? "homogeneous reference" : "heterogeneous stress fixture"}. ${run.config.feeBps ? "Experimental 5% premium fee" : "No fee"}. Epsilon ${run.config.epsilon / 1000000}.</p><p>Final reveal: ${escape(new Date(run.revealAt).toLocaleString())}. Each period settles against its own share. Maximum lockup ends at this boundary once processing completes.</p>`;
+    el("controls").hidden =
+      run.mode === "human" || ["complete", "archived"].includes(run.state);
+    el("speed").value = String(run.speed);
+    const open = run.rounds.find(
+      (r) => r.state === "open" && new Date(r.closesAt) > new Date(),
+    );
+    el("submit").hidden =
+      !open || run.observer || run.state !== "running" || !!open.receipt;
+    el("rounds").innerHTML = run.rounds
+      .map((r) => {
+        const o = r.receipt,
+          d = r.diagnostics,
+          t = d?.totals;
+        const receipt = o
+          ? `<dl class="a4-receipt"><dt>Your commitment</dt><dd>${escape(o.side)} · limit ${escape(o.limit)} on YES scale · ${o.quantity} contracts</dd><dt>Status</dt><dd>${escape(o.status.replaceAll("_", " "))}</dd><dt>Maximum reserved</dt><dd>${money(o.reserved)}</dd>${o.premium !== undefined ? `<dt>Spent on premium</dt><dd>${money(o.premium)}</dd><dt>Fee</dt><dd>${money(o.fee)}</dd><dt>Released</dt><dd>${money(o.released)}</dd>` : ""}${o.payout !== undefined ? `<dt>Payout</dt><dd>${money(o.payout)}</dd><dt>Net profit / loss</dt><dd>${money(o.net)}</dd>` : ""}</dl>`
+          : "<p>No human commitment in this round.</p>";
+        return `<article class="a4-round"><h3>Round ${r.period} · ${escape(r.state)}</h3><p>Cutoff: ${escape(new Date(r.closesAt).toLocaleString())}. Shared YES offer: ${price(r.offer)}.</p>${receipt}${d ? `<details ${run.observer ? "open" : ""}><summary>${run.observer ? "Authorized bot-only diagnostics" : "Revealed results and orders"}</summary><p>YES endorsement share: <strong>${ratio(d.pricing?.share)}</strong>. ${t.humans} human / ${t.bots} synthetic bot submissions.</p><label>Endorsement share <meter min="0" max="1" value="${d.pricing?.share ? Number(d.pricing.share.n) / Number(d.pricing.share.d) : 0}">${ratio(d.pricing?.share)}</meter></label><p>Acceptance ${t.participants ? ((100 * t.accepted) / t.participants).toFixed(1) : "0"}% · execution ${t.participants ? ((100 * t.executed) / t.participants).toFixed(1) : "0"}% · ${t.quantity} executed contracts. ${d.noTrade ? "No trades. Endorsements still count." : "All accepting quantities executed in full."}</p><p>Branch: ${escape(d.pricing?.branch ?? "Not drawn")} · median NO floor ${price(d.pricing?.a)} · median YES ceiling ${price(d.pricing?.b)}. Random offer ${price(d.pricing?.price)}.</p><p>Participant premium ${money(t.premium)} · payout ${money(t.payout)} · fees ${money(t.fee)}. Run center issuance ${money(d.centerFunding)}; center available ${money(d.centerAvailable)}. Round center trading result ${money(d.centerTrading)}; fees ${money(d.centerFees)}; total ${money(d.centerResult)}.</p><div class="a4-table" tabindex="0" role="region" aria-label="Round ${r.period} submitted order history"><table><caption>Submitted orders · ${bookOffset + 1} onward · limits on YES scale</caption><thead><tr><th>Participant</th><th>Side</th><th>Limit</th><th>Contracts</th><th>Outcome</th><th>Net Yap Coins</th></tr></thead><tbody>${d.book.map((b) => `<tr><td>${escape(b.label)} · ${b.kind}</td><td>${b.side}</td><td>${escape(b.limit)}</td><td>${b.quantity}</td><td>${escape(b.outcome?.status ?? r.state)}</td><td>${b.outcome ? money(b.outcome.net) : "Pending"}</td></tr>`).join("")}</tbody></table></div><p>Seed commitment: <code>${escape(r.seedCommitment)}</code>. Locked snapshot: <code>${escape(d.snapshotHash ?? "Not locked")}</code>.</p></details>` : "<p>Group medians, counts, orders and profit remain sealed.</p>"}</article>`;
+      })
+      .join("");
+    el("book-prev").disabled = bookOffset === 0;
+    el("book-next").disabled = !run.rounds.some(
+      (r) => r.diagnostics?.pagination.hasMore,
+    );
+  }
+  async function refresh() {
+    const auth = await api("auth/me");
+    if (auth.user.id !== accountId) {
+      run = null;
+      pending = null;
+      el("review").close();
+      el("rounds").replaceChildren();
+      throw new Error("Account changed. Reload to review the current account.");
+    }
+    if (run) {
+      const next = await api(`a4/runs/${run.id}?offset=${bookOffset}`);
+      const changed = JSON.stringify(next) !== JSON.stringify(run);
+      run = next;
+      if (changed) render();
+    } else {
+      const wallet = await api("a4/wallet");
+      showBalances(wallet.balances);
+      showFunding(wallet.fundingPolicy);
+    }
+    lastRefresh = Date.now();
+  }
+  async function listRuns(selected) {
+    const list = await api("a4/runs");
+    el("runs").replaceChildren(
+      new Option("Select a run", ""),
+      ...list.items.map(
+        (r) => new Option(`${r.mode} · ${r.state} · ${r.id.slice(0, 8)}`, r.id),
+      ),
+    );
+    if (selected) el("runs").value = selected;
+  }
+  async function history() {
+    const data = await api(`a4/history?offset=${historyOffset}`);
+    el("history").innerHTML =
+      `<ul>${data.items.map((i) => `<li>${escape(new Date(i.createdAt).toLocaleString())} · ${escape(i.kind)} · ${escape(i.bucket)} ${money(i.amount)} · ${i.scope === "global" ? "ordinary balance" : "bot sandbox"}</li>`).join("")}</ul>`;
+    el("history-more").disabled = !data.hasMore;
+  }
+  el("create").addEventListener("submit", (event) => {
+    event.preventDefault();
+    perform(async () => {
+      const fields = Object.fromEntries(new FormData(event.target));
+      const mode = fields.mode,
+        periods = Number(fields.periods);
+      const config = {
+        epsilon: Number(fields.epsilon),
+        feeBps: Number(fields.feeBps),
+        population: mode === "human" ? 0 : Number(fields.population),
+        preset: fields.preset,
+        quantity: Number(fields.quantity),
+        periods,
+        delayed: periods > 1,
+        roundSeconds: Number(fields.roundSeconds),
+      };
+      const body = {
+        debateId: fields.debateId,
+        mode,
+        config,
+        speed: mode === "human" ? 1 : Number(fields.speed),
+      };
+      if (fields.seed) {
+        if (mode !== "observer")
+          throw new Error(
+            "Replay seeds are available only for bot-only observer runs.",
+          );
+        body.seed = fields.seed;
+      }
+      const result = await write("a4/runs", body);
+      run = { id: result.id };
+      bookOffset = 0;
+      await listRuns(result.id);
+      await refresh();
+      await history();
+      notice(
+        "Run created. Bot activity is synthetic; its funding and history are separate.",
+      );
+    });
+  });
+  el("runs").addEventListener("change", () =>
+    perform(async () => {
+      run = el("runs").value ? { id: el("runs").value } : null;
+      bookOffset = 0;
+      await refresh();
+    }),
+  );
+  el("list").addEventListener("click", () => perform(() => listRuns(run?.id)));
+  el("submit").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const round = run.rounds.find((r) => r.state === "open" && !r.receipt);
+    if (!round)
+      return notice("No open round. Refresh to recover current state.");
+    const fields = Object.fromEntries(new FormData(event.target));
+    const quantity = Number(fields.quantity),
+      reserve =
+        (BigInt(quantity) * 1000000n * (10000n + BigInt(run.config.feeBps))) /
+        10000n;
+    pending = {
+      roundId: round.id,
+      key: crypto.randomUUID(),
+      body: {
+        side: fields.side,
+        ceiling: fields.ceiling,
+        quantity,
+        rule: run.config.rule,
+        accountId,
+      },
+      accountId,
+    };
+    el("terms").innerHTML =
+      `<p>Account ${escape(accountId)} · ${escape(run.debate.proposition)}</p><p>${escape(fields.side)} · maximum purchase price ${escape(fields.ceiling)} Yap Coins · ${quantity} contracts.</p><p>Maximum reservation and potential loss: <strong>${money(reserve)}</strong>, including up to ${money(reserve - BigInt(quantity) * 1000000n)} fee. Actual premium is determined by the later shared offer; unused reservation is released. Execution requires an accepting opposite side.</p><p>Cutoff ${escape(new Date(round.closesAt).toLocaleString())}; reveal ${escape(new Date(run.revealAt).toLocaleString())}. Binding once committed; no edits or cancellation.</p>`;
+    el("review-notice").textContent = "";
+    el("review").showModal();
+    el("commit").focus();
+  });
+  el("cancel").addEventListener("click", () => el("review").close());
+  el("commit").addEventListener("click", async () => {
+    if (!pending || busy) return;
+    el("commit").disabled = true;
+    try {
+      const auth = await api("auth/me");
+      if (auth.user.id !== pending.accountId)
+        throw new Error("Account changed; review again.");
+      await write(
+        `a4/rounds/${pending.roundId}/submit`,
+        pending.body,
+        pending.key,
+      );
+      pending = null;
+      el("review").close();
+      await refresh();
+      await history();
+      notice("Binding commitment recorded. Reloading restores your receipt.");
+    } catch (error) {
+      el("review-notice").textContent =
+        `${error.message}. Retry preserves the same request key.`;
+    } finally {
+      el("commit").disabled = false;
+    }
+  });
+  el("refill").addEventListener("click", () =>
+    perform(async () => {
+      const result = await write("a4/refill", run ? { runId: run.id } : {});
+      await refresh();
+      await history();
+      notice(
+        result.issued
+          ? `Issued ${money(result.amount)} in this balance scope.`
+          : "Today's refill was already issued in this scope.",
+      );
+    }),
+  );
+  root.querySelectorAll("[data-a4-control]").forEach((button) =>
+    button.addEventListener("click", () =>
+      perform(async () => {
+        if (!run) return;
+        const action = button.dataset.a4Control;
+        await write(`a4/runs/${run.id}/control`, { action });
+        await refresh();
+        await listRuns(run.id);
+        notice(
+          action === "archive"
+            ? "Sandbox archived. Locked obligations remain recoverable; start a new run with fresh isolated balances."
+            : `Control recorded: ${action}.`,
+        );
+      }),
+    ),
+  );
+  el("speed").addEventListener("change", () =>
+    perform(async () => {
+      await write(`a4/runs/${run.id}/control`, {
+        action: "speed",
+        speed: Number(el("speed").value),
+      });
+      await refresh();
+    }),
+  );
+  el("refresh").addEventListener("click", () => perform(refresh));
+  el("book-next").addEventListener("click", () =>
+    perform(async () => {
+      bookOffset += 50;
+      await refresh();
+    }),
+  );
+  el("book-prev").addEventListener("click", () =>
+    perform(async () => {
+      bookOffset = Math.max(0, bookOffset - 50);
+      await refresh();
+    }),
+  );
+  el("history-more").addEventListener("click", () =>
+    perform(async () => {
+      historyOffset += 50;
+      await history();
+    }),
+  );
+  el("publish").addEventListener("change", () =>
+    perform(async () => {
+      try {
+        const result = await write("a4/publication", {
+          published: el("publish").checked,
+        });
+        el("publish").checked = result.published;
+      } catch (error) {
+        el("publish").checked = !el("publish").checked;
+        throw error;
+      }
+    }),
+  );
+  async function start() {
+    try {
+      const auth = await api("auth/me");
+      accountId = auth.user.id;
+      const publication = await api("a4/publication").catch(() => ({
+        published: false,
+      }));
+      el("publish").checked = publication.published;
+      const debates = await api("public/debates?limit=50"),
+        items = debates.items;
+      const selected = new URLSearchParams(location.search).get("debate");
+      el("create").elements.debateId.replaceChildren(
+        ...items.map((d) => new Option(d.proposition, d.id)),
+      );
+      if (selected && items.some((d) => d.id === selected))
+        el("create").elements.debateId.value = selected;
+      el("content").hidden = false;
+      await listRuns();
+      await refresh();
+      await history();
+      notice(
+        "Choose a debate and a clearly labeled mode. Watching remains available without a commitment.",
+      );
+    } catch (error) {
+      notice(error.message);
+      el("login").hidden = false;
+    }
+  }
+  setInterval(() => {
+    if (
+      run &&
+      !["complete", "archived"].includes(run.state) &&
+      !busy &&
+      !document.hidden &&
+      !el("review").open &&
+      Date.now() - lastRefresh > 5000
+    )
+      perform(refresh);
+  }, 1000);
+  window.addEventListener("online", () => perform(refresh));
+  start();
+}

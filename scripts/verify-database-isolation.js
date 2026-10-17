@@ -20,6 +20,8 @@ import { runner, MigrationBuilder } from "node-pg-migrate";
 import { privateKeyToAccount } from "viem/accounts";
 import { deliveryTables } from "../migrations/1791335211412_durable-community-delivery.js";
 import { receiptTables } from "../migrations/1791345540042_preserve-chat-idempotency.js";
+import { a4Tables } from "../migrations/1792093616251_add-a4-yap-coins.js";
+import { publicBotTables } from "../migrations/1792195231830_add-public-bot-discovery.js";
 import { replayJobTables } from "../migrations/1791385198189_automatic-replay-packaging.js";
 import { provisionDatabase } from "./provision-database.js";
 import {
@@ -53,6 +55,8 @@ const applicationTables = [
   ...deliveryTables,
   ...receiptTables,
   ...replayJobTables,
+  ...a4Tables,
+  ...publicBotTables,
 ];
 const container = `yaparena-isolation-${randomUUID().slice(0, 8)}`;
 const evidenceDirectory = `/tmp/${container}-evidence`;
@@ -1013,6 +1017,73 @@ async function scenario(database, upgrade) {
     );
     await browserChecks(admin);
     await runtimeChecks(database, owner, admin);
+    if (process.env.A4_VERIFY === "true") {
+      const result = await exec(
+        process.execPath,
+        ["--test", "tests/a4-postgres.test.js"],
+        {
+          env: {
+            ...process.env,
+            A4_TEST_DATABASE_URL: url(database, "yaparena_runtime"),
+            A4_TEST_OWNER_URL: url(database, "yaparena_owner"),
+          },
+          maxBuffer: 4 * 1024 * 1024,
+        },
+      ).catch((error) => {
+        console.log(error.stdout);
+        throw new Error("A4 runtime PostgreSQL tests failed");
+      });
+      console.log(result.stdout);
+    }
+    if (process.env.A4_QUALITY === "true" && !upgrade) {
+      const result = await exec("npm", ["run", "check"], {
+        env: {
+          ...process.env,
+          A4_TEST_DATABASE_URL: url(database, "yaparena_runtime"),
+          A4_TEST_OWNER_URL: url(database, "yaparena_owner"),
+          WALLET_TEST_DATABASE_URL: url(database, "yaparena_runtime"),
+          WALLET_TEST_OWNER_DATABASE_URL: url(database, "yaparena_owner"),
+          REVOCATION_TEST_DATABASE_URL: url(database, "yaparena_owner"),
+          REVOCATION_TEST_RUNTIME_URL: url(database, "yaparena_runtime"),
+        },
+        maxBuffer: 8 * 1024 * 1024,
+      }).catch((error) => {
+        console.log(error.stdout);
+        throw new Error("Full runtime-backed quality gate failed");
+      });
+      await mkdir(evidenceDirectory, { recursive: true });
+      await writeFile(`${evidenceDirectory}/quality.log`, result.stdout);
+      console.log(
+        result.stdout
+          .split("\n")
+          .filter((line) =>
+            /^ℹ (tests |pass |fail |skipped |all files)/.test(line),
+          )
+          .join("\n"),
+      );
+      console.log(
+        "Full quality gate with A4, wallet and revocation PostgreSQL identities PASS.",
+      );
+    }
+    if (process.env.A4_BROWSER === "true" && !upgrade) {
+      const result = await exec(
+        process.execPath,
+        ["scripts/verify-a4-browser.js"],
+        {
+          env: {
+            ...process.env,
+            A4_TEST_DATABASE_URL: url(database, "yaparena_runtime"),
+            A4_TEST_OWNER_URL: url(database, "yaparena_owner"),
+          },
+          maxBuffer: 4 * 1024 * 1024,
+        },
+      ).catch((error) => {
+        console.log(error.stdout);
+        console.log(error.stderr);
+        throw new Error("A4 browser verification failed");
+      });
+      console.log(result.stdout);
+    }
     await provisionDatabase(admin);
     await migrate(owner); // repeated operator steps preserve isolation and migration history
     console.log(
@@ -1104,13 +1175,16 @@ try {
     await admin.query(
       "GRANT anon,authenticated,service_role TO authenticator WITH ADMIN FALSE, INHERIT FALSE, SET TRUE",
     );
-    for (const database of ["isolation_fresh", "isolation_upgrade"])
+    for (const database of [
+      "revocation_test_a4_fresh",
+      "revocation_test_a4_upgrade",
+    ])
       await admin.query(`CREATE DATABASE ${database} OWNER postgres`);
   } finally {
     await admin.end();
   }
-  await scenario("isolation_fresh", false);
-  await scenario("isolation_upgrade", true);
+  await scenario("revocation_test_a4_fresh", false);
+  await scenario("revocation_test_a4_upgrade", true);
   console.log(
     "Local SQL isolation verified. Hosted Data API/GraphQL/Realtime isolation remains UNVERIFIED.",
   );

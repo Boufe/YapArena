@@ -6,7 +6,49 @@ the separate event-market, hidden-tally, ongoing-market, and eligibility work. T
 implementation plan, not a new product decision. Its milestones are development increments; the
 confirmed first **paid** release still includes both markets together.
 
+The separate [financial implementation plan](financial-implementation-plan.md) and
+[A4 operations guide](financial-operations.md) now track Yap Coins, persistent A4 rounds and
+Bots mode. These play features do not satisfy paid-release or remaining hosted/device gates.
+
 ## Current implementation and evidence
+
+The [shared bot discovery](shared-bot-discovery.md) adds stored heterogeneous
+demonstration histories, independent argument endorsements and opt-in aggregate
+mixed/observer results. Homepage and debate visuals refresh from the same final-only
+feed; Live regains a visible header link. [Local evidence](evidence/shared-bots/2026-10-16.md)
+distinguishes disposable browser/database checks from hosted manual acceptance.
+
+The [wide homepage](wide-homepage.md) replaces the temporary root logo with the
+supplied idea-discovery design, native SSR and progressive carousel, chart and
+inline expansion interactions. Published topics, canonical playable debates,
+authenticated follows and the existing Yap Coins header are connected. Topic
+market/argument histories remain unavailable; a separately gated, labeled local
+reference dataset supports visual acceptance. The [local evidence](evidence/homepage/2026-10-16.md)
+records comparison viewports and checks. [PR #33](https://github.com/Boufe/YapArena/pull/33)
+records the authorized staging deployment of homepage revision `c73822b`; it remains
+unmerged.
+
+The [Live discovery preview](homepage-preview.md) moves the former homepage to
+`/live`, with video cards in the existing grid and a shared one-preview playback
+budget. Replays loop and hover/focus transfers playback. The temporary root logo
+is superseded by the wide homepage above. The [Live-page evidence](evidence/homepage-preview/live-feed-2026-10-16.md)
+records local verification and the manual staging handoff. The page features a muted live/replay hero,
+ranked by revealed human Yap Coins volume, with deferred playback and hover entry.
+Its [dated evidence](evidence/homepage-preview/2026-10-16.md) separates local
+component checks from the user's staging acceptance.
+The [thumbnail update](evidence/homepage-preview/thumbnail-2026-10-16.md) uses each
+recording's own image while the preview is inactive and backfills existing replays.
+The [live/replay workspace](debate-workspace.md) adds the navy theme, shared
+search/balance header, settlement chart, round navigation and video enlargement.
+The [October 16 inspector update](evidence/debate-workspace/inspector-2026-10-16.md)
+adds right-column participation, median/offered-price inspection, argument labels
+and hover markers, and a round countdown bar.
+The [hover refinement](evidence/debate-workspace/hover-2026-10-16.md) places the
+median scale directly under the X axis and synchronizes it with the numeric badges.
+The [motion refinement](evidence/debate-workspace/motion-2026-10-16.md) animates
+price/median inspection and moves the inspected argument into the graph heading.
+Its [dated evidence](evidence/debate-workspace/acceptance-2026-10-15.md) distinguishes
+local UI/database verification from hosted and physical-device media acceptance.
 
 Audited 2026-10-15 against fetched `origin/main` at `a9e803f` (merged
 [PR #29](https://github.com/Boufe/YapArena/pull/29)). This section is the implementation status
@@ -22,13 +64,14 @@ Hosted facts below are the latest **saved observations**, not a new provider ins
 | 4 — Media/replay           | LiveKit speaker/viewer grants, server clock, bounded recovery, canonical permission repair, recording reconciliation, private adaptive HLS and a separate durable automatic encoder.          | [Delivery controls](media-delivery-controls.md) record local shared-network/clock checks. [Hosted replay trials](replay-starter-trial-2026-10-07.md) record real recording/conversion/publication, graceful cancellation/replacement recovery, all-eligible staging rollout and October 15 UI verification. Physical-device/acoustic/network/load targets, abrupt host loss/OOM and full-duration/4K encoder capacity remain unverified.                           |
 | 5 — Community              | Chat with immediate feedback and durable idempotent receipts, likes, reports/cases/appeals, restrictions, QR/share metadata/overlays and feature-gated ordered SSE with HTTP recovery.        | [Community operations](community-operations.md) and [delivery trial](community-delivery-trial.md) record local/browser/hosted checks, including a short 500-stream trial. That trial used owner SQL mutations, not hosted authenticated HTTP-write or media load. Physical devices, screen readers, long hosted soak, privacy review and broadcast/share acceptance remain open. Sponsor tools/placements are deferred.                                            |
 | 6 — Measurement/operations | Consent/withdrawal, bounded nonfinancial events/watch data, operator dashboard/product metrics, retention, isolated database roles, migrations, CI, image release and backup/restore tooling. | Merged [PR #17](https://github.com/Boufe/YapArena/pull/17); [operating trial](operating-readiness-trial.md) and [measurement contract](measurement-operations.md). The returning-participant definition alone is approved; the cohort rate is not published and 30% is not an approved gate. [Hosted API isolation](security/database-isolation.md#hosted-operator-checklist--required-to-close-f04), provider restore/RPO/RTO and incident follow-up remain open. |
-| 7 and financial scope      | Recaps, richer broadcasts, seasons, ratings, native apps, sponsor workflows and both financial markets remain planned.                                                                        | Preserve the [product PRD](product-prd.md) and its [pre-funds gates](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds). No winner, settlement, paid cutoff, financial receipt, extension mechanism or sponsor payment is implemented.                                                                                                                                                                                             |
+| 7 and paid financial scope | Recaps, richer broadcasts, seasons, ratings, native apps, sponsor workflows and both financial markets remain planned.                                                                        | Preserve the [product PRD](product-prd.md) and its [pre-funds gates](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds). No event winner, paid cutoff, real-fund settlement/receipt, extension mechanism or sponsor payment is implemented. The separate [A4 play feature](financial-implementation-plan.md) provides Yap Coins settlement and private receipts.                                                                   |
 
 The latest saved staging check is **2026-10-15 16:03 UTC** on `b11a11b`, with matching web/encoder
 builds, runtime-only credentials, packaging enabled, concurrency one and the existing
 `0.5c-512mb` encoder. The [October 8 rollout](replay-starter-trial-2026-10-07.md#all-eligible-staging-rollout--2026-10-08)
 removed the room allowlist from both services. New eligible recordings therefore follow automatic
-conversion/publication; viewers still click Play. The Free web Blueprint does not provision that
+conversion/publication; the full watching interface retains Play while Live discovery
+supports its separate muted previews. The Free web Blueprint does not provision that
 separately configured paid worker or reproduce all deployed settings.
 
 An old checkout contributed to stale status: the preserved shared branch at `bc3e92f` was

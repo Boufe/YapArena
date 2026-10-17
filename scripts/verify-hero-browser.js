@@ -148,7 +148,7 @@ try {
   page.on("request", (request) => requests.push(request.url()));
   await page.mouse.move(0, 0);
   await page.goto(base);
-  assert.equal(await page.locator("h1").textContent(), "Where ideas move.");
+  assert.equal(await page.locator("h1").textContent(), "Yap Arena");
   assert.equal(await page.locator("[data-debate-preview]").count(), 0);
   assert.equal(
     requests.some((url) => url.includes("/api/media/")),

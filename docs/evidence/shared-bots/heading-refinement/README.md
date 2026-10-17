@@ -21,5 +21,6 @@ branch and 95.78% function coverage. Fresh/upgrade PostgreSQL isolation passed.
 The existing six-width reference and real-homepage browser suite passed all 16
 groups, including interactions, no-JavaScript question links, absence of the public
 heading block, unavailable states, CSP and accessibility. Reference geometry
-remains unchanged. Hosted acceptance stays the user's manual test; the PR records
-the exact staging deployment.
+remains unchanged. The separate Live video-preview suite passed all 15 checks
+after updating its homepage-heading assertion. Hosted acceptance stays the user's
+manual test; the PR records the exact staging deployment.

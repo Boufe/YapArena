@@ -1,4 +1,1 @@
-public/media.bundle.js
-
-public/replay.bundle.js
-public/hero-live.bundle.js
+public/**/*.js

@@ -4,11 +4,6 @@ node_modules/
 !.env.example
 coverage/
 dist/
-public/media.bundle.js
+public/**/*.js
 .DS_Store
 npm-debug.log*
-
-public/replay.bundle.js
-public/hero-live.bundle.js
-
-public/homepage.bundle.js

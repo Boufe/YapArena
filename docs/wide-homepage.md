@@ -83,6 +83,11 @@ compression, with no new dependency or frontend runtime. It is loaded only on
 the homepage using the existing asset revision convention. Public HTML remains
 server rendered and `Cache-Control: no-store`; CSP is unchanged.
 
+The controller and chart bindings are authored in `frontend/homepage.ts` and
+`frontend/homepage-chart.ts`; shared model/view/chart/clock TypeScript remains in
+`src/features/discovery/`. Browser JavaScript is generated. Follow the
+[frontend workflow](../CONTRIBUTING.md#frontend-development) for strict checks and new modules.
+
 ## Verification
 
 Use Node 24 with the repository's normal build and quality commands. The browser

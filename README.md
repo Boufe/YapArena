@@ -161,12 +161,28 @@ Adjust the URL to match your local runtime password, database and published Post
 npm run dev
 ```
 
-`npm run dev` starts the TypeScript API directly with Node.js, loads `.env.runtime`, and automatically restarts when source files
-change. Run `npm run build` before testing browser media: it compiles production JavaScript into
-the ignored `dist/` directory and generates both browser bundles. The dev command does not bundle them.
+`npm run dev` generates browser assets, watches frontend/shared sources, starts the TypeScript API
+directly with Node.js, loads `.env.runtime`, and automatically restarts the API when its sources
+change. `npm run build` checks strict frontend types, compiles production server JavaScript into
+the ignored `dist/` directory, and generates all browser modules and the four existing bundles.
 PostgreSQL must still be running in Docker. Open <http://localhost:3000/ready> to confirm the
 API can reach the database. Press `Ctrl-C` to stop the API; the database container keeps running until
 you run `docker compose down`.
+
+### Frontend sources and checks
+
+Handwritten frontend code lives in `frontend/**/*.ts`, including browser utilities and
+`frontend/sw.ts`; new or substantially modified frontend code must use strict TypeScript.
+Browser-safe shared TypeScript remains in `src/features/`. `public/` contains static assets and
+ignored generated JavaScript, never authored JavaScript. Existing `/assets/*.js` URLs and `/sw.js`
+are preserved.
+
+Run `npm run typecheck:frontend` for the strict browser, service-worker and build-tool checks plus
+source-policy enforcement. It is included in `npm run typecheck`, `npm run check` and CI.
+`npm run build:frontend` regenerates assets; `npm run watch:frontend` watches them independently.
+See [the frontend workflow](CONTRIBUTING.md#frontend-development) for adding modules, bundle entries
+and worker boundaries. A language migration preserves the existing UI and behavior exactly;
+separately requested product changes remain possible.
 
 ### Public discovery preview
 

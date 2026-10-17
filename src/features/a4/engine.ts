@@ -1,8 +1,10 @@
+import type { Fraction } from "./fraction-types.ts";
+export type { Fraction } from "./fraction-types.ts";
+
 import { createHash, createHmac, randomBytes } from "node:crypto";
 
 export const RULE = "a4-v1";
 export const YAP = { id: "YAP", precision: 6, face: "1000000" } as const;
-export type Fraction = { n: string; d: string };
 export type Side = "YES" | "NO";
 export type Order = {
   participant: string;

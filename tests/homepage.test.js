@@ -55,6 +55,9 @@ it("adapts public topics/debates without manufacturing market histories or argum
   assert.equal(data.reference, false);
   assert.deepEqual(data.following, []);
   const m = data.ideas[0];
+  assert.equal(m.title, debate.proposition);
+  assert.equal(m.short, debate.proposition);
+  assert.equal(publicHomepage([topic], []).ideas[0].title, topic.title);
   assert.equal(m.live, 1);
   assert.equal(m.debates.length, 2);
   assert.equal(m.debates[0].href, "/debates/real-debate");
@@ -75,8 +78,9 @@ it("adapts public topics/debates without manufacturing market histories or argum
   const html = renderHome("https://arena.example", data);
   assert.ok(html.includes("/topics/public-idea"));
   assert.ok(html.includes("/debates/real-debate"));
-  assert.ok(html.includes("Public &lt;idea&gt; &quot;safe&quot;"));
-  assert.ok(!html.includes("Public <idea>"));
+  assert.ok(html.includes("A real &lt;question&gt;?"));
+  assert.ok(!html.includes("A real <question>"));
+  assert.ok(!html.includes('class="ya-heading"'));
   assert.ok(html.includes('href="#main"'));
   assert.ok(html.includes('rel="canonical" href="https://arena.example/"'));
   assert.ok(html.includes("data-header-balance"));
@@ -178,7 +182,10 @@ it("keeps reference/demo follows local and emits real canonical links and shared
     ...publicHomepage([], []),
     available: false,
   });
-  assert.ok(empty.includes("No public ideas yet"));
+  assert.ok(empty.includes("Discovery temporarily unavailable"));
+  assert.ok(
+    view.homepageMarkup(publicHomepage([], [])).includes("No public ideas yet"),
+  );
   assert.ok(
     view.homepageMarkup(publicHomepage([topic], [debate])).includes("Ideas"),
   );

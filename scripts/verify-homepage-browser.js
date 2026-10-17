@@ -797,7 +797,12 @@ try {
     }),
     plain = await nojs.newPage();
   await plain.goto(base);
-  assert.equal(await plain.locator("h1").textContent(), "Where ideas move.");
+  assert.equal(await plain.locator("h1").textContent(), "Yap Arena");
+  assert.equal(await plain.locator(".ya-heading").count(), 0);
+  assert.equal(
+    await plain.locator(".ya-cardtitle").textContent(),
+    debate.proposition,
+  );
   assert.equal(
     await plain
       .locator('a[data-expand][href="/topics/published-idea"]')
@@ -822,7 +827,7 @@ try {
   unavailable = true;
   const response = await page.goto(base);
   assert.equal(response.status(), 503);
-  assert.match(await page.locator(".ya-concept").textContent(), /unavailable/);
+  assert.match(await page.locator(".ya-empty").textContent(), /unavailable/);
   assert.equal(await page.locator("#ya-value").textContent(), "—");
   unavailable = false;
   checks.unavailableNeverSubstitutesConceptData = true;

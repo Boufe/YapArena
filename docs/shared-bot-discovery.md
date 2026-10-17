@@ -4,6 +4,11 @@ The homepage and debate workspace use one database-backed, explicitly labeled
 simulation feed. A visible **Live** link in the homepage header opens the existing
 `/live` video page. Its media preview controller and layout remain intact.
 
+The public homepage omits the introductory heading block, keeping the existing
+gutters and grids directly below the ticker. Tiles, trending titles and expanded
+titles use the associated debate question rather than a topic's working label.
+The explicitly gated reference preview retains the original supplied heading.
+
 ## Sources
 
 - Seeded examples use the existing heterogeneous `generateBots` preset, 500 bots,

@@ -371,7 +371,7 @@ if (root) {
                   : ""),
             )
             .join("")
-        : `<p class="ya-empty">${nav === "following" && followsState === "signed-out" ? 'Sign in to see your followed ideas. <a href="/account">Open your account</a>.' : nav === "following" && followsState === "unavailable" ? "Follow status is unavailable. Try again when your connection returns." : "No ideas match this view. Try another category or follow an idea above."}</p>`;
+        : `<p class="ya-empty">${data.available === false ? "Discovery temporarily unavailable. Try again shortly." : nav === "following" && followsState === "signed-out" ? 'Sign in to see your followed ideas. <a href="/account">Open your account</a>.' : nav === "following" && followsState === "unavailable" ? "Follow status is unavailable. Try again when your connection returns." : "No ideas match this view. Try another category or follow an idea above."}</p>`;
       if (insert >= 0) {
         $$("[data-detail-metric]").forEach((b) =>
           b.setAttribute(
@@ -487,9 +487,6 @@ if (root) {
       );
       $("#ya-carousel-dots").innerHTML = dotsMarkup(markets, selected);
       $(".ya-filters").innerHTML = filtersMarkup({ ...next, ideas: markets });
-      $(".ya-concept").textContent = markets.some((m) => m.activity)
-        ? "Synthetic bot activity · Yap Coins"
-        : "Public ideas · Market data unavailable";
       mainChart?.destroy();
       $(".ya-feature").innerHTML = featureMarkup(
         current(),

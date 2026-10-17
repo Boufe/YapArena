@@ -1771,3 +1771,73 @@ body.arena-market-home {
 #ya-market-v4 .ya-nav a:hover {
   color: var(--ya-accent);
 }
+
+#ya-market-v4 .ya-ticker.ya-ticker-marquee {
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  min-height: 40px;
+}
+#ya-market-v4 .ya-ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ya-ticker-left var(--ya-ticker-duration, 120s) linear infinite;
+  will-change: transform;
+}
+#ya-market-v4 .ya-ticker-group {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  justify-content: space-around;
+  min-width: 100vw;
+  gap: 24px;
+  padding-inline: 16px;
+}
+#ya-market-v4 .ya-ticker-marquee .ya-tick {
+  flex: none;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  white-space: nowrap;
+  cursor: pointer;
+}
+#ya-market-v4 .ya-ticker-marquee .ya-tick strong {
+  max-width: min(42vw, 420px);
+  white-space: nowrap;
+}
+#ya-market-v4 .ya-ticker-marquee:hover .ya-ticker-track,
+#ya-market-v4 .ya-ticker-marquee:focus-within .ya-ticker-track,
+#ya-market-v4[data-ticker-paused="true"] .ya-ticker-track {
+  animation-play-state: paused;
+}
+#ya-market-v4 .ya-ticker[data-static="true"] .ya-ticker-track {
+  animation: none;
+}
+@keyframes ya-ticker-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (pointer: coarse) {
+  #ya-market-v4 .ya-ticker-marquee .ya-tick {
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #ya-market-v4 .ya-ticker.ya-ticker-marquee {
+    overflow-x: auto;
+  }
+  #ya-market-v4 .ya-ticker-track {
+    animation: none;
+    transform: none;
+    will-change: auto;
+  }
+  #ya-market-v4 .ya-ticker-group[aria-hidden="true"] {
+    display: none;
+  }
+}

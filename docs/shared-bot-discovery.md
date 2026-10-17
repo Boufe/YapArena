@@ -9,6 +9,13 @@ gutters and grids directly below the ticker. Tiles, trending titles and expanded
 titles use the associated debate question rather than a topic's working label.
 The explicitly gated reference preview retains the original supplied heading.
 
+The public idea ticker scrolls continuously from right to left at approximately
+24 pixels per second, without separators. It includes all homepage ideas and
+pauses on hover/focus, outside view or in hidden tabs. Keyboard focus reveals the
+selected entry; visual repeats are hidden from assistive technology but remain
+clickable. Live updates preserve its progress and defer during interaction.
+Reduced motion presents one horizontally scrollable copy with no animation.
+
 Hover pauses the argument stream. Wheel/trackpad scrolling moves through it in
 either direction without scrolling the page, and leaving resumes the same
 32-second loop from the inspected position. The stream also accepts arrow,

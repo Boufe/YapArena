@@ -1,0 +1,54 @@
+{
+  "result": "PASS",
+  "referenceSha256": "1478334eb60e0aa9c6252f7a4f7a62c3efcad0c8cd421a583dc2612ad316eefc",
+  "referenceBytes": 159272,
+  "comparisons": [
+    {
+      "width": 1440,
+      "maxGeometryDifference": 0
+    },
+    {
+      "width": 1920,
+      "maxGeometryDifference": 0
+    },
+    {
+      "width": 1024,
+      "maxGeometryDifference": 0
+    },
+    {
+      "width": 768,
+      "maxGeometryDifference": 0
+    },
+    {
+      "width": 390,
+      "maxGeometryDifference": 0.0625
+    },
+    {
+      "width": 320,
+      "maxGeometryDifference": 0.0625
+    }
+  ],
+  "checks": {
+    "referenceGeometryAndResponsiveScreenshots": true,
+    "everySlideHasItsOwnArgumentsAndDebate": true,
+    "slideDirectionsTimingAndRapidNavigation": true,
+    "mainExpandedPointerTouchAndKeyboardCharts": true,
+    "independentExpansionPlacementAndDebateFilters": true,
+    "searchCategoriesSortingAndLocalDemoFollows": true,
+    "manualArgumentScrollAndContinuousResume": true,
+    "upwardArgumentLoopAndPause": true,
+    "synchronizedProgressPauseResumeAndRepeatedCycles": true,
+    "manualPauseAttentionAndOffscreenHold": true,
+    "reducedMotionManualNavigation": true,
+    "coarsePointerMobileTouchInspection": true,
+    "realNullableDataWalletFollowsAndCanonicalDebates": true,
+    "accessibilityAndCsp": true,
+    "serverRenderedNoJavaScriptFallback": true,
+    "realDebateAndAccountNavigation": true,
+    "unavailableNeverSubstitutesConceptData": true,
+    "slowTickerDirectionPauseKeyboardCopiesReducedMotionAndNoSeparators": true
+  },
+  "errors": [],
+  "violations": [],
+  "scope": "Loopback Express application with synthetic public records/auth responses and supplied original reference iframe; no hosted writes or media sessions."
+}

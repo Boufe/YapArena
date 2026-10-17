@@ -103,6 +103,16 @@ export function headerMarkup(reference: boolean) {
   return `<header class="ya-top"><a class="ya-brand" href="/" aria-label="YAP Arena home"><span class="ya-logo" aria-hidden="true">Ø</span><div>YAP ARENA</div></a><nav class="ya-nav" aria-label="Main navigation"><button type="button" data-nav="all" aria-pressed="true">Markets</button><button type="button" data-nav="following" aria-pressed="false">Following</button>${reference ? "" : '<a href="/live">Live</a>'}</nav><form class="ya-search" action="/topics" method="get" role="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/></svg><input id="ya-search" name="q" type="search" aria-label="Search ideas" placeholder="Search ideas…" maxlength="80"></form><a href="/coins" class="ya-wallet">${reference ? "1,000" : "<strong data-header-balance>—</strong>"}<span>Yap Coins · play money</span>${reference ? "" : "<span data-header-reserved hidden></span>"}</a><a href="/account" class="ya-avatar" ${reference ? 'aria-label="Sample profile"' : 'data-header-account aria-label="Your account"'}>${reference ? "F" : "↗"}</a></header>`;
 }
 export function tickerMarkup(ideas: HomeIdea[]) {
+  if (!ideas.some((m) => m.reference)) {
+    const entries = (copy = false) =>
+      ideas
+        .map((m) => {
+          const tag = copy ? "span" : "button";
+          return `<${tag}${copy ? "" : ' type="button"'} class="ya-tick" data-select="${escapeHome(m.id)}" title="${escapeHome(m.title)}"><strong>${escapeHome(m.title)}</strong><span class="${(m.delta ?? 0) < 0 ? "ya-down" : ""}">${formatValue(m.pct)} ${changeText(m)}</span></${tag}>`;
+        })
+        .join("");
+    return `<div class="ya-ticker ya-ticker-marquee" data-static="${ideas.length < 2}" aria-label="Changes in participant endorsement">${ideas.length ? `<div class="ya-ticker-track"><div class="ya-ticker-group">${entries()}</div>${ideas.length < 2 ? "" : `<div class="ya-ticker-group" aria-hidden="true">${entries(true)}</div>`}</div>` : ""}</div>`;
+  }
   const labels = [
     "OPEN-SOURCE AI",
     "4-DAY WEEK",

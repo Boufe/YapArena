@@ -50,6 +50,7 @@ if (root) {
       hovered = false,
       focused = false,
       visible = true,
+      tickerVisible = true,
       touchPinned = false;
     let ghost,
       animations = [],
@@ -102,11 +103,15 @@ if (root) {
     }
     function schedule() {
       root.dataset.motionPaused = String(paused || !visible || document.hidden);
+      root.dataset.tickerPaused = String(
+        paused || !tickerVisible || document.hidden,
+      );
       if (
         disposed ||
         paused ||
         hovered ||
         focused ||
+        $(".ya-ticker").matches(":hover,:focus-within") ||
         touchPinned ||
         !visible ||
         document.hidden ||
@@ -115,6 +120,42 @@ if (root) {
       )
         clock.pause();
       else clock.resume();
+    }
+    function tickerProgress() {
+      const animation = $(".ya-ticker-track")?.getAnimations()[0];
+      const duration = Number(animation?.effect.getTiming().duration);
+      return duration
+        ? (Number(animation.currentTime ?? 0) % duration) / duration
+        : 0;
+    }
+    function sizeTicker(progress = tickerProgress()) {
+      const track = $(".ya-ticker-track"),
+        group = $(".ya-ticker-group");
+      if (!track || !group) return;
+      const duration = Math.max(
+        60000,
+        (group.getBoundingClientRect().width / 24) * 1000,
+      );
+      track.style.setProperty("--ya-ticker-duration", duration + "ms");
+      const animation = track.getAnimations()[0];
+      if (animation) animation.currentTime = progress * duration;
+    }
+    function revealTickerItem(item) {
+      const ticker = $(".ya-ticker"),
+        track = $(".ya-ticker-track"),
+        group = $(".ya-ticker-group"),
+        animation = track?.getAnimations()[0];
+      if (!animation || !group?.contains(item)) return;
+      ticker.scrollLeft = 0;
+      const bounds = item.getBoundingClientRect(),
+        viewport = ticker.getBoundingClientRect();
+      if (bounds.left >= viewport.left && bounds.right <= viewport.right)
+        return;
+      const width = group.getBoundingClientRect().width;
+      animation.currentTime =
+        (Math.max(0, bounds.left - group.getBoundingClientRect().left - 16) /
+          width) *
+        Number(animation.effect.getTiming().duration);
     }
     function moveArguments(delta, edge) {
       const track = $("#ya-argument-track"),
@@ -488,6 +529,7 @@ if (root) {
         disposed ||
         hovered ||
         focused ||
+        $(".ya-ticker").matches(":hover,:focus-within") ||
         touchPinned ||
         chartReset ||
         side !== "live"
@@ -501,10 +543,13 @@ if (root) {
         selected = markets[0]?.id;
         clock.reset();
       }
+      const tickerPhase = tickerProgress();
+      $(".ya-ticker").dataset.static = String(markets.length < 2);
       $(".ya-ticker").innerHTML = tickerMarkup(markets).replace(
         /^<div[^>]*>|<\/div>$/g,
         "",
       );
+      sizeTicker(tickerPhase);
       $("#ya-carousel-dots").innerHTML = dotsMarkup(markets, selected);
       $(".ya-filters").innerHTML = filtersMarkup({ ...next, ideas: markets });
       mainChart?.destroy();
@@ -565,7 +610,7 @@ if (root) {
       target.replaceChildren(box);
     }
     listen(root, "click", (event) => {
-      const b = event.target.closest("button,[data-expand]");
+      const b = event.target.closest("button,[data-expand],[data-select]");
       if (!b || !root.contains(b) || b.closest(".ya-carousel-ghost")) return;
       if (b.id === "ya-chart-debate" && !current().reference) {
         if (expandedIdea !== current().id)
@@ -745,6 +790,23 @@ if (root) {
         $("#ya-review")?.replaceChildren();
     });
     listen($("#ya-sort"), "change", renderGrid);
+    listen($(".ya-ticker"), "pointerenter", schedule);
+    listen($(".ya-ticker"), "pointerleave", () => {
+      schedule();
+      flushActivity();
+    });
+    listen($(".ya-ticker"), "focusin", (event) => {
+      queueMicrotask(() => {
+        revealTickerItem(event.target.closest("[data-select]"));
+        schedule();
+      });
+    });
+    listen($(".ya-ticker"), "focusout", () => {
+      queueMicrotask(() => {
+        schedule();
+        flushActivity();
+      });
+    });
     listen(
       $("#ya-arguments"),
       "wheel",
@@ -827,6 +889,12 @@ if (root) {
       );
       observer.observe($("#ya-carousel"));
       observers.push(observer);
+      const tickerObserver = new IntersectionObserver(([entry]) => {
+        tickerVisible = entry.isIntersecting;
+        schedule();
+      });
+      tickerObserver.observe($(".ya-ticker"));
+      observers.push(tickerObserver);
     }
     if (typeof ResizeObserver !== "undefined") {
       let lastWidth = $("#ya-grid").getBoundingClientRect().width,
@@ -836,6 +904,7 @@ if (root) {
         resizeFrame = requestAnimationFrame(() => {
           resizeFrame = 0;
           if (disposed) return;
+          sizeTicker();
           const width = $("#ya-grid").getBoundingClientRect().width;
           const chartWidth = $("#ya-chart").getBoundingClientRect().width;
           const gridChanged = Math.abs(width - lastWidth) > 1,
@@ -850,8 +919,10 @@ if (root) {
       });
       observer.observe($("#ya-grid"));
       observer.observe($("#ya-carousel-window"));
+      observer.observe($(".ya-ticker"));
       observers.push(observer);
     }
+    sizeTicker();
     renderMain();
     renderGrid();
     controls();

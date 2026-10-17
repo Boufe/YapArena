@@ -59,7 +59,8 @@ const list = (items) => ({
 let signedIn = false,
   followed = false,
   followWrites = 0,
-  unavailable = false;
+  unavailable = false,
+  tickerTrial = false;
 const app = express();
 app.get("/reference", (_r, s) => s.type("html").send(reference));
 app.get("/api/auth/me", (_r, s) =>
@@ -101,7 +102,19 @@ app.use(
     discovery: {
       listTopics: async () => {
         if (unavailable) throw Error("local fixture unavailable");
-        return list([topic]);
+        return list(
+          tickerTrial
+            ? [
+                topic,
+                ...["Second", "Third"].map((label, i) => ({
+                  ...topic,
+                  id: `ticker-${i}`,
+                  slug: `ticker-${i}`,
+                  title: `${label} public idea`,
+                })),
+              ]
+            : [topic],
+        );
       },
       listWatchableDebates: async () => [debate],
       listDebates: async () => list([debate]),
@@ -883,6 +896,115 @@ try {
   assert.equal(await page.locator("#ya-value").textContent(), "—");
   unavailable = false;
   checks.unavailableNeverSubstitutesConceptData = true;
+  tickerTrial = true;
+  const tickerPage = await context.newPage();
+  tickerPage.on("pageerror", (e) => errors.push(e.message));
+  await tickerPage.goto(base);
+  const ticker = tickerPage.locator(".ya-ticker-marquee"),
+    tickerTrack = tickerPage.locator(".ya-ticker-track");
+  await tickerTrack.waitFor();
+  const tickerX = () =>
+    tickerTrack.evaluate(
+      (n) => new DOMMatrixReadOnly(getComputedStyle(n).transform).m41,
+    );
+  const startX = await tickerX();
+  await tickerPage.waitForTimeout(200);
+  assert.ok((await tickerX()) < startX);
+  const timing = await tickerTrack.evaluate((n) => ({
+    duration: n.getAnimations()[0].effect.getTiming().duration,
+    width: n.firstElementChild.getBoundingClientRect().width,
+    second: n.lastElementChild.getBoundingClientRect().width,
+  }));
+  assert.ok(Math.abs(timing.width - timing.second) < 0.01);
+  assert.ok(
+    timing.duration >= 60000 && (timing.width / timing.duration) * 1000 <= 24.1,
+  );
+  assert.equal(await ticker.locator("button[data-select]").count(), 3);
+  assert.equal(await ticker.locator('[aria-hidden="true"] button').count(), 0);
+  await ticker.hover();
+  const heldX = await tickerX();
+  await tickerPage.waitForTimeout(100);
+  assert.ok(Math.abs((await tickerX()) - heldX) < 1);
+  await tickerPage.mouse.move(0, 0);
+  await tickerPage.waitForTimeout(100);
+  assert.ok((await tickerX()) < heldX);
+  const lastTickerButton = ticker.locator("button[data-select]").last();
+  await lastTickerButton.focus();
+  await tickerPage.waitForTimeout(30);
+  assert.ok(
+    await lastTickerButton.evaluate((n) => {
+      const b = n.getBoundingClientRect(),
+        p = n.closest(".ya-ticker").getBoundingClientRect();
+      return b.left >= p.left - 1 && b.right <= p.right + 1;
+    }),
+  );
+  await tickerPage.keyboard.press("Enter");
+  assert.equal(
+    await tickerPage
+      .locator('.ya-carousel-dot[aria-current="true"]')
+      .getAttribute("data-trending"),
+    "ticker-1",
+  );
+  await tickerPage.locator("#ya-search").focus();
+  await tickerTrack.evaluate((n) => {
+    const a = n.getAnimations()[0];
+    a.currentTime = Number(a.effect.getTiming().duration) * 0.99;
+  });
+  await ticker.hover();
+  await ticker.locator('[aria-hidden="true"] [data-select]').first().click();
+  assert.equal(
+    await tickerPage
+      .locator('.ya-carousel-dot[aria-current="true"]')
+      .getAttribute("data-trending"),
+    topic.id,
+  );
+  for (const width of [1440, 390, 320]) {
+    await tickerPage.setViewportSize({ width, height: 1000 });
+    assert.ok(
+      await tickerPage.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    );
+    assert.ok(
+      await ticker.locator(".ya-tick").evaluateAll((nodes) =>
+        nodes.every((n) => {
+          const s = getComputedStyle(n);
+          return s.borderRightWidth === "0px" && s.borderBottomWidth === "0px";
+        }),
+      ),
+    );
+  }
+  await ticker.screenshot({ path: directory + "/ticker-320.png" });
+  await tickerPage.locator("#ya-search").focus();
+  await tickerPage.mouse.move(0, 0);
+  await tickerPage.locator("#ya-carousel-pause").click();
+  assert.equal(
+    await tickerTrack.evaluate((n) => n.getAnimations()[0].playState),
+    "paused",
+  );
+  await tickerPage.locator("#ya-carousel-pause").click();
+  await tickerPage.evaluate(() => {
+    document.activeElement.blur();
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "instant" });
+  });
+  await tickerPage.waitForFunction(
+    () =>
+      document.querySelector("#ya-market-v4").dataset.tickerPaused === "true",
+  );
+  await tickerPage.emulateMedia({ reducedMotion: "reduce" });
+  assert.equal(
+    await tickerTrack.evaluate((n) => getComputedStyle(n).animationName),
+    "none",
+  );
+  assert.equal(
+    await ticker
+      .locator('[aria-hidden="true"]')
+      .evaluate((n) => getComputedStyle(n).display),
+    "none",
+  );
+  await tickerPage.close();
+  tickerTrial = false;
+  checks.slowTickerDirectionPauseKeyboardCopiesReducedMotionAndNoSeparators = true;
   assert.deepEqual(errors, []);
   const evidence = {
     result: "PASS",

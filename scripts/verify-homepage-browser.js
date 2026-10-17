@@ -572,6 +572,58 @@ try {
   const held = await transform();
   await page.waitForTimeout(90);
   assert.ok(Math.abs((await transform()) - held) < 1);
+  const pageTop = await page.evaluate(() => window.scrollY);
+  await page.mouse.wheel(0, 120);
+  await page.waitForTimeout(40);
+  const scrolled = await transform();
+  assert.ok(Math.abs(scrolled - held + 120) < 2);
+  await page.mouse.wheel(0, -60);
+  await page.waitForTimeout(40);
+  assert.ok(Math.abs((await transform()) - scrolled - 60) < 2);
+  assert.equal(await page.evaluate(() => window.scrollY), pageTop);
+  await page.locator("#ya-arguments").dispatchEvent("wheel", {
+    deltaY: 1,
+    deltaMode: 1,
+    cancelable: true,
+  });
+  assert.ok(Math.abs((await transform()) - scrolled - 44) < 2);
+  const inspected = await transform();
+  await page.locator("#ya-arguments").dispatchEvent("wheel", {
+    deltaY: 120,
+    ctrlKey: true,
+    cancelable: true,
+  });
+  assert.ok(Math.abs((await transform()) - inspected) < 1);
+  await page
+    .locator("#ya-arguments")
+    .screenshot({ path: directory + "/manual-argument-scroll.png" });
+  await page.mouse.move(0, 0);
+  const resumed = await transform();
+  assert.ok(Math.abs(resumed - inspected) < 6);
+  await page.waitForTimeout(90);
+  assert.ok((await transform()) < resumed);
+  const argumentWindow = page.locator(".ya-arguments-window");
+  await argumentWindow.focus();
+  await page.keyboard.press("Home");
+  assert.ok(Math.abs(await transform()) < 1);
+  await page.keyboard.press("ArrowDown");
+  assert.ok(Math.abs((await transform()) + 60) < 1);
+  await page.keyboard.press("End");
+  assert.ok((await transform()) < -60);
+  await page.locator("#ya-argument-track").evaluate((n) => {
+    n.getAnimations()[0].currentTime = 31990;
+  });
+  await argumentWindow.dispatchEvent("wheel", {
+    deltaY: 120,
+    cancelable: true,
+  });
+  const wrapped = await page.locator("#ya-argument-track").evaluate((n) => ({
+    time: n.getAnimations()[0].currentTime,
+    copies: n.children.length,
+  }));
+  assert.ok(wrapped.time > 0 && wrapped.time < 10000);
+  assert.equal(wrapped.copies, 2);
+  checks.manualArgumentScrollAndContinuousResume = true;
   await page.getByRole("button", { name: "Pause argument flow" }).click();
   assert.equal(
     await page.locator("#ya-arguments").getAttribute("data-paused"),

@@ -9,6 +9,12 @@ gutters and grids directly below the ticker. Tiles, trending titles and expanded
 titles use the associated debate question rather than a topic's working label.
 The explicitly gated reference preview retains the original supplied heading.
 
+Hover pauses the argument stream. Wheel/trackpad scrolling moves through it in
+either direction without scrolling the page, and leaving resumes the same
+32-second loop from the inspected position. The stream also accepts arrow,
+Page Up/Down and Home/End keys while focused. Explicit pause and reduced-motion
+preferences continue to apply.
+
 ## Sources
 
 - Seeded examples use the existing heterogeneous `generateBots` preset, 500 bots,

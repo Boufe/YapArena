@@ -116,6 +116,26 @@ if (root) {
         clock.pause();
       else clock.resume();
     }
+    function moveArguments(delta, edge) {
+      const track = $("#ya-argument-track"),
+        viewport = $(".ya-arguments-window"),
+        animation = track
+          .getAnimations()
+          .find((a) => a.animationName === "ya-arguments-up"),
+        distance = track.getBoundingClientRect().height / 2,
+        duration = Number(animation?.effect.getTiming().duration);
+      if (!animation || !distance || !duration) return false;
+      const next =
+        edge === "start"
+          ? 0
+          : edge === "end"
+            ? (Math.max(0, distance - viewport.clientHeight) / distance) *
+              duration
+            : Number(animation.currentTime ?? 0) +
+              (delta / distance) * duration;
+      animation.currentTime = ((next % duration) + duration) % duration;
+      return true;
+    }
     function finishSlide() {
       animations.forEach((a) => a.cancel());
       animations = [];
@@ -725,6 +745,37 @@ if (root) {
         $("#ya-review")?.replaceChildren();
     });
     listen($("#ya-sort"), "change", renderGrid);
+    listen(
+      $("#ya-arguments"),
+      "wheel",
+      (event) => {
+        if (event.ctrlKey || !event.deltaY) return;
+        const unit =
+          event.deltaMode === 1
+            ? 16
+            : event.deltaMode === 2
+              ? $(".ya-arguments-window").clientHeight
+              : 1;
+        if (moveArguments(event.deltaY * unit)) event.preventDefault();
+      },
+      { passive: false },
+    );
+    listen($(".ya-arguments-window"), "keydown", (event) => {
+      const delta = {
+        ArrowDown: 60,
+        ArrowUp: -60,
+        PageDown: 240,
+        PageUp: -240,
+      }[event.key];
+      const edge =
+        event.key === "Home"
+          ? "start"
+          : event.key === "End"
+            ? "end"
+            : undefined;
+      if ((delta !== undefined || edge) && moveArguments(delta ?? 0, edge))
+        event.preventDefault();
+    });
     listen($("#ya-carousel"), "pointerenter", (e) => {
       if (["mouse", "pen"].includes(e.pointerType)) {
         hovered = true;

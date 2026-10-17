@@ -56,7 +56,7 @@ implementing it. Do not treat a passing backend quality gate as permission to ac
    change intentionally adds or updates a dependency, and review both `package.json` and
    `package-lock.json` afterward.
 
-3. Make the change in strict TypeScript under `src/` and add or update tests for changed behavior. Tests belong under `tests/`; database
+3. Make server/shared changes in strict TypeScript under `src/` and handwritten frontend changes under `frontend/`, following the frontend workflow below. Add or update tests for changed behavior. Tests belong under `tests/`; database
    structure changes also require a new migration rather than an edit to migration history.
 
 4. Run the local quality gate:
@@ -101,6 +101,49 @@ Review the package, exact version, published provenance, and required lifecycle 
 changing that policy. Supported npm versions report or enforce unreviewed scripts during install.
 
 See the [glossary](docs/glossary.md) for terms such as branch, pull request, migration, image, and CI.
+
+## Frontend development
+
+All new or substantially modified handwritten frontend code must use strict TypeScript,
+including UI controllers, charts, media clients, account controls, browser utilities and service
+workers. Author modules in `frontend/`, keep styles/static assets in `public/`, and preserve existing
+browser-safe shared implementations in `src/features/`. Never edit or commit generated JavaScript.
+
+- `npm run typecheck:frontend` enforces the authored-source inventory and checks
+  `tsconfig.frontend.json` (strict browser DOM types, no server globals),
+  `tsconfig.service-worker.json` (strict WebWorker types without DOM/server globals), and
+  `tsconfig.frontend-build.json` (the isolated Node build tool). `npm run typecheck` and the normal
+  `npm run check` CI gate include it.
+- `npm run build:frontend` emits every executable `frontend/**/*.ts` module to the corresponding
+  `public/**/*.js` path and builds `media.bundle.js`, `replay.bundle.js`, `hero-live.bundle.js` and
+  `homepage.bundle.js`. Type-only modules produce no asset. Run the type check before this focused
+  build; `npm run build` runs both and also compiles the server.
+- `npm run dev` generates assets before starting the API, then watches frontend and shared discovery
+  sources. `npm run watch:frontend` watches assets independently. Runtime configuration remains in
+  `.env.runtime`; build processes do not load the operator `.env`.
+
+To add a module, create `frontend/name.ts` (or a subdirectory), use `.js` specifiers for browser
+imports, and reference `/assets/name.js` from existing server markup when needed. Entry modules that
+need dependencies bundled use the explicit bundle entries in `scripts/build-frontend.ts`.
+`frontend/sw.ts` stays at `/sw.js` with its existing registration/scope. Put worker-only code in the
+worker project and update its include/exclude boundaries if another worker is separately requested.
+The inventory check rejects handwritten JavaScript in `frontend/` and tracked JavaScript/TypeScript
+in `public/`; generated JavaScript is ignored by Git, lint and formatting and excluded from Docker
+build input. Browser output is always regenerated in the image build.
+
+Use meaningful types for DOM elements, events, state and API payloads; do not add `any`,
+`@ts-ignore`, `@ts-nocheck` or broad assertions to silence errors. Narrow assertions may express
+existing markup, server-contract or platform guarantees. Do not add new validation/guards as part
+of typing an existing module. Document suspected existing bugs separately.
+
+For language migrations, the current application is the source of truth. Preserve appearance,
+DOM/CSS/selectors, responsive behavior, animations/transitions, chart geometry, loading/errors,
+keyboard/focus/scrolling, timing/polling/request ordering/retries/reconnection, playback and state
+transitions. Preserve requests/payloads, cookies/storage keys, asset URLs and service-worker
+semantics. Keep modules and algorithms, capture the baseline, and compare screenshots and
+interactions using identical fixtures and viewports. Investigate differences instead of updating
+expected outputs. Separately requested product changes may alter behavior within their scope.
+Report local versus hosted/device evidence and skipped checks in the PR.
 
 ## Documentation changes
 

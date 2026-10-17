@@ -12,6 +12,14 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+The [strict frontend migration](evidence/frontend-typescript/2026-10-17.md) moves all 33
+handwritten browser/service-worker modules into `frontend/` TypeScript while retaining existing
+shared TypeScript. Browser JavaScript is generated at the same URLs; the normal quality gate
+checks browser and worker types separately and rejects authored browser JavaScript. Local
+before/after screenshots, interactions, emitted-code parity and disposable-database checks are
+recorded in that evidence. Follow [the frontend workflow](../CONTRIBUTING.md#frontend-development)
+for future work. Hosted/physical-device media acceptance remains separate.
+
 The [shared bot discovery](shared-bot-discovery.md) adds stored heterogeneous
 demonstration histories, independent argument endorsements and opt-in aggregate
 mixed/observer results. Homepage and debate visuals refresh from the same final-only

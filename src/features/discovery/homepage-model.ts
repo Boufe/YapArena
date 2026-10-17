@@ -1,5 +1,5 @@
-import type { PublicDebate, PublicTopic } from "./repository.ts";
-import type { PublicBotActivity } from "../a4/public-bots.ts";
+import type { PublicDebate, PublicTopic } from "./public-types.ts";
+import type { PublicBotActivity } from "../a4/public-bot-types.ts";
 
 export interface HomeDebate {
   id: string;

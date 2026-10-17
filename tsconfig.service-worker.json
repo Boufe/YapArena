@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.frontend.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "WebWorker"],
+    "moduleDetection": "auto"
+  },
+  "include": ["frontend/sw.ts"],
+  "exclude": []
+}

@@ -31,6 +31,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Check strict frontend types and generated-asset source policy
+        run: npm run typecheck:frontend
       - name: Provision isolated authentication test identities
         env:
           DATABASE_ADMIN_URL: postgresql://auth_test_admin:ci-admin-only@127.0.0.1:5432/revocation_test_ci

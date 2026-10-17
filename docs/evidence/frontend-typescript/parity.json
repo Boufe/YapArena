@@ -1,0 +1,390 @@
+{
+  "baseline": "72c04e0",
+  "runtimeModules": [
+    {
+      "module": "a4-inline.js",
+      "equal": true
+    },
+    {
+      "module": "a4.js",
+      "equal": true
+    },
+    {
+      "module": "account-sessions.js",
+      "equal": true
+    },
+    {
+      "module": "account.js",
+      "equal": true
+    },
+    {
+      "module": "arena-chart.js",
+      "equal": true
+    },
+    {
+      "module": "arena-price.js",
+      "equal": true
+    },
+    {
+      "module": "arena-statement.js",
+      "equal": true
+    },
+    {
+      "module": "arena.js",
+      "equal": true
+    },
+    {
+      "module": "community-state.js",
+      "equal": true
+    },
+    {
+      "module": "community-stream.js",
+      "equal": true
+    },
+    {
+      "module": "community-transport.js",
+      "equal": true
+    },
+    {
+      "module": "community.js",
+      "equal": true
+    },
+    {
+      "module": "hero-live.js",
+      "equal": true
+    },
+    {
+      "module": "hero-policy.js",
+      "equal": true
+    },
+    {
+      "module": "hero-preview.js",
+      "equal": true
+    },
+    {
+      "module": "homepage-chart.js",
+      "equal": true
+    },
+    {
+      "module": "homepage.js",
+      "equal": true
+    },
+    {
+      "module": "matching.js",
+      "equal": true
+    },
+    {
+      "module": "measurement-dashboard.js",
+      "equal": true
+    },
+    {
+      "module": "measurement.js",
+      "equal": true
+    },
+    {
+      "module": "media-diagnostics.js",
+      "equal": true
+    },
+    {
+      "module": "media-entry.js",
+      "equal": true
+    },
+    {
+      "module": "media-presentation.js",
+      "equal": true
+    },
+    {
+      "module": "media-recovery.js",
+      "equal": true
+    },
+    {
+      "module": "media-replay-library.js",
+      "equal": true
+    },
+    {
+      "module": "media-replay.js",
+      "equal": true
+    },
+    {
+      "module": "media-session.js",
+      "equal": true
+    },
+    {
+      "module": "media-speaker.js",
+      "equal": true
+    },
+    {
+      "module": "media-telemetry.js",
+      "equal": true
+    },
+    {
+      "module": "media-tracks.js",
+      "equal": true
+    },
+    {
+      "module": "replay-entry.js",
+      "equal": true
+    },
+    {
+      "module": "site.js",
+      "equal": true
+    },
+    {
+      "module": "sw.js",
+      "equal": true
+    }
+  ],
+  "fixedScreenshotPairs": [
+    {
+      "section": "hero",
+      "name": "desktop.png",
+      "size": [1440, 2530],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "hero",
+      "name": "grid.png",
+      "size": [1440, 1050],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "hero",
+      "name": "home.png",
+      "size": [1440, 1050],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "hero",
+      "name": "mobile.png",
+      "size": [390, 3756],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "hero",
+      "name": "thumbnail.png",
+      "size": [1440, 2530],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "implemented-1024-initial.png",
+      "size": [1024, 1383],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "implemented-1440-expanded.png",
+      "size": [1440, 2558],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "implemented-1440-hover.png",
+      "size": [1440, 1377],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "implemented-1440-initial.png",
+      "size": [1440, 1377],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "implemented-1440-second.png",
+      "size": [1440, 1377],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "implemented-1920-initial.png",
+      "size": [1920, 1385],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "implemented-320-initial.png",
+      "size": [320, 3576],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "implemented-390-expanded.png",
+      "size": [390, 5654],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "implemented-390-hover.png",
+      "size": [390, 3428],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "implemented-390-initial.png",
+      "size": [390, 3426],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "implemented-390-second.png",
+      "size": [390, 3426],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "implemented-768-initial.png",
+      "size": [768, 1762],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    }
+  ],
+  "accountMatching": {
+    "screenshotPairs": 9,
+    "identicalFetchCalls": 88,
+    "viewports": [
+      [1280, 900],
+      [390, 844]
+    ],
+    "result": "PASS"
+  },
+  "qualityWithDisposableDatabase": {
+    "tests": 502,
+    "pass": 502,
+    "fail": 0,
+    "skipped": 0,
+    "coverage": {
+      "lines": 94.75,
+      "branches": 93.11,
+      "functions": 95.79
+    }
+  },
+  "standaloneWithoutDatabase": {
+    "baselineLines": 89.49,
+    "migratedLines": 89.64,
+    "pass": 451,
+    "fail": 0,
+    "skipped": 1,
+    "result": "pre-existing 90% line-threshold failure"
+  },
+  "serviceWorkerMeasurement": {
+    "result": "PASS",
+    "screenshotPairs": 5,
+    "identicalStates": 9,
+    "identicalFetchCalls": 16,
+    "viewports": [
+      [1280, 900],
+      [390, 844]
+    ],
+    "scope": "root /sw.js, selective shell cache, offline navigation fallback, no account/API fetch interception, consent/storage/focus/failures, live/replay measurement payloads"
+  },
+  "frozenAnimationScreenshots": [
+    {
+      "section": "homepage",
+      "name": "manual-argument-scroll.png",
+      "size": [250, 459],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    },
+    {
+      "section": "homepage",
+      "name": "ticker-320.png",
+      "size": [320, 42],
+      "changedPixels": 0,
+      "over10": 0,
+      "maximum": 0,
+      "bbox": null,
+      "mean": 0
+    }
+  ],
+  "a4BrowserRepeat": {
+    "initial": "PASS including arena and shared bot checks",
+    "qualityRepeat": "502/502 PASS",
+    "browserRepeat": "existing receipt.executed assertion failed; actual sampled offer not retained",
+    "reason": "default epsilon 50000 allows 5% exploratory offers; deterministic baseline/migrated engine counterexample proves execution is not unconditional",
+    "testsOrProductChanged": false,
+    "unchangedRerun": "PASS including A4, arena, shared-bot and fresh/upgrade SQL checks",
+    "counterexampleActualFailedDrawObserved": false
+  },
+  "cleanBuild": {
+    "result": "PASS",
+    "node": "24.19.0",
+    "independentDirectory": "/private/tmp/yaparena-independent-node24-ej7ur6g4",
+    "preexistingPublicJavaScript": 0,
+    "gitDirectory": false,
+    "emittedModules": 33,
+    "emittedBundles": 4,
+    "dependencies": "existing locked node_modules symlink; no fresh install",
+    "replacesInitialIndependentNode25Attempt": true
+  }
+}

@@ -93,8 +93,13 @@ jobs:
       - name: Install browser test dependencies
         run: npm ci
 
-      - name: Install FFmpeg for synthetic replay verification
-        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
+      - name: Install FFmpeg and native PostgreSQL verification tools
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg postgresql-17
+
+      - name: Verify native PostgreSQL Unicode setup under the C locale
+        run: |
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          npm run verify:community-native-setup
 
       - name: Verify adaptive replay packaging and decoding
         run: npm run verify:media-packaging

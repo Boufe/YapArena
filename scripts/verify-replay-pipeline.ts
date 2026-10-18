@@ -81,6 +81,7 @@ try {
     const passwordFile = resolve(directory, "password");
     await writeFile(passwordFile, passwords.postgres!, { mode: 0o600 });
     await exec("initdb", [
+      "--encoding=UTF8",
       "--pgdata",
       resolve(directory, "data"),
       "--username",
@@ -157,6 +158,35 @@ try {
     await admin.query<{ server_version: string }>("SHOW server_version")
   ).rows[0]!.server_version;
   assert.match(serverVersion, /^(17|18)\./);
+  const encoding = (
+    await admin.query<{
+      server: string;
+      client: string;
+      locale: string;
+      collation: string;
+    }>(
+      `SELECT current_setting('server_encoding') AS server, current_setting('client_encoding') AS client,
+        datctype AS locale, datcollate AS collation
+          FROM pg_database WHERE datname=current_database()`,
+    )
+  ).rows[0]!;
+  assert.equal(
+    encoding.server,
+    "UTF8",
+    "Replay database must use UTF8 server encoding",
+  );
+  assert.equal(
+    encoding.client,
+    "UTF8",
+    "Replay database must use UTF8 client encoding",
+  );
+  if (hostMode && process.env.LC_ALL === "C") {
+    assert.equal(encoding.locale, "C");
+    assert.equal(encoding.collation, "C");
+  }
+  console.log(
+    JSON.stringify({ trial: "replay-database-encoding", ...encoding }),
+  );
   postgresVersion ||= `PostgreSQL ${serverVersion} (Docker)`;
   await provisionDatabase(admin, passwords);
   owner = new pg.Client(config("yaparena_owner"));

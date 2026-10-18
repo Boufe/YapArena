@@ -934,6 +934,42 @@ async function scenario(database: string, upgrade: boolean) {
   const admin = await connect(database);
   let owner;
   try {
+    const encoding = (
+      await admin.query<{
+        server: string;
+        client: string;
+        locale: string;
+        collation: string;
+      }>(
+        `SELECT current_setting('server_encoding') AS server, current_setting('client_encoding') AS client,
+          datctype AS locale, datcollate AS collation
+          FROM pg_database WHERE datname=current_database()`,
+      )
+    ).rows[0]!;
+    assert.equal(
+      encoding.server,
+      "UTF8",
+      "Isolation database must use UTF8 server encoding",
+    );
+    assert.equal(
+      encoding.client,
+      "UTF8",
+      "Isolation database must use UTF8 client encoding",
+    );
+    if (
+      process.env.DATABASE_TEST_MODE === "host" &&
+      process.env.LC_ALL === "C"
+    ) {
+      assert.equal(encoding.locale, "C");
+      assert.equal(encoding.collation, "C");
+    }
+    console.log(
+      JSON.stringify({
+        trial: "isolation-database-encoding",
+        database,
+        ...encoding,
+      }),
+    );
     const legacyCount = (
       await readdir(new URL("../migrations", import.meta.url))
     ).filter(
@@ -1220,6 +1256,7 @@ try {
     const passwordFile = `${hostDirectory}/password`;
     await writeFile(passwordFile, bootstrapPassword, { mode: 0o600 });
     await exec("initdb", [
+      "--encoding=UTF8",
       "--pgdata",
       `${hostDirectory}/data`,
       "--username",

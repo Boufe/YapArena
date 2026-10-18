@@ -94,7 +94,11 @@ jobs:
         run: npm ci
 
       - name: Install FFmpeg and native PostgreSQL verification tools
-        run: sudo apt-get update && sudo apt-get install --yes ffmpeg postgresql-17
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install --yes ffmpeg postgresql-17
 
       - name: Verify native PostgreSQL Unicode setup under the C locale
         run: |

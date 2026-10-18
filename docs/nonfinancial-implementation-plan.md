@@ -19,7 +19,8 @@ CI integration job; it uses the actual migrated chat column and retains the full
 community workload separately. Product code, schema and hosted settings are unchanged.
 Local native and Docker community gates passed with identical 30-second soaks;
 the native database-backed quality gate passed 502 tests with zero skips. The new
-GitHub-hosted CI step is configured but has not run; these results establish no hosted capacity.
+GitHub-hosted CI results and its package-source setup correction are tracked in
+[PR #38](https://github.com/Boufe/YapArena/pull/38); local results establish no hosted capacity.
 
 The [operational TypeScript migration](operational-typescript.md) checks the production
 edge replay worker and critical database/release automation through the existing quality

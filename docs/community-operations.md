@@ -204,6 +204,24 @@ Docker is unavailable and PostgreSQL 17/18 tools are installed, the same isolate
 COMMUNITY_POSTGRES_MODE=host node scripts/verify-community-local.ts
 ```
 
+For a fast native Unicode setup check with PostgreSQL 17/18 binaries on PATH:
+
+```sh
+npm run verify:community-native-setup
+```
+
+This command forces `LC_ALL=C LANG=C COMMUNITY_POSTGRES_MODE=host`, invokes the same
+native `initdb` path, provisions and migrates a fresh disposable database, then stops
+before browser/load work. Native community, isolation and replay harnesses explicitly
+initialize UTF-8 while preserving their inherited locale. The community probe checks
+server/client UTF8, the C database locale when requested, 500 characters/1,500 bytes,
+and exact runtime-role insertion/readback of `"界".repeat(500)` through the existing
+`varchar(500)` chat column. It rolls back before other fixtures execute. Invalid
+encoding fails before the expensive phases, and the enclosing cleanup still runs.
+The required CI integration job runs this native smoke in addition to the unchanged
+Docker/browser/load gates. It is not a substitute for the full community command.
+See [the dated fix and verification record](evidence/native-postgres-utf8/2026-10-18.md).
+
 The host mode creates a temporary SCRAM-authenticated cluster and stops/removes it afterward;
 it never changes an existing database. `COMMUNITY_CLIENT_ONLY=1` selects the deterministic browser
 portion after SQL verification. Screenshots go to a unique `/tmp/yaparena-chat-*-evidence` directory

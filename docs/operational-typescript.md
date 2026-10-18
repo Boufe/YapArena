@@ -62,6 +62,7 @@ node scripts/provision-database.ts
 npm run migrate
 npm run inventory:database
 DATABASE_TEST_MODE=host npm run verify:browser
+npm run verify:community-native-setup
 COMMUNITY_POSTGRES_MODE=host npm run verify:community-delivery
 REPLAY_POSTGRES_MODE=host npm run verify:replay-pipeline
 npm run verify:media-packaging
@@ -99,3 +100,9 @@ they do not add runtime guards or repair unrelated failures.
 
 The [migration evidence](evidence/operational-typescript/2026-10-18.md) records the
 baseline, executable/behavior comparisons, checks and remaining evidence limits.
+
+The [native PostgreSQL setup correction](evidence/native-postgres-utf8/2026-10-18.md)
+supersedes the earlier migration's C-locale SQL_ASCII limitation. The focused setup
+check runs native initdb under C with explicit UTF-8, performs real chat-column
+roundtrip assertions and cleans up without starting browser/load phases. Follow
+[community operations](community-operations.md) for the full gate and evidence limits.

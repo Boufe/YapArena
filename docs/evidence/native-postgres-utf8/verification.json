@@ -1,0 +1,290 @@
+{
+  "result": "PASS",
+  "date": "2026-10-18",
+  "baseRevision": "3ccc6751767c0fd893c55f24ceed672f495a5fff",
+  "fixRevision": "add863408c4cbe837fa2dda7a752b7486d43354a",
+  "versions": {
+    "node": "v24.19.0",
+    "nativePostgreSQL": "17.10 (Homebrew)",
+    "dockerPostgreSQL": "18.4 (Debian 18.4-1.pgdg12+1)",
+    "ffmpeg": "9.0.2",
+    "platform": "macOS arm64"
+  },
+  "sourceSha256": {
+    "scripts/verify-community-local.ts": "ee51cef8df488d1f2c3ae261bcb5a5a5227e7cda5a21ca8f50f35dcd3f20374f",
+    "scripts/verify-database-isolation.ts": "f2728d932c1294a211438f3734d046771159c25e3aa2f01ad7c63a4a4758d286",
+    "scripts/verify-replay-pipeline.ts": "6e5037af0e070b685f0d21274d1a49a98a9e4cadfc0f98be7cac559aba1c4858",
+    "scripts/verify-community-load.ts": "2e8a979f37cd7d63e430fc031b1cc7150fcb6d5d795d46305cd33ff4d2d926a9",
+    ".github/workflows/ci.yml": "6fc5b142886d768e2c323092fa2d22f78dc60d8015863534509cae35b1bf7c02",
+    "package.json": "5164950b4d0e9e29025d2de894356c48648321dc246cb6d03399316330652aea"
+  },
+  "baseline": {
+    "exitCode": 1,
+    "sqlstate": "22001",
+    "message": "value too long for type character varying(500)",
+    "command": "LC_ALL=C LANG=C COMMUNITY_POSTGRES_MODE=host COMMUNITY_SOAK_SECONDS=30 npm run verify:community-delivery",
+    "worktree": "/private/tmp/yaparena-operational-typescript-20261018",
+    "stressFixtureUnchanged": true
+  },
+  "nativeCommunity": {
+    "exitCode": 0,
+    "browserAndRetentionChecks": "PASS",
+    "observations": [
+      {
+        "trial": "community-unicode-setup",
+        "result": "PASS",
+        "mode": "native",
+        "serverEncoding": "UTF8",
+        "clientEncoding": "UTF8",
+        "locale": "C",
+        "collation": "C",
+        "version": "17.10 (Homebrew)",
+        "characters": 500,
+        "bytes": 1500,
+        "columnLimit": 500,
+        "exactReadback": true
+      },
+      {
+        "trial": "durable-postgres",
+        "result": "PASS",
+        "node": "v24.19.0",
+        "postgres": "17.10 (Homebrew)",
+        "serializedWaitMs": 114,
+        "missedHintRecoveryMs": 24,
+        "defaultReconciliationRecoveryMs": 4998,
+        "counterMutationP50Ms": 0.3,
+        "counterMutationP95Ms": 0.99,
+        "counts": {
+          "listener_connected": 4,
+          "snapshot": 10,
+          "listener_failure": 2,
+          "catchup": 7,
+          "admission_refused": 1,
+          "buffer_pressure": 1
+        }
+      },
+      {
+        "trial": "media-operations-real-postgres",
+        "node": "v24.19.0",
+        "postgres": "17.10 (Homebrew)",
+        "independentControllers": 2,
+        "peakConcurrentProviderWritesPerRoom": 1,
+        "clockLockContentionMs": 0.43,
+        "clockProcessRecoveryMs": 26.81,
+        "independentClockProcesses": 2,
+        "missedRecordingProbeRooms": 6,
+        "pendingProbeStarvationPrevented": true,
+        "viewersOnOneIP": 500,
+        "rooms": 5,
+        "httpRequests": 5301,
+        "protectedWriteLimitPreserved": true,
+        "publicDeliveryRefusals": 0,
+        "protectedWriteRefusals": 1,
+        "requestPairAndPollP95Ms": 23.65,
+        "elapsedMs": 1163,
+        "runtimePoolConnections": 10,
+        "limitations": "synthetic provider; local HTTP; not a LiveKit media capacity or hosted latency trial"
+      },
+      {
+        "trial": "community-http-load",
+        "result": "PASS",
+        "viewers": 500,
+        "rooms": 50,
+        "seconds": 30,
+        "writes": 300,
+        "deliverySamples": 3000,
+        "deliveryP50Ms": 38,
+        "deliveryP95Ms": 179,
+        "stormRecoveryMs": 443,
+        "restartRecoveryMs": 787,
+        "maxStreams": 500,
+        "maxRooms": 50,
+        "rssGrowthMiB": 48.97,
+        "slowClientStressMutations": 460,
+        "bufferPressure": 10,
+        "finalStreams": 0,
+        "maxRuntimeConnections": 8,
+        "secondProcessMutations": 60
+      }
+    ]
+  },
+  "dockerCommunity": {
+    "exitCode": 0,
+    "browserAndRetentionChecks": "PASS",
+    "observations": [
+      {
+        "trial": "community-unicode-setup",
+        "result": "PASS",
+        "mode": "docker",
+        "serverEncoding": "UTF8",
+        "clientEncoding": "UTF8",
+        "locale": "en_US.utf8",
+        "collation": "en_US.utf8",
+        "version": "18.4 (Debian 18.4-1.pgdg12+1)",
+        "characters": 500,
+        "bytes": 1500,
+        "columnLimit": 500,
+        "exactReadback": true
+      },
+      {
+        "trial": "durable-postgres",
+        "result": "PASS",
+        "node": "v24.19.0",
+        "postgres": "18.4 (Debian 18.4-1.pgdg12+1)",
+        "serializedWaitMs": 116,
+        "missedHintRecoveryMs": 29,
+        "defaultReconciliationRecoveryMs": 5002,
+        "counterMutationP50Ms": 2.12,
+        "counterMutationP95Ms": 2.52,
+        "counts": {
+          "listener_connected": 4,
+          "snapshot": 8,
+          "listener_failure": 2,
+          "catchup": 11,
+          "admission_refused": 1,
+          "buffer_pressure": 1
+        }
+      },
+      {
+        "trial": "media-operations-real-postgres",
+        "node": "v24.19.0",
+        "postgres": "18.4 (Debian 18.4-1.pgdg12+1)",
+        "independentControllers": 2,
+        "peakConcurrentProviderWritesPerRoom": 1,
+        "clockLockContentionMs": 1.75,
+        "clockProcessRecoveryMs": 36.3,
+        "independentClockProcesses": 2,
+        "missedRecordingProbeRooms": 6,
+        "pendingProbeStarvationPrevented": true,
+        "viewersOnOneIP": 500,
+        "rooms": 5,
+        "httpRequests": 5301,
+        "protectedWriteLimitPreserved": true,
+        "publicDeliveryRefusals": 0,
+        "protectedWriteRefusals": 1,
+        "requestPairAndPollP95Ms": 24.92,
+        "elapsedMs": 1212,
+        "runtimePoolConnections": 10,
+        "limitations": "synthetic provider; local HTTP; not a LiveKit media capacity or hosted latency trial"
+      },
+      {
+        "trial": "community-http-load",
+        "result": "PASS",
+        "viewers": 500,
+        "rooms": 50,
+        "seconds": 30,
+        "writes": 300,
+        "deliverySamples": 3000,
+        "deliveryP50Ms": 56,
+        "deliveryP95Ms": 147,
+        "stormRecoveryMs": 446,
+        "restartRecoveryMs": 830,
+        "maxStreams": 500,
+        "maxRooms": 50,
+        "rssGrowthMiB": 63.31,
+        "slowClientStressMutations": 460,
+        "bufferPressure": 10,
+        "finalStreams": 0,
+        "maxRuntimeConnections": 8,
+        "secondProcessMutations": 60
+      }
+    ]
+  },
+  "nativeIsolation": {
+    "exitCode": 0,
+    "encodings": [
+      {
+        "trial": "isolation-database-encoding",
+        "database": "revocation_test_a4_fresh",
+        "server": "UTF8",
+        "client": "UTF8",
+        "locale": "C",
+        "collation": "C"
+      },
+      {
+        "trial": "isolation-database-encoding",
+        "database": "revocation_test_a4_upgrade",
+        "server": "UTF8",
+        "client": "UTF8",
+        "locale": "C",
+        "collation": "C"
+      }
+    ],
+    "scenarios": ["fresh", "upgrade"],
+    "a4TestsPerScenario": 17,
+    "a4Skipped": 0,
+    "creatorAndMediatorCasesPerScenario": 19
+  },
+  "quality": {
+    "exitCode": 0,
+    "tests": 502,
+    "suites": 52,
+    "passed": 502,
+    "failed": 0,
+    "skipped": 0,
+    "coveragePercent": {
+      "lines": 94.77,
+      "branches": 93.11,
+      "functions": 95.79
+    },
+    "databaseIdentities": ["A4", "wallet", "revocation"]
+  },
+  "nativeReplay": {
+    "exitCode": 0,
+    "observations": [
+      {
+        "trial": "replay-database-encoding",
+        "server": "UTF8",
+        "client": "UTF8",
+        "locale": "C",
+        "collation": "C"
+      },
+      {
+        "result": "PASS",
+        "node": "v24.19.0",
+        "postgres": "initdb (PostgreSQL) 17.10 (Homebrew)",
+        "ffmpeg": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+        "sourceSeconds": 6,
+        "encoderThreads": 2,
+        "elapsedSeconds": 1.646,
+        "peakEncoderRssMiB": 99.16,
+        "workerPeakRssMiB": 116.88,
+        "packageFiles": 13,
+        "thumbnailBytes": 36691,
+        "packageBytes": 3059629,
+        "scope": "real PostgreSQL runtime transactions + FFmpeg, synthetic in-memory object adapter; no hosted storage/edge or physical-device evidence"
+      },
+      {
+        "result": "PASS",
+        "scenario": "worker shutdown while real PostgreSQL heartbeat is stalled",
+        "shutdownMs": 1509.64,
+        "deadlineMs": 8000
+      }
+    ],
+    "transactionAndFailureAssertions": "PASS"
+  },
+  "nativeSmoke": {
+    "exitCode": 0,
+    "actualInitdbUnderCLocale": true,
+    "transactionRolledBack": true
+  },
+  "workflowValidation": {
+    "actionlintWithoutOptionalShellCheck": "PASS",
+    "fullActionlint": "existing SC2155 warning, baseline line 205 and fixed line 210; left unchanged",
+    "githubHostedExecution": "not run"
+  },
+  "unchanged": {
+    "defaultSoakSeconds": 300,
+    "verificationSoakSecondsBothModes": 30,
+    "loadSource": true,
+    "productAndSchema": true,
+    "lockfileAndDependencies": true,
+    "fiveRequiredCiNames": true
+  },
+  "limitations": [
+    "Local disposable native and Docker environments only",
+    "Configured GitHub-hosted CI step has not executed",
+    "30-second existing CI soak; no claim of default 300-second soak execution",
+    "No hosted capacity, provider, physical-device or production-readiness evidence"
+  ]
+}

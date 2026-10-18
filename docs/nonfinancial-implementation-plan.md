@@ -12,6 +12,15 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+The [native Unicode test setup fix](evidence/native-postgres-utf8/2026-10-18.md)
+explicitly initializes the disposable community, isolation and replay PostgreSQL
+clusters as UTF-8. A focused native C-locale setup check is wired into the existing
+CI integration job; it uses the actual migrated chat column and retains the full
+community workload separately. Product code, schema and hosted settings are unchanged.
+Local native and Docker community gates passed with identical 30-second soaks;
+the native database-backed quality gate passed 502 tests with zero skips. The new
+GitHub-hosted CI step is configured but has not run; these results establish no hosted capacity.
+
 The [operational TypeScript migration](operational-typescript.md) checks the production
 edge replay worker and critical database/release automation through the existing quality
 gate. It retains the merged browser-release workflows and their deterministic fixtures;

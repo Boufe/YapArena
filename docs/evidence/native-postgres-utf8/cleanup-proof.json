@@ -1,0 +1,69 @@
+{
+  "result": "PASS",
+  "node": "v24.19.0",
+  "baselineRevision": "3ccc675",
+  "method": "Fresh native clusters under C locale; temporary sibling source copies exercise omitted initdb encoding and actual SQL_ASCII connection settings; original source untouched",
+  "sourceHashUnchanged": true,
+  "results": [
+    {
+      "case": "success",
+      "exitCode": 0,
+      "observations": {
+        "trial": "community-unicode-setup",
+        "result": "PASS",
+        "mode": "native",
+        "serverEncoding": "UTF8",
+        "clientEncoding": "UTF8",
+        "locale": "C",
+        "collation": "C",
+        "version": "17.10 (Homebrew)",
+        "characters": 500,
+        "bytes": 1500,
+        "columnLimit": 500,
+        "exactReadback": true
+      },
+      "startedNativePostgres": true,
+      "cleanStop": true,
+      "clusterDirectoryRemoved": true,
+      "postmasterExited": true
+    },
+    {
+      "case": "server-regression",
+      "exitCode": 1,
+      "observations": {
+        "trial": "negative-observation",
+        "serverEncoding": "SQL_ASCII",
+        "clientEncoding": "UTF8",
+        "locale": "C",
+        "collation": "C",
+        "version": "17.10 (Homebrew)",
+        "characters": 1500,
+        "bytes": 1500
+      },
+      "startedNativePostgres": true,
+      "cleanStop": true,
+      "clusterDirectoryRemoved": true,
+      "postmasterExited": true,
+      "failedBeforeBrowserAndLoad": true
+    },
+    {
+      "case": "client-regression",
+      "exitCode": 1,
+      "observations": {
+        "trial": "negative-observation",
+        "serverEncoding": "UTF8",
+        "clientEncoding": "SQL_ASCII",
+        "locale": "C",
+        "collation": "C",
+        "version": "17.10 (Homebrew)",
+        "characters": 500,
+        "bytes": 1500
+      },
+      "startedNativePostgres": true,
+      "cleanStop": true,
+      "clusterDirectoryRemoved": true,
+      "postmasterExited": true,
+      "failedBeforeBrowserAndLoad": true
+    }
+  ]
+}

@@ -22,6 +22,7 @@
     "migrate": "node scripts/migrate-database.js",
     "research:a4": "npm run build && node scripts/a4-research.js",
     "verify:a4": "npm run build && A4_VERIFY=true node scripts/verify-database-isolation.js",
+    "verify:browser": "node scripts/verify-browser-release.js",
     "verify:database-isolation": "npm run build && node scripts/verify-database-isolation.js",
     "inventory:database": "node scripts/inventory-database.js",
     "seed:discovery": "node --env-file-if-exists=.env scripts/seed-discovery.js",

@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -13,122 +13,123 @@ import { createDiscoveryRouter } from "../dist/features/discovery/router.js";
 import { buildReplayThumbnail } from "../dist/features/media/replay-thumbnail.js";
 
 // Component trial only: synthetic local media, no hosted target or account writes.
-const directory = "/private/tmp/yaparena-live-feed-browser";
+const directory =
+  process.env.LIVE_ARTIFACT_DIR ?? "/private/tmp/yaparena-live-feed-browser";
 await mkdir(directory, { recursive: true });
 const fixtures = await mkdtemp(join(tmpdir(), "yaparena-hero-fixture-"));
-const videoPath = join(fixtures, "preview.webm");
-await promisify(execFile)("ffmpeg", [
-  "-hide_banner",
-  "-loglevel",
-  "error",
-  "-f",
-  "lavfi",
-  "-i",
-  "testsrc2=size=960x540:rate=12",
-  "-t",
-  "8",
-  "-c:v",
-  "libvpx",
-  "-b:v",
-  "300k",
-  "-an",
-  videoPath,
-]);
-const thumbnailPath = join(fixtures, "thumbnail.jpg");
-await buildReplayThumbnail(videoPath, thumbnailPath);
-const topic = {
-  id: "11111111-1111-4111-8111-111111111111",
-  slug: "cities",
-  title: "Cities & society",
-  summary: "Synthetic local interface fixture.",
-  sideALabel: "People first",
-  sideBLabel: "Keep cars moving",
-  isDemo: false,
-  createdAt: new Date(),
-};
-const debate = {
-  id: "22222222-2222-4222-8222-222222222222",
-  slug: "the-walkable-city",
-  proposition: "Should cities prioritize walkability over cars?",
-  status: "replay",
-  rulesVersion: "prototype-media-1",
-  scheduledAt: null,
-  liveStartedAt: new Date(),
-  liveEndedAt: new Date(),
-  isDemo: false,
-  createdAt: new Date(),
-  topic,
-  speakerA: { handle: "alex", displayName: "Alex Rivera" },
-  speakerB: { handle: "morgan", displayName: "Morgan Lee" },
-  sponsor: null,
-};
-const catalog = [
-  debate,
-  ...[
-    "Should public transit be free?",
-    "Can technology make cities greener?",
-    "Should housing be a public service?",
-    "Does remote work strengthen communities?",
-    "Should cities invest more in public spaces?",
-  ].map((proposition, index) => ({
-    ...debate,
-    id: `33333333-3333-4333-8333-${String(index + 1).padStart(12, "0")}`,
-    slug: `synthetic-debate-${index + 1}`,
-    proposition,
-  })),
-];
-const list = (items) => ({
-  items,
-  pagination: { limit: 3, offset: 0, hasMore: false },
-});
-let grants = 0,
-  deny = false;
-const app = express();
-app.use(
-  "/assets",
-  express.static(new URL("../public/", import.meta.url).pathname),
-);
-app.get("/fixture.webm", (_r, s) => s.sendFile(videoPath));
-app.get("/api/media/events/:id/thumbnail", (_r, s) =>
-  s.sendFile(thumbnailPath),
-);
-app.get("/api/media/events/:id/replay", (_r, s) => {
-  grants++;
-  if (deny) return s.status(404).json({ error: "unavailable" });
-  return s.json({
-    type: "file",
-    url: "/fixture.webm",
-    expiresIn: 300,
-    expiresAt: new Date(Date.now() + 300000).toISOString(),
-  });
-});
-app.get("/api/media/events/:id", (_r, s) =>
-  s.json({
-    eventStatus: "replay",
-    state: { state: "ended", recordingStatus: "ready" },
-  }),
-);
-app.use(
-  createDiscoveryRouter({
-    discovery: {
-      listWatchableDebates: async () => catalog,
-      listDebates: async () => list([debate]),
-      listTopics: async () => list([topic]),
-      getDebate: async (slug) =>
-        catalog.find((debate) => debate.slug === slug) ?? null,
-    },
-    mediaEnabled: true,
-    applicationOrigin: "http://localhost",
-  }),
-);
-const server = app.listen(0, "127.0.0.1");
-await once(server, "listening");
-const base = `http://127.0.0.1:${server.address().port}`;
-let browser;
-const checks = {},
-  errors = [],
-  requests = [];
+let browser, server;
 try {
+  const videoPath = join(fixtures, "preview.webm");
+  await promisify(execFile)("ffmpeg", [
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-f",
+    "lavfi",
+    "-i",
+    "testsrc2=size=960x540:rate=12",
+    "-t",
+    "8",
+    "-c:v",
+    "libvpx",
+    "-b:v",
+    "300k",
+    "-an",
+    videoPath,
+  ]);
+  const thumbnailPath = join(fixtures, "thumbnail.jpg");
+  await buildReplayThumbnail(videoPath, thumbnailPath);
+  const topic = {
+    id: "11111111-1111-4111-8111-111111111111",
+    slug: "cities",
+    title: "Cities & society",
+    summary: "Synthetic local interface fixture.",
+    sideALabel: "People first",
+    sideBLabel: "Keep cars moving",
+    isDemo: false,
+    createdAt: new Date(),
+  };
+  const debate = {
+    id: "22222222-2222-4222-8222-222222222222",
+    slug: "the-walkable-city",
+    proposition: "Should cities prioritize walkability over cars?",
+    status: "replay",
+    rulesVersion: "prototype-media-1",
+    scheduledAt: null,
+    liveStartedAt: new Date(),
+    liveEndedAt: new Date(),
+    isDemo: false,
+    createdAt: new Date(),
+    topic,
+    speakerA: { handle: "alex", displayName: "Alex Rivera" },
+    speakerB: { handle: "morgan", displayName: "Morgan Lee" },
+    sponsor: null,
+  };
+  const catalog = [
+    debate,
+    ...[
+      "Should public transit be free?",
+      "Can technology make cities greener?",
+      "Should housing be a public service?",
+      "Does remote work strengthen communities?",
+      "Should cities invest more in public spaces?",
+    ].map((proposition, index) => ({
+      ...debate,
+      id: `33333333-3333-4333-8333-${String(index + 1).padStart(12, "0")}`,
+      slug: `synthetic-debate-${index + 1}`,
+      proposition,
+    })),
+  ];
+  const list = (items) => ({
+    items,
+    pagination: { limit: 3, offset: 0, hasMore: false },
+  });
+  let grants = 0,
+    deny = false;
+  const app = express();
+  app.use(
+    "/assets",
+    express.static(new URL("../public/", import.meta.url).pathname),
+  );
+  app.get("/fixture.webm", (_r, s) => s.sendFile(videoPath));
+  app.get("/api/media/events/:id/thumbnail", (_r, s) =>
+    s.sendFile(thumbnailPath),
+  );
+  app.get("/api/media/events/:id/replay", (_r, s) => {
+    grants++;
+    if (deny) return s.status(404).json({ error: "unavailable" });
+    return s.json({
+      type: "file",
+      url: "/fixture.webm",
+      expiresIn: 300,
+      expiresAt: new Date(Date.now() + 300000).toISOString(),
+    });
+  });
+  app.get("/api/media/events/:id", (_r, s) =>
+    s.json({
+      eventStatus: "replay",
+      state: { state: "ended", recordingStatus: "ready" },
+    }),
+  );
+  app.use(
+    createDiscoveryRouter({
+      discovery: {
+        listWatchableDebates: async () => catalog,
+        listDebates: async () => list([debate]),
+        listTopics: async () => list([topic]),
+        getDebate: async (slug) =>
+          catalog.find((debate) => debate.slug === slug) ?? null,
+      },
+      mediaEnabled: true,
+      applicationOrigin: "http://localhost",
+    }),
+  );
+  server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const checks = {},
+    errors = [],
+    requests = [];
   browser = await chromium.launch({
     executablePath:
       process.env.BROWSER_CHROME_PATH ??
@@ -140,6 +141,7 @@ try {
     viewport: { width: 1440, height: 1050 },
     reducedMotion: "no-preference",
   });
+  context.setDefaultTimeout(20000);
   await context.addInitScript(() =>
     window.localStorage.setItem("yaparena-measurement-declined", "1"),
   );
@@ -516,5 +518,9 @@ try {
   console.log(JSON.stringify({ result: "PASS", checks }));
 } finally {
   await browser?.close();
-  await new Promise((resolve) => server.close(resolve));
+  if (server) {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  }
+  await rm(fixtures, { recursive: true, force: true });
 }

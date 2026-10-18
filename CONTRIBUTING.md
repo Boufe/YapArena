@@ -145,6 +145,17 @@ interactions using identical fixtures and viewports. Investigate differences ins
 expected outputs. Separately requested product changes may alter behavior within their scope.
 Report local versus hosted/device evidence and skipped checks in the PR.
 
+## Core browser release verification
+
+Run `npm run verify:browser` before submitting changes that affect core browser
+journeys. It prepares disposable PostgreSQL owner/runtime identities, builds the app,
+runs the full database-backed quality gate, and verifies account/A4, debate workspace,
+shared-data discovery, homepage and Live/replay preview workflows. CI runs the same
+browser gate in the existing required `integration` job after `quality / check`.
+See [prerequisites, native PostgreSQL mode, deterministic fixtures and evidence
+limits](docs/browser-release-checks.md). Missing prerequisites and assertions fail the
+gate; real hosted/device media acceptance remains separate.
+
 ## Documentation changes
 
 Verify claims against the reviewed branch's source, scripts, migrations, workflows and saved trial

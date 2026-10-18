@@ -110,8 +110,26 @@ jobs:
       - name: Start PostgreSQL
         run: docker compose up --detach --wait db
 
-      - name: Verify database isolation with fresh and upgraded schemas
-        run: npm run verify:database-isolation
+      - name: Verify core browser workflows and fresh/upgrade database isolation
+        env:
+          BROWSER_CHROME_PATH: /usr/bin/google-chrome
+          BROWSER_ARTIFACT_DIR: ${{ runner.temp }}/yaparena-browser-release
+          DATABASE_TEST_MODE: docker
+        # quality / check already ran the full runtime-backed quality gate.
+        run: npm run verify:browser -- --integration-only
+
+      - name: Preserve synthetic browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: core-browser-evidence
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/yaparena-browser-release/result.json
+            ${{ runner.temp }}/yaparena-browser-release/**/evidence.json
+            ${{ runner.temp }}/yaparena-browser-release/**/browser-evidence.json
+            ${{ runner.temp }}/yaparena-browser-release/**/*.png
 
       - name: Verify durable community transactions, fanout, recovery and browsers
         env:

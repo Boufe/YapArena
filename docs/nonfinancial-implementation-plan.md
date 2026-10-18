@@ -12,6 +12,14 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+The [core browser release gate](browser-release-checks.md) runs maintained homepage,
+Live preview, account/A4, debate workspace and shared-data journeys from one disposable
+local command and the required CI integration job. Its owner-only A4 fixtures cover
+exact execution and exploratory nonexecution without changing production randomness.
+Original-export visual comparisons remain explicit; hosted media, physical-device
+and audience-capacity acceptance remain separate. [Local verification and the
+reversible failure proof](evidence/browser-release/2026-10-18.md) record the tested scope.
+
 The [strict frontend migration](evidence/frontend-typescript/2026-10-17.md) moves all 33
 handwritten browser/service-worker modules into `frontend/` TypeScript while retaining existing
 shared TypeScript. Browser JavaScript is generated at the same URLs; the normal quality gate

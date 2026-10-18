@@ -1066,7 +1066,7 @@ async function scenario(database, upgrade) {
       );
     }
     if (process.env.A4_BROWSER === "true" && !upgrade) {
-      const result = await exec(
+      const verification = exec(
         process.execPath,
         ["scripts/verify-a4-browser.js"],
         {
@@ -1077,12 +1077,14 @@ async function scenario(database, upgrade) {
           },
           maxBuffer: 4 * 1024 * 1024,
         },
-      ).catch((error) => {
-        console.log(error.stdout);
+      );
+      verification.child.stdout.on("data", (data) =>
+        process.stdout.write(data),
+      );
+      await verification.catch((error) => {
         console.log(error.stderr);
         throw new Error("A4 browser verification failed");
       });
-      console.log(result.stdout);
     }
     await provisionDatabase(admin);
     await migrate(owner); // repeated operator steps preserve isolation and migration history
@@ -1186,15 +1188,35 @@ try {
   await scenario("revocation_test_a4_fresh", false);
   await scenario("revocation_test_a4_upgrade", true);
   console.log(
-    "Local SQL isolation verified. Hosted Data API/GraphQL/Realtime isolation remains UNVERIFIED.",
+    "Local SQL isolation verified. This verifier does not inspect hosted Data API/GraphQL/Realtime configuration.",
   );
   console.log(`Sanitized catalog snapshots: ${evidenceDirectory}`);
 } catch (error) {
   // Child-process errors may contain arguments; never print generated credentials.
-  const message = error.cmd ? "local Docker command failed" : error.message;
+  const message = error.cmd
+    ? `local ${process.env.DATABASE_TEST_MODE === "host" ? "PostgreSQL" : "Docker"} command failed; check local process permissions and prerequisites`
+    : error.message;
   console.error(
     `Database isolation verification failed (${error.code ?? "assertion"}): ${message}`,
   );
+  const postgresLog =
+    hostDirectory && error.cmd
+      ? await readFile(`${hostDirectory}/postgres.log`, "utf8").catch(() => "")
+      : "";
+  if (error.stderr || postgresLog) {
+    let diagnostic = `${error.stderr ?? ""}\n${postgresLog}`;
+    for (const value of [
+      adminPassword,
+      bootstrapPassword,
+      ...Object.values(passwords),
+    ])
+      diagnostic = diagnostic.replaceAll(value, "[redacted]");
+    diagnostic = diagnostic.replace(
+      /postgres(?:ql)?:\/\/[^\s'"<>]+/g,
+      "[redacted database URL]",
+    );
+    console.error(diagnostic.slice(-4000));
+  }
   process.exitCode = 1;
 } finally {
   if (started) {

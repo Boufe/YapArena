@@ -1,0 +1,270 @@
+{
+  "baseline": "00bd56480ad53b51fde9630633289406baef7a5a",
+  "branch": "test/core-browser-release",
+  "environment": {
+    "node": "24.19.0",
+    "postgres": "17.10 Homebrew",
+    "platform": "macOS arm64",
+    "browser": "local headless Chrome",
+    "data": "disposable synthetic only"
+  },
+  "quality": {
+    "tests": 502,
+    "passed": 502,
+    "failed": 0,
+    "skipped": 0,
+    "coverage": {
+      "lines": 94.75,
+      "branches": 93.11,
+      "functions": 95.79
+    }
+  },
+  "a4Postgres": {
+    "fresh": {
+      "passed": 17,
+      "skipped": 0
+    },
+    "upgrade": {
+      "passed": 17,
+      "skipped": 0
+    }
+  },
+  "a4Scenarios": [
+    {
+      "name": "execution",
+      "repetition": 1,
+      "branch": "targeted",
+      "offer": {
+        "d": "922337203685477580800",
+        "n": "211411757063649478847"
+      },
+      "receipt": {
+        "side": "NO",
+        "limit": "0.220000",
+        "quantity": 10,
+        "status": "settled",
+        "reserved": "10000000",
+        "accepted": true,
+        "executed": true,
+        "premium": "7707870",
+        "fee": "0",
+        "released": "2292130",
+        "payout": "9001996",
+        "net": "1294126",
+        "premiumDust": {
+          "d": "288230376151711744",
+          "n": "248735281581622155"
+        },
+        "payoutDust": {
+          "d": "501",
+          "n": "4"
+        }
+      },
+      "available": "1001294126",
+      "reserved": "0"
+    },
+    {
+      "name": "no-trade",
+      "repetition": 1,
+      "branch": "exploratory",
+      "offer": {
+        "d": "36893488147419103232",
+        "n": "26206439567801318193"
+      },
+      "receipt": {
+        "side": "NO",
+        "limit": "0.220000",
+        "quantity": 10,
+        "status": "no_opposite",
+        "reserved": "10000000",
+        "accepted": true,
+        "executed": false,
+        "premium": "0",
+        "fee": "0",
+        "released": "10000000",
+        "payout": "0",
+        "net": "0",
+        "premiumDust": {
+          "d": "1",
+          "n": "0"
+        },
+        "payoutDust": {
+          "d": "1",
+          "n": "0"
+        }
+      },
+      "available": "1000000000",
+      "reserved": "0"
+    },
+    {
+      "name": "execution",
+      "repetition": 2,
+      "branch": "targeted",
+      "offer": {
+        "d": "922337203685477580800",
+        "n": "211411757063649478847"
+      },
+      "receipt": {
+        "side": "NO",
+        "limit": "0.220000",
+        "quantity": 10,
+        "status": "settled",
+        "reserved": "10000000",
+        "accepted": true,
+        "executed": true,
+        "premium": "7707870",
+        "fee": "0",
+        "released": "2292130",
+        "payout": "9001996",
+        "net": "1294126",
+        "premiumDust": {
+          "d": "288230376151711744",
+          "n": "248735281581622155"
+        },
+        "payoutDust": {
+          "d": "501",
+          "n": "4"
+        }
+      },
+      "available": "1001294126",
+      "reserved": "0"
+    },
+    {
+      "name": "no-trade",
+      "repetition": 2,
+      "branch": "exploratory",
+      "offer": {
+        "d": "36893488147419103232",
+        "n": "26206439567801318193"
+      },
+      "receipt": {
+        "side": "NO",
+        "limit": "0.220000",
+        "quantity": 10,
+        "status": "no_opposite",
+        "reserved": "10000000",
+        "accepted": true,
+        "executed": false,
+        "premium": "0",
+        "fee": "0",
+        "released": "10000000",
+        "payout": "0",
+        "net": "0",
+        "premiumDust": {
+          "d": "1",
+          "n": "0"
+        },
+        "payoutDust": {
+          "d": "1",
+          "n": "0"
+        }
+      },
+      "available": "1000000000",
+      "reserved": "0"
+    }
+  ],
+  "components": {
+    "arena": {
+      "result": "PASS",
+      "checks": {
+        "roundProgressDrains": true,
+        "realLiveChat": true,
+        "chartUpdatedAfterRealSettlements": true,
+        "persistentPriceMarkersSlideAndHeadingAnimatesWithoutLayoutShift": true,
+        "latestBadgesAndMedianRestoreTogether": true,
+        "hoverSurvivesRefreshAndScaleAdjoinsAxis": true,
+        "rapidScrubbingAndReducedMotion": true,
+        "hoverPricesArgumentsAndCompactSidebar": true,
+        "expandEscapeRestoreExactBounds": true,
+        "bindingCommitmentAndQuickQuantity": true,
+        "chartSelectionLoadsRound": true,
+        "sidebarTabs": true,
+        "axeNoSeriousViolations": true,
+        "mobileNoOverflow": true,
+        "headerSearch": true,
+        "replayLayoutAndUninterruptedSyntheticPlayback": true,
+        "noPageErrors": true
+      }
+    },
+    "sharedBots": {
+      "result": "PASS",
+      "checks": {
+        "operatorSeedIsIdempotentAndUsesStoredArgumentResults": true,
+        "databaseBackedHomeExpansionAndDebateArguments": true,
+        "observerAndMixedSettlementRefreshHomeExpandedAndDebateWithoutReload": true,
+        "pendingPrivacyAndAggregateOnlyPublication": true,
+        "publicAndPersonalHistoryRemainDistinct": true,
+        "mobileAndAccessibility": true,
+        "signedOutSharedHistoryWithoutPrivateAccess": true,
+        "consentWithdrawalRemovesPersonalRoundsEverywhere": true,
+        "visibleLiveNavigationAndOriginalLivePage": true
+      }
+    },
+    "homepage": {
+      "result": "PASS",
+      "checks": {
+        "responsiveScreenshots": true,
+        "everySlideHasItsOwnArgumentsAndDebate": true,
+        "slideDirectionsTimingAndRapidNavigation": true,
+        "mainExpandedPointerTouchAndKeyboardCharts": true,
+        "independentExpansionPlacementAndDebateFilters": true,
+        "searchCategoriesSortingAndLocalDemoFollows": true,
+        "manualArgumentScrollAndContinuousResume": true,
+        "upwardArgumentLoopAndPause": true,
+        "synchronizedProgressPauseResumeAndRepeatedCycles": true,
+        "manualPauseAttentionAndOffscreenHold": true,
+        "reducedMotionManualNavigation": true,
+        "coarsePointerMobileTouchInspection": true,
+        "realNullableDataWalletFollowsAndCanonicalDebates": true,
+        "accessibilityAndCsp": true,
+        "serverRenderedNoJavaScriptFallback": true,
+        "realDebateAndAccountNavigation": true,
+        "unavailableNeverSubstitutesConceptData": true,
+        "slowTickerDirectionPauseKeyboardCopiesReducedMotionAndNoSeparators": true
+      }
+    },
+    "live": {
+      "result": "PASS",
+      "checks": {
+        "homeAndLiveNavigation": true,
+        "mutedAutoplayAndDeferredTransport": true,
+        "pausedPreviewShowsOwnRecordingThumbnail": true,
+        "pauseAndOffscreenRelease": true,
+        "hoverCancellation": true,
+        "axeNoViolations": true,
+        "visibleVideoGridAndReplayLoop": true,
+        "hoverAndKeyboardTransferSinglePreview": true,
+        "hiddenTabReleasesAllVideo": true,
+        "bufferingRestartsHoverCountdown": true,
+        "sustainedHoverEntersWatchingInterface": true,
+        "reducedMotionUsesExplicitPlay": true,
+        "mobileAndClickEntry": true,
+        "saveDataSkipsAutoplay": true,
+        "deniedPreviewKeepsUsableHero": true
+      }
+    }
+  },
+  "mutation": {
+    "gateExit": 1,
+    "failedPhase": "execution repetition 1",
+    "buildPassed": true,
+    "brokenInteraction": "advanced commitment button has no click handler",
+    "gateDetectedBrokenInteraction": true,
+    "sourceRestored": true,
+    "assetRestored": true,
+    "originalSourceSha256": "9bbc976ccd6ab019191ac7f53124f965200ef28a321b62a9556d1f5982c9d4a9",
+    "restoredSourceSha256": "9bbc976ccd6ab019191ac7f53124f965200ef28a321b62a9556d1f5982c9d4a9",
+    "originalAssetSha256": "23900bc40932bd68add6b3ce2df5c9cf4a4c33e63fcc81785a549106b40c0bd5",
+    "restoredAssetSha256": "23900bc40932bd68add6b3ce2df5c9cf4a4c33e63fcc81785a549106b40c0bd5"
+  },
+  "preflightFailures": {
+    "invalidPostgresMode": 1,
+    "missingBrowser": 1
+  },
+  "limits": [
+    "No hosted/provider changes or media sessions",
+    "No physical-device or acoustic acceptance",
+    "No original external HTML export comparison",
+    "No production activation or paid acceptance"
+  ]
+}

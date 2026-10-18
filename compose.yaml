@@ -58,7 +58,7 @@ services:
       target: production
     image: ${LOCAL_IMAGE:-yaparena:local}
     profiles: [release]
-    command: [node, scripts/provision-database.js]
+    command: [node, scripts/provision-database.ts]
     environment:
       DATABASE_ADMIN_URL: postgresql://${POSTGRES_USER:-yaparena}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-yaparena}
       DATABASE_OWNER_PASSWORD: ${DATABASE_OWNER_PASSWORD:?Set DATABASE_OWNER_PASSWORD in .env}
@@ -73,7 +73,7 @@ services:
       target: production
     image: ${LOCAL_IMAGE:-yaparena:local}
     profiles: [release]
-    command: [node, scripts/migrate-database.js]
+    command: [node, scripts/migrate-database.ts]
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://yaparena_owner:${DATABASE_OWNER_PASSWORD:?Set DATABASE_OWNER_PASSWORD in .env}@db:5432/${POSTGRES_DB:-yaparena}

@@ -1,0 +1,68 @@
+{
+  "scope": "controlled before/after edge-worker inputs; synthetic storage/cache and WebCrypto; no hosted edge/R2 evidence",
+  "counts": {
+    "authorization": 16,
+    "playlists": 6,
+    "requests": 28
+  },
+  "cases": {
+    "authorization": [
+      "valid",
+      "expiry boundary",
+      "past future bound",
+      "expiry type",
+      "null claim",
+      "primitive claim",
+      "invalid prefix",
+      "cross recording",
+      "bad signature",
+      "bad encoding",
+      "extra token part",
+      "empty token",
+      "null token",
+      "overlong token",
+      "missing secret",
+      "short secret"
+    ],
+    "playlists": [
+      "master playlist",
+      "variant playlist",
+      "caption URI",
+      "traversal",
+      "external URI",
+      "blank/comment whitespace"
+    ],
+    "requests": [
+      "signed master",
+      "reviewed captions",
+      "variant URI",
+      "new immutable segment",
+      "cached immutable segment",
+      "cached segment bad credential",
+      "streaming segment",
+      "HEAD segment",
+      "HEAD playlist",
+      "allowed OPTIONS",
+      "cross-origin OPTIONS",
+      "cross-origin GET",
+      "unsupported method",
+      "invalid path",
+      "range segment",
+      "open range segment",
+      "multi range refusal",
+      "suffix range refusal",
+      "missing range response",
+      "suffix object response",
+      "partial range object response",
+      "missing object",
+      "unsupported playlist URI",
+      "oversize playlist",
+      "bucket error",
+      "cache read error",
+      "cache write error",
+      "stream error"
+    ]
+  },
+  "result": "all baseline and converted structured results match",
+  "comparison": "response status, headers, body bytes or thrown failures, storage/cache calls and waitUntil results"
+}

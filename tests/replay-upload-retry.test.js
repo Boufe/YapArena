@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
-import { replayStorageFixture } from "./helpers/replay-storage.js";
+import { replayStorageFixture } from "./helpers/replay-storage.ts";
 import { ReplayFailure } from "../dist/features/media/replay-packaging.js";
 
 const packageKey =

@@ -109,7 +109,7 @@ cannot run through this transition. Keep the application stopped until hardening
 
 Use a privileged administrative **operator process**, separate from the migration job and web/worker.
 Supply `DATABASE_ADMIN_URL`, `DATABASE_OWNER_PASSWORD` and `DATABASE_RUNTIME_PASSWORD` through its
-secret manager, and run `node scripts/provision-database.js`. Passwords must be distinct, strong and
+secret manager, and run `node scripts/provision-database.ts`. Passwords must be distinct, strong and
 URL-encoded when constructing connection URLs outside this script. PostgreSQL statement/audit
 logging must redact provisioning passwords; use the provider's approved password-setting procedure
 if your administrative session logs full CREATE ROLE statements. The script neither prints passwords
@@ -124,7 +124,7 @@ them directly in the private schemas. Existing migration names/history and synth
 are preserved.
 
 Next, in a **different one-off process**, supply the owner URL as that process's `DATABASE_URL` and
-run `node scripts/migrate-database.js` (or `npm run migrate`). This retains node-pg-migrate, its
+run `node scripts/migrate-database.ts` (or `npm run migrate`). This retains node-pg-migrate, its
 transactional migrations and advisory lock, with application schema `yaparena` and history schema
 `yaparena_migrations`. It validates the migration identity and logs a sanitized completion/failure.
 Never execute the raw migration CLI with runtime credentials or its default public schema.

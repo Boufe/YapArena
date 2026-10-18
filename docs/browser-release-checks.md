@@ -92,7 +92,7 @@ release checks. The separate original-design comparison remains available explic
 
 ```sh
 HOMEPAGE_REFERENCE_PATH=/path/to/original-export.html \
-  node scripts/verify-homepage-browser.js --compare-reference
+  node scripts/verify-homepage-browser.ts --compare-reference
 ```
 
 That command requires the actual export and fails if it is unavailable or invalid.

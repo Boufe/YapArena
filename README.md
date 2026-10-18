@@ -210,7 +210,7 @@ development after migrating, run:
 ```sh
 docker compose --profile release run --rm \
   --volume "$PWD/scripts:/app/scripts:ro" \
-  migrate node scripts/seed-discovery.js
+  migrate node scripts/seed-discovery.ts
 ```
 
 The seed is idempotent and refuses `NODE_ENV=production`. It creates sample topics, speakers,
@@ -514,3 +514,7 @@ default; new pages use bounded durable HTTP recovery until it is enabled. Run
 two-process fanout, restart/slow-client trials and a five-minute 500-viewer soak. An installed
 PostgreSQL 17/18 can run the local fallback using `COMMUNITY_POSTGRES_MODE=host`; isolation uses
 `DATABASE_TEST_MODE=host`. These checks are local capacity evidence, not hosted release approval.
+
+Critical database/release automation and the edge replay worker use strict TypeScript.
+See the [source inventory and execution guide](docs/operational-typescript.md);
+`npm run typecheck:operations` is included in the ordinary quality and build gates.

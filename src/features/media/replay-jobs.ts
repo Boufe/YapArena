@@ -1,5 +1,22 @@
 import { randomUUID } from "node:crypto";
-import type { Pool } from "pg";
+import type { QueryResult, QueryResultRow } from "pg";
+
+export type ReplayDatabaseQuery = <
+  Row extends QueryResultRow = Record<string, unknown>,
+>(
+  text: string,
+  values?: unknown[],
+) => Promise<QueryResult<Row>>;
+export type ReplayDatabaseClient = {
+  query: ReplayDatabaseQuery;
+  on(event: "error", listener: (error: Error) => void): void;
+  removeListener(event: "error", listener: (error: Error) => void): void;
+  release(error?: Error | boolean): void;
+};
+export type ReplayDatabase = {
+  query: ReplayDatabaseQuery;
+  connect(): Promise<ReplayDatabaseClient>;
+};
 
 export type ReplayJob = {
   id: string;
@@ -28,7 +45,7 @@ function bounded(value: number, minimum: number, maximum: number) {
 }
 
 export function createReplayJobs(
-  db: Pick<Pool, "query" | "connect">,
+  db: ReplayDatabase,
   allowedRooms?: readonly string[],
 ) {
   if (

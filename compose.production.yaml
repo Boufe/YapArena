@@ -50,7 +50,7 @@ services:
   migrate:
     image: ${APP_IMAGE:?Set APP_IMAGE to an immutable ghcr.io image digest}
     profiles: [release]
-    command: [node, scripts/migrate-database.js]
+    command: [node, scripts/migrate-database.ts]
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_MIGRATION_URL:-}

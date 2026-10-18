@@ -12,6 +12,13 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+The [operational TypeScript migration](operational-typescript.md) checks the production
+edge replay worker and critical database/release automation through the existing quality
+gate. It retains the merged browser-release workflows and their deterministic fixtures;
+applied migrations and product behavior remain unchanged. The
+[verification record](evidence/operational-typescript/2026-10-18.md) distinguishes baseline
+failures, local converted checks and remaining hosted/device evidence limits.
+
 The [core browser release gate](browser-release-checks.md) runs maintained homepage,
 Live preview, account/A4, debate workspace and shared-data journeys from one disposable
 local command and the required CI integration job. Its owner-only A4 fixtures cover

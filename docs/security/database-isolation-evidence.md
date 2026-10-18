@@ -1,5 +1,9 @@
 # F04 verification record
 
+Current source-path note: the [operational TypeScript guide](../operational-typescript.md)
+supersedes JavaScript entrypoint paths in this dated evidence. Recorded trial results
+and commands below describe their original revisions.
+
 Current-state note — 2026-10-15: Historical October 5 pre-cutover record. Its observed privileged login and absent private
 schemas describe that snapshot, not the latest saved staging state. F04 merged in PR #20;
 the [October 7 release follow-up](../community-delivery-trial.md#authorized-release-follow-up--2026-10-07)

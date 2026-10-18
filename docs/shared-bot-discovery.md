@@ -102,7 +102,7 @@ Keep the owner URL out of web/worker configuration. After building:
 PUBLIC_BOTS_STAGE_ORIGIN=https://yaparena-staging-web.onrender.com \
 PUBLIC_BOTS_SEED_ACK=synthetic-only \
 PUBLIC_BOTS_PUBLISH_HANDLE=CONSENTED_PUBLIC_HANDLE \
-node scripts/seed-public-bots.js
+node scripts/seed-public-bots.ts
 ```
 
 That process's `DATABASE_URL` must authenticate as owner. The origin must be the
@@ -121,8 +121,8 @@ code; retain additive tables and A4 history.
 ```sh
 npm run build
 A4_QUALITY=true A4_BROWSER=true DATABASE_TEST_MODE=host \
-  node scripts/verify-database-isolation.js
-node scripts/verify-hero-browser.js
+  node scripts/verify-database-isolation.ts
+node scripts/verify-hero-browser.ts
 git diff --check
 ```
 

@@ -1,0 +1,53 @@
+{
+  "result": "PASS",
+  "node": "24.19.0",
+  "quality": {
+    "tests": 502,
+    "failures": 0,
+    "skipped": 0,
+    "coverage": {
+      "lines": 94.77,
+      "branches": 93.11,
+      "functions": 95.79
+    }
+  },
+  "postgres": {
+    "host": "17.10",
+    "docker": "18.4",
+    "freshAndUpgrade": true,
+    "a4CasesPerDatabase": 17
+  },
+  "communityDocker": {
+    "baseline": "PASS",
+    "converted": "PASS",
+    "seconds": 30,
+    "viewers": 500,
+    "rooms": 50,
+    "writes": 300,
+    "deliverySamples": 3000,
+    "stressMutations": 460,
+    "pressureDisconnects": 10,
+    "finalStreams": 0
+  },
+  "replayPipeline": "PASS",
+  "mediaPackaging": "PASS",
+  "webAndEncoderBuilds": "PASS",
+  "pinnedImageScans": {
+    "web": 0,
+    "encoder": 0,
+    "severities": ["HIGH", "CRITICAL"],
+    "ignoreUnfixed": true
+  },
+  "composeProductionEntrypointsAndVerifiers": "PASS",
+  "backupRestore": "PASS",
+  "measurementBrowser": "PASS",
+  "httpSmoke": "PASS",
+  "monitoring": "PASS",
+  "deploymentConfiguration": "PASS",
+  "fiveRequiredCiNamesUnchanged": true,
+  "limits": [
+    "Local synthetic/disposable evidence only; no new hosted or physical-device acceptance",
+    "Native C-locale SQL_ASCII community stress fails identically before/after; default Docker UTF-8 passes",
+    "Optional actionlint ShellCheck SC2155 warning unchanged on baseline and converted workflow"
+  ]
+}

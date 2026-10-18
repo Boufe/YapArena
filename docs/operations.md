@@ -394,3 +394,6 @@ quality job provisions a disposable PostgreSQL service and includes both suites 
 The browser trial is `node scripts/verify-wallet-browser.js` with `BROWSER_BASE_URL` and
 `WALLET_TEST_OWNER_DATABASE_URL` for the same isolated instance. It uses synthetic wallets,
 cleans its fixtures and writes PNG evidence to `BROWSER_ARTIFACT_DIR`.
+
+The [operational TypeScript guide](operational-typescript.md) lists the maintained database,
+release and security sources, direct Node 24 commands and explicit quality-gate coverage.

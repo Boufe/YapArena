@@ -86,7 +86,7 @@ const debateJoins = `FROM debates d
   LEFT JOIN public_profiles pa ON pa.id = d.speaker_a_profile_id AND pa.publication_state = 'published'
   LEFT JOIN public_profiles pb ON pb.id = d.speaker_b_profile_id AND pb.publication_state = 'published'`;
 
-export function createDiscoveryRepository(database: Pool) {
+export function createDiscoveryRepository(database: Pick<Pool, "query">) {
   async function watchableDebates(limit: number): Promise<PublicDebate[]> {
     // Rank recent playable debates by revealed human YAP premium volume.
     // Media access is still reauthorized by the normal playback endpoints.

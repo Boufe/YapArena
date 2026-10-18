@@ -1,0 +1,7 @@
+{
+  "result": "PASS",
+  "startsWithoutDistOrGeneratedAssets": true,
+  "typecheckEmitsOnlyDeclarations": true,
+  "generatedBrowserAssetsIdentical": 37,
+  "dependencies": "physical copy of locked npm ci install; no symlink across checkouts"
+}

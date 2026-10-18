@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "lib": ["ES2024"],
+    "types": ["node"]
+  },
+  "include": [],
+  "files": [
+    "scripts/migration-exports.d.ts",
+    "scripts/package-replay.ts",
+    "scripts/verify-media-packaging.ts",
+    "scripts/verify-replay-pipeline.ts",
+    "tests/helpers/replay-storage.ts"
+  ]
+}

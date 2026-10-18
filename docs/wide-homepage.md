@@ -96,9 +96,9 @@ comparison additionally requires the user's original export and local Chrome:
 ```sh
 npm run build
 HOMEPAGE_REFERENCE_PATH=/absolute/path/yaparena-wide-homepage.html \
-  node scripts/verify-homepage-browser.js
-node scripts/verify-hero-browser.js
-A4_QUALITY=true DATABASE_TEST_MODE=host node scripts/verify-database-isolation.js
+  node scripts/verify-homepage-browser.ts
+node scripts/verify-hero-browser.ts
+A4_QUALITY=true DATABASE_TEST_MODE=host node scripts/verify-database-isolation.ts
 git diff --check
 ```
 

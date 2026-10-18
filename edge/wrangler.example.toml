@@ -1,5 +1,5 @@
 name = "yaparena-replay"
-main = "replay-worker.js"
+main = "replay-worker.ts"
 compatibility_date = "2026-10-06"
 workers_dev = false
 

@@ -1,0 +1,70 @@
+{
+  "result": "PASS",
+  "convertedFiles": [
+    "edge/replay-worker.ts",
+    "scripts/inventory-database.ts",
+    "scripts/migrate-database.ts",
+    "scripts/package-replay.ts",
+    "scripts/provision-database.ts",
+    "scripts/seed-discovery.ts",
+    "scripts/seed-public-bots.ts",
+    "scripts/smoke-staging.ts",
+    "scripts/test-http-request.ts",
+    "scripts/verify-a4-browser.ts",
+    "scripts/verify-arena-browser.ts",
+    "scripts/verify-browser-release.ts",
+    "scripts/verify-chat-client.ts",
+    "scripts/verify-community-browser.ts",
+    "scripts/verify-community-delivery.ts",
+    "scripts/verify-community-load.ts",
+    "scripts/verify-community-local.ts",
+    "scripts/verify-community.ts",
+    "scripts/verify-database-isolation.ts",
+    "scripts/verify-discovery.ts",
+    "scripts/verify-hero-browser.ts",
+    "scripts/verify-homepage-browser.ts",
+    "scripts/verify-identity-social.ts",
+    "scripts/verify-matching.ts",
+    "scripts/verify-measurement-browser.ts",
+    "scripts/verify-measurement.ts",
+    "scripts/verify-media-clock-child.ts",
+    "scripts/verify-media-operations.ts",
+    "scripts/verify-media-packaging.ts",
+    "scripts/verify-public-bots-browser.ts",
+    "scripts/verify-replay-pipeline.ts",
+    "tests/helpers/replay-storage.ts"
+  ],
+  "explicitlyCheckedCount": 32,
+  "proofs": [
+    {
+      "config": "tsconfig.database-tools.json",
+      "target": "scripts/provision-database.ts",
+      "rejectedTypeError": 2322,
+      "method": "in-memory compiler host overlay; no source files mutated"
+    },
+    {
+      "config": "tsconfig.browser-automation.json",
+      "target": "scripts/verify-a4-browser.ts",
+      "rejectedTypeError": 2322,
+      "method": "in-memory compiler host overlay; no source files mutated"
+    },
+    {
+      "config": "tsconfig.community-tools.json",
+      "target": "scripts/verify-community-delivery.ts",
+      "rejectedTypeError": 2322,
+      "method": "in-memory compiler host overlay; no source files mutated"
+    },
+    {
+      "config": "tsconfig.replay-tools.json",
+      "target": "scripts/verify-replay-pipeline.ts",
+      "rejectedTypeError": 2322,
+      "method": "in-memory compiler host overlay; no source files mutated"
+    },
+    {
+      "config": "tsconfig.edge.json",
+      "target": "edge/replay-worker.ts",
+      "rejectedTypeError": 2322,
+      "method": "in-memory compiler host overlay; no source files mutated"
+    }
+  ]
+}

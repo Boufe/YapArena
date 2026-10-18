@@ -112,9 +112,9 @@ The CI integration smoke check verifies the wide homepage at `/` and seeded disc
 content at `/live`, alongside the existing public API checks.
 
 ```sh
-A4_QUALITY=true DATABASE_TEST_MODE=host node scripts/verify-database-isolation.js
-node scripts/verify-hero-browser.js
-REPLAY_POSTGRES_MODE=host node scripts/verify-replay-pipeline.js
+A4_QUALITY=true DATABASE_TEST_MODE=host node scripts/verify-database-isolation.ts
+node scripts/verify-hero-browser.ts
+REPLAY_POSTGRES_MODE=host node scripts/verify-replay-pipeline.ts
 ```
 
 The browser trial serves six synthetic WebM cards on loopback. It checks the

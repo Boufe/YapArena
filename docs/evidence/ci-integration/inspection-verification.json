@@ -1,0 +1,77 @@
+{
+  "codeCommit": "7900b42",
+  "base": "5567aef",
+  "node": "24.19.0",
+  "postgres": "18.4 (Debian 18.4-1.pgdg12+1)",
+  "chrome": "155.0.8059.80",
+  "environment": "macOS arm64; disposable Docker cluster and synthetic accounts/media",
+  "sourceSha256": "f57a696ce7a2fcd8d1629c6aa1c42bd936e4695f1af585295764b99dcfe9c194",
+  "retainedAssertions": 31,
+  "addedAssertions": 3,
+  "negativeControl": {
+    "exit": 1,
+    "failure": "original 20000ms homepage round refresh wait",
+    "visibility": "visible",
+    "hovered": "ya-carousel-count",
+    "inspecting": 1,
+    "receivedSettledRoundWhileOldChartHeld": true
+  },
+  "browserRelease": {
+    "status": "passed",
+    "postgres": "docker",
+    "quality": "full runtime-backed npm run check",
+    "steps": [
+      {
+        "name": "build",
+        "status": "passed"
+      },
+      {
+        "name": "fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers",
+        "status": "passed"
+      },
+      {
+        "name": "homepage navigation, interactions, responsive layout and accessibility",
+        "status": "passed"
+      },
+      {
+        "name": "Live/replay preview playback and handoff",
+        "status": "passed"
+      }
+    ],
+    "scope": "Disposable local PostgreSQL and synthetic browser/media fixtures; no hosted or physical-device acceptance"
+  },
+  "sharedData": {
+    "result": "PASS",
+    "checks": {
+      "operatorSeedIsIdempotentAndUsesStoredArgumentResults": true,
+      "databaseBackedHomeExpansionAndDebateArguments": true,
+      "activeInspectionDefersAndIdleReleasesUpdate": true,
+      "observerAndMixedSettlementRefreshHomeExpandedAndDebateWithoutReload": true,
+      "pendingPrivacyAndAggregateOnlyPublication": true,
+      "publicAndPersonalHistoryRemainDistinct": true,
+      "mobileAndAccessibility": true,
+      "signedOutSharedHistoryWithoutPrivateAccess": true,
+      "consentWithdrawalRemovesPersonalRoundsEverywhere": true,
+      "visibleLiveNavigationAndOriginalLivePage": true
+    },
+    "errors": [],
+    "screenshots": [
+      "home-expanded.png",
+      "debate-shared.png",
+      "home-mobile.png",
+      "debate-mobile.png"
+    ],
+    "scope": "Disposable local PostgreSQL, real A4 worker/HTTP/browser; no hosted test writes or media sessions"
+  },
+  "quality": {
+    "passed": 502,
+    "failed": 0,
+    "skipped": 0,
+    "coverage": {
+      "line": 94.8,
+      "branch": 93.12,
+      "function": 95.8
+    }
+  },
+  "limits": "Controlled interaction prerequisite proof; historical CI runner did not capture homepage state. No hosted/device/capacity acceptance."
+}

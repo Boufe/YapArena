@@ -653,6 +653,15 @@ if (root) {
   window.addEventListener("focus", () => {
     if (userId && !busy && !el("review").open) act(refresh);
   });
+  const access = el("access");
+  const startupControls = Array.from(
+    access.querySelectorAll<
+      HTMLButtonElement | HTMLInputElement | HTMLSelectElement
+    >("button, input, select"),
+    (control) => ({ control, disabled: control.disabled }),
+  );
+  access.setAttribute("aria-busy", "true");
+  for (const { control } of startupControls) control.disabled = true;
   act(async () => {
     userId = (await api<Auth>("auth/me")).user.id;
     el("access").hidden = false;
@@ -663,6 +672,11 @@ if (root) {
     el("publish").checked = publication.published;
     await list();
     await refresh();
+  }).finally(() => {
+    // act has released its busy guard, so visible controls can now accept input.
+    for (const { control, disabled } of startupControls)
+      control.disabled = disabled;
+    access.setAttribute("aria-busy", "false");
   });
   renderShared();
 }

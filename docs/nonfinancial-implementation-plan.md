@@ -27,6 +27,13 @@ Original-export visual comparisons remain explicit; hosted media, physical-devic
 and audience-capacity acceptance remain separate. [Local verification and the
 reversible failure proof](evidence/browser-release/2026-10-18.md) record the tested scope.
 
+The [A4 startup readiness fix](evidence/a4-readiness/2026-10-19.md) keeps inline
+participation controls disabled while initial account/workspace data loads, then
+restores them after the action guard is released. Its maintained browser regression
+holds an actual workspace request and checks a single creation request/run/open
+round after readiness. It extends the operational TypeScript branch separately;
+the public-bots round-settlement browser timeout remains a distinct investigation.
+
 The [strict frontend migration](evidence/frontend-typescript/2026-10-17.md) moves all 33
 handwritten browser/service-worker modules into `frontend/` TypeScript while retaining existing
 shared TypeScript. Browser JavaScript is generated at the same URLs; the normal quality gate

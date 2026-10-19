@@ -10,12 +10,12 @@ Email verification codes are primary. Google and passkeys are optional. Public
 discovery/watching stay public; initial profiles are optional. Financial
 eligibility is collected at the financial boundary, not ordinary signup.
 
-| Phase | Scope                                                 | Current boundary                                                                            |
-| ----- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| A     | Privy, onboarding, stable accounts, sessions/settings | Foundation implemented; hosted delivery, recovery/linking and device acceptance outstanding |
-| B     | Shared Redis controls and justified caches            | Atomic multi-client/outage checks passed locally; hosted connection outstanding             |
-| C     | Redeemable YC, sandbox funding/redemption             | Ledger foundation/read-only balances; no financial adapter or usable money workflow         |
-| D     | Authorized reset and final acceptance                 | Guarded operator tool; hosted backup/restore/reset not executed                             |
+| Phase | Scope                                                 | Current boundary                                                                                 |
+| ----- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| A     | Privy, onboarding, stable accounts, sessions/settings | Foundation implemented; hosted delivery, recovery/linking and device acceptance outstanding      |
+| B     | Shared Redis controls and justified caches            | Atomic multi-client/outage checks passed locally; hosted connection outstanding                  |
+| C     | Redeemable YC, sandbox funding/redemption             | Ledger foundation/read-only balances; no financial adapter or usable money workflow              |
+| D     | Authorized reset and final acceptance                 | Encrypted hosted backup and local restore/deletion rehearsal passed; hosted deletion outstanding |
 
 These phases preserve the combined [pre-funds gates](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds).
 Unresolved financial decisions do not block independent authentication work.
@@ -24,31 +24,32 @@ Unresolved financial decisions do not block independent authentication work.
 
 Latest founder decisions supersede earlier CAD/bank/PayPal instructions.
 
-| Term                       | Confirmed decision / unresolved detail                                                                                                                              |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Meaning / representation   | YapArena-issued platform currency held as internal account balances; no ERC-20 or confidential-chain requirement                                                    |
-| Value                      | **100 YC = 1 USDC**; six-decimal USDC atomic integers, 10,000 atomic units per YC                                                                                   |
-| Region                     | Canada initially; founder requested CRSHMARKET's 18+ and legally permitted access baseline. Provincial/provider eligibility and retention still require review      |
-| Purchases                  | Cards and supported crypto, quoted conversion into USDC before crediting YC                                                                                         |
-| Requested deposit networks | Ethereum, Base, Solana, BNB Smart Chain and Bitcoin; routes/input assets still require provider verification                                                        |
-| Withdrawal                 | External crypto wallet, **USDC only**; no bank/PayPal payout                                                                                                        |
-| Bitcoin / BNB              | Input-conversion routes; never assume native USDC support on those networks                                                                                         |
-| Welcome                    | 2,500 YC, grant principal permanently spend-only                                                                                                                    |
-| Daily                      | 500 YC; each grant requires fresh net profit earned using that grant                                                                                                |
-| Qualification              | Welcome lot needs 2,500 YC net profit; each daily lot needs its own 500 YC. Receipt is not profit, does not raise the welcome target, and cannot reuse prior profit |
-| Example                    | Welcome 2,500 + qualifying profit 2,500 = 5,000 balance; only 2,500 profit withdrawable                                                                             |
-| Promotional backing        | Founder approved YapArena treasury funding of qualified profits; **budget undecided**                                                                               |
-| Spending / losses          | Oldest grant first, then purchased coins; mixed-source profit/loss allocated proportionally. Once a grant qualifies, it stays qualified after subsequent losses     |
-| Purchased value            | No grant-profit qualification requirement for purchased coins; standard operation authorization and applicable provider/eligibility checks still apply              |
-| Limits / timing            | Fees, limits, payout timing, daily claim window/timezone unresolved                                                                                                 |
-| Transfers / corrections    | User transfers, refunds, chargebacks and loss allocation unresolved; disabled                                                                                       |
-| Custody / reserves         | Recommend segregated backing, fee and operating accounts; treasury custody, signers, reserve caps and reconciliation ownership need approval                        |
-| A4                         | Existing `YAP` is **nonredeemable play money**, including starter/refill/bot grants; economics preserved. Redeemable use requires reviewed terms and all gates      |
+| Term                       | Confirmed decision / unresolved detail                                                                                                                                       |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Meaning / representation   | YapArena-issued platform currency held as internal account balances; no ERC-20 or confidential-chain requirement                                                             |
+| Value                      | **100 YC = 1 USDC**; six-decimal USDC atomic integers, 10,000 atomic units per YC                                                                                            |
+| Region                     | Canada initially; founder requested CRSHMARKET's 18+ and legally permitted access baseline. Provincial/provider eligibility and retention still require review               |
+| Purchases                  | Supported crypto only for now, quoted conversion into USDC before crediting YC; cards deferred by founder while this is a personal project                                   |
+| Requested deposit networks | Ethereum, Base, Solana, BNB Smart Chain and Bitcoin; routes/input assets still require provider verification                                                                 |
+| Withdrawal                 | External crypto wallet, **USDC only**; no bank/PayPal payout                                                                                                                 |
+| Bitcoin / BNB              | Input-conversion routes; never assume native USDC support on those networks                                                                                                  |
+| Welcome                    | 2,500 YC, grant principal permanently spend-only                                                                                                                             |
+| Daily                      | 500 YC once per Toronto calendar day; each grant requires fresh net profit earned using that grant                                                                           |
+| Qualification              | Welcome lot needs 2,500 YC net profit; each daily lot needs its own 500 YC. Receipt is not profit, does not raise the welcome target, and cannot reuse prior profit          |
+| Example                    | Welcome 2,500 + qualifying profit 2,500 = 5,000 balance; only 2,500 profit withdrawable                                                                                      |
+| Promotional backing        | Initial 50 USDC treasury budget approved for qualified grant profits, separate from purchased-user backing; allocation and caps not yet implemented                          |
+| Spending / losses          | Oldest grant first, then purchased coins; mixed-source profit/loss allocated proportionally. Once a grant qualifies, it stays qualified after subsequent losses              |
+| Purchased value            | No grant-profit qualification requirement for purchased coins; standard operation authorization and applicable provider/eligibility checks still apply                       |
+| Limits / timing            | 5 USDC withdrawal minimum, 100 USDC per account per day maximum, user pays displayed network fee, manual review initially; payout timing commitment unresolved               |
+| Transfers / corrections    | No user-to-user transfers initially; unused purchases refunded via original route where supported; failed-payout reserves release only after reconciliation proves no payout |
+| Operator status            | Personal project for now; no company registration or provider eligibility assumed                                                                                            |
+| Custody / reserves         | Recommend provider-held user backing separated from fees/operations, with YapArena ledger reconciliation; provider support, custody, signers and reserve caps need approval  |
+| A4                         | Existing `YAP` is **nonredeemable play money**, including starter/refill/bot grants; economics preserved. Redeemable use requires reviewed terms and all gates               |
 
 Paid-product direction is money-backed YC with explicit spend-only promotions.
 Historical play, sandbox simulation and live liabilities stay separate. Old grants
 never acquire cash value. No live funding, redemption or financial promotion is
-enabled; an approved treasury source is not an approved spending budget.
+enabled; the approved 50 USDC budget has not been funded or allocated.
 
 The ledger foundation enforces balanced postings, exact projections, sealed
 committed journals, exact reversals and environment/asset consistency. Runtime
@@ -89,6 +90,15 @@ Card/crypto business approval, Canadian/provincial support, commercial terms and
 Bitcoin/BNB conversion routes remain unverified. Privy login/wallet support alone
 does not establish payout eligibility. Embedded-wallet creation is currently off;
 no custody/recovery/export flow is claimed accepted.
+
+Provider review concerns support for YapArena's actual activity and flow of
+funds; it is not a blanket assertion that wallet transfers require incorporation.
+The founder confirmed this is a personal project. [MoonPay's partner KYB
+requirements](https://support.moonpay.com/en/articles/694369-business-verification-kyb-for-partners-documents-and-what-to-expect)
+require registration documents and may require additional evidence for regulated
+activities. This does not establish every provider's requirements or select
+MoonPay. Live financial workflows also remain disabled because their engineering
+and repository release gates are unfinished.
 
 ## Ownership, sessions and recovery
 
@@ -212,10 +222,16 @@ records a real encrypted staging snapshot with verified table/sequence restore
 fingerprints. The new migrations and deletion were rehearsed on a second local
 restore: zero users/sessions/wallets, with 15 play runs, 101 journals and 13 media
 records preserved; deletion was rolled back. Both hosted services resumed after
-the snapshot. No hosted schema change or user deletion has occurred.
+the snapshot. The four new account/coin/history/grant migrations were then
+applied by a separate owner process on 2026-10-19. Seven users, four sessions and
+one linked wallet remain; no provider identity or money journal exists. Provider
+signup is paused in `auth_controls` for the rollout. Both services resumed.
+The web service has the five new runtime variables above, with its existing
+restricted database identity preserved. The feature code has not yet been
+deployed. No hosted user deletion has occurred.
 
 The pooler retains a runtime backend after service suspension; execution still
-refuses that condition. Hosted migration/rollout, a post-migration backup/rehearsal,
+refuses that condition. Hosted code rollout, a post-migration backup/rehearsal,
 actual reset, old-credential rejection, genuine fresh signup and final test-identity
 cleanup remain outstanding. Reset is not complete until every requested
 postcondition is recorded, including the final empty environment.
@@ -237,7 +253,7 @@ transfer/decode and signup latency remain to be measured.
 
 [Screenshots and recorded UI checks](evidence/email-first/README.md) use local
 SSR fixtures at identical 1440x1000 and 390x844 viewports. The installed SDK runs
-with live public metadata, intercepted OTP endpoints, optional-method fixture
+with live public metadata (CAPTCHA disabled in the fixture response only), intercepted OTP endpoints, optional-method fixture
 flags and synthetic money balances. These checks include exact return paths,
 keyboard/focus, code errors, refresh, independent grant bars, modal/menu closing,
 no overflow and automated WCAG tags under the account CSP. They do not prove

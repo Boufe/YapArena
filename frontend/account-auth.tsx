@@ -37,7 +37,7 @@ function announceSession() {
 }
 
 function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
-  const { ready, authenticated, getAccessToken, logout, user } = usePrivy();
+  const { ready, authenticated, getAccessToken, logout } = usePrivy();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
@@ -361,14 +361,50 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         . Signing in never approves a payment.
       </p>
       <Captcha />
-      <Settings
-        userMethods={user?.linkedAccounts.map((account) => account.type) ?? []}
-      />
+      <Settings />
     </div>
   );
 }
 
-function Settings({ userMethods }: { userMethods: string[] }) {
+function Settings() {
+  const methodNames: Record<string, string> = {
+    email: "Email",
+    google_oauth: "Google",
+    passkey: "Passkey",
+    password: "Password",
+  };
+  const [userMethods, setMethods] = useState<string[]>([]);
+  useEffect(() => {
+    let version = 0;
+    async function refresh() {
+      const current = ++version;
+      setMethods([]);
+      try {
+        const response = await fetch("/api/auth/methods", {
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const value: {
+          provider: { methods: string[] } | null;
+          legacyPassword: boolean;
+        } = await response.json();
+        if (current === version)
+          setMethods([
+            ...(value.legacyPassword ? ["password"] : []),
+            ...(value.provider?.methods ?? []),
+          ]);
+      } catch {
+        // The account remains controlled by its server session during outages.
+      }
+    }
+    void refresh();
+    window.addEventListener("yap:account-changed", refresh);
+    return () => {
+      version++;
+      window.removeEventListener("yap:account-changed", refresh);
+    };
+  }, []);
   const settingsRoot =
     document.querySelector<HTMLElement>("#provider-settings");
   // The settings are rendered into the signed-in account area by a separate
@@ -380,12 +416,13 @@ function Settings({ userMethods }: { userMethods: string[] }) {
           <h3>Your authentication methods</h3>
           <p>
             {userMethods.length
-              ? [...new Set(userMethods)].join(" · ")
-              : "Sign in with email to manage your methods."}
+              ? [...new Set(userMethods)]
+                  .map((method) => methodNames[method] ?? "Sign-in method")
+                  .join(" · ")
+              : "Sign-in methods are unavailable. Refresh to check again."}
           </p>
           <p>
-            Keep access to your email and a backup passkey. If a passkey is
-            lost, sign in with your verified email. Changes to financial
+            Keep access to your verified email. Changes to financial
             authorization require separate ownership verification.
           </p>
           <p>Adding or removing sign-in methods is not available yet.</p>

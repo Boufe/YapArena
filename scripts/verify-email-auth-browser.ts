@@ -15,6 +15,25 @@ import { createEmailAuthSecurity } from "../dist/platform/auth/browser-security.
 // No inbox, provider identity, hosted database or money is modified.
 const appId = process.env.PRIVY_APP_ID;
 assert.ok(appId, "set the public PRIVY_APP_ID; never pass the app secret here");
+type PublicProviderSettings = {
+  id: string;
+  data_classification: string;
+  captcha_enabled: boolean;
+  enabled_captcha_provider: string | null;
+};
+let providerSettings: PublicProviderSettings;
+try {
+  const response = await fetch(`https://auth.privy.io/api/v1/apps/${appId}`, {
+    headers: { "privy-app-id": appId },
+    signal: AbortSignal.timeout(10_000),
+  });
+  assert.ok(response.ok);
+  providerSettings = await response.json();
+  assert.equal(providerSettings.id, appId);
+  assert.equal(providerSettings.data_classification, "public");
+} catch {
+  throw new Error("public provider metadata unavailable for the local fixture");
+}
 const directory = resolve(
   process.env.AUTH_BROWSER_ARTIFACT_DIR ?? "docs/evidence/email-first",
 );
@@ -105,9 +124,10 @@ try {
       viewport,
       reducedMotion: "reduce",
     });
-    await context.addInitScript(() =>
-      localStorage.setItem("yaparena-measurement-declined", "1"),
-    );
+    await context.addInitScript(() => {
+      if (window === window.top)
+        localStorage.setItem("yaparena-measurement-declined", "1");
+    });
     const page = await context.newPage();
     page.on("pageerror", (error) => errors.push(error.message));
     const requests: { path: string; status: number }[] = [];
@@ -119,6 +139,27 @@ try {
     );
     let sends = 0,
       verifications = 0;
+    let captchaFixtures = 0;
+    await page.route(
+      (url) => url.pathname === `/api/v1/apps/${appId}`,
+      async (route) => {
+        captchaFixtures++;
+        await route.fulfill({
+          headers: {
+            "access-control-allow-origin": base,
+            "access-control-allow-credentials": "true",
+            "access-control-allow-methods": "GET, OPTIONS",
+            "access-control-allow-headers":
+              route.request().headers()["access-control-request-headers"] ?? "",
+          },
+          json: {
+            ...providerSettings,
+            captcha_enabled: false,
+            enabled_captcha_provider: null,
+          },
+        });
+      },
+    );
     await page.route("**/api/v1/passwordless/init", async (route) => {
       sends++;
       await route.fulfill({ json: { success: true } });
@@ -166,12 +207,24 @@ try {
         "email form initialization failed; see local fixture evidence",
       );
     }
-    await page.waitForFunction(
-      () =>
-        !document.querySelector<HTMLButtonElement>(
-          '#email-auth button[type="submit"]',
-        )?.disabled,
-    );
+    await page
+      .waitForFunction(
+        () =>
+          !document.querySelector<HTMLButtonElement>(
+            '#email-auth button[type="submit"]',
+          )?.disabled,
+      )
+      .catch(async () => {
+        console.log(
+          JSON.stringify({
+            phase: "provider readiness",
+            errors,
+            requests,
+            status: await page.locator("#email-auth").innerText(),
+          }),
+        );
+        throw new Error("SDK readiness failed in the local fixture");
+      });
     assert.equal(
       await page
         .getByLabel("Email address", { exact: true })
@@ -209,6 +262,10 @@ try {
     await button.press("Enter");
     const code = page.getByLabel("Verification code", { exact: true });
     await code.waitFor();
+    assert.ok(
+      captchaFixtures > 0,
+      "explicit synthetic CAPTCHA configuration used",
+    );
     assert.equal(sends, 1);
     assert.equal(await code.getAttribute("autocomplete"), "one-time-code");
     assert.equal(
@@ -279,7 +336,7 @@ try {
       `${name}: synthetic withdrawal balance, independent grant bars, sticky qualification, Escape/focus restoration`,
     );
     checks.push(
-      `${name}: SDK initialization, email/code form, keyboard submit, focus, resend wait, wrong-code error, change email, refresh, no overflow, automated WCAG tags`,
+      `${name}: SDK initialization with synthetic CAPTCHA-disabled metadata, email/code form, keyboard submit, focus, resend wait, wrong-code error, change email, refresh, no overflow, automated WCAG tags`,
     );
     await page.goto(`${base}/test/debate?round=42#commit`);
     await page
@@ -309,6 +366,43 @@ try {
     checks.push(
       `${name}: balance dialog, Escape/focus, exact debate query/fragment preserved through sign-in link`,
     );
+    // A YapArena application session may outlive the SDK's browser session.
+    // Settings must use methods verified for that app account, not SDK state.
+    await page.route("**/api/auth/me", (route) =>
+      route.fulfill({ json: { user: { id: "fixture", email: null } } }),
+    );
+    await page.route("**/api/auth/methods", (route) =>
+      route.fulfill({
+        json: {
+          provider: { email: "synthetic@example.invalid", methods: ["email"] },
+          legacyPassword: false,
+        },
+      }),
+    );
+    await page.route("**/api/me/profile", (route) =>
+      route.fulfill({ status: 404, json: { error: "profile not found" } }),
+    );
+    await page.route("**/api/auth/wallets", (route) =>
+      route.fulfill({ json: { wallets: [] } }),
+    );
+    await page.route("**/api/me/follows?**", (route) =>
+      route.fulfill({ json: { items: [], pagination: { hasMore: false } } }),
+    );
+    await page.route("**/api/me/activity?**", (route) =>
+      route.fulfill({ json: { items: [], pagination: { hasMore: false } } }),
+    );
+    await page.route("**/api/matching/notifications", (route) =>
+      route.fulfill({ json: { notifications: [] } }),
+    );
+    await page.goto(`${base}/account`);
+    await page.getByText("Account ready.", { exact: true }).waitFor();
+    await page
+      .locator("#provider-settings")
+      .getByText("Email", { exact: true })
+      .waitFor();
+    checks.push(
+      `${name}: settings follow the server app account while the Privy browser session is signed out`,
+    );
     await context.close();
   }
   assert.deepEqual(errors, []);
@@ -320,7 +414,7 @@ try {
         checks,
         errors,
         scope:
-          "Local SSR fixture and installed Privy SDK; public provider metadata fetched live; OTP endpoints intercepted. No real email delivery, successful provider login, hosted session, physical device or complete WCAG conformance evidence.",
+          "Local SSR fixture and installed Privy SDK; public provider metadata fetched live with CAPTCHA explicitly disabled in the fixture response only; OTP endpoints intercepted. No real CAPTCHA validation, email delivery, successful provider login, hosted session, physical device or complete WCAG conformance evidence.",
       },
       null,
       2,

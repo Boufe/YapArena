@@ -5,7 +5,8 @@ acceptance fixtures, not hosted signup or financial acceptance.
 
 `npm run verify:email-auth-browser` runs the installed Privy SDK within the
 server-rendered account page and account CSP. Public provider metadata is read
-live; OTP sending/verification is intercepted. Google/passkey availability and
+live, with CAPTCHA disabled in the local intercepted metadata only; staging
+CAPTCHA remains enabled. OTP sending/verification is intercepted. Google/passkey availability and
 the balances/profit events are fixture responses. No inbox, hosted account,
 provider wallet or real money is changed.
 
@@ -24,6 +25,8 @@ unstarted daily lot and permanently qualified daily lot are synthetic examples.
 form labels/autofill hints, keyboard submission, focus, resend waiting, incorrect
 code handling, changing email, refresh, no overflow, independent grant bars,
 Escape/focus restoration in menus/dialogs and exact query/fragment return links.
+Settings are also checked with an authenticated application-session fixture and
+a signed-out Privy SDK, ensuring the server account supplies its method list.
 Automated axe checks apply WCAG 2/2.1/2.2 AA tags to the email form; they do not
 establish full conformance or screen-reader/physical-device acceptance.
 
@@ -34,7 +37,7 @@ Coverage: 94.22% lines, 92.76% branches, 95.45% functions. The production image
 also built with the locked dependencies. Real Redis checks used two clients,
 100 atomic concurrent increments, TTL expiry and bounded outage failure.
 
-Real provider login, code delivery, recovery, credential management, hosted
+Real CAPTCHA validation, provider login, code delivery, recovery, credential management, hosted
 revocation and Redis connectivity remain separate gates. No funded issuance,
 purchase/redemption adapter, financial reconciliation or reset acceptance is
 claimed. See the [current work record](../../email-first-accounts.md).

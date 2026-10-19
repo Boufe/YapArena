@@ -20,7 +20,10 @@ community workload separately. Product code, schema and hosted settings are unch
 Local native and Docker community gates passed with identical 30-second soaks;
 the native database-backed quality gate passed 502 tests with zero skips. The new
 GitHub-hosted CI results and its package-source setup correction are tracked in
-[PR #38](https://github.com/Boufe/YapArena/pull/38); local results establish no hosted capacity.
+[PR #38](https://github.com/Boufe/YapArena/pull/38). The
+[combined integration verification](evidence/native-postgres-utf8/2026-10-19.md)
+records its inherited readiness and cancellation corrections, fresh native Unicode
+workload and cleanup controls; local results establish no hosted capacity.
 
 The [operational TypeScript migration](operational-typescript.md) checks the production
 edge replay worker and critical database/release automation through the existing quality

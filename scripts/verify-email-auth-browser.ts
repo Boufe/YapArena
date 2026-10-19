@@ -46,10 +46,15 @@ app.get("/test/axe.js", (_request, response) =>
 );
 app.use("/assets", express.static(resolve("public")));
 app.get("/account", (request, response) =>
-  response.send(renderAccount(base, request.query.baseline !== "1")),
+  response.send(
+    renderAccount(base, request.query.baseline !== "1").replace(
+      "</head>",
+      '<script defer src="/test/axe.js"></script></head>',
+    ),
+  ),
 );
 app.get("/test/debate", (_request, response) =>
-  response.send(`<!doctype html><html lang="en" data-email-first><head><title>Auth return fixture</title><link rel="stylesheet" href="/assets/arena.css"></head><body>
+  response.send(`<!doctype html><html lang="en" data-email-first><head><title>Auth return fixture</title><link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/arena.css"><script defer src="/test/axe.js"></script></head><body>
   <main><a href="/account?next=%2Ftest%2Fdebate" id="return-link">Sign in to participate</a>
   <a href="/account#account-wallet" data-wallet-progress-open>Yap Coins balance</a></main>
   <script defer src="/assets/site.js"></script><script defer src="/assets/account-balance.js"></script></body></html>`),
@@ -235,7 +240,7 @@ try {
       path: resolve(directory, `after-${name}.png`),
       fullPage: true,
     });
-    await page.addScriptTag({ url: `${base}/test/axe.js` });
+    await page.waitForFunction(() => Boolean(window.axe));
     const results = await page.evaluate(async () =>
       window.axe.run("#email-auth", {
         runOnly: {
@@ -347,6 +352,24 @@ try {
       .getByText("Available for withdrawal: 1250 YC", { exact: true })
       .waitFor();
     assert.equal(await dialog.locator("progress").count(), 3);
+    await page.waitForFunction(() => Boolean(window.axe));
+    assert.deepEqual(
+      await page.evaluate(async () =>
+        (
+          await window.axe.run("dialog", {
+            runOnly: {
+              type: "tag",
+              values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"],
+            },
+          })
+        ).violations.map((entry) => ({ id: entry.id, impact: entry.impact })),
+      ),
+      [],
+    );
+    await page.screenshot({
+      path: resolve(directory, `balance-dialog-${name}.png`),
+      fullPage: true,
+    });
     await dialog
       .getByRole("button", { name: "Close", exact: true })
       .press("Escape");
@@ -368,8 +391,13 @@ try {
     );
     // A YapArena application session may outlive the SDK's browser session.
     // Settings must use methods verified for that app account, not SDK state.
+    let appSignedIn = true;
     await page.route("**/api/auth/me", (route) =>
-      route.fulfill({ json: { user: { id: "fixture", email: null } } }),
+      route.fulfill(
+        appSignedIn
+          ? { json: { user: { id: "fixture", email: null } } }
+          : { status: 401, json: { error: "authentication required" } },
+      ),
     );
     await page.route("**/api/auth/methods", (route) =>
       route.fulfill({
@@ -379,9 +407,35 @@ try {
         },
       }),
     );
-    await page.route("**/api/me/profile", (route) =>
-      route.fulfill({ status: 404, json: { error: "profile not found" } }),
-    );
+    let profile: {
+      handle: string;
+      displayName: string;
+      bio: string;
+      publicationState: string;
+    } | null = null;
+    const profileWrites: { method: string; body: unknown }[] = [];
+    await page.route("**/api/me/profile", async (route) => {
+      const request = route.request();
+      if (request.method() === "POST") {
+        const body: { handle: string; displayName: string; bio: string } =
+          request.postDataJSON();
+        profileWrites.push({ method: request.method(), body });
+        profile = { ...body, publicationState: "draft" };
+      } else if (request.method() === "PATCH" && profile) {
+        const body: {
+          displayName?: string;
+          bio?: string;
+          publicationState?: string;
+        } = request.postDataJSON();
+        profileWrites.push({ method: request.method(), body });
+        profile = { ...profile, ...body };
+      }
+      await route.fulfill(
+        profile
+          ? { json: { profile } }
+          : { status: 404, json: { error: "profile not found" } },
+      );
+    });
     await page.route("**/api/auth/wallets", (route) =>
       route.fulfill({ json: { wallets: [] } }),
     );
@@ -400,8 +454,88 @@ try {
       .locator("#provider-settings")
       .getByText("Email", { exact: true })
       .waitFor();
+    await page.screenshot({
+      path: resolve(directory, `account-signed-in-${name}.png`),
+      fullPage: true,
+    });
+    console.log(`${name}: checking account accessibility and controls`);
+    await page.waitForFunction(() => Boolean(window.axe));
+    assert.deepEqual(
+      await page.evaluate(async () =>
+        (
+          await window.axe.run("#signed-in", {
+            runOnly: {
+              type: "tag",
+              values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"],
+            },
+          })
+        ).violations.map((entry) => ({ id: entry.id, impact: entry.impact })),
+      ),
+      [],
+    );
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+    console.log(`${name}: account accessibility passed`);
+    await page.getByLabel("Handle", { exact: true }).fill("fixture-profile");
+    await page
+      .getByLabel("Display name", { exact: true })
+      .fill("Fixture person");
+    await page.getByLabel("Bio", { exact: true }).fill("Synthetic profile.");
+    await page.locator('#profile-form button[type="submit"]').click();
+    await page.getByText("Profile saved.", { exact: true }).waitFor();
+    assert.equal(
+      await page.getByLabel("Handle", { exact: true }).isDisabled(),
+      true,
+    );
+    await page
+      .locator('#profile-form select[name="publicationState"]')
+      .selectOption("published");
+    await page.locator('#profile-form button[type="submit"]').click();
+    await page
+      .getByText("@fixture-profile · published", { exact: true })
+      .waitFor();
+    assert.deepEqual(profileWrites, [
+      {
+        method: "POST",
+        body: {
+          handle: "fixture-profile",
+          displayName: "Fixture person",
+          bio: "Synthetic profile.",
+        },
+      },
+      {
+        method: "PATCH",
+        body: {
+          displayName: "Fixture person",
+          bio: "Synthetic profile.",
+          publicationState: "published",
+        },
+      },
+    ]);
+    await page.route("**/api/auth/logout-other-sessions", (route) =>
+      route.fulfill({ status: 204 }),
+    );
+    page.once("dialog", (confirmation) => void confirmation.accept());
+    await page.locator("#sign-out-others").click();
+    await page
+      .getByText("Other sessions signed out. This device is still signed in.", {
+        exact: true,
+      })
+      .waitFor();
+    assert.equal(await page.locator("#signed-in").isVisible(), true);
+    await page.route("**/api/auth/logout-all", (route) => {
+      appSignedIn = false;
+      return route.fulfill({ status: 204 });
+    });
+    page.once("dialog", (confirmation) => void confirmation.accept());
+    await page.locator("#sign-out-all").click();
+    await page.locator("#signed-out").waitFor({ state: "visible" });
+    assert.equal(await page.locator("#signed-in").isVisible(), false);
     checks.push(
-      `${name}: settings follow the server app account while the Privy browser session is signed out`,
+      `${name}: server-owned authentication methods, profile create/publish with permanent handle, other/all-session sign-out controls, account/dialog automated WCAG tags and no account overflow`,
     );
     await context.close();
   }
@@ -423,6 +557,7 @@ try {
   console.log(JSON.stringify({ result: "PASS", checks, evidence: directory }));
 } finally {
   await browser.close();
+  server.closeAllConnections();
   await new Promise<void>((done, fail) =>
     server.close((error) => (error ? fail(error) : done())),
   );

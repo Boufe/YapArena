@@ -36,9 +36,19 @@ function readWallet() {
   return walletRead;
 }
 function showWalletSummary(target: HTMLElement, value: WalletView) {
-  const heading = document.createElement("strong");
-  heading.textContent = `Available for withdrawal: ${value.withdrawable} YC`;
+  const heading = document.createElement("strong"),
+    headingLabel = document.createElement("span"),
+    amount = document.createElement("span"),
+    unit = document.createElement("small");
+  heading.className = "wallet-available";
+  headingLabel.textContent = "Available for withdrawal:";
+  amount.className = "wallet-available-amount";
+  amount.textContent = value.withdrawable + " ";
+  unit.textContent = "YC";
+  amount.append(unit);
+  heading.append(headingLabel, document.createTextNode(" "), amount);
   const note = document.createElement("p");
+  note.className = "wallet-availability-note";
   note.textContent = value.withdrawalsEnabled
     ? "Purchased coins have no profit target. Grant principal stays spend-only."
     : "Withdrawals are not open yet. Grant principal stays spend-only.";
@@ -46,6 +56,7 @@ function showWalletSummary(target: HTMLElement, value: WalletView) {
   list.className = "wallet-grant-progress";
   if (!value.grants.length) {
     const empty = document.createElement("p");
+    empty.className = "wallet-grants-empty";
     empty.textContent =
       "No promotional grants yet. Purchased coins have no profit target.";
     list.append(empty);
@@ -53,11 +64,17 @@ function showWalletSummary(target: HTMLElement, value: WalletView) {
   for (const [index, grant] of value.grants.entries()) {
     const row = document.createElement("div"),
       label = document.createElement("label"),
+      name = document.createElement("span"),
+      state = document.createElement("span"),
       bar = document.createElement("progress"),
       detail = document.createElement("p");
     const id = `${target.id}-grant-${index}`;
     label.htmlFor = id;
-    label.textContent = `${grant.label}: ${grant.qualified ? "qualified" : `${grant.percent}%`}`;
+    row.className = `wallet-grant-row${grant.qualified ? " is-qualified" : ""}`;
+    name.textContent = grant.label;
+    state.className = "wallet-grant-state";
+    state.textContent = grant.qualified ? "Qualified ✓" : `${grant.percent}%`;
+    label.append(name, state);
     bar.id = id;
     bar.max = 100;
     bar.value = grant.percent;
@@ -73,7 +90,33 @@ function showWalletSummary(target: HTMLElement, value: WalletView) {
     row.append(label, bar, detail);
     list.append(row);
   }
-  target.replaceChildren(heading, note, list);
+  const content: HTMLElement[] = [heading, note];
+  if (target !== moneyCard) {
+    const breakdown = document.createElement("dl");
+    breakdown.className = "wallet-balance-breakdown";
+    for (const [label, amount] of [
+      ["Available", value.available],
+      ["Reserved", value.reserved],
+      ["Pending", value.pending],
+      ["Promotional", value.promotional],
+    ] as const) {
+      const item = document.createElement("div"),
+        term = document.createElement("dt"),
+        balance = document.createElement("dd");
+      term.textContent = label;
+      balance.textContent = `${amount} YC`;
+      item.append(term, balance);
+      breakdown.append(item);
+    }
+    content.push(breakdown);
+  }
+  if (value.grants.length) {
+    const title = document.createElement("h3");
+    title.className = "wallet-grants-title";
+    title.textContent = "Grant progress";
+    content.push(title);
+  }
+  target.replaceChildren(...content, list);
   target.hidden = false;
 }
 const moneyCard = document.querySelector<HTMLElement>(
@@ -161,24 +204,35 @@ for (const opener of document.querySelectorAll<HTMLAnchorElement>(
   "[data-wallet-progress-open]",
 )) {
   const dialog = document.createElement("dialog"),
+    header = document.createElement("div"),
+    heading = document.createElement("div"),
+    eyebrow = document.createElement("span"),
     title = document.createElement("h2"),
     body = document.createElement("section"),
     close = document.createElement("button"),
     status = document.createElement("p"),
     account = document.createElement("a");
   dialog.className = "wallet-balance-dialog information-card";
+  header.className = "wallet-dialog-header";
+  eyebrow.className = "eyebrow";
+  eyebrow.textContent = "YOUR ACCOUNT WALLET";
   title.id = "wallet-progress-title";
   title.textContent = "Your Yap Coins";
   dialog.setAttribute("aria-labelledby", title.id);
   body.id = "homepage-withdrawal-summary";
   body.className = "wallet-money-summary";
   close.type = "button";
-  close.className = "button-secondary";
-  close.textContent = "Close";
+  close.className = "wallet-dialog-close";
+  close.setAttribute("aria-label", "Close");
+  close.textContent = "×";
   status.role = "status";
+  status.className = "wallet-dialog-status";
   account.href = "/account#account-wallet";
   account.textContent = "Account balances and settings →";
-  dialog.append(title, status, body, account, close);
+  account.className = "wallet-dialog-account-link";
+  heading.append(eyebrow, title);
+  header.append(heading, close);
+  dialog.append(header, status, body, account);
   document.body.append(dialog);
   let version = 0;
   close.addEventListener("click", () => dialog.close());

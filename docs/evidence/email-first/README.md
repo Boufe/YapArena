@@ -37,10 +37,16 @@ Coverage: 94.22% lines, 92.76% branches, 95.45% functions. The production image
 also built with the locked dependencies. Real Redis checks used two clients,
 100 atomic concurrent increments, TTL expiry and bounded outage failure.
 
-Real CAPTCHA validation, provider login, code delivery, recovery, credential
+These fixture results do not establish real CAPTCHA validation, provider login or
+code delivery. Separately, the founder completed a genuine hosted email signup;
+the [backend inspection](hosted-signup.json) confirms exactly one new stable
+account/provider mapping and preserves the manual account. Recovery, credential
 management and hosted revocation remain separate gates. The hosted protected
 auth request passed its Redis control after rollout. The [selected reset
 report](reset-selected.json) records the requested deletion of IDs 1–4 with
 unselected accounts, content and immutable history preserved. No funded issuance,
 purchase/redemption adapter, financial reconciliation or complete account
 acceptance is claimed. See the [current work record](../../email-first-accounts.md).
+
+The separately requested [visual refresh](../account-refresh/README.md) supersedes
+these original interface screenshots and expands the local account/dialog checks.

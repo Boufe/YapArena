@@ -18,8 +18,11 @@ adds Privy/session and Redis foundations, read-only USDC-denominated balances an
 an explicit staging-reset operator. The selected staging deletion removed IDs
 1–4 after encrypted backup and restore/concurrency rehearsal, preserving the
 three accounts the founder explicitly retained. The feature revision is live
-with shared Redis connectivity and ordinary signup enabled. It has not established
-genuine hosted signup, recovery, money movement or full account acceptance. Existing A4 remains nonredeemable
+with shared Redis connectivity and ordinary signup enabled. The founder completed
+genuine hosted email signup; backend inspection confirmed one new account and
+provider mapping. The [account visual refresh](evidence/account-refresh/README.md)
+adds focused authentication, an account dashboard and clearer withdrawal progress.
+Recovery, money movement and full account acceptance remain open. Existing A4 remains nonredeemable
 play money; the new 100 YC/USDC direction does not convert historical grants or
 satisfy the combined paid-release gates.
 

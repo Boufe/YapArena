@@ -10,12 +10,12 @@ Email verification codes are primary. Google and passkeys are optional. Public
 discovery/watching stay public; initial profiles are optional. Financial
 eligibility is collected at the financial boundary, not ordinary signup.
 
-| Phase | Scope                                                 | Current boundary                                                                                                     |
-| ----- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| A     | Privy, onboarding, stable accounts, sessions/settings | Foundation implemented; hosted delivery, recovery/linking and device acceptance outstanding                          |
-| B     | Shared Redis controls and justified caches            | Local multi-client/outage checks passed; staging protected request passed its Redis control                          |
-| C     | Redeemable YC, sandbox funding/redemption             | Ledger foundation/read-only balances; no financial adapter or usable money workflow                                  |
-| D     | Authorized reset and final acceptance                 | Selected IDs 1–4 deleted after encrypted backup/rehearsal; IDs 72,73,134 preserved; genuine signup trial outstanding |
+| Phase | Scope                                                 | Current boundary                                                                                                       |
+| ----- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| A     | Privy, onboarding, stable accounts, sessions/settings | Genuine hosted email signup verified; recovery/linking, optional methods and device acceptance outstanding             |
+| B     | Shared Redis controls and justified caches            | Local multi-client/outage checks passed; staging protected request passed its Redis control                            |
+| C     | Redeemable YC, sandbox funding/redemption             | Ledger foundation/read-only balances; no financial adapter or usable money workflow                                    |
+| D     | Authorized reset and final acceptance                 | Selected IDs 1–4 deleted after backup/rehearsal; three retained accounts and the founder's new manual signup preserved |
 
 These phases preserve the combined [pre-funds gates](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds).
 Unresolved financial decisions do not block independent authentication work.
@@ -264,15 +264,45 @@ ordinary signup is enabled.
 
 Deleted IDs have no account/session/wallet/challenge rows, so their old app
 session lookups cannot authorize. An actual pre-reset browser-cookie replay was
-not captured. No Privy users existed before deletion. Genuine hosted email
-signup, provider-session revocation/recovery and stale-token replay remain
-acceptance gates. Acceptance identities created by this work must be cleaned up;
-the three explicitly retained accounts must remain.
+not captured. No Privy users existed before deletion. The founder then completed
+a genuine hosted email signup. [Read-only verification](evidence/email-first/hosted-signup.json)
+confirmed one verified provider identity, exactly one new stable account, one
+active app session and one consumed provider-session exchange. The four deleted
+IDs remain absent. There are now four accounts: the three retained accounts and
+the founder's new manual signup, which must be preserved. Automation created no
+acceptance identities. No live coin journal or promotional grant was issued.
+Provider-session revocation/recovery and stale-token replay remain acceptance gates.
+
+## Account visual refresh
+
+The founder separately requested a redesign of authentication, account settings
+and the Yap Coins popup. The refresh keeps the shared navigation and navy/mint
+theme, adds a focused email/code panel and organizes profile, security, linked
+wallets and activity into a responsive dashboard. The withdrawal amount has a
+prominent numeric display, with available/reserved/pending/promotional balances,
+independent grant targets and permanent-qualification indicators. The preview
+continues to state that purchases and withdrawals are unavailable.
+
+The existing profile, legacy login, wallet-authorization and session controllers
+remain in use. Strict TypeScript/TSX owns the changed browser behavior; the new
+server markup is isolated in `src/features/discovery/account-web.ts`. No wallet,
+provider identity or financial state is created by this visual change. The Privy
+email island disables unused external-wallet discovery using the locked SDK's
+typed configuration; the separate native-wallet controller is retained. CSP is
+not broadened to accommodate unnecessary WalletConnect explorer requests.
+
+[Matched screenshots and browser results](evidence/account-refresh/README.md)
+separate synthetic authenticated views from real anonymous staging observations.
+The local fixture verifies profile creation/publication and permanent handles,
+session sign-out controls, exact return paths, keyboard/code behavior and
+menu/dialog focus restoration. Automated WCAG AA-tag checks cover the email
+form, signed-in area and wallet dialog. Manual screen-reader and physical-device
+acceptance, complete WCAG 2.2 AA conformance and provider recovery remain unverified.
 
 ## Evidence
 
-The refreshed complete local gate passed **524 tests, no skips**, with 94.22%
-lines, 92.76% branches and 95.45% functions; fresh/upgrade database isolation and
+The refreshed complete local gate passed **524 tests, no skips**, with 93.92%
+lines, 92.75% branches and 95.30% functions; fresh/upgrade database isolation and
 the core browser release gate passed. Real local Redis checks passed with two
 clients, 100 concurrent atomic increments, TTL expiration and bounded outage
 failure. The production Docker image built successfully after an authorized
@@ -289,7 +319,9 @@ SSR fixtures at identical 1440x1000 and 390x844 viewports. The installed SDK run
 with live public metadata (CAPTCHA disabled in the fixture response only), intercepted OTP endpoints, optional-method fixture
 flags and synthetic money balances. These checks include exact return paths,
 keyboard/focus, code errors, refresh, independent grant bars, modal/menu closing,
-no overflow and automated WCAG tags under the account CSP. They do not prove
-email delivery, hosted signup, recovery, screen-reader usability, physical-device
-passkeys or complete WCAG 2.2 AA conformance. Real provider sessions, financial
-workflows, the authorized reset and final empty-environment acceptance remain open.
+no overflow and automated WCAG tags under the account CSP. Synthetic checks do
+not prove email delivery, hosted signup, recovery, screen-reader usability,
+physical-device passkeys or complete WCAG 2.2 AA conformance. Genuine hosted
+signup and the selected reset have separate evidence above. Financial workflows,
+recovery and full provider-session acceptance remain open. The founder narrowed
+the reset scope; an empty environment is no longer the requested final state.

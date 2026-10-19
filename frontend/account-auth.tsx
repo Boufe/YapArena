@@ -18,6 +18,14 @@ type Config = {
   passkeys?: boolean;
 };
 const root = document.querySelector<HTMLElement>("#email-auth");
+for (const link of document.querySelectorAll<HTMLAnchorElement>(
+  "[data-auth-return]",
+))
+  link.href =
+    safeAuthReturn(
+      new URLSearchParams(location.search).get("next"),
+      location.origin,
+    ) ?? "/debates";
 const channel =
   "BroadcastChannel" in window
     ? new BroadcastChannel("yaparena-account")
@@ -187,14 +195,39 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
   }
   const seconds = Math.max(0, Math.ceil((resendAt - clock) / 1_000));
   return (
-    <div className="auth-card" aria-busy={!ready || busy}>
+    <div className="auth-card" data-step={step} aria-busy={!ready || busy}>
+      <div className="auth-card-top">
+        <span className="auth-emblem" aria-hidden="true">
+          <svg
+            viewBox="0 0 40 40"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <ellipse
+              cx="20"
+              cy="20"
+              rx="12"
+              ry="15"
+              transform="rotate(30 20 20)"
+            />
+            <path d="m10 33 20-26" />
+          </svg>
+        </span>
+        <span className="auth-step">
+          STEP {step === "email" ? "01" : "02"}
+          <span> / 02</span>
+        </span>
+      </div>
+      <div className="auth-step-track" aria-hidden="true">
+        <span />
+        <span />
+      </div>
       <span className="eyebrow accent">WELCOME TO YAPARENA</span>
-      <h2>
-        {step === "email" ? "Your ideas. Your account." : "Check your email"}
-      </h2>
-      <p>
+      <h2>{step === "email" ? "Make yourself heard." : "Check your inbox."}</h2>
+      <p className="auth-description">
         {step === "email" ? (
-          "Sign in or create an account with your email."
+          "Your email is all you need to get started."
         ) : (
           <>
             We sent a verification code to <strong>{email}</strong>.
@@ -223,6 +256,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
             id="auth-email"
             name="email"
             type="email"
+            placeholder="you@example.com"
             autoComplete="email"
             inputMode="email"
             autoCapitalize="none"
@@ -253,6 +287,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
             id="auth-code"
             name="code"
             type="text"
+            placeholder="000000"
             inputMode="numeric"
             autoComplete="one-time-code"
             pattern="[0-9]{6}"
@@ -317,6 +352,9 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
               }, "Google sign-in was cancelled or unavailable. You can try email instead.")
             }
           >
+            <span className="auth-provider-mark" aria-hidden="true">
+              G
+            </span>
             Continue with Google
           </button>
         )}
@@ -332,6 +370,17 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
               }, "Passkey sign-in was cancelled or no matching passkey was found. Try email.")
             }
           >
+            <svg
+              className="auth-provider-icon"
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+            >
+              <circle cx="8" cy="9" r="4" />
+              <path d="m11 12 8 8m-4-4 3-3m-1 5 3-3" />
+            </svg>
             Use a passkey
           </button>
         )}
@@ -412,15 +461,18 @@ function Settings() {
   return settingsRoot
     ? createSettingsPortal(
         <>
-          <span className="eyebrow">SIGN-IN &amp; RECOVERY</span>
-          <h3>Your authentication methods</h3>
-          <p>
-            {userMethods.length
-              ? [...new Set(userMethods)]
-                  .map((method) => methodNames[method] ?? "Sign-in method")
-                  .join(" · ")
-              : "Sign-in methods are unavailable. Refresh to check again."}
-          </p>
+          <h3>Sign-in methods</h3>
+          <div className="auth-method-list">
+            {userMethods.length ? (
+              [...new Set(userMethods)].map((method) => (
+                <span className="auth-method-chip" key={method}>
+                  {methodNames[method] ?? "Sign-in method"}
+                </span>
+              ))
+            ) : (
+              <p>Sign-in methods are unavailable. Refresh to check again.</p>
+            )}
+          </div>
           <p>
             Keep access to your verified email. Changes to financial
             authorization require separate ownership verification.
@@ -450,6 +502,10 @@ if (root) {
           config={{
             loginMethods: ["email", "google", "passkey"],
             appearance: { theme: "dark", accentColor: "#d9ff65" },
+            externalWallets: {
+              disableAllExternalWallets: true,
+              walletConnect: { enabled: false },
+            },
             embeddedWallets: {
               ethereum: { createOnLogin: "off" },
               solana: { createOnLogin: "off" },

@@ -47,7 +47,8 @@ holds an actual workspace request and checks a single creation request/run/open
 round after readiness. PR #39 passed all five required CI checks and was merged
 into the operational TypeScript branch before integrating that branch into main.
 The separate [CI integration correction](evidence/ci-integration/2026-10-19.md)
-foregrounds pages before observing their intentionally visibility-dependent polling
+foregrounds pages and ends active inspection before observing their intentionally
+visibility-dependent polling
 and handles checked-out delivery-client error events during cancellation. These
 authorized corrections follow the behavior-preserving conversion; they do not
 change its recorded historical evidence or resolve hosted/device capacity gates.

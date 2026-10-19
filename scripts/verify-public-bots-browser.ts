@@ -1,6 +1,7 @@
-import type { BrowserContext } from "playwright-core";
+import type { BrowserContext, Response } from "playwright-core";
 import type { Pool } from "pg";
 import type { PublicBotActivity } from "../src/features/a4/public-bot-types.ts";
+import type { HomeData } from "../src/features/discovery/homepage-model.ts";
 import type { Run } from "./browser-fixture-types.ts";
 /* global document,window */
 import assert from "node:assert/strict";
@@ -58,6 +59,14 @@ export async function verifyPublicBotsBrowser({
     return data;
   }
   const shots = [];
+  const homepageResponses: Response[] = [];
+  home.on("response", (response) => {
+    if (
+      new URL(response.url()).pathname === "/api/public/homepage" &&
+      response.status() === 200
+    )
+      homepageResponses.push(response);
+  });
   try {
     const seed = () =>
       promisify(execFile)(process.execPath, ["scripts/seed-public-bots.ts"], {
@@ -83,6 +92,7 @@ export async function verifyPublicBotsBrowser({
     await watch.goto(base + "/debates/" + debateSlug);
     home.setDefaultTimeout(20000);
     watch.setDefaultTimeout(20000);
+    await home.bringToFront();
     const dismiss = home.getByRole("button", { name: "Not now", exact: true });
     if (await dismiss.isVisible()) await dismiss.click();
     await home.locator(`[data-trending="${topic}"]`).click();
@@ -119,6 +129,16 @@ export async function verifyPublicBotsBrowser({
     checks.databaseBackedHomeExpansionAndDebateArguments = true;
     const account = (await api<{ user: { id: string } }>("auth/me")).user.id;
     async function round(mode: "mixed" | "observer", label: string) {
+      const inspecting = mode === "observer";
+      const previousRound = await home
+        .locator("#ya-chart")
+        .getAttribute("data-latest-round");
+      if (inspecting) {
+        await home.bringToFront();
+        await home.locator("#ya-carousel .ya-scrub-control input").focus();
+        await home.locator("#ya-carousel-count").hover();
+        assert.equal(await home.locator("#ya-chart.is-scrubbing").count(), 1);
+      }
       const created = await api<{ id: string }>("a4/runs", {
         debateId: debate,
         mode,
@@ -152,9 +172,52 @@ export async function verifyPublicBotsBrowser({
         await delay(500);
       }
       assert.equal(complete.state, "complete");
-      // Hidden tabs intentionally pause polling; observe each visible UI in turn.
+      if (inspecting) {
+        const containsRound = async (response: Response) => {
+          if (
+            new URL(response.url()).pathname !== "/api/public/homepage" ||
+            response.status() !== 200
+          )
+            return false;
+          const snapshot: HomeData = await response.json();
+          return snapshot.ideas.some(
+            (idea) =>
+              idea.id === topic && idea.activity?.items.at(-1)?.id === id,
+          );
+        };
+        let received = false;
+        for (const response of homepageResponses) {
+          if (await containsRound(response)) {
+            received = true;
+            break;
+          }
+        }
+        if (!received)
+          await home.waitForResponse(containsRound, { timeout: 20000 });
+        assert.equal(
+          await home.locator("#ya-chart").getAttribute("data-latest-round"),
+          previousRound,
+          "active inspection holds a received settlement until interaction ends",
+        );
+      }
+      // Observe polling only after foregrounding and ending chart interaction.
       await home.bringToFront();
+      await home.locator("#ya-search").click();
+      await home.mouse.move(0, 0);
       assert.equal(await home.evaluate(() => document.hidden), false);
+      assert.deepEqual(
+        await home.evaluate(() => ({
+          carouselActive: document
+            .querySelector("#ya-carousel")!
+            .matches(":hover,:focus-within"),
+          tickerActive: document
+            .querySelector(".ya-ticker")!
+            .matches(":hover,:focus-within"),
+          inspecting: document.querySelectorAll(".is-scrubbing").length,
+        })),
+        { carouselActive: false, tickerActive: false, inspecting: 0 },
+        "live refresh observation requires an idle homepage",
+      );
       await home.waitForFunction(
         (id) =>
           document.querySelector<SVGSVGElement>("#ya-chart")?.dataset
@@ -169,6 +232,7 @@ export async function verifyPublicBotsBrowser({
         id,
         { timeout: 20000 },
       );
+      if (inspecting) checks.activeInspectionDefersAndIdleReleasesUpdate = true;
       await watch.bringToFront();
       assert.equal(await watch.evaluate(() => document.hidden), false);
       await watch.locator(`[data-chart-round="${id}"]`).waitFor();
@@ -267,8 +331,6 @@ export async function verifyPublicBotsBrowser({
     checks.signedOutSharedHistoryWithoutPrivateAccess = true;
     await watch.bringToFront();
     await watch.locator("[data-inline-publish]").uncheck();
-    await home.locator("#ya-search").focus();
-    await home.mouse.move(0, 0);
     await watch.waitForFunction(
       (id) =>
         !document.querySelector<HTMLElement>(`[data-chart-round="${id}"]`)!,
@@ -281,6 +343,8 @@ export async function verifyPublicBotsBrowser({
       36,
     );
     await home.bringToFront();
+    await home.locator("#ya-search").click();
+    await home.mouse.move(0, 0);
     await home.waitForFunction(
       (id) =>
         document.querySelector<SVGSVGElement>("#ya-chart")?.dataset
@@ -318,6 +382,33 @@ export async function verifyPublicBotsBrowser({
     );
     console.log(JSON.stringify({ result: "PASS", checks }));
   } catch (error) {
+    await home.screenshot({
+      path: artifactDir + "/home-failure.png",
+      fullPage: true,
+    });
+    await writeFile(
+      artifactDir + "/evidence.json",
+      JSON.stringify(
+        {
+          result: "FAIL",
+          checks,
+          home: await home.evaluate(() => ({
+            hidden: document.hidden,
+            focused: document.activeElement?.id,
+            hovered: Array.from(
+              document.querySelectorAll(":hover"),
+              (n) => n.id || n.tagName,
+            ),
+            inspecting: document.querySelectorAll(".is-scrubbing").length,
+            latestRound:
+              document.querySelector<SVGSVGElement>("#ya-chart")?.dataset
+                .latestRound,
+          })),
+        },
+        null,
+        2,
+      ) + "\n",
+    );
     await watch.screenshot({
       path: artifactDir + "/failure.png",
       fullPage: true,

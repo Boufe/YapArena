@@ -227,6 +227,18 @@ function credentialError(signature = "synthetic-wallet-signature") {
 }
 
 describe("credential-safe HTTP logs", () => {
+  it("omits account OAuth query credentials from HTTP completion logs", async () => {
+    const { app, capture } = fixture();
+    const requestId = "logger-oauth-return";
+    await request(app)
+      .get(
+        "/account?privy_oauth_code=synthetic-oauth-secret&privy_oauth_state=synthetic-state",
+      )
+      .set("X-Request-Id", requestId);
+    const record = await capture.completion(requestId, 404, 40);
+    assert.equal(record.req.url, "/account");
+    capture.assertAbsent(["synthetic-oauth-secret", "synthetic-state"]);
+  });
   it("redacts registration response cookies with the real app logger", async () => {
     const { app, capture, sessionRecords } = fixture();
     const requestId = "logger-registration";

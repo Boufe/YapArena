@@ -27,6 +27,12 @@ for (const [id, path, retainCurrent] of [
           notice.textContent =
             "Other sessions signed out. This device is still signed in.";
         } else {
+          window.dispatchEvent(new Event("yap:provider-logout"));
+          if ("BroadcastChannel" in window) {
+            const channel = new BroadcastChannel("yaparena-account");
+            channel.postMessage("changed");
+            channel.close();
+          }
           document.querySelector<HTMLElement>("#signed-in")!.hidden = true;
           document.querySelector<HTMLElement>("#signed-out")!.hidden = false;
           notice.textContent =

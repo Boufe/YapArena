@@ -1,5 +1,11 @@
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
+import type { IdentityVerifier } from "./privy.ts";
+import { ProviderUnavailableError } from "./privy.ts";
+import {
+  ProviderAccountError,
+  type createProviderAccounts,
+} from "./provider-accounts.ts";
 import { publicUser } from "./users.ts";
 import type { PublicUser, AuthenticationUser } from "./users.ts";
 import { SessionUnavailableError } from "./sessions.ts";
@@ -50,7 +56,7 @@ function isUniqueViolation(error: unknown) {
   );
 }
 
-function getCookieSettings(environment: string) {
+export function getCookieSettings(environment: string) {
   const isProduction = environment === "production";
 
   return {
@@ -106,6 +112,10 @@ export function createAuthRouter({
   sessionDurationMs = 7 * 24 * 60 * 60 * 1_000,
   authRateLimit = 10,
   rateLimitWindowMs = 15 * 60 * 1_000,
+  provider,
+  recordAuth = () => {},
+  synchronizeProvider,
+  sharedAccountLimiter,
 }: {
   users: ReturnType<typeof createUserRepository>;
   sessions: ReturnType<typeof createSessionRepository>;
@@ -117,6 +127,19 @@ export function createAuthRouter({
   sessionDurationMs?: number;
   authRateLimit?: number;
   rateLimitWindowMs?: number;
+  provider?: {
+    appId: string;
+    clientId?: string;
+    verifier: IdentityVerifier;
+    accounts: ReturnType<typeof createProviderAccounts>;
+  };
+  recordAuth?: (
+    event: string,
+    seconds?: number,
+    phase?: "journey" | "exchange",
+  ) => void;
+  synchronizeProvider?: (userId: string) => Promise<void>;
+  sharedAccountLimiter?: express.RequestHandler;
 }) {
   const router = express.Router();
   const cookie = getCookieSettings(environment);
@@ -138,6 +161,129 @@ export function createAuthRouter({
     next();
   });
 
+  router.get("/provider", async (_request, response) => {
+    if (!provider) return response.json({ enabled: false });
+    try {
+      const methods = await provider.verifier.configuration();
+      return response.json({
+        enabled: true,
+        appId: provider.appId,
+        clientId: provider.clientId,
+        ...methods,
+      });
+    } catch {
+      return response
+        .status(503)
+        .json({ error: "sign-in is temporarily unavailable" });
+    }
+  });
+  router.post("/journey", authLimiter, (request, response) => {
+    const events = new Set([
+      "started",
+      "completed",
+      "code_sent",
+      "code_resent",
+      "provider_error",
+      "recovery_started",
+      "recovery_completed",
+      "cancelled",
+    ]);
+    const { event, seconds } = request.body ?? {};
+    if (
+      !request.body ||
+      Object.keys(request.body).some(
+        (key) => key !== "event" && key !== "seconds",
+      ) ||
+      !events.has(event) ||
+      (seconds !== undefined &&
+        (typeof seconds !== "number" ||
+          !Number.isFinite(seconds) ||
+          seconds < 0 ||
+          seconds > 600))
+    )
+      return response.status(400).json({ error: "invalid journey event" });
+    recordAuth(event, seconds);
+    return response.status(204).end();
+  });
+  router.post("/privy/exchange", authLimiter, async (request, response) => {
+    const exchangeStart = performance.now();
+    if (!provider)
+      return response
+        .status(503)
+        .json({ error: "email verification is not configured" });
+    // Login CSRF applies even before there is an application cookie.
+    if (request.get("origin") !== applicationOrigin)
+      return response
+        .status(403)
+        .json({ error: "request origin is not allowed" });
+    const currentToken = request.cookies[cookie.name];
+    if (
+      typeof currentToken === "string" &&
+      (await sessions.findUserByTokenHash(hashSessionToken(currentToken)))
+    )
+      return response.status(409).json({
+        error: "already signed in; sign out before changing accounts",
+      });
+    const header = request.get("authorization");
+    if (!header?.startsWith("Bearer ") || header.length > 12_000)
+      return response
+        .status(401)
+        .json({ error: "provider authentication required" });
+    let identity;
+    try {
+      identity = await provider.verifier.verify(header.slice(7));
+    } catch (error) {
+      recordAuth("provider_error");
+      if (error instanceof ProviderUnavailableError)
+        return response
+          .status(503)
+          .json({ error: "sign-in is temporarily unavailable" });
+      return response
+        .status(401)
+        .json({ error: "provider verification failed; sign in again" });
+    }
+    try {
+      const { token, tokenHash } = createSessionToken();
+      const result = await provider.accounts.exchange(
+        identity,
+        tokenHash,
+        new Date(now() + sessionDurationMs),
+      );
+      response.cookie(cookie.name, token, {
+        ...cookie.options,
+        maxAge: sessionDurationMs,
+      });
+      recordAuth(
+        result.created ? "signup_completed" : "signin_completed",
+        (performance.now() - exchangeStart) / 1000,
+        "exchange",
+      );
+      return response
+        .status(result.created ? 201 : 200)
+        .json({ user: publicUser(result.user), created: result.created });
+    } catch (error) {
+      if (error instanceof ProviderAccountError)
+        return response.status(error.status).json({ error: error.message });
+      if (error instanceof SessionUnavailableError)
+        return response.status(401).json({ error: "account unavailable" });
+      throw error;
+    }
+  });
+  router.get("/methods", requireAuthentication, async (request, response) =>
+    response.json({
+      provider: provider
+        ? await provider.accounts.details(request.user!.id)
+        : null,
+      legacyPassword: Boolean(request.user!.email),
+    }),
+  );
+  if (sharedAccountLimiter)
+    router.use(
+      "/wallet/operations",
+      requireAuthentication,
+      sharedAccountLimiter,
+    );
+
   async function startSession(
     user: AuthenticationUser,
     response: Response,
@@ -154,6 +300,8 @@ export function createAuthRouter({
   }
 
   router.post("/register", authLimiter, async (request, response) => {
+    if (provider)
+      return response.status(410).json({ error: "use verified email signup" });
     const email = normalizeEmail(request.body?.email);
     const password = request.body?.password;
 
@@ -255,6 +403,13 @@ export function createAuthRouter({
             retainCurrent,
             String(request.id),
           );
+          if (synchronizeProvider) {
+            try {
+              await synchronizeProvider(request.user!.id);
+            } catch {
+              recordAuth("provider_revocation_retry");
+            }
+          }
         } catch (error) {
           if (error instanceof SessionUnavailableError)
             return response

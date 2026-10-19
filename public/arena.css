@@ -221,6 +221,66 @@ textarea::placeholder {
 .arena-wallet-popover a {
   font-size: 0.85rem;
 }
+.wallet-money-summary {
+  border-top: 1px solid var(--border, #354551);
+  margin-top: 12px;
+  padding-top: 12px;
+  max-height: 24rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.arena-wallet-popover.wallet-progress-enabled {
+  width: min(24rem, calc(100vw - 32px));
+  max-height: calc(100dvh - 180px);
+  overflow-y: auto;
+}
+.wallet-progress-enabled .wallet-money-summary {
+  border-top: 0;
+  max-height: none;
+  overflow: visible;
+  margin-top: 0;
+  padding-top: 0;
+}
+.wallet-money-summary p {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.wallet-grant-progress > div {
+  margin-block: 16px;
+}
+.wallet-grant-progress label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.wallet-grant-progress progress {
+  display: block;
+  width: 100%;
+  height: 12px;
+  margin-top: 8px;
+  accent-color: var(--acid);
+}
+.wallet-balance-dialog {
+  width: min(32rem, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  padding: 24px;
+  color: var(--text);
+  background: #0e1d2b;
+  border: 1px solid #355268;
+  border-radius: 14px;
+}
+.wallet-balance-dialog::backdrop {
+  background: #030c16bd;
+}
+.wallet-balance-dialog > a {
+  display: block;
+  margin-block: 16px;
+}
+.wallet-balance-dialog > button {
+  min-height: 44px;
+}
 .arena-avatar {
   display: grid;
   place-items: center;

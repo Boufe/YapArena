@@ -12,6 +12,8 @@
     "allowImportingTsExtensions": true
   },
   "files": [
+    "scripts/verify-auth-redis.ts",
+    "scripts/reset-test-accounts.ts",
     "scripts/provision-database.ts",
     "scripts/migrate-database.ts",
     "scripts/inventory-database.ts",

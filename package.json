@@ -7,7 +7,7 @@
     "build:frontend": "node scripts/build-frontend.ts",
     "watch:frontend": "node scripts/build-frontend.ts --watch",
     "typecheck": "npm run typecheck:operations && npm run typecheck:frontend",
-    "typecheck:frontend": "node scripts/build-frontend.ts --check-sources && tsc --project tsconfig.frontend.json && tsc --project tsconfig.service-worker.json && tsc --project tsconfig.frontend-build.json",
+    "typecheck:frontend": "node scripts/build-frontend.ts --check-sources && tsc --project tsconfig.frontend.json && tsc --project tsconfig.frontend-auth.json && tsc --project tsconfig.service-worker.json && tsc --project tsconfig.frontend-build.json",
     "test": "npm run build && node --test tests/*.test.js",
     "test:revocation": "npm run build && node --test tests/session-revocation-postgres.test.js",
     "test:coverage": "npm run build && node --test --experimental-test-coverage --test-coverage-exclude=scripts/** --test-coverage-exclude=tests/** --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 tests/*.test.js",
@@ -32,7 +32,10 @@
     "verify:replay-pipeline": "npm run build && node scripts/verify-replay-pipeline.ts",
     "report:playback": "node scripts/report-playback.js",
     "typecheck:operations": "tsc --project tsconfig.json --emitDeclarationOnly && tsc --project tsconfig.database-tools.json && tsc --project tsconfig.browser-automation.json && tsc --project tsconfig.community-tools.json && tsc --project tsconfig.replay-tools.json && tsc --project tsconfig.edge.json",
-    "verify:community-native-setup": "npm run build && LC_ALL=C LANG=C COMMUNITY_POSTGRES_MODE=host node scripts/verify-community-local.ts --setup-only"
+    "verify:community-native-setup": "npm run build && LC_ALL=C LANG=C COMMUNITY_POSTGRES_MODE=host node scripts/verify-community-local.ts --setup-only",
+    "verify:auth-redis": "node scripts/verify-auth-redis.ts",
+    "verify:email-auth-browser": "node scripts/verify-email-auth-browser.ts",
+    "reset:test-accounts": "node scripts/reset-test-accounts.ts"
   },
   "keywords": [],
   "author": "",
@@ -44,11 +47,21 @@
   },
   "allowScripts": {
     "argon2@0.45.1": true,
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "@reown/appkit@1.8.9": false,
+    "bufferutil@4.1.0": false,
+    "keccak@3.0.4": false,
+    "utf-8-validate@5.0.10": false
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1142.0",
     "@aws-sdk/s3-request-presigner": "^3.1142.0",
+    "@privy-io/node": "0.36.0",
+    "@privy-io/react-auth": "3.50.0",
+    "@solana-program/memo": "0.10.0",
+    "@solana-program/system": "0.10.0",
+    "@solana-program/token": "0.8.0",
+    "@solana/kit": "5.1.0",
     "argon2": "^0.45.1",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
@@ -58,11 +71,15 @@
     "livekit-client": "^2.22.3",
     "livekit-server-sdk": "^2.19.1",
     "node-pg-migrate": "^9.0.0",
+    "ox": "0.8.9",
     "pg": "^8.22.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "prom-client": "^15.1.3",
     "qrcode": "^1.5.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "redis": "6.3.0",
     "viem": "^2.57.0"
   },
   "devDependencies": {
@@ -72,6 +89,8 @@
     "@types/node": "^24.19.0",
     "@types/pg": "^8.23.1",
     "@types/qrcode": "^1.5.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "@types/supertest": "^7.2.1",
     "axe-core": "^4.13.0",
     "esbuild": "^0.28.2",
@@ -83,5 +102,9 @@
     "supertest": "^7.2.2",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1"
+  },
+  "overrides": {
+    "ws": "8.22.0",
+    "decode-uri-component": "0.5.0"
   }
 }

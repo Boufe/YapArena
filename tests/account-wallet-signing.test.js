@@ -51,6 +51,7 @@ function page({
     TextEncoder,
     URL,
     window: {
+      addEventListener() {},
       location: { search: "", origin },
       ethereum: {
         async request({ method, params }) {

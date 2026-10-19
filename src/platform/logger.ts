@@ -49,7 +49,16 @@ export function createHttpLogger(logger: Logger) {
     // Honor the parent's safe err serializer; pino-http otherwise replaces it.
     wrapSerializers: false,
     serializers: {
-      req: pino.stdSerializers.req,
+      req(request) {
+        const record = pino.stdSerializers.req(request);
+        // OAuth redirects carry single-use credentials in the account URL.
+        // Keep the route useful for operations without persisting query values.
+        if (/^\/account(?:[/?]|$)/.test(record.url ?? "")) {
+          record.url = record.url.replace(/\?.*$/, "");
+          record.query = {};
+        }
+        return record;
+      },
       res: pino.stdSerializers.res,
     },
     quietReqLogger: true,

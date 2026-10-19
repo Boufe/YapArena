@@ -255,6 +255,27 @@ async function loadAccount() {
     signedIn.hidden = false;
     document.querySelector<HTMLElement>("#account-name")!.textContent =
       user.email || "Wallet account";
+    if (document.querySelector("#email-auth")) {
+      const methods = await api<{
+        provider: { email: string | null } | null;
+        legacyPassword: boolean;
+      }>("/api/auth/methods");
+      passwordAvailable = methods.legacyPassword;
+      document.querySelector<HTMLElement>("#account-name")!.textContent =
+        methods.provider?.email || user.email || "Your account";
+      const balance = await api<{
+        available: string;
+        reserved: string;
+        pending: string;
+        promotional: string;
+      }>("/api/account-wallet");
+      for (const [kind, amount] of Object.entries(balance)) {
+        const target = document.querySelector<HTMLElement>(
+          `[data-funds="${kind}"]`,
+        );
+        if (target) target.textContent = `${amount} YC`;
+      }
+    }
     await Promise.all([
       loadProfile(),
       loadWallets(),
@@ -299,6 +320,12 @@ document
   .addEventListener("click", async () => {
     try {
       await api("/api/auth/logout", "POST");
+      window.dispatchEvent(new Event("yap:provider-logout"));
+      if ("BroadcastChannel" in window) {
+        const channel = new BroadcastChannel("yaparena-account");
+        channel.postMessage("changed");
+        channel.close();
+      }
       await loadAccount();
     } catch (error) {
       say((error as AccountError).message);
@@ -572,4 +599,8 @@ document
     }
   });
 
+window.addEventListener("yap:account-changed", () => void loadAccount());
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) void loadAccount();
+});
 loadAccount();

@@ -22,7 +22,7 @@ export class SessionUnavailableError extends Error {}
 export async function lockAccount(client: PoolClient, userId: string) {
   const result = await client.query<StoredUser>(
     `SELECT id, email, password_hash AS "passwordHash", created_at AS "createdAt",
-       auth_generation AS "authGeneration" FROM users WHERE id = $1 FOR UPDATE`,
+       auth_generation AS "authGeneration" FROM users WHERE id = $1 AND account_status = 'active' FOR UPDATE`,
     [userId],
   );
   return result.rows[0] ?? null;
@@ -37,6 +37,7 @@ export async function assertActiveSession(
     `SELECT s.id, s.user_id AS "userId", s.expires_at AS "expiresAt",
        s.created_at AS "createdAt" FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.user_id = $1 AND s.token_hash = $2
+       AND u.account_status = 'active'
        AND s.auth_generation = u.auth_generation AND s.expires_at > clock_timestamp()
      FOR UPDATE OF s`,
     [userId, tokenHash],
@@ -170,6 +171,7 @@ export function createSessionRepository(database: Pool) {
          FROM sessions
          INNER JOIN users ON users.id = sessions.user_id
          WHERE sessions.token_hash = $1
+           AND users.account_status = 'active'
            AND sessions.auth_generation = users.auth_generation
            AND sessions.expires_at > clock_timestamp()`,
         [tokenHash],

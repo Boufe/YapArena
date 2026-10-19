@@ -89,6 +89,16 @@ const exec = promisify(execFile);
 const applicationTables = [
   ...Object.keys(runtimeGrants),
   "wallet_operations",
+  "provider_identities",
+  "provider_session_exchanges",
+  "provider_revocation_jobs",
+  "account_subjects",
+  "auth_controls",
+  "coin_accounts",
+  "coin_grant_lots",
+  "coin_grant_profit_events",
+  "coin_journals",
+  "coin_postings",
   ...deliveryTables,
   ...receiptTables,
   ...replayJobTables,
@@ -182,7 +192,8 @@ async function browserChecks(admin: pg.Client) {
         relkind: string;
         column: string | null;
       }>(`SELECT c.relname, c.relkind,
-        (SELECT attname FROM pg_attribute WHERE attrelid=c.oid AND attnum>0 AND NOT attisdropped ORDER BY attnum LIMIT 1) AS column FROM pg_class c
+        (SELECT attname FROM pg_attribute WHERE attrelid=c.oid AND attnum>0 AND NOT attisdropped
+          AND attidentity<>'a' AND attgenerated='' ORDER BY attnum LIMIT 1) AS column FROM pg_class c
         JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='yaparena'
         AND c.relkind IN ('r','p','v','m','S')`);
       // Use savepoints because expected permission errors abort a transaction.

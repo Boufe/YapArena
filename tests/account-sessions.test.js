@@ -29,12 +29,14 @@ function page({ confirm = true, response = { ok: true }, failure } = {}) {
   const calls = [];
   const prompts = [];
   vm.runInNewContext(source, {
+    Event,
     document: {
       querySelector(selector) {
         return elements[selector.slice(1)];
       },
     },
     window: {
+      dispatchEvent() {},
       confirm(message) {
         prompts.push(message);
         return confirm;

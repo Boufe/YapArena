@@ -99,6 +99,7 @@ if (headerBalance) {
     }
   }
   window.addEventListener("yap:balance", (event) => showBalance(event.detail));
+  window.addEventListener("yap:account-changed", refreshHeader);
   window.addEventListener("focus", refreshHeader);
   setInterval(() => {
     if (!document.hidden) void refreshHeader();
@@ -176,7 +177,7 @@ function initializeFollows(scope: ParentNode = document) {
         });
         if (response.status === 401) {
           window.location.assign(
-            `/account?next=${encodeURIComponent(window.location.pathname)}`,
+            `/account?next=${encodeURIComponent(window.location.pathname + window.location.search + window.location.hash)}`,
           );
           return;
         }
@@ -214,3 +215,27 @@ window.addEventListener("yap:follow", (event) => {
 });
 window.yapFollows = { initialize: initializeFollows, read: readFollow };
 initializeFollows();
+
+// Retain the current round/action when this page's sign-in link returns here.
+document.addEventListener("click", (event) => {
+  if (!(event.target instanceof Element)) return;
+  const link = event.target.closest<HTMLAnchorElement>(
+    'a[href^="/account?next="]',
+  );
+  if (!link) return;
+  const account = new URL(link.href, window.location.origin);
+  const next = account.searchParams.get("next");
+  if (!next?.startsWith("/") || next.startsWith("//") || next.includes("\\"))
+    return;
+  const destination = new URL(next, window.location.origin);
+  if (
+    destination.origin === window.location.origin &&
+    destination.pathname === window.location.pathname
+  ) {
+    account.searchParams.set(
+      "next",
+      window.location.pathname + window.location.search + window.location.hash,
+    );
+    link.href = account.pathname + account.search;
+  }
+});

@@ -1,0 +1,94 @@
+.auth-card {
+  max-width: 34rem;
+  margin-inline: auto;
+}
+.account-email-intro {
+  padding-top: 36px;
+  padding-bottom: 16px;
+}
+.account-email-intro h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.15;
+  margin-block: 16px;
+}
+.account-email-intro h1 br {
+  display: none;
+}
+.account-email-intro h1 em::before {
+  content: " ";
+}
+#email-auth,
+#signed-out > details.information-card {
+  min-height: auto;
+}
+.auth-card h2 {
+  font-size: clamp(1.65rem, 4vw, 2.5rem);
+  line-height: 1.15;
+  margin-block: 1rem;
+}
+.auth-card .stack-form {
+  gap: 0.75rem;
+}
+.auth-card input {
+  width: 100%;
+  min-height: 48px;
+  background: var(--surface, #17191d);
+  color: #fff;
+  border: 1px solid #818587;
+  border-radius: 8px;
+  padding: 12px;
+  font: inherit;
+}
+.auth-card #auth-code {
+  font-size: 1.6rem;
+  letter-spacing: 0.3em;
+}
+.auth-status {
+  min-height: 3em;
+  color: #d6dbdb;
+}
+.auth-actions,
+.auth-alternatives {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.auth-actions button,
+.auth-alternatives button {
+  min-height: 44px;
+  flex: 1 1 10rem;
+}
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: #b9bfc0;
+  margin-block: 1.5rem;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  height: 1px;
+  background: #4c5354;
+  flex: 1;
+}
+.auth-card :focus-visible {
+  outline: 3px solid #d9ff65;
+  outline-offset: 4px;
+}
+.auth-card button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.account-balances {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.account-balances dt {
+  color: #b9bfc0;
+}
+.account-balances dd {
+  margin: 0.25rem 0 0;
+  font-size: 1.25rem;
+}

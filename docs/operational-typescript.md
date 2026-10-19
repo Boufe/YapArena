@@ -13,6 +13,11 @@ or production setting is added.
 
 ## Source inventory
 
+New email-first automation is also strict TypeScript: `reset-test-accounts` and
+`verify-auth-redis` are checked in the database-tools project;
+`verify-email-auth-browser` is checked in browser automation. The explicit reset
+is never imported by runtime or migrations. See [scope and limits](email-first-accounts.md).
+
 These former JavaScript files retain their names with a `.ts` extension:
 
 | Area                     | Sources under `scripts/`                                                                                                                                                                                    | Reason                                                                                                |

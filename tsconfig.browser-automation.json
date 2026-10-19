@@ -17,6 +17,7 @@
   "files": [
     "scripts/browser-automation-globals.d.ts",
     "scripts/verify-browser-release.ts",
+    "scripts/verify-email-auth-browser.ts",
     "scripts/verify-a4-browser.ts",
     "scripts/verify-arena-browser.ts",
     "scripts/verify-public-bots-browser.ts",

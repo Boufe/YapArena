@@ -20,6 +20,9 @@ import type { createMeasurementRepository } from "./features/measurement/reposit
 import type { createUserRepository } from "./platform/auth/users.ts";
 import type { createSessionRepository } from "./platform/auth/sessions.ts";
 import type { createWalletRepository } from "./platform/auth/wallets.ts";
+import type { RequestHandler } from "express";
+import type { createAccountWallet } from "./features/account-wallet/repository.ts";
+import { createEmailAuthSecurity } from "./platform/auth/browser-security.ts";
 
 import { createMessageRouter } from "./features/messages/router.ts";
 import { createDiscoveryRouter } from "./features/discovery/router.ts";
@@ -112,6 +115,11 @@ export function createApp({
   rateLimitWindowMs = 15 * 60 * 1_000,
   sessionDurationMs = 7 * 24 * 60 * 60 * 1_000,
   siweRpcUrls = {},
+  authProvider,
+  sharedAuthLimiter,
+  sharedAccountLimiter,
+  accountWallet,
+  synchronizeProvider,
 }: {
   messages: ReturnType<typeof createMessageRepository>;
   a4?: ReturnType<typeof createA4Repository>;
@@ -143,6 +151,11 @@ export function createApp({
   rateLimitWindowMs?: number;
   sessionDurationMs?: number;
   siweRpcUrls?: Readonly<Record<string, string>>;
+  authProvider?: Parameters<typeof createAuthRouter>[0]["provider"];
+  sharedAuthLimiter?: RequestHandler;
+  sharedAccountLimiter?: RequestHandler;
+  accountWallet?: ReturnType<typeof createAccountWallet>;
+  synchronizeProvider?: (userId: string) => Promise<void>;
 }) {
   const app = express();
   const mediaUrl = mediaProvider ? new URL(mediaProvider.publicUrl) : undefined;
@@ -184,6 +197,7 @@ export function createApp({
         })
       : helmet(),
   );
+  if (authProvider) app.use("/account", createEmailAuthSecurity(environment));
   const liveRead = (request: Request) =>
     request.method === "GET" &&
     /^\/api\/community\/events\/[0-9a-f-]{36}(?:\/my-like|\/chat\/sync|\/updates)?$/i.test(
@@ -230,6 +244,18 @@ export function createApp({
   app.use(express.json({ limit: requestBodyLimit }));
   app.use(cookieParser());
   app.use(createCsrfOriginProtection({ environment, applicationOrigin }));
+  if (sharedAuthLimiter)
+    app.use("/api/auth", (request, response, next) => {
+      // An abuse-store outage must never prevent logout or session inspection.
+      if (
+        request.method !== "POST" ||
+        ["/logout", "/logout-all", "/logout-other-sessions"].includes(
+          request.path,
+        )
+      )
+        return next();
+      return sharedAuthLimiter(request, response, next);
+    });
 
   app.get("/health", (_request, response) => {
     response.json({ status: "ok" });
@@ -273,6 +299,7 @@ export function createApp({
         a4Enabled: a4?.mode !== undefined && a4.mode !== "disabled",
         mediaEnabled: Boolean(media && mediaProvider && matching && identity),
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",
+        emailFirst: Boolean(authProvider),
       }),
     );
   }
@@ -289,6 +316,14 @@ export function createApp({
       sessionDurationMs,
       authRateLimit,
       rateLimitWindowMs,
+      provider: authProvider,
+      synchronizeProvider,
+      sharedAccountLimiter,
+      recordAuth: (event, seconds, phase = "journey") => {
+        metrics.authJourney.inc({ event });
+        if (seconds !== undefined)
+          metrics.authLatency.observe({ phase }, seconds);
+      },
     }),
   );
   if (a4)
@@ -296,6 +331,21 @@ export function createApp({
       "/api/a4",
       createRequireAuthentication({ sessions, environment }),
       createA4Router(a4, environment),
+    );
+  if (accountWallet)
+    app.get(
+      "/api/account-wallet",
+      createRequireAuthentication({ sessions, environment }),
+      async (request, response) => {
+        response
+          .set("Cache-Control", "private, no-store")
+          .set("Vary", "Cookie");
+        return response.json({
+          enabled: Boolean(authProvider),
+          withdrawalsEnabled: false,
+          ...(await accountWallet.balances(request.user!.id)),
+        });
+      },
     );
   app.use(
     "/api/messages",

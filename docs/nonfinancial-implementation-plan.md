@@ -12,6 +12,14 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+Email-first account work is tracked in the [implementation and financial decision
+record](email-first-accounts.md). Baseline was fetched main `fd60543`; the branch
+adds Privy/session and Redis foundations, read-only USDC-denominated balances and
+an explicit staging-reset operator. It has not established hosted signup,
+recovery, money movement or reset acceptance. Existing A4 remains nonredeemable
+play money; the new 100 YC/USDC direction does not convert historical grants or
+satisfy the combined paid-release gates.
+
 Reviewed 2026-10-19 against fetched `origin/main` at `78d5087`, the PR #38 merge.
 PRs #31–39 are merged: the A4/workspace/homepage/shared-data stack, both TypeScript
 migrations, core browser gate and follow-up readiness, Unicode and CI corrections

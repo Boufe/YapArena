@@ -1,5 +1,11 @@
 # Account session revocation — F03
 
+Current email-first work adds account status, PostgreSQL provider-session replay
+fences and a durable Privy freeze/unfreeze queue. See the [provider session
+contract and acceptance limits](../email-first-accounts.md#ownership-sessions-and-recovery).
+The historical F03 evidence below does not include that provider integration.
+Media-provider revocation remains outside the implemented scope.
+
 This implementation preserves opaque cookies, server-side token hashes, independent normal
 sign-ins, wallet-only accounts, stable account ownership, and the nonfinancial preview. It
 addresses F03, merged in PR #21 before the final F02 credential routes in PR #22. The original

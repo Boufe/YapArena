@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-19T19:19:42.489Z",
+  "checks": [
+    "desktop: synthetic withdrawal balance, independent grant bars, sticky qualification, Escape/focus restoration",
+    "desktop: SDK initialization, email/code form, keyboard submit, focus, resend wait, wrong-code error, change email, refresh, no overflow, automated WCAG tags",
+    "desktop: balance dialog, Escape/focus, exact debate query/fragment preserved through sign-in link",
+    "mobile: synthetic withdrawal balance, independent grant bars, sticky qualification, Escape/focus restoration",
+    "mobile: SDK initialization, email/code form, keyboard submit, focus, resend wait, wrong-code error, change email, refresh, no overflow, automated WCAG tags",
+    "mobile: balance dialog, Escape/focus, exact debate query/fragment preserved through sign-in link"
+  ],
+  "errors": [],
+  "scope": "Local SSR fixture and installed Privy SDK; public provider metadata fetched live; OTP endpoints intercepted. No real email delivery, successful provider login, hosted session, physical device or complete WCAG conformance evidence."
+}

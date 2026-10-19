@@ -91,6 +91,12 @@ the local stack intentionally does not send them.
 
 ## Local verification
 
+The in-progress [email-first account operating contract](email-first-accounts.md)
+lists Privy/Redis runtime variables, provider-session fences, financial gates and
+the explicit guarded staging-reset command. Provision/migrate as a separate owner
+process; web and worker processes must keep runtime credentials only. The reset
+has not been executed and must never run at startup or from a migration.
+
 Use Node.js 24 and locked dependencies. The complete source quality gate needs explicit
 disposable A4, wallet and revocation PostgreSQL identities; without them those suites skip
 and the unchanged 90% coverage thresholds can fail. The supported isolation harness creates

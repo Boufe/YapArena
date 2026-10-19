@@ -32,7 +32,10 @@ describe(
       for (const input of [ownerUrl, runtimeUrl]) {
         const url = new URL(input);
         assert.ok(["localhost", "127.0.0.1"].includes(url.hostname));
-        assert.match(url.pathname, /^\/revocation_test_a4_(fresh|upgrade)$/);
+        assert.match(
+          url.pathname,
+          /^\/revocation_test_(ci|a4_(fresh|upgrade))$/,
+        );
       }
       const options = { options: "-c search_path=pg_catalog,yaparena,pg_temp" };
       owner = new pg.Pool({ ...options, connectionString: ownerUrl });

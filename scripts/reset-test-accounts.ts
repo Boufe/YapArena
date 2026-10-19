@@ -220,8 +220,10 @@ async function inspect() {
   );
   return { items, counts };
 }
+let phase = "source connection";
 try {
   await db.connect();
+  phase = "source inspection";
   const { items, counts } = await inspect();
   if (mode !== "--dry-run") {
     await mkdir(directory, { recursive: true, mode: 0o700 });
@@ -230,26 +232,34 @@ try {
       0,
       "backup directory must be private",
     );
-    assert.equal(
-      required("RESET_WRITERS_STOPPED"),
-      "true",
-      "stop all web/worker writers and relevant callbacks first",
-    );
-    const writers = (
+    // Rehearsal restores only the guarded disposable local database. Snapshot
+    // export additionally locks source tables; execution also requires no
+    // runtime backends, including any retained by a managed pooler.
+    if (mode !== "--rehearse") {
+      assert.equal(
+        required("RESET_WRITERS_STOPPED"),
+        "true",
+        "stop all web/worker writers and relevant callbacks first",
+      );
+      if (mode === "--execute") {
+        const writers = (
+          await db.query(
+            "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND usename='yaparena_runtime' AND pid<>pg_backend_pid()",
+          )
+        ).rows[0].n;
+        assert.equal(
+          writers,
+          0,
+          "runtime connections remain; drain the actual deployment first",
+        );
+      }
+      phase = "source snapshot locks";
+      await db.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
+      await db.query("SET LOCAL lock_timeout='5s'");
       await db.query(
-        "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND usename='yaparena_runtime' AND pid<>pg_backend_pid()",
-      )
-    ).rows[0].n;
-    assert.equal(
-      writers,
-      0,
-      "runtime connections remain; drain the actual deployment first",
-    );
-    await db.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
-    await db.query("SET LOCAL lock_timeout='5s'");
-    await db.query(
-      `LOCK TABLE ${items.map((item) => `${quote(item.schema)}.${quote(item.name)}`).join(",")} IN SHARE ROW EXCLUSIVE MODE`,
-    );
+        `LOCK TABLE ${items.map((item) => `${quote(item.schema)}.${quote(item.name)}`).join(",")} IN SHARE ROW EXCLUSIVE MODE`,
+      );
+    }
     if (mode === "--prepare") {
       const snapshot = (
         await db.query("SELECT pg_export_snapshot() AS snapshot")
@@ -257,6 +267,7 @@ try {
       const temporary = path.join(directory, "application.dump");
       try {
         await writeFile(temporary, "", { mode: 0o600, flag: "wx" });
+        phase = "snapshot export";
         await exec(
           "pg_dump",
           [
@@ -268,6 +279,7 @@ try {
           ],
           { env: pgEnv(source) },
         );
+        phase = "snapshot encryption and fingerprints";
         const iv = randomBytes(12),
           cipher = createCipheriv("aes-256-gcm", await key(), iv);
         cipher.setAAD(Buffer.from(JSON.stringify(target)));
@@ -301,6 +313,7 @@ try {
         await unlink(temporary).catch(() => {});
       }
     } else if (mode === "--rehearse") {
+      phase = "restore target validation";
       const restore = safeUrl(required("RESET_RESTORE_DATABASE_URL"));
       assert.ok(["127.0.0.1", "localhost"].includes(restore.hostname));
       assert.match(
@@ -308,9 +321,11 @@ try {
         /^\/yaparena_auth_reset_rehearsal_[a-z0-9_]+$/,
       );
       const local = new pg.Client({ connectionString: restore.href });
+      phase = "restore connection";
       await local.connect();
       const temporary = path.join(directory, "restore.dump");
       try {
+        phase = "restore empty-database check";
         assert.equal(
           (
             await local.query(
@@ -320,10 +335,12 @@ try {
           0,
           "restore database must be empty and disposable",
         );
+        phase = "backup decryption";
         await writeFile(temporary, await decrypt(), {
           mode: 0o600,
           flag: "wx",
         });
+        phase = "archive restore";
         await exec(
           "pg_restore",
           [
@@ -336,16 +353,19 @@ try {
           ],
           { env: pgEnv(restore) },
         );
+        phase = "restored table fingerprints";
         const metadata = await backupMetadata();
         assert.deepEqual(
           await fingerprints(local, items),
           metadata.fingerprints,
         );
+        phase = "restored sequence fingerprints";
         assert.deepEqual(await sequences(local), metadata.sequences);
         // A pre-migration backup can be restored and checked first. Execution
         // also requires a fresh post-migration backup with a deletion rehearsal.
         const ready = items.some((item) => item.name === "account_subjects");
         if (ready) {
+          phase = "restored deletion rehearsal";
           await local.query("BEGIN");
           await local.query("SET search_path=pg_catalog,yaparena,pg_temp");
           await local.query("DELETE FROM users");
@@ -355,6 +375,7 @@ try {
           );
           await local.query("ROLLBACK");
         }
+        phase = "restore proof write";
         await writeFile(
           path.join(directory, "restore-verified.json"),
           JSON.stringify({
@@ -375,6 +396,7 @@ try {
         await local.end();
       }
     } else {
+      phase = "execution backup/proof checks";
       const metadata = await backupMetadata();
       const proof = JSON.parse(
         await readFile(path.join(directory, "restore-verified.json"), "utf8"),
@@ -393,6 +415,7 @@ try {
         metadata.sequences,
         "source sequences changed since backup",
       );
+      phase = "account deletion";
       await db.query("DELETE FROM users");
       const after = (
         await db.query(
@@ -405,6 +428,7 @@ try {
         wallets: 0,
         challenges: 0,
       });
+      phase = "account deletion commit";
       await db.query("COMMIT");
       const report = {
         target,
@@ -422,12 +446,12 @@ try {
       );
       console.log(JSON.stringify(report));
     }
-    if (mode !== "--execute") await db.query("COMMIT");
+    if (mode === "--prepare") await db.query("COMMIT");
   }
 } catch {
   await db.query("ROLLBACK").catch(() => {});
   console.error(
-    "Reset stopped. No success is claimed; inspect target checks, private operator files, writer drain, financial conflicts and restore evidence. Credentials and raw database errors are withheld.",
+    `Reset stopped during ${phase}. No success is claimed; inspect target checks, private operator files, writer drain, financial conflicts and restore evidence. Credentials and raw database errors are withheld.`,
   );
   process.exitCode = 1;
 } finally {

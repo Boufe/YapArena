@@ -3,6 +3,7 @@ import type {
   BrowserContext,
   BrowserContextOptions,
   Page,
+  Request,
 } from "playwright-core";
 import type { ChildProcess } from "node:child_process";
 import type { AddressInfo } from "node:net";
@@ -65,6 +66,13 @@ const errors: string[] = [],
     available: string;
     reserved: string;
   }[] = [];
+const initializationReadiness = {
+  pendingControlsDisabled: false,
+  creationRequests: 0,
+  createdRuns: 0,
+  openRounds: 0,
+  formVisible: false,
+};
 const repetitions = Number(process.env.A4_BROWSER_REPETITIONS ?? 2);
 assert.ok(
   Number.isInteger(repetitions) && repetitions >= 1 && repetitions <= 5,
@@ -176,12 +184,83 @@ try {
     await page.locator("#signed-in").waitFor({ state: "visible" });
   }
   await register("inline");
-  await page.goto(`${base}/debates/a4-browser-${tag}`);
-  await page.locator("[data-inline-access]").waitFor({ state: "visible" });
+  const initialization = Promise.withResolvers<void>();
+  const workspace = `**/api/a4/debates/${debate}/workspace`;
+  let inlineCreations = 0;
+  const countInlineCreation = (request: Request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/a4/runs"
+    )
+      inlineCreations++;
+  };
+  page.on("request", countInlineCreation);
+  await page.route(workspace, async (route) => {
+    await initialization.promise;
+    await route.continue();
+  });
+  try {
+    await Promise.all([
+      page.waitForRequest(workspace),
+      page.goto(`${base}/debates/a4-browser-${tag}`),
+    ]);
+    const access = page.locator("[data-inline-access]");
+    await access.waitFor({ state: "visible" });
+    assert.equal(
+      await access.getAttribute("aria-busy"),
+      "true",
+      "inline controls must stay busy until the initial workspace finishes",
+    );
+    for (const control of await access.locator("button, input, select").all())
+      assert.equal(await control.isDisabled(), true);
+    initializationReadiness.pendingControlsDisabled = true;
+    assert.equal(await page.locator("[data-inline-form]").isHidden(), true);
+    assert.equal(inlineCreations, 0);
+    await page.screenshot({
+      path: `${artifactDir}/inline-initializing.png`,
+      fullPage: true,
+    });
+    screenshots.push("inline-initializing.png");
+  } finally {
+    initialization.resolve();
+    await page.unrouteAll({ behavior: "wait" });
+  }
+  await page
+    .locator('[data-inline-access][aria-busy="false"]')
+    .waitFor({ state: "visible" });
+  assert.equal(await page.locator("[data-inline-bots]").isEnabled(), true);
+  assert.equal(await page.locator("[data-inline-human]").isEnabled(), true);
   const debatePage = page,
     mediaNode = (await page.locator("[data-media-event]").elementHandle())!;
   await page.locator("[data-inline-bots]").click();
   await page.locator("[data-inline-form]").waitFor({ state: "visible" });
+  assert.equal(
+    inlineCreations,
+    1,
+    "one normal click sends one creation request",
+  );
+  const created = await owner.query<{ count: number }>(
+    "SELECT count(*)::integer AS count FROM a4_sessions WHERE debate_id=$1",
+    [debate],
+  );
+  assert.equal(created.rows[0]!.count, 1, "one normal click creates one round");
+  const openRounds = await owner.query<{ count: number }>(
+    "SELECT count(*)::integer AS count FROM a4_rounds r JOIN a4_sessions s ON s.id=r.session_id WHERE s.debate_id=$1 AND r.state='open'",
+    [debate],
+  );
+  assert.equal(openRounds.rows[0]!.count, 1, "one new round is open");
+  initializationReadiness.creationRequests = inlineCreations;
+  initializationReadiness.createdRuns = created.rows[0]!.count;
+  initializationReadiness.openRounds = openRounds.rows[0]!.count;
+  initializationReadiness.formVisible = true;
+  page.off("request", countInlineCreation);
+  console.log(
+    JSON.stringify({
+      trial: "a4-initialization-readiness",
+      result: "PASS",
+      ...initializationReadiness,
+    }),
+  );
   await page.locator('[data-inline-form] input[name="quantity"]').fill("2");
   await page.locator('[data-inline-form] input[name="ceiling"]').fill("1");
   await page.locator('[data-inline-form] button[type="submit"]').click();
@@ -501,7 +580,7 @@ try {
   assert.deepEqual(errors, []);
   await writeFile(
     `${artifactDir}/browser-evidence.json`,
-    `${JSON.stringify({ base: "isolated loopback web runtime", viewport: [1440, 1000, 390, 844], account: "synthetic email registration", population: 500, humanParticipants: 1, repetitions, outcomes, checks: ["starter coins", "NO conversion review", "keyboard dialog focus", "binding submit", "reload receipt", "pause/run/step/speed", "sealed response", "worker settlement", "deterministic execution and exploratory no-trade", "exact balances and reservation release", "paginated revealed diagnostics", "bot-only observer", "archive/reset isolation", "mobile overflow", "axe WCAG A/AA"], accessibility, errors, screenshots }, null, 2)}\n`,
+    `${JSON.stringify({ base: "isolated loopback web runtime", viewport: [1440, 1000, 390, 844], account: "synthetic email registration", population: 500, humanParticipants: 1, repetitions, outcomes, initializationReadiness, checks: ["starter coins", "NO conversion review", "keyboard dialog focus", "binding submit", "reload receipt", "pause/run/step/speed", "sealed response", "worker settlement", "deterministic execution and exploratory no-trade", "exact balances and reservation release", "paginated revealed diagnostics", "bot-only observer", "archive/reset isolation", "mobile overflow", "axe WCAG A/AA"], accessibility, errors, screenshots }, null, 2)}\n`,
   );
   await page.close();
   phase = "debate workspace";
@@ -547,6 +626,7 @@ try {
         phase,
         error: (error as Error).name,
         outcomes,
+        initializationReadiness,
         errors,
         screenshots,
       },

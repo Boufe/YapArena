@@ -152,6 +152,9 @@ export async function verifyPublicBotsBrowser({
         await delay(500);
       }
       assert.equal(complete.state, "complete");
+      // Hidden tabs intentionally pause polling; observe each visible UI in turn.
+      await home.bringToFront();
+      assert.equal(await home.evaluate(() => document.hidden), false);
       await home.waitForFunction(
         (id) =>
           document.querySelector<SVGSVGElement>("#ya-chart")?.dataset
@@ -166,6 +169,8 @@ export async function verifyPublicBotsBrowser({
         id,
         { timeout: 20000 },
       );
+      await watch.bringToFront();
+      assert.equal(await watch.evaluate(() => document.hidden), false);
       await watch.locator(`[data-chart-round="${id}"]`).waitFor();
       const latest = (
         await api<PublicBotActivity>(`public/debates/${debate}/activity`)
@@ -260,6 +265,7 @@ export async function verifyPublicBotsBrowser({
     );
     await anonymous.close();
     checks.signedOutSharedHistoryWithoutPrivateAccess = true;
+    await watch.bringToFront();
     await watch.locator("[data-inline-publish]").uncheck();
     await home.locator("#ya-search").focus();
     await home.mouse.move(0, 0);
@@ -274,6 +280,7 @@ export async function verifyPublicBotsBrowser({
         .length,
       36,
     );
+    await home.bringToFront();
     await home.waitForFunction(
       (id) =>
         document.querySelector<SVGSVGElement>("#ya-chart")?.dataset

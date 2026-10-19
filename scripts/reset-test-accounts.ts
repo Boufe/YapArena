@@ -58,6 +58,7 @@ type Table = { schema: string; name: string };
 type Fingerprint = { table: string; count: number; sha256: string };
 type Sequence = { name: string; lastValue: string; called: boolean };
 type Backup = {
+  formatVersion: 2;
   target: { host: string; database: string; project: string; origin: string };
   at: string;
   sha256: string;
@@ -93,7 +94,7 @@ async function fingerprints(
   for (const table of items) {
     const rows = (
       await client.query(
-        `SELECT row_to_json(t)::text AS value FROM ${quote(table.schema)}.${quote(table.name)} t ORDER BY row_to_json(t)::text`,
+        `SELECT row_to_json(t)::text AS value FROM ${quote(table.schema)}.${quote(table.name)} t ORDER BY row_to_json(t)::text COLLATE "C"`,
       )
     ).rows as { value: string }[];
     results.push({
@@ -143,9 +144,11 @@ async function key() {
   return value;
 }
 async function backupMetadata(): Promise<Backup> {
-  return JSON.parse(
+  const metadata: Backup = JSON.parse(
     await readFile(path.join(directory, "backup.json"), "utf8"),
   );
+  assert.equal(metadata.formatVersion, 2, "capture a fresh canonical backup");
+  return metadata;
 }
 async function decrypt() {
   const bytes = await readFile(path.join(directory, "application.dump.enc"));
@@ -295,6 +298,7 @@ try {
           { mode: 0o600, flag: "wx" },
         );
         const metadata: Backup = {
+          formatVersion: 2,
           target,
           at: new Date().toISOString(),
           sha256: sha(encrypted),

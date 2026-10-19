@@ -190,7 +190,12 @@ Explicit command: `npm run reset:test-accounts -- --dry-run`, then `--prepare`,
 exact host/database/project/origin, owner credentials, drained writers, encrypted
 private backup, restored table/sequence fingerprints and deletion rehearsal.
 Pre-migration backups can be captured/restored first; execution additionally
-requires a fresh post-migration backup and successful deletion rehearsal. Refuses live coin
+requires a fresh post-migration backup and successful deletion rehearsal. Canonical
+fingerprints use explicit `C` ordering, so source and restore database collations
+cannot cause false mismatches. Rehearsal writes only to the guarded disposable
+copy; it does not lock the hosted tables. Snapshot export holds source table
+write locks, and destructive execution retains the stricter zero-runtime-backend
+check. Refuses live coin
 records/non-play assets, unsettled rounds and active events. Historical subject
 IDs retain immutable history without login credentials; public content and media
 are preserved where integrity permits. No TRUNCATE, disabled constraints,
@@ -202,9 +207,18 @@ Required operator variables: `RESET_DATABASE_URL`, `RESET_EXPECTED_HOST`,
 `RESET_WRITERS_STOPPED=true`; rehearsal also needs guarded loopback
 `RESET_RESTORE_DATABASE_URL`. Keep values, backups and raw reports outside Git.
 
-Hosted backup/restore/reset, old-credential rejection, genuine fresh signup and
-final test-identity cleanup are outstanding. Reset is not complete until every
-requested postcondition is recorded, including the final empty environment.
+The [sanitized preflight report](evidence/email-first/reset-preflight.json)
+records a real encrypted staging snapshot with verified table/sequence restore
+fingerprints. The new migrations and deletion were rehearsed on a second local
+restore: zero users/sessions/wallets, with 15 play runs, 101 journals and 13 media
+records preserved; deletion was rolled back. Both hosted services resumed after
+the snapshot. No hosted schema change or user deletion has occurred.
+
+The pooler retains a runtime backend after service suspension; execution still
+refuses that condition. Hosted migration/rollout, a post-migration backup/rehearsal,
+actual reset, old-credential rejection, genuine fresh signup and final test-identity
+cleanup remain outstanding. Reset is not complete until every requested
+postcondition is recorded, including the final empty environment.
 
 ## Evidence
 

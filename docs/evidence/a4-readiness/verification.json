@@ -1,0 +1,114 @@
+{
+  "date": "2026-10-19",
+  "baseRevision": "3ccc6751767c0fd893c55f24ceed672f495a5fff",
+  "codeRevision": "f5474ac5d0d6cd71c129b1d373e542a5a991eb19",
+  "mainRevision": "ae9ac19b988ae24586bf9a5b0683ab2b2c046532",
+  "versions": {
+    "node": "v24.19.0",
+    "postgres": "17.10 (Homebrew)",
+    "chrome": "155.0.8059.80",
+    "platform": "macOS arm64"
+  },
+  "sourceSha256": {
+    "frontend/a4-inline.ts": "8f5b85af3a5e84b7aed85e129109d284eeb32ccf7e5f49447829cb7628f9f13a",
+    "scripts/verify-a4-browser.ts": "58b8c28a2e4ed3d88b33da3e89563d9c464ba7a40999249cb152f2ae89105b2e"
+  },
+  "baseline": {
+    "exitCode": 1,
+    "condition": "new maintained regression with unchanged frontend at 3ccc675",
+    "failure": "held initial workspace exposes panel without aria-busy=true (actual null)",
+    "notCountedAsPass": true
+  },
+  "regression": {
+    "pendingControlsDisabled": true,
+    "creationRequests": 1,
+    "createdRuns": 1,
+    "openRounds": 1,
+    "formVisible": true
+  },
+  "fullNativeBrowser": {
+    "exitCode": 0,
+    "status": "passed",
+    "postgres": "host",
+    "quality": "full runtime-backed npm run check",
+    "steps": [
+      {
+        "name": "build",
+        "status": "passed"
+      },
+      {
+        "name": "fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers",
+        "status": "passed"
+      },
+      {
+        "name": "homepage navigation, interactions, responsive layout and accessibility",
+        "status": "passed"
+      },
+      {
+        "name": "Live/replay preview playback and handoff",
+        "status": "passed"
+      }
+    ],
+    "scope": "Disposable local PostgreSQL and synthetic browser/media fixtures; no hosted or physical-device acceptance"
+  },
+  "quality": {
+    "exitCode": 0,
+    "tests": 502,
+    "passed": 502,
+    "failed": 0,
+    "skipped": 0,
+    "coveragePercent": {
+      "lines": 94.77,
+      "branches": 93.11,
+      "functions": 95.79
+    },
+    "identities": ["A4", "wallet", "session revocation"]
+  },
+  "a4Outcomes": [
+    {
+      "name": "execution",
+      "repetition": 1,
+      "branch": "targeted",
+      "available": "1001294126",
+      "reserved": "0"
+    },
+    {
+      "name": "no-trade",
+      "repetition": 1,
+      "branch": "exploratory",
+      "available": "1000000000",
+      "reserved": "0"
+    },
+    {
+      "name": "execution",
+      "repetition": 2,
+      "branch": "targeted",
+      "available": "1001294126",
+      "reserved": "0"
+    },
+    {
+      "name": "no-trade",
+      "repetition": 2,
+      "branch": "exploratory",
+      "available": "1000000000",
+      "reserved": "0"
+    }
+  ],
+  "existingA4AssertionsPreserved": 54,
+  "newA4Assertions": 9,
+  "unchanged": [
+    "application API requests and validation",
+    "economic rules and deterministic expectations",
+    "existing browser scenarios",
+    "polling and ongoing actions",
+    "schema and migrations",
+    "dependencies and lockfile",
+    "CI names, timeouts and thresholds"
+  ],
+  "limits": [
+    "Native disposable local database and synthetic browser fixtures only",
+    "No hosted media, physical-device, real-wallet or capacity evidence",
+    "PR37 public-bots settlement timeout is separate; not reproduced in this local run",
+    "Original homepage-export comparison not requested; existing functional fixtures exercised"
+  ]
+}

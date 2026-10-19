@@ -69,6 +69,13 @@ implementing it. Do not treat a passing backend quality gate as permission to ac
    affects containers or Compose configuration, also render and start the relevant stack as described
    in the [operations runbook](docs/operations.md).
 
+   For the complete database-backed gate, run `A4_QUALITY=true npm run verify:database-isolation`
+   with Docker, or set `DATABASE_TEST_MODE=host` with PostgreSQL
+   17/18 tools on PATH. That harness creates disposable owner/runtime identities and runs
+   `npm run check` with A4, wallet and revocation suites enabled. A plain check without those
+   identities omits PostgreSQL coverage and can fail the unchanged coverage threshold.
+   See [local verification](docs/operations.md#local-verification).
+
 5. Review and commit only the intended files:
 
    ```sh
@@ -176,7 +183,8 @@ handoff, command or acceptance status is obsolete. Keep implemented, locally tes
 and planned behavior distinct. Check relative links, anchors, referenced paths and formatting, and
 run `npm run check` before opening a documentation PR. List integration suites skipped locally;
 the five required CI checks are `quality / check`, `container`, `integration`, `monitoring` and
-`deployment` (active ruleset inspected 2026-10-15). Recheck GitHub rules if they change.
+`deployment` (active ruleset rechecked 2026-10-19). The `deployment` job validates configuration;
+it does not deploy the app. Recheck GitHub rules if they change.
 
 When using a separate worktree, report its branch and PR and the state of the original checkout.
 Reconcile Markdown only where local edits can be preserved, and identify conflicts explicitly.

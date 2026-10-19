@@ -111,18 +111,18 @@ target. Omit the optional handle without explicit account consent. Stable seed
 keys make reruns idempotent. Existing examples/definitions and hidden records are
 preserved. Writes are batched per debate; computations happen outside transactions.
 
-The current user authorized the `boufe` account's past/future mixed and observer
-aggregates. No other creator is included by this task. The PR handoff records the
-exact source, deployment and seed counts. Rollback deploys the previous homepage
+The recorded [PR #34 staging release](https://github.com/Boufe/YapArena/pull/34)
+authorized the `boufe` account's past/future mixed and observer aggregates only.
+That historical operator authorization is not permission to opt in another creator;
+the account API supports each signed-in creator's own explicit consent. The PR handoff records the
+exact source, deployment and seed counts. Rollback deploys the previous compatible homepage
 code; retain additive tables and A4 history.
 
 ## Verification
 
 ```sh
 npm run build
-A4_QUALITY=true A4_BROWSER=true DATABASE_TEST_MODE=host \
-  node scripts/verify-database-isolation.ts
-node scripts/verify-hero-browser.ts
+DATABASE_TEST_MODE=host npm run verify:browser
 git diff --check
 ```
 
@@ -131,9 +131,15 @@ revisions and unavailable states. Disposable PostgreSQL tests cover consent,
 mixed/observer inclusion, hidden/future/private exclusions and seed-write denial.
 Fresh/upgrade isolation includes the new tables.
 
-The local browser trial runs the seed twice, then uses the actual A4 worker to
+The local browser trial uses a fresh synthetic creator, separate from the workspace
+account and its still-running 60-second fixture. It settles two existing-format mixed
+histories before publication, retaining the 36 seeded plus two mixed initial-history
+assertions. It runs the seed twice, then uses the actual A4 worker to
 settle observer/mixed rounds while homepage, expansion and debate stay open. It
 checks automatic updates, pending privacy, scope switching, signed-out viewing,
-consent withdrawal, mobile, axe, CSP assets and Live navigation. See the
+consent withdrawal, mobile, axe, CSP assets and Live navigation. A controlled
+observer case holds chart inspection while a real response contains a new settlement;
+the chart must retain the old round until interaction ends, then refresh without reloading.
+See [the current fixture/readiness contract](browser-release-checks.md#ci-and-diagnostics) and the
 [local evidence](evidence/shared-bots/2026-10-16.md). Hosted functional and physical
 device acceptance remains the user's manual test.

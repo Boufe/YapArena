@@ -30,7 +30,7 @@ This is an explicit play-mode switch, not a hosted migration instruction. There 
 value: unknown values fail startup. Open a published debate's participation panel or `/coins`,
 sign in through the existing account page, choose a debate, start/join a human or labeled bot
 run, review terms and commit. Reload restores persistent state. Every account can request a
-1,000-coin daily refill. Bot scopes get their own recorded starter funding; resets cannot issue
+daily refill at the configured `A4_REFILL_COINS` amount (1,000 by default). Bot scopes get their own recorded starter funding; resets cannot issue
 ordinary spendable balance or erase other runs. The observer choice permanently excludes people.
 
 Configure the same A4 mode on every web and maintenance-worker instance. Start the ordinary web process with background jobs or `npm run start:worker`. Both recover
@@ -89,7 +89,8 @@ It accepts no hosted database URL. `A4_TEST_DATABASE_URL` and `A4_TEST_OWNER_URL
 disposable-test identities for the Node suite; the owner sets up fixtures, runtime executes product
 queries. Use `A4_QUALITY=true` with the disposable isolation harness to run `npm run check` with
 A4, wallet and revocation PostgreSQL suites enabled, and `A4_BROWSER=true` for its local browser
-journey. The harness database names satisfy the existing auth suites' disposable-name guards.
+journey. `npm run verify:browser` coordinates these flags and the homepage/preview suites;
+see [the maintained browser gate](browser-release-checks.md). The harness database names satisfy the existing auth suites' disposable-name guards.
 `npm run check` remains the quality gate; separate database/community/replay suites keep
 their existing scope. See the saved evidence for actual passes, skips and browser observations.
 
@@ -104,5 +105,5 @@ terms, version, nonce and expiry, independently of login/wallet identity signatu
 Paid activation also depends on reviewed custody/provider/jurisdiction decisions, eligibility,
 security/incident controls, actual five-day scheduling, related-party policy, correction reserves,
 creator reward rules and the combined ongoing/event-market release gates. Local software or
-research passes establish none of those approvals. No deployment, hosted migration or merge is
-part of this implementation task.
+research passes establish none of those approvals. PR #31's play implementation is merged;
+the dated staging trial above does not authorize later deployments or real-fund activation.

@@ -8,10 +8,13 @@ the live video and records it to a private R2 bucket. The browser reads verified
 through the authenticated private edge; eligible recordings without a ready adaptive package retain
 the signed-MP4 fallback. Playback starts on the viewer's click.
 
-Latest saved state: the [hosted replay report](replay-starter-trial-2026-10-07.md) records the
-existing paid `0.5c-512mb` encoder, the October 8 all-eligible rollout and matching web/worker
-builds at `b11a11b` on October 15. It supersedes older notes saying no worker exists or the
-edge is limited to a deleted trial room. This documentation audit did not inspect live providers.
+Latest saved web release: [PR #34](https://github.com/Boufe/YapArena/pull/34) records
+`fc241e1` live on October 17 at 01:47:54 UTC, with read-only HTTP postflight at 01:48:24 UTC
+and no worker change. The [hosted replay report](replay-starter-trial-2026-10-07.md) separately
+records the existing paid `0.5c-512mb` encoder, October 8 all-eligible rollout and matching
+web/worker builds at `b11a11b` on October 15. Those historical checks supersede no-encoder/
+deleted-canary notes; they do not establish today's live versions or a matching build pair.
+The October 19 documentation audit did not inspect live providers or deploy current main.
 
 `render.yaml` creates **one Free Render web service**. It does not create a Render database or
 worker. Its start command only starts the runtime application; migrations run in a separate

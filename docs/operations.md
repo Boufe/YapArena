@@ -89,6 +89,39 @@ unavailable API, a 5xx rate above 5%, and p95 latency above 500 ms. Connect
 Prometheus to an Alertmanager in a deployed environment to route notifications;
 the local stack intentionally does not send them.
 
+## Local verification
+
+Use Node.js 24 and locked dependencies. The complete source quality gate needs explicit
+disposable A4, wallet and revocation PostgreSQL identities; without them those suites skip
+and the unchanged 90% coverage thresholds can fail. The supported isolation harness creates
+the identities, applies migrations, runs runtime-role journeys, and supplies all six test URLs:
+
+```sh
+A4_QUALITY=true npm run verify:database-isolation
+# Native alternative: PostgreSQL 17/18 tools on PATH, non-root user:
+LC_ALL=C LANG=C DATABASE_TEST_MODE=host A4_QUALITY=true npm run verify:database-isolation
+```
+
+`A4_QUALITY=true` runs the full `npm run check` once against the fresh database.
+Add `A4_VERIFY=true` to run the focused A4 PostgreSQL suite separately in both fresh and
+upgrade scenarios. Native initdb explicitly uses UTF-8; the harness verifies server/client
+encoding and C locale when requested. Every run removes its disposable cluster on exit.
+No application process should load the combined operator `.env` or receive owner credentials.
+
+For browser changes, `npm run verify:browser` coordinates the full database-backed quality
+gate and account/A4, workspace, shared-data, homepage and preview journeys. Set
+`DATABASE_TEST_MODE=host` for its native alternative. See
+[browser prerequisites and fixture isolation](browser-release-checks.md).
+The native Unicode smoke (`npm run verify:community-native-setup`), full community delivery,
+replay pipeline and media packaging checks retain their separate scopes.
+
+GitHub requires `quality / check`, `container`, `integration`, `monitoring` and `deployment`
+on an up-to-date PR head. `integration` includes the native C-locale smoke, Docker database,
+browser, community, replay and backup/restore checks. `deployment` validates production
+Compose configuration; passing it does not deploy a hosted service. The active main ruleset
+was rechecked on 2026-10-19. [Current merge/CI evidence](evidence/ci-integration/2026-10-19.md#completed-integration--2026-10-19)
+is separate from hosted acceptance.
+
 ## Account credential and session incidents
 
 Use the [account session revocation procedure](security/account-session-revocation.md) for

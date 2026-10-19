@@ -74,6 +74,12 @@ An assertion failure stops the command immediately.
 
 ## CI and diagnostics
 
+The integrated fixes are on main through PRs #37–39. Main `78d5087` passed all five
+required checks in [run 39262775602](https://github.com/Boufe/YapArena/actions/runs/39262775602);
+this does not reclassify earlier failed runs or establish hosted/device capacity.
+The integration job also runs `npm run verify:community-native-setup` under C locale
+using actual native PostgreSQL, separately from this browser coordinator's Docker gate.
+
 The A4 inline regression holds the initial workspace request against the real
 disposable runtime. While it is pending, the visible participation panel reports
 `aria-busy="true"` and its form controls are disabled. Initialization restores each

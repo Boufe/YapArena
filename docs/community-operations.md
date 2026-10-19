@@ -195,9 +195,9 @@ revisions. After `npm run build`, use Node.js 24 and run:
 node scripts/verify-community-local.ts
 ```
 
-It creates and removes a volume-free PostgreSQL 18.4 Docker cluster, runs `verify-community.js` with
+It creates and removes a volume-free PostgreSQL 18.4 Docker cluster, runs `verify-community.ts` with
 runtime queries and owner-only fixture setup/cleanup, starts the runtime server, then runs browser
-journeys and `verify-chat-client.js`. It never reads `.env` or accepts hosted database URLs. If
+journeys and `verify-chat-client.ts`. It never reads `.env` or accepts hosted database URLs. If
 Docker is unavailable and PostgreSQL 17/18 tools are installed, the same isolated trial supports:
 
 ```sh

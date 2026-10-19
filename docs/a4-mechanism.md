@@ -92,8 +92,12 @@ Before T, participant schemas expose only own terms, offer, acceptance/execution
 fee, released reservation and pending status. They omit medians, counts, books, seed, provisional
 payout and profit. Own available funds can change only by pre-funded issuance, reservation,
 execution cost/release or revealed settlement; release depends on price and own execution,
-not v. History omits all internal journal metadata. No A4 data goes to community SSE, adoption
-metrics, public JSON bootstrap, caches or ongoing prices. APIs are authenticated and no-store.
+not v. History omits all internal journal metadata. Unrevealed A4 data never enters public
+bootstrap or caches. Private participation/receipt APIs are authenticated and no-store;
+community SSE, adoption metrics and ongoing prices receive no A4 participation data.
+The later [shared-discovery contract](shared-bot-discovery.md) separately permits final,
+revealed mixed/observer aggregates in public HTML/JSON after the creator opts in. It excludes
+individual orders, receipts and balances, and rechecks publication and consent on each read.
 The permitted offer and own execution necessarily disclose some information.
 
 Private bot-only observer diagnostics are authorized by stored creator and mode, and read access

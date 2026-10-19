@@ -1,5 +1,10 @@
 # Strict TypeScript for operational automation
 
+Merged through PR #37, with readiness PR #39 integrated first and the Unicode/CI
+follow-up in PR #38. Main `78d5087` passed all five required checks; see the
+[completed integration evidence](evidence/ci-integration/2026-10-19.md#completed-integration--2026-10-19).
+The migration's original parity evidence remains tied to its recorded source revision.
+
 The production edge replay worker is authored in `edge/replay-worker.ts`. Wrangler
 compiles that source using the existing bindings, route and compatibility date.
 `tsconfig.edge.json` checks its consumed R2, cache and execution-context interfaces

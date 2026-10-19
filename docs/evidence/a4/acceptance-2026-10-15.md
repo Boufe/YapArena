@@ -1,5 +1,10 @@
 # Local A4 acceptance — October 15, 2026
 
+Current-state note — 2026-10-19: PR #31 is merged. Browser sources now live in
+`frontend/` and critical verifier entrypoints use `.ts`; the paths and results below
+remain the October 15 record. Use [current A4 operations](../../financial-operations.md)
+and [browser release checks](../../browser-release-checks.md) for today's commands.
+
 Baseline: `c63308e`, fetched `origin/main`; shared checkout clean and ahead/behind 0/0.
 Implementation branch: `feat/a4-yap-coins`, isolated worktree `/private/tmp/yaparena-a4-20261015`.
 All application data, accounts and secrets used here were synthetic and local. No hosted migration,

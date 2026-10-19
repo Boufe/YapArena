@@ -1,8 +1,10 @@
 # A4 Yap Coins implementation
 
-Baseline: fetched `origin/main` = `c63308e` on 2026-10-15; shared checkout clean,
-ahead/behind 0/0. Work uses `feat/a4-yap-coins` in `/private/tmp/yaparena-a4-20261015`.
-No executable A3/A4 simulator was found. External simulator parity is unverified.
+The original implementation baseline was fetched `origin/main` at `c63308e` on
+2026-10-15, in the isolated `feat/a4-yap-coins` worktree. PR #31 merged on October 17;
+the implementation and its subsequent UI/release fixes are on main. See the
+[current status index](nonfinancial-implementation-plan.md#current-implementation-and-evidence).
+No executable external A3/A4 simulator was supplied; external simulator parity is unverified.
 
 ## Authority and conflicts
 
@@ -18,7 +20,7 @@ No executable A3/A4 simulator was found. External simulator parity is unverified
 
 The engine, private-schema migrations, balanced ledger/reservations, durable lifecycle,
 account/session authorization, APIs, debate integration, receipts and bot controls are implemented
-on this branch. [Local acceptance evidence](evidence/a4/acceptance-2026-10-15.md) records actual
+on main. [Local acceptance evidence](evidence/a4/acceptance-2026-10-15.md) records actual
 quality, PostgreSQL, browser, community and replay results. A subsequent founder-authorized
 [staging functional trial](https://github.com/Boufe/YapArena/pull/31) deployed `fcb162d`
 and verified one 500-bot/one-human round through settlement. Wider hosted capacity,

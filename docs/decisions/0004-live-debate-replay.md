@@ -90,7 +90,9 @@ accessibility on keyboard/mobile/reduced-motion, and load at an agreed audience 
 Choose budgets and expected audience size first, then retain trial results and incident traces.
 Caption generation and transcript review are manual here; automated caption quality and moderation
 need separate validation. The API and database tests verify lifecycle gates, but a full live video
-and recording trial remains outstanding.
+and recording trial remained outstanding at this original prototype checkpoint. The later
+[hosted recording/replay evidence](../replay-starter-trial-2026-10-07.md) covers selected real
+provider paths; the full physical-device and measured-load envelope remains open.
 
 LiveKit [self-hosting](https://docs.livekit.io/transport/self-hosting/deployment/),
 [Egress requirements](https://docs.livekit.io/transport/self-hosting/egress/), and

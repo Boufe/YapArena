@@ -1,5 +1,9 @@
 # F02 implementation handoff
 
+Current source-path note — 2026-10-19: browser sources now live in `frontend/`;
+the [operational TypeScript inventory](../operational-typescript.md) lists renamed
+critical verifiers. File lists and executed JavaScript commands below remain historical.
+
 Current-state note — 2026-10-15: Archived handoff: [PR #22](https://github.com/Boufe/YapArena/pull/22) merged F02 after the
 F04/F03 prerequisites. [PR #24](https://github.com/Boufe/YapArena/pull/24) subsequently corrected
 browser signing-byte encoding. Use [wallet authorization](wallet-authorization.md), the

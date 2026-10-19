@@ -91,6 +91,11 @@ original bounds. Keyboard focus stays inside the enlarged video until restored.
   server-side review/commit API. NO ceiling conversion, fee allowance, full
   reservation, idempotent retry, first-binding submission and delayed finality are
   unchanged. Open commitments cannot be cancelled. History shows actual receipts.
+- Initial signed-in setup marks the participation panel `aria-busy="true"` and
+  disables its form controls until publication/run/workspace initialization releases
+  the action guard. Controls then regain their prior disabled states and the panel
+  reports `aria-busy="false"`, including after initialization errors. Visibility alone
+  is not a readiness signal. See [the maintained startup regression](browser-release-checks.md#ci-and-diagnostics).
 - Existing live/replay controls, signed replay access, captions, operator controls,
   moderated chat, delivery/recovery, likes, sharing and reports remain connected.
   Replay chat follows the existing read-only policy. Synthetic demo listings label
@@ -112,11 +117,11 @@ append-only A4 history intact; existing obligations keep their settlement recove
 Run the disposable quality/browser gates with:
 
 ```sh
-A4_VERIFY=true A4_QUALITY=true A4_BROWSER=true DATABASE_TEST_MODE=host \
-  node scripts/verify-database-isolation.ts
+DATABASE_TEST_MODE=host npm run verify:browser
 ```
 
-This runs fresh/upgrade database checks and the quality/browser gates. `verify-arena-browser.js` extends that disposable browser
+This builds and runs fresh/upgrade database checks and the full quality/browser gates.
+Omit the mode variable to use disposable Docker PostgreSQL instead. `verify-arena-browser.ts` extends that disposable browser
 trial with real settlements, a real published-profile chat message, search, tab
 selection, mobile checks, axe and uninterrupted synthetic replay playback during
 enlargement. It refuses a hosted target. Synthetic browser playback establishes

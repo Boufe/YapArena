@@ -12,6 +12,17 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+Reviewed 2026-10-19 against fetched `origin/main` at `78d5087`, the PR #38 merge.
+PRs #31–39 are merged: the A4/workspace/homepage/shared-data stack, both TypeScript
+migrations, core browser gate and follow-up readiness, Unicode and CI corrections
+are present on main. All five required checks passed on that exact main revision in
+[run 39262775602](https://github.com/Boufe/YapArena/actions/runs/39262775602).
+Its quality job passed 502 tests with zero skips; integration exercised native UTF-8
+setup and the full Docker browser/community/replay gates. Earlier failed runs remain
+failed historical evidence. The [documentation audit](evidence/documentation-audit/2026-10-19.md)
+records the complete Markdown inventory and source checks. No hosted inspection or
+deployment was performed for this reconciliation.
+
 The [native Unicode test setup fix](evidence/native-postgres-utf8/2026-10-18.md)
 explicitly initializes the disposable community, isolation and replay PostgreSQL
 clusters as UTF-8. A focused native C-locale setup check is wired into the existing
@@ -70,12 +81,13 @@ distinguishes disposable browser/database checks from hosted manual acceptance.
 The [wide homepage](wide-homepage.md) replaces the temporary root logo with the
 supplied idea-discovery design, native SSR and progressive carousel, chart and
 inline expansion interactions. Published topics, canonical playable debates,
-authenticated follows and the existing Yap Coins header are connected. Topic
-market/argument histories remain unavailable; a separately gated, labeled local
+authenticated follows and the existing Yap Coins header are connected. Real topic
+markets and human argument-vote histories remain unavailable; the labeled shared
+simulations are described above. A separately gated, labeled local
 reference dataset supports visual acceptance. The [local evidence](evidence/homepage/2026-10-16.md)
 records comparison viewports and checks. [PR #33](https://github.com/Boufe/YapArena/pull/33)
-records the authorized staging deployment of homepage revision `c73822b`; it remains
-unmerged.
+records the authorized staging deployment of homepage revision `c73822b`; it merged
+on October 17. The later shared-discovery release is recorded below.
 
 The [Live discovery preview](homepage-preview.md) moves the former homepage to
 `/live`, with video cards in the existing grid and a shared one-preview playback
@@ -99,9 +111,9 @@ price/median inspection and moves the inspected argument into the graph heading.
 Its [dated evidence](evidence/debate-workspace/acceptance-2026-10-15.md) distinguishes
 local UI/database verification from hosted and physical-device media acceptance.
 
-Audited 2026-10-15 against fetched `origin/main` at `a9e803f` (merged
-[PR #29](https://github.com/Boufe/YapArena/pull/29)). This section is the implementation status
-index; the work-package criteria below remain requirements, not a list of missing features.
+The table includes the foundations reviewed on October 15 and the subsequent merged
+features above. This section is the implementation status index; the work-package
+criteria below remain requirements, not a list of missing features.
 Source, configuration, migrations, tests, CI and committed sanitized evidence were inspected.
 Hosted facts below are the latest **saved observations**, not a new provider inspection.
 
@@ -115,18 +127,28 @@ Hosted facts below are the latest **saved observations**, not a new provider ins
 | 6 — Measurement/operations | Consent/withdrawal, bounded nonfinancial events/watch data, operator dashboard/product metrics, retention, isolated database roles, migrations, CI, image release and backup/restore tooling. | Merged [PR #17](https://github.com/Boufe/YapArena/pull/17); [operating trial](operating-readiness-trial.md) and [measurement contract](measurement-operations.md). The returning-participant definition alone is approved; the cohort rate is not published and 30% is not an approved gate. [Hosted API isolation](security/database-isolation.md#hosted-operator-checklist--required-to-close-f04), provider restore/RPO/RTO and incident follow-up remain open. |
 | 7 and paid financial scope | Recaps, richer broadcasts, seasons, ratings, native apps, sponsor workflows and both financial markets remain planned.                                                                        | Preserve the [product PRD](product-prd.md) and its [pre-funds gates](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds). No event winner, paid cutoff, real-fund settlement/receipt, extension mechanism or sponsor payment is implemented. The separate [A4 play feature](financial-implementation-plan.md) provides Yap Coins settlement and private receipts.                                                                   |
 
-The latest saved staging check is **2026-10-15 16:03 UTC** on `b11a11b`, with matching web/encoder
-builds, runtime-only credentials, packaging enabled, concurrency one and the existing
-`0.5c-512mb` encoder. The [October 8 rollout](replay-starter-trial-2026-10-07.md#all-eligible-staging-rollout--2026-10-08)
+Later merged additions include A4 play-only issuance/ledger/settlement, the live/replay
+workspace, wide `/` homepage, `/live` video previews, shared consented simulation histories,
+strict frontend/operational types and deterministic browser release checks. These do not
+implement the real-fund markets or close the table's hosted/device/privacy acceptance gaps.
+
+The latest saved web release is **2026-10-17 01:47:54 UTC**, source `fc241e1`, in
+[PR #34](https://github.com/Boufe/YapArena/pull/34); its read-only HTTP postflight ran at
+01:48:24 UTC. It records the ticker/shared histories and three requested debate visibility
+removals, with no worker change or hosted browser acceptance. The latest separately saved
+encoder/build-pair check is **2026-10-15 16:03 UTC** on `b11a11b`: runtime-only credentials,
+packaging enabled, concurrency one and the existing `0.5c-512mb` encoder. Do not infer that
+today's services match main or each other from these dated observations.
+The [October 8 rollout](replay-starter-trial-2026-10-07.md#all-eligible-staging-rollout--2026-10-08)
 removed the room allowlist from both services. New eligible recordings therefore follow automatic
 conversion/publication; the full watching interface retains Play while Live discovery
 supports its separate muted previews. The Free web Blueprint does not provision that
 separately configured paid worker or reproduce all deployed settings.
 
-An old checkout contributed to stale status: the preserved shared branch at `bc3e92f` was
-80 commits behind that fetched main; local `main` was also older. Uncommitted work is not a
-substitute for merged history. Follow [the checkout workflow](../CONTRIBUTING.md#development-workflow)
-before planning or integrating changes. Historical handoffs must not be replayed as pending work.
+The October 15 audit found an older shared branch 80 commits behind its fetched main.
+That is a historical checkout observation; this audit began with a clean, synchronized main.
+Follow [the checkout workflow](../CONTRIBUTING.md#development-workflow) before planning or
+integrating changes. Historical handoffs must not be replayed as pending work.
 
 ## Scope and boundaries
 

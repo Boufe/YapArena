@@ -15,16 +15,19 @@ aggregates. It also restores Live in the homepage header. The unavailable fields
 below describe records without that source; sample figures never become unlabeled
 real activity.
 
-`homepage-model.ts` adapts up to 12 published topics and the existing ranked feed
-of up to nine playable debates. Cards link to canonical topic/debate routes.
+`homepage-model.ts` adapts up to 12 published topics and up to 100 associated
+published debates. Topics without a published debate are omitted. Cards link to canonical topic/debate routes.
 Live/replay eligibility, publication and moderation remain repository concerns;
 the homepage grants no media access and loads no media SDK or recordings.
 Counts describe debates present in that bounded feed, not a complete catalogue.
+The separate `/live` feed retains its ranking and limit of nine playable debates.
 
 Topic categories, ongoing topic markets, endorsement/price histories and individual
-argument endorsements have no public read contract. Their values remain `null`
-with stable em dashes and an unavailable-history chart. Topic side labels provide
-unrated positions. A4's existing per-debate settlement history is not relabeled
+argument endorsements are not implemented as real markets or human-vote histories.
+When shared simulation data is absent, their values remain `null` with stable em dashes
+and an unavailable-history chart. Topic side labels provide unrated positions.
+When present, the shared feed explicitly labels its simulated histories and independent
+argument cohorts. A4's existing private per-debate settlement history is not relabeled
 as a topic market or used to infer argument endorsement. Real records are never
 replaced by example figures after a request fails; discovery failure returns 503
 with the same usable shell and explicit unavailable state.
@@ -78,8 +81,7 @@ for the actual `/` homepage.
   Page exit disposes animation frames, transitions, listeners and observers;
   back/forward restoration remounts the controller.
 
-The additional homepage browser bundle is about 32 KB minified before transfer
-compression, with no new dependency or frontend runtime. It is loaded only on
+The separate homepage browser bundle has no additional frontend framework/runtime dependency. It is loaded only on
 the homepage using the existing asset revision convention. Public HTML remains
 server rendered and `Cache-Control: no-store`; CSP is unchanged.
 
@@ -90,13 +92,12 @@ The controller and chart bindings are authored in `frontend/homepage.ts` and
 
 ## Verification
 
-Use Node 24 with the repository's normal build and quality commands. The browser
-comparison additionally requires the user's original export and local Chrome:
+Use Node 24 with the repository's normal build and quality commands. Functional
+browser checks require local Chrome and run without the external reference export:
 
 ```sh
 npm run build
-HOMEPAGE_REFERENCE_PATH=/absolute/path/yaparena-wide-homepage.html \
-  node scripts/verify-homepage-browser.ts
+node scripts/verify-homepage-browser.ts
 node scripts/verify-hero-browser.ts
 A4_QUALITY=true DATABASE_TEST_MODE=host node scripts/verify-database-isolation.ts
 git diff --check
@@ -107,7 +108,14 @@ The last Node command provisions disposable loopback databases and runs the full
 documented Docker mode instead where host PostgreSQL is unavailable. Neither the
 reference browser suite nor these commands need hosted credentials.
 
-The browser verifier serves the original export unchanged, growing only its
+For the separate original-design comparison, supply the actual export explicitly:
+
+```sh
+HOMEPAGE_REFERENCE_PATH=/absolute/path/yaparena-wide-homepage.html \
+  node scripts/verify-homepage-browser.ts --compare-reference
+```
+
+In comparison mode the browser verifier serves the original export unchanged, growing only its
 outer iframe height to capture the complete product. It compares that rendering
 with the native app under the existing CSP at 1440, 1920, 1024, 768, 390 and 320px,
 captures additional slides/hover/expansion, and exercises timing, chart, filter,

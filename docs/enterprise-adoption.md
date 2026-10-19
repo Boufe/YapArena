@@ -47,8 +47,11 @@ General repository, container, and release terminology is defined in the [glossa
 
 The planned first paid release includes both the real-money debate-event market and continuing
 ideas market. Reversible prototypes and simulations can proceed while specifications are settled;
-they do not authorize real-fund activation. The event market needs approved paired-collateral,
-fee-reserve, refund, and hidden-tally designs. The ongoing market needs a defined instrument,
+they do not authorize real-fund activation. The event market needs reviewed funding,
+collateral, fee, correction and hidden-tally designs for its approved paid mechanism.
+[Decision 0007](decisions/0007-a4-adjusted-ftm.md) supersedes historical paired issuance
+and draw refunds for the implemented A4 play mode; it does not enable paid adapters.
+The ongoing market needs a defined instrument,
 holder rights, issuance, liquidity, and exit rules. Both markets must pass the companion evidence
 checklist together before paid access.
 

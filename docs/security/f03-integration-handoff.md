@@ -1,5 +1,9 @@
 # F03 implementation handoff
 
+Current source-path note — 2026-10-19: browser sources now live in `frontend/`;
+the [operational TypeScript inventory](../operational-typescript.md) lists renamed
+critical verifiers. File lists and executed JavaScript commands below remain historical.
+
 Current-state note — 2026-10-15: Archived handoff: [PR #21](https://github.com/Boufe/YapArena/pull/21) merged F03, followed by
 F02 in PR #22. Use the combined [revocation contract](account-session-revocation.md) and
 [wallet authorization](wallet-authorization.md); the standalone routes and branch integration

@@ -391,7 +391,7 @@ using the existing staging workflow, then:
    Exercise current Firefox/Safari, physical iOS Safari/Android Chrome, multiple tabs and accessibility
    tools. Verify own selections never appear in another viewer's fanout.
 4. Reproduce the declared load with the same rate/account/session distribution and stream reader
-   behavior as `verify-community-load.js`, against the clone only. Record pool wait, lag histograms,
+   behavior as `verify-community-load.ts`, against the clone only. Record pool wait, lag histograms,
    RSS and throughput. Stop ten readers, reconnect 500 clients with application cursors, terminate the
    runtime LISTEN session through the authorized admin process, deliberately suppress wake-ups, restart
    and deploy the reviewed process while a sender writes. Verify reset after log expiry and release

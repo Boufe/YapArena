@@ -60,7 +60,9 @@ recording gates, incident behavior, and the validation still needed before a pro
 The [low cost staging runbook](docs/render-staging.md) describes the Render app, Supabase database,
 deployment procedure and LiveKit/R2 media integration steps. The
 [hosted replay trial](docs/replay-starter-trial-2026-10-07.md) records the existing separate encoder,
-the all-eligible staging rollout and the last saved deployment verification on October 15.
+the all-eligible staging rollout and the October 15 encoder verification. The
+[shared discovery release](https://github.com/Boufe/YapArena/pull/34) records the later
+October 17 web deployment; neither record establishes the services' live state today.
 
 To work on YapArena, follow [Local development](#local-development). The original
 [service template guide](docs/getting-started.md) records the older reuse workflow and its current
@@ -163,7 +165,7 @@ npm run dev
 
 `npm run dev` generates browser assets, watches frontend/shared sources, starts the TypeScript API
 directly with Node.js, loads `.env.runtime`, and automatically restarts the API when its sources
-change. `npm run build` checks strict frontend types, compiles production server JavaScript into
+change. `npm run build` checks strict operational and frontend types, compiles production server JavaScript into
 the ignored `dist/` directory, and generates all browser modules and the four existing bundles.
 PostgreSQL must still be running in Docker. Open <http://localhost:3000/ready> to confirm the
 API can reach the database. Press `Ctrl-C` to stop the API; the database container keeps running until
@@ -300,6 +302,20 @@ npm run check
 This runs lint rules, verifies formatting and strict types, and executes the test suite with its coverage thresholds.
 It is the same main quality gate used by CI, so run it before committing or opening a pull request.
 CI means **continuous integration**: GitHub automatically runs checks on pushed changes.
+
+The full check needs disposable A4, wallet and revocation database identities. To create them
+and execute every database suite without managing URLs yourself, use:
+
+```sh
+A4_QUALITY=true npm run verify:database-isolation
+# Alternative with PostgreSQL 17/18 tools on PATH:
+DATABASE_TEST_MODE=host A4_QUALITY=true npm run verify:database-isolation
+```
+
+Each command provisions and removes its own databases, then runs `npm run check` with the
+required identities. Without them, PostgreSQL suites skip and coverage can fail. For browser
+changes, `npm run verify:browser` includes this full quality gate and the maintained browser
+journeys; see [browser prerequisites and evidence limits](docs/browser-release-checks.md).
 
 ## Runtime configuration
 
@@ -514,6 +530,10 @@ default; new pages use bounded durable HTTP recovery until it is enabled. Run
 two-process fanout, restart/slow-client trials and a five-minute 500-viewer soak. An installed
 PostgreSQL 17/18 can run the local fallback using `COMMUNITY_POSTGRES_MODE=host`; isolation uses
 `DATABASE_TEST_MODE=host`. These checks are local capacity evidence, not hosted release approval.
+
+All three native community, isolation and replay launchers initialize UTF-8 explicitly.
+`npm run verify:community-native-setup` is the focused C-locale Unicode smoke used in CI;
+it checks the actual migrated chat column without running the full browser/load workload.
 
 Critical database/release automation and the edge replay worker use strict TypeScript.
 See the [source inventory and execution guide](docs/operational-typescript.md);

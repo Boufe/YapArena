@@ -1,5 +1,9 @@
 # Recording thumbnails — October 16, 2026
 
+Integration note — 2026-10-19: PRs #31 and #32 are merged. The branch/draft status
+below describes this trial's original handoff. Current source and verification
+instructions are in [the Live preview guide](../../homepage-preview.md).
+
 Current state: [Live discovery](live-feed-2026-10-16.md) now uses these same
 per-recording thumbnails in its hero and video cards at `/live`.
 

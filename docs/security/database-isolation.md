@@ -150,6 +150,14 @@ Administrative provisioning uses a genuine non-superuser `postgres` creator and 
 broker grants. Creator/broker regression cases test safe management grants and reject unsafe
 delegation, inheritance, SET access and indirect escalation routes in both fresh and upgrade runs.
 
+With PostgreSQL 17/18 binaries on PATH, `DATABASE_TEST_MODE=host npm run
+verify:database-isolation` instead creates a fresh SCRAM-authenticated native cluster on a random
+loopback port; it never reuses a local server. All native launchers explicitly initialize UTF-8.
+This harness checks server/client UTF8 and, under `LC_ALL=C LANG=C`, unchanged C locale/collation.
+Set `A4_QUALITY=true` to run the full `npm run check` with disposable A4, wallet and revocation
+identities, and `A4_VERIFY=true` for the separate A4 suite in each fresh/upgrade scenario.
+See [the complete local quality command](../operations.md#local-verification).
+
 Browser SQL probes run as both `anon` and `authenticated`, including supplemental schema-USAGE
 probes to distinguish schema denial from object ACL denial. They test every application table,
 views, sequences and routines. Runtime tests use separate password-authenticated connections,

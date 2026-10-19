@@ -10,12 +10,12 @@ Email verification codes are primary. Google and passkeys are optional. Public
 discovery/watching stay public; initial profiles are optional. Financial
 eligibility is collected at the financial boundary, not ordinary signup.
 
-| Phase | Scope                                                 | Current boundary                                                                                 |
-| ----- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| A     | Privy, onboarding, stable accounts, sessions/settings | Foundation implemented; hosted delivery, recovery/linking and device acceptance outstanding      |
-| B     | Shared Redis controls and justified caches            | Atomic multi-client/outage checks passed locally; hosted connection outstanding                  |
-| C     | Redeemable YC, sandbox funding/redemption             | Ledger foundation/read-only balances; no financial adapter or usable money workflow              |
-| D     | Authorized reset and final acceptance                 | Encrypted hosted backup and local restore/deletion rehearsal passed; hosted deletion outstanding |
+| Phase | Scope                                                 | Current boundary                                                                                                     |
+| ----- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| A     | Privy, onboarding, stable accounts, sessions/settings | Foundation implemented; hosted delivery, recovery/linking and device acceptance outstanding                          |
+| B     | Shared Redis controls and justified caches            | Local multi-client/outage checks passed; staging protected request passed its Redis control                          |
+| C     | Redeemable YC, sandbox funding/redemption             | Ledger foundation/read-only balances; no financial adapter or usable money workflow                                  |
+| D     | Authorized reset and final acceptance                 | Selected IDs 1–4 deleted after encrypted backup/rehearsal; IDs 72,73,134 preserved; genuine signup trial outstanding |
 
 These phases preserve the combined [pre-funds gates](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds).
 Unresolved financial decisions do not block independent authentication work.
@@ -172,7 +172,10 @@ A free Render Key Value instance, `yaparena-staging-security`, was created in
 Ohio. The verified staging-service Connect panel lists outbound ranges
 `74.220.50.0/24` and `74.220.58.0/24`; only those ranges were allowed on the
 authenticated external TLS endpoint. No public allow-all rule was added. Hosted
-connectivity is still unverified. Free instances lose counters on restart;
+connectivity was verified after rollout by a protected staging auth request,
+which passed the shared Redis control and returned the expected 410 for retired
+password signup. This establishes one hosted connection, not multi-instance
+load/outage acceptance. Free instances lose counters on restart;
 this is not durable financial-security acceptance. Production config requires TLS.
 
 Prometheus measures aggregate auth events/timing and Redis latency/errors/throttles.
@@ -190,13 +193,21 @@ never load a combined operator env file into web/worker processes.
 
 Confirmed site: **https://yaparena-staging-web.onrender.com**, Render service
 `srv-datv1kjncjis73a500cg`, Supabase project `ypteqfmjietdqjzyvgtk`, database
-`postgres` via the verified TLS pooler. User confirmed disposable accounts.
+`postgres` via the verified TLS pooler. User initially confirmed disposable
+accounts, then explicitly narrowed deletion to **IDs 1, 2, 3 and 4 only** after
+reviewing the account list. Preserve IDs **72, 73 and 134**. The earlier
+empty-environment requirement is superseded by that selection.
 Initial counts: users 7, sessions 4, linked wallets 1, owned profiles 3, play runs
 15, immutable play journals 101, media records 13. All rounds inspected were
 settled; no ready/live debate or redeemable asset found. These are pre-reset counts.
 
-Explicit command: `npm run reset:test-accounts -- --dry-run`, then `--prepare`,
-`--rehearse`, `--execute`. Never invoked at startup or by migrations. Requires
+Explicit command: `npm run reset:test-accounts -- --dry-run --user-ids=1,2,3,4`,
+then the same selection with `--prepare`, `--rehearse`, `--execute`. The restore
+proof must match the exact selection. Unselected users, sessions, wallets,
+challenges and owned profiles are checked unchanged in the deletion transaction.
+Every invocation requires either an explicit ID selection or `--all-users`;
+omitting the scope fails before database access.
+Never invoked at startup or by migrations. Requires
 exact host/database/project/origin, owner credentials, drained writers, encrypted
 private backup, restored table/sequence fingerprints and deletion rehearsal.
 Pre-migration backups can be captured/restored first; execution additionally
@@ -204,8 +215,13 @@ requires a fresh post-migration backup and successful deletion rehearsal. Canoni
 fingerprints use explicit `C` ordering, so source and restore database collations
 cannot cause false mismatches. Rehearsal writes only to the guarded disposable
 copy; it does not lock the hosted tables. Snapshot export holds source table
-write locks, and destructive execution retains the stricter zero-runtime-backend
-check. Refuses live coin
+write locks. Destructive execution takes **ACCESS EXCLUSIVE** locks on all
+application/migration tables, fencing concurrent reads/writes for the transaction,
+with a five-second lock timeout. A second local connection must demonstrate a
+blocked signup insert during rehearsal before execution is permitted. Operators
+must still stop every web/worker writer and callback; the hosted run verified
+both Render services suspended before execution. Managed warm idle pool backends
+are not treated as active application writers. Refuses live coin
 records/non-play assets, unsettled rounds and active events. Historical subject
 IDs retain immutable history without login credentials; public content and media
 are preserved where integrity permits. No TRUNCATE, disabled constraints,
@@ -223,18 +239,35 @@ fingerprints. The new migrations and deletion were rehearsed on a second local
 restore: zero users/sessions/wallets, with 15 play runs, 101 journals and 13 media
 records preserved; deletion was rolled back. Both hosted services resumed after
 the snapshot. The four new account/coin/history/grant migrations were then
-applied by a separate owner process on 2026-10-19. Seven users, four sessions and
-one linked wallet remain; no provider identity or money journal exists. Provider
-signup is paused in `auth_controls` for the rollout. Both services resumed.
+applied by a separate owner process on 2026-10-19. At that point seven users,
+four sessions and one linked wallet remained; no provider identity or money
+journal existed. Provider signup was paused in `auth_controls` for the rollout.
+Both services resumed.
 The web service has the five new runtime variables above, with its existing
-restricted database identity preserved. The feature code has not yet been
-deployed. No hosted user deletion has occurred.
+restricted database identity preserved. Feature revision `f8c26a9` was deployed
+explicitly to staging with signup paused, without changing main, automatic
+deployment or the replay worker revision. Its five required CI checks passed in
+[run 39327344593](https://github.com/Boufe/YapArena/actions/runs/39327344593).
+Hosted `/ready`, `/account` and provider configuration passed; anonymous session
+inspection returned 401 and protected password registration returned 410.
 
-The pooler retains a runtime backend after service suspension; execution still
-refuses that condition. Hosted code rollout, a post-migration backup/rehearsal,
-actual reset, old-credential rejection, genuine fresh signup and final test-identity
-cleanup remain outstanding. Reset is not complete until every requested
-postcondition is recorded, including the final empty environment.
+The [selected reset report](evidence/email-first/reset-selected.json) records the
+committed deletion at 2026-10-19 21:47:26 UTC: four selected users and three
+sessions removed; three users, one session and one linked wallet remain. Their
+account/credential rows were checked unchanged. Three public profiles were
+detached; 15 play runs, 101 play journals, 13 media records and permanent subject
+IDs remain. The fresh encrypted post-migration backup restored with identical
+table/sequence fingerprints; exact deletion and concurrent-writer blocking were
+rehearsed first. No provider identity, wallet key/asset or live financial record
+was deleted. Redis was not flushed. Both services resumed; readiness is 200 and
+ordinary signup is enabled.
+
+Deleted IDs have no account/session/wallet/challenge rows, so their old app
+session lookups cannot authorize. An actual pre-reset browser-cookie replay was
+not captured. No Privy users existed before deletion. Genuine hosted email
+signup, provider-session revocation/recovery and stale-token replay remain
+acceptance gates. Acceptance identities created by this work must be cleaned up;
+the three explicitly retained accounts must remain.
 
 ## Evidence
 

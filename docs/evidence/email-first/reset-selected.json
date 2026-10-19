@@ -1,0 +1,71 @@
+{
+  "at": "2026-10-19T21:49:49.633Z",
+  "executedAt": "2026-10-19T21:47:26.656Z",
+  "target": {
+    "host": "aws-0-us-east-2.pooler.supabase.com",
+    "database": "postgres",
+    "project": "ypteqfmjietdqjzyvgtk",
+    "origin": "https://yaparena-staging-web.onrender.com"
+  },
+  "selectedUserIds": ["1", "2", "3", "4"],
+  "before": {
+    "users": 7,
+    "sessions": 4,
+    "wallets": 1,
+    "owned_profiles": 3,
+    "retained_play_runs": 15,
+    "retained_play_journals": 101,
+    "retained_media": 13
+  },
+  "deleted": {
+    "users": 4,
+    "sessions": 3,
+    "wallets": 0,
+    "challenges": 0
+  },
+  "after": {
+    "users": 3,
+    "sessions": 1,
+    "wallets": 1,
+    "challenges": 0
+  },
+  "remainingUserIds": ["72", "73", "134"],
+  "backup": {
+    "encryptedArchiveSha256": "b51fc282794dd7dba302fa065e8074c6bd98fed8bd06b497762efe16adf8053f",
+    "encryptedBytes": 848501,
+    "directoryMode": "0700",
+    "fileMode": "0600",
+    "restoredTableAndSequenceFingerprintsMatch": true,
+    "selectedDeletionRehearsalPassed": true,
+    "concurrentSignupBlockedByExclusiveLocks": true,
+    "location": "Private operator storage outside source control"
+  },
+  "preservation": {
+    "unselectedUsersSessionsWalletsChallengesProfilesUnchanged": true,
+    "permanentRetiredSubjectIds": 4,
+    "detachedPublicProfiles": 3,
+    "playRuns": 15,
+    "playJournals": 101,
+    "mediaRecords": 13
+  },
+  "rejection": {
+    "selectedAccountRows": 0,
+    "selectedSessionRows": 0,
+    "selectedWalletRows": 0,
+    "selectedChallengeRows": 0,
+    "oldCookieHttpReplayCaptured": false
+  },
+  "providerIdentitiesDeleted": 0,
+  "providerWalletKeysOrAssetsDeleted": false,
+  "redisFlushed": false,
+  "signupEnabled": true,
+  "finalEnvironmentEmpty": false,
+  "intendedRemainingUsers": 3,
+  "scopeChange": "Founder narrowed all-user reset to IDs 1–4 only; preserve IDs 72,73,134.",
+  "remainingAcceptance": [
+    "Genuine hosted email signup and exactly-one-account verification",
+    "Hosted provider revocation/recovery and stale-token replay",
+    "Physical-device and screen-reader acceptance",
+    "Funding/redemption remains disabled"
+  ]
+}

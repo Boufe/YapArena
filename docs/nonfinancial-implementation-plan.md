@@ -15,8 +15,11 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 Email-first account work is tracked in the [implementation and financial decision
 record](email-first-accounts.md). Baseline was fetched main `fd60543`; the branch
 adds Privy/session and Redis foundations, read-only USDC-denominated balances and
-an explicit staging-reset operator. It has not established hosted signup,
-recovery, money movement or reset acceptance. Existing A4 remains nonredeemable
+an explicit staging-reset operator. The selected staging deletion removed IDs
+1–4 after encrypted backup and restore/concurrency rehearsal, preserving the
+three accounts the founder explicitly retained. The feature revision is live
+with shared Redis connectivity and ordinary signup enabled. It has not established
+genuine hosted signup, recovery, money movement or full account acceptance. Existing A4 remains nonredeemable
 play money; the new 100 YC/USDC direction does not convert historical grants or
 satisfy the combined paid-release gates.
 

@@ -15,6 +15,27 @@ import pg from "pg";
 const exec = promisify(execFile);
 const mode = process.argv[2] ?? "--dry-run";
 assert.ok(["--dry-run", "--prepare", "--rehearse", "--execute"].includes(mode));
+const scopeArgument = process.argv[3];
+assert.ok(process.argv.length <= 4, "unexpected reset arguments");
+assert.ok(
+  scopeArgument === "--all-users" || scopeArgument?.startsWith("--user-ids="),
+  "explicit --user-ids=... or --all-users is required",
+);
+const userIds = scopeArgument?.startsWith("--user-ids=")
+  ? scopeArgument.slice("--user-ids=".length).split(",")
+  : null;
+if (userIds) {
+  assert.ok(
+    userIds.length > 0 && userIds.every((id) => /^[1-9][0-9]*$/.test(id)),
+    "invalid selected user IDs",
+  );
+  assert.equal(
+    new Set(userIds).size,
+    userIds.length,
+    "duplicate selected user IDs",
+  );
+  userIds.sort((left, right) => (BigInt(left) < BigInt(right) ? -1 : 1));
+}
 const required = (name: string) => {
   const value = process.env[name];
   assert.ok(value, `${name} is required`);
@@ -78,6 +99,78 @@ const db = new pg.Client({
   query_timeout: 60_000,
   application_name: "yaparena-account-reset-operator",
 });
+type AccountCounts = {
+  users: number;
+  sessions: number;
+  wallets: number;
+  challenges: number;
+};
+async function accountCounts(
+  client: pg.Client,
+  selected: string[] | null = null,
+): Promise<AccountCounts> {
+  return (
+    await client.query<AccountCounts>(
+      `SELECT
+    (SELECT count(*)::int FROM yaparena.users WHERE $1::bigint[] IS NULL OR id=ANY($1)) AS users,
+    (SELECT count(*)::int FROM yaparena.sessions WHERE $1::bigint[] IS NULL OR user_id=ANY($1)) AS sessions,
+    (SELECT count(*)::int FROM yaparena.wallet_identities WHERE $1::bigint[] IS NULL OR user_id=ANY($1)) AS wallets,
+    (SELECT count(*)::int FROM yaparena.wallet_challenges WHERE $1::bigint[] IS NULL OR user_id=ANY($1)) AS challenges`,
+      [selected],
+    )
+  ).rows[0]!;
+}
+async function untouchedAccounts(client: pg.Client) {
+  if (!userIds) return [];
+  const result: { table: string; rows: string[] }[] = [];
+  for (const [table, column] of [
+    ["users", "id"],
+    ["sessions", "user_id"],
+    ["wallet_identities", "user_id"],
+    ["wallet_challenges", "user_id"],
+    ["public_profiles", "user_id"],
+  ] as const) {
+    const rows = await client.query<{ value: string }>(
+      `SELECT row_to_json(t)::text AS value FROM yaparena.${table} t WHERE ${column}<>ALL($1::bigint[]) ORDER BY row_to_json(t)::text COLLATE "C"`,
+      [userIds],
+    );
+    result.push({ table, rows: rows.rows.map((row) => row.value) });
+  }
+  return result;
+}
+async function rehearseOrDelete(client: pg.Client) {
+  const before = await accountCounts(client);
+  const selected = await accountCounts(client, userIds);
+  if (userIds)
+    assert.equal(
+      selected.users,
+      userIds.length,
+      "selected users changed or do not exist",
+    );
+  const protectedRows = await untouchedAccounts(client);
+  const deleted = await client.query(
+    "DELETE FROM yaparena.users WHERE $1::bigint[] IS NULL OR id=ANY($1)",
+    [userIds],
+  );
+  assert.equal(deleted.rowCount, selected.users);
+  const after = await accountCounts(client);
+  assert.deepEqual(after, {
+    users: before.users - selected.users,
+    sessions: before.sessions - selected.sessions,
+    wallets: before.wallets - selected.wallets,
+    challenges: before.challenges - selected.challenges,
+  });
+  assert.deepEqual(
+    await untouchedAccounts(client),
+    protectedRows,
+    "unselected accounts or credentials changed",
+  );
+  assert.equal(
+    (await accountCounts(client, userIds)).users,
+    userIds ? 0 : after.users,
+  );
+  return { selected, after };
+}
 async function tables(): Promise<Table[]> {
   return (
     await db.query<Table>(
@@ -185,6 +278,7 @@ async function inspect() {
     (SELECT count(*)::int FROM a4_journals) AS retained_play_journals,
     (SELECT count(*)::int FROM debate_media) AS retained_media`)
   ).rows[0];
+  const selectedCounts = await accountCounts(db, userIds);
   const conflicts = (
     await db.query(`SELECT
     ${ledgerReady ? "EXISTS(SELECT 1 FROM coin_journals WHERE environment='live') OR EXISTS(SELECT 1 FROM coin_accounts WHERE environment='live') OR" : ""}
@@ -197,6 +291,8 @@ async function inspect() {
     JSON.stringify({
       mode,
       target,
+      selectedUserIds: userIds,
+      selectedCounts,
       counts,
       migrationReady,
       conflicts,
@@ -211,6 +307,12 @@ async function inspect() {
     false,
     "financial records or obligations exist; destructive reset refused",
   );
+  if (userIds)
+    assert.equal(
+      selectedCounts.users,
+      userIds.length,
+      "selected users do not all exist",
+    );
   assert.equal(
     conflicts.rounds,
     false,
@@ -235,32 +337,20 @@ try {
       0,
       "backup directory must be private",
     );
-    // Rehearsal restores only the guarded disposable local database. Snapshot
-    // export additionally locks source tables; execution also requires no
-    // runtime backends, including any retained by a managed pooler.
+    // Poolers keep warm idle backends after every client disconnects. Execution
+    // fences reads and writes with ACCESS EXCLUSIVE table locks while operators
+    // stop all services/workers. Rehearsal exercises this exact database fence.
     if (mode !== "--rehearse") {
       assert.equal(
         required("RESET_WRITERS_STOPPED"),
         "true",
         "stop all web/worker writers and relevant callbacks first",
       );
-      if (mode === "--execute") {
-        const writers = (
-          await db.query(
-            "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND usename='yaparena_runtime' AND pid<>pg_backend_pid()",
-          )
-        ).rows[0].n;
-        assert.equal(
-          writers,
-          0,
-          "runtime connections remain; drain the actual deployment first",
-        );
-      }
       phase = "source snapshot locks";
       await db.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
       await db.query("SET LOCAL lock_timeout='5s'");
       await db.query(
-        `LOCK TABLE ${items.map((item) => `${quote(item.schema)}.${quote(item.name)}`).join(",")} IN SHARE ROW EXCLUSIVE MODE`,
+        `LOCK TABLE ${items.map((item) => `${quote(item.schema)}.${quote(item.name)}`).join(",")} IN ${mode === "--execute" ? "ACCESS EXCLUSIVE" : "SHARE ROW EXCLUSIVE"} MODE`,
       );
     }
     if (mode === "--prepare") {
@@ -368,15 +458,43 @@ try {
         // A pre-migration backup can be restored and checked first. Execution
         // also requires a fresh post-migration backup with a deletion rehearsal.
         const ready = items.some((item) => item.name === "account_subjects");
+        let rehearsalResult: Awaited<
+          ReturnType<typeof rehearseOrDelete>
+        > | null = null;
         if (ready) {
           phase = "restored deletion rehearsal";
           await local.query("BEGIN");
           await local.query("SET search_path=pg_catalog,yaparena,pg_temp");
-          await local.query("DELETE FROM users");
-          assert.equal(
-            (await local.query("SELECT count(*)::int n FROM users")).rows[0].n,
-            0,
+          await local.query("SET LOCAL lock_timeout='5s'");
+          await local.query(
+            `LOCK TABLE ${items.map((item) => `${quote(item.schema)}.${quote(item.name)}`).join(",")} IN ACCESS EXCLUSIVE MODE`,
           );
+          const concurrent = new pg.Client({
+            connectionString: restore.href,
+            connectionTimeoutMillis: 5_000,
+            query_timeout: 2_000,
+          });
+          try {
+            await concurrent.connect();
+            await concurrent.query("SET lock_timeout='250ms'");
+            await assert.rejects(
+              concurrent.query(
+                "INSERT INTO yaparena.users(email,password_hash) VALUES($1,$2)",
+                [
+                  "reset-concurrent-fixture@example.invalid",
+                  "not-an-authentication-password",
+                ],
+              ),
+              (error: unknown) =>
+                error instanceof Error &&
+                "code" in error &&
+                error.code === "55P03",
+              "the deletion fence must block concurrent account provisioning",
+            );
+          } finally {
+            await concurrent.end();
+          }
+          rehearsalResult = await rehearseOrDelete(local);
           await local.query("ROLLBACK");
         }
         phase = "restore proof write";
@@ -387,6 +505,9 @@ try {
             at: new Date().toISOString(),
             tableFingerprintsMatch: true,
             deletionRehearsal: ready,
+            selectedUserIds: userIds,
+            rehearsalResult,
+            concurrentWriterBlocked: ready,
           }),
           { mode: 0o600, flag: "wx" },
         );
@@ -408,6 +529,16 @@ try {
       assert.deepEqual(metadata.target, target);
       assert.equal(proof.sha256, metadata.sha256);
       assert.equal(proof.deletionRehearsal, true);
+      assert.equal(
+        proof.concurrentWriterBlocked,
+        true,
+        "rehearse the exclusive writer fence before execution",
+      );
+      assert.deepEqual(
+        proof.selectedUserIds ?? null,
+        userIds,
+        "restore rehearsal must cover the exact deletion selection",
+      );
       await decrypt();
       assert.deepEqual(
         await fingerprints(db, items),
@@ -420,22 +551,13 @@ try {
         "source sequences changed since backup",
       );
       phase = "account deletion";
-      await db.query("DELETE FROM users");
-      const after = (
-        await db.query(
-          "SELECT (SELECT count(*)::int FROM users) AS users,(SELECT count(*)::int FROM sessions) AS sessions,(SELECT count(*)::int FROM wallet_identities) AS wallets,(SELECT count(*)::int FROM wallet_challenges) AS challenges",
-        )
-      ).rows[0];
-      assert.deepEqual(after, {
-        users: 0,
-        sessions: 0,
-        wallets: 0,
-        challenges: 0,
-      });
+      const { selected, after } = await rehearseOrDelete(db);
       phase = "account deletion commit";
       await db.query("COMMIT");
       const report = {
         target,
+        selectedUserIds: userIds,
+        deleted: selected,
         before: counts,
         after,
         at: new Date().toISOString(),

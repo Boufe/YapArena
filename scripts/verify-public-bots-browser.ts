@@ -57,6 +57,16 @@ export async function verifyPublicBotsBrowser({
     );
     return data;
   }
+  async function settled(runId: string) {
+    let complete!: Run;
+    for (let i = 0; i < 50; i++) {
+      complete = await api<Run>(`a4/runs/${runId}`);
+      if (complete.state === "complete") break;
+      await delay(500);
+    }
+    assert.equal(complete.state, "complete");
+    return complete;
+  }
   const shots = [];
   let expectedRound: { id: string; mode: "mixed" | "observer" } | undefined;
   const homepageResponses: Response[] = [];
@@ -89,6 +99,17 @@ export async function verifyPublicBotsBrowser({
       headers: { "Idempotency-Key": randomUUID() },
     });
     assert.equal(profile.status(), 200);
+    const histories = await Promise.all(
+      ["Opening case", "Cost analysis"].map((argumentLabel) =>
+        api<{ id: string }>("a4/runs", {
+          debateId: debate,
+          mode: "mixed",
+          config: { population: 500, roundSeconds: 10, argumentLabel },
+          speed: 20,
+        }),
+      ),
+    );
+    await Promise.all(histories.map((history) => settled(history.id)));
     const seed = () =>
       promisify(execFile)(process.execPath, ["scripts/seed-public-bots.ts"], {
         env: {
@@ -149,7 +170,7 @@ export async function verifyPublicBotsBrowser({
       `public/debates/${debate}/activity`,
     );
     assert.ok(before.items.length >= 18);
-    assert.equal(before.items.length, 36);
+    assert.equal(before.items.length, 38);
     assert.ok(before.items.some((r) => r.mode === "mixed"));
     await home.locator(`[data-expand="${topic}"]`).click();
     assert.equal(
@@ -199,13 +220,7 @@ export async function verifyPublicBotsBrowser({
         ).items.some((r) => r.id === id),
         "pending round remains sealed",
       );
-      let complete!: Run;
-      for (let i = 0; i < 50; i++) {
-        complete = await api<Run>(`a4/runs/${created.id}`);
-        if (complete.state === "complete") break;
-        await delay(500);
-      }
-      assert.equal(complete.state, "complete");
+      await settled(created.id);
       const latest = (
         await api<PublicBotActivity>(`public/debates/${debate}/activity`)
       ).items.at(-1)!;

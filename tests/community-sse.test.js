@@ -376,18 +376,26 @@ describe("versioned cursors and safe durable projections", () => {
 
   it("cancels active reads on shutdown or their deadline and refuses further work", async (t) => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
-    for (const mode of ["stop", "deadline"]) {
+    for (const [action, mode] of [
+      ["read", "stop"],
+      ["read", "deadline"],
+      ["prune", "stop"],
+      ["prune", "deadline"],
+    ]) {
       let rejectRead;
       let started;
       let released = 0;
+      const releaseErrors = [];
       const waiting = new Promise((resolve) => {
         started = resolve;
       });
-      const client = {
+      const client = Object.assign(new EventEmitter(), {
         connection: {
           stream: {
             destroy() {
-              rejectRead(new Error("connection closed"));
+              const error = new Error("connection closed");
+              rejectRead(error);
+              client.emit("error", error);
             },
           },
         },
@@ -400,19 +408,29 @@ describe("versioned cursors and safe durable projections", () => {
           }
           return Promise.resolve({ rows: [] });
         },
-        release() {
+        release(failed) {
           released++;
+          releaseErrors.push(failed);
         },
-      };
+      });
       const source = createCommunityDelivery({ connect: async () => client });
-      const pending = source.read(room, "0");
+      const pending =
+        action === "read" ? source.read(room, "0") : source.prune();
+      const rejected = assert.rejects(pending, /connection closed/);
       await waiting;
-      if (mode === "stop") source.stop();
-      else t.mock.timers.tick(4000);
-      await assert.rejects(pending, /connection closed/);
+      assert.doesNotThrow(() => {
+        if (mode === "stop") source.stop();
+        else t.mock.timers.tick(4000);
+      });
+      await rejected;
       assert.equal(released, 1);
+      assert.deepEqual(releaseErrors, [true]);
+      assert.equal(client.listenerCount("error"), 0);
       source.stop();
-      await assert.rejects(source.read(room, "0"), /stopping/);
+      await assert.rejects(
+        action === "read" ? source.read(room, "0") : source.prune(),
+        /stopping/,
+      );
       assert.equal(released, 2);
     }
   });
@@ -537,12 +555,13 @@ describe("versioned cursors and safe durable projections", () => {
       get released() {
         return released;
       },
-      connect: async () => ({
-        query,
-        release() {
-          released++;
-        },
-      }),
+      connect: async () =>
+        Object.assign(new EventEmitter(), {
+          query,
+          release() {
+            released++;
+          },
+        }),
     };
   }
   it("binds snapshot, head and public visibility to one short transaction", async () => {
@@ -657,24 +676,25 @@ describe("persistent runtime listener", () => {
       await failed.stop();
       assert.equal(m.values.listener_failure, 2);
       const db = {
-        connect: async () => ({
-          query: async (sql) =>
-            sql.includes("AS head")
-              ? {
-                  rows: [
-                    {
-                      head: "0",
-                      floor: "0",
-                      eligible: false,
-                      status: "unavailable",
-                      likes: "0",
-                      chatState: "open",
-                    },
-                  ],
-                }
-              : { rows: [] },
-          release() {},
-        }),
+        connect: async () =>
+          Object.assign(new EventEmitter(), {
+            query: async (sql) =>
+              sql.includes("AS head")
+                ? {
+                    rows: [
+                      {
+                        head: "0",
+                        floor: "0",
+                        eligible: false,
+                        status: "unavailable",
+                        likes: "0",
+                        chatState: "open",
+                      },
+                    ],
+                  }
+                : { rows: [] },
+            release() {},
+          }),
       };
       const streams = createCommunityStreams(
         db,

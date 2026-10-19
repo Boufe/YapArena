@@ -130,8 +130,21 @@ try {
       reducedMotion: "reduce",
     });
     await context.addInitScript(() => {
-      if (window === window.top)
+      if (window === window.top) {
         localStorage.setItem("yaparena-measurement-declined", "1");
+        const walletDirectoryViolations: string[] = [];
+        Object.defineProperty(window, "__walletDirectoryViolations", {
+          value: walletDirectoryViolations,
+        });
+        window.addEventListener("securitypolicyviolation", (event) => {
+          if (
+            event.blockedURI.startsWith(
+              "https://explorer-api.walletconnect.com/",
+            )
+          )
+            walletDirectoryViolations.push(event.effectiveDirective);
+        });
+      }
     });
     const page = await context.newPage();
     page.on("pageerror", (error) => errors.push(error.message));
@@ -534,8 +547,14 @@ try {
     await page.locator("#sign-out-all").click();
     await page.locator("#signed-out").waitFor({ state: "visible" });
     assert.equal(await page.locator("#signed-in").isVisible(), false);
+    assert.deepEqual(
+      await page.evaluate(() =>
+        Reflect.get(window, "__walletDirectoryViolations"),
+      ),
+      [],
+    );
     checks.push(
-      `${name}: server-owned authentication methods, profile create/publish with permanent handle, other/all-session sign-out controls, account/dialog automated WCAG tags and no account overflow`,
+      `${name}: server-owned authentication methods, profile create/publish with permanent handle, other/all-session sign-out controls, account/dialog automated WCAG tags, no account overflow and unused wallet directory disabled`,
     );
     await context.close();
   }

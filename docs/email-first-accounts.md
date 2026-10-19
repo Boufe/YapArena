@@ -288,7 +288,9 @@ remain in use. Strict TypeScript/TSX owns the changed browser behavior; the new
 server markup is isolated in `src/features/discovery/account-web.ts`. No wallet,
 provider identity or financial state is created by this visual change. The Privy
 email island disables unused external-wallet discovery using the locked SDK's
-typed configuration; the separate native-wallet controller is retained. CSP is
+typed connector settings and an explicitly empty wallet list; disabling connectors
+alone still caused directory requests during hosted verification. The separate
+native-wallet controller is retained. CSP is
 not broadened to accommodate unnecessary WalletConnect explorer requests.
 
 [Matched screenshots and browser results](evidence/account-refresh/README.md)

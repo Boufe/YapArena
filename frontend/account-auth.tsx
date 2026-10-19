@@ -501,7 +501,12 @@ if (root) {
           clientId={config.clientId}
           config={{
             loginMethods: ["email", "google", "passkey"],
-            appearance: { theme: "dark", accentColor: "#d9ff65" },
+            appearance: {
+              theme: "dark",
+              accentColor: "#d9ff65",
+              // This email island has no Privy wallet chooser or directory.
+              walletList: [],
+            },
             externalWallets: {
               disableAllExternalWallets: true,
               walletConnect: { enabled: false },

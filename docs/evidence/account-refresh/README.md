@@ -29,6 +29,10 @@ the SDK is signed out, profile creation/publication, permanent handles and
 other/all-session sign-out controls. No horizontal overflow or page errors were
 observed. Automated axe WCAG 2/2.1/2.2 AA tags found no violations in the email
 form, signed-in account area and wallet dialog at either size.
+The follow-up SDK configuration check also verifies that unused wallet-directory
+requests do not cause top-level CSP violations. The separate native-wallet
+controller remains in use. [Core release results](release-results.json) record
+the complete disposable-database quality and browser gate for the visual change.
 
 Public Privy metadata is read live; CAPTCHA is explicitly disabled only in the
 local intercepted response. OTP endpoints, optional Google/passkey availability,

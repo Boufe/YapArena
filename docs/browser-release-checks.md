@@ -86,6 +86,12 @@ The existing integration job runs this regression as part of the full browser ga
 no sleep, retry, forced click or timeout increase is involved. See the
 [readiness fix evidence](evidence/a4-readiness/2026-10-19.md).
 
+The shared-data verifier brings each page to the foreground before waiting for its
+live chart refresh, and asserts that it is visible. Homepage polling deliberately
+pauses in hidden tabs; browser automation must observe the same visible state as a
+user. Existing settlement, consent and refresh assertions and their 20-second
+timeouts remain unchanged. See the [CI correction evidence](evidence/ci-integration/2026-10-19.md).
+
 The existing required `integration` job runs this gate on pull requests and main.
 It uses `npm run verify:browser -- --integration-only` after the required
 `quality / check` job, avoiding a duplicate full quality suite. This option requires

@@ -31,8 +31,13 @@ The [A4 startup readiness fix](evidence/a4-readiness/2026-10-19.md) keeps inline
 participation controls disabled while initial account/workspace data loads, then
 restores them after the action guard is released. Its maintained browser regression
 holds an actual workspace request and checks a single creation request/run/open
-round after readiness. It extends the operational TypeScript branch separately;
-the public-bots round-settlement browser timeout remains a distinct investigation.
+round after readiness. PR #39 passed all five required CI checks and was merged
+into the operational TypeScript branch before integrating that branch into main.
+The separate [CI integration correction](evidence/ci-integration/2026-10-19.md)
+foregrounds pages before observing their intentionally visibility-dependent polling
+and handles checked-out delivery-client error events during cancellation. These
+authorized corrections follow the behavior-preserving conversion; they do not
+change its recorded historical evidence or resolve hosted/device capacity gates.
 
 The [strict frontend migration](evidence/frontend-typescript/2026-10-17.md) moves all 33
 handwritten browser/service-worker modules into `frontend/` TypeScript while retaining existing

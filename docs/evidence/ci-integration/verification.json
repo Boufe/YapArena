@@ -1,0 +1,80 @@
+{
+  "codeCommit": "f76bb66",
+  "node": "24.19.0",
+  "postgres": "18.4 (Debian 18.4-1.pgdg12+1)",
+  "chrome": "155.0.8059.80",
+  "environment": "macOS arm64; disposable Docker database and synthetic accounts/media",
+  "sourceSha256": {
+    "scripts/verify-public-bots-browser.ts": "223ed054f3d8047d5d24b5d3b260597bada74b0c4ae426d4c5b2add00a6ac7f6",
+    "src/features/community/delivery.ts": "babb9f90782045c94d31c37d10d7c7e224342bedb22ed779cb3d90f62f9c20ef",
+    "tests/community-sse.test.js": "83c6185d1bef35043bee2d1ea7bca5fd9350b1ebaf6c9ae2fbd7e46dd26b00ec"
+  },
+  "negativeCancellationRegression": {
+    "exit": 1,
+    "diagnostic": "unwanted exception: connection closed"
+  },
+  "sseTests": {
+    "passed": 19,
+    "failed": 0,
+    "skipped": 0
+  },
+  "quality": {
+    "passed": 502,
+    "failed": 0,
+    "skipped": 0,
+    "coverage": {
+      "line": 94.8,
+      "branch": 93.12,
+      "function": 95.8
+    }
+  },
+  "browserRelease": {
+    "status": "passed",
+    "postgres": "docker",
+    "quality": "full runtime-backed npm run check",
+    "steps": [
+      {
+        "name": "build",
+        "status": "passed"
+      },
+      {
+        "name": "fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers",
+        "status": "passed"
+      },
+      {
+        "name": "homepage navigation, interactions, responsive layout and accessibility",
+        "status": "passed"
+      },
+      {
+        "name": "Live/replay preview playback and handoff",
+        "status": "passed"
+      }
+    ],
+    "scope": "Disposable local PostgreSQL and synthetic browser/media fixtures; no hosted or physical-device acceptance"
+  },
+  "sharedData": {
+    "result": "PASS",
+    "checks": {
+      "operatorSeedIsIdempotentAndUsesStoredArgumentResults": true,
+      "databaseBackedHomeExpansionAndDebateArguments": true,
+      "observerAndMixedSettlementRefreshHomeExpandedAndDebateWithoutReload": true,
+      "pendingPrivacyAndAggregateOnlyPublication": true,
+      "publicAndPersonalHistoryRemainDistinct": true,
+      "mobileAndAccessibility": true,
+      "signedOutSharedHistoryWithoutPrivateAccess": true,
+      "consentWithdrawalRemovesPersonalRoundsEverywhere": true,
+      "visibleLiveNavigationAndOriginalLivePage": true
+    },
+    "errors": [],
+    "screenshots": [
+      "home-expanded.png",
+      "debate-shared.png",
+      "home-mobile.png",
+      "debate-mobile.png"
+    ],
+    "scope": "Disposable local PostgreSQL, real A4 worker/HTTP/browser; no hosted test writes or media sessions"
+  },
+  "existingPublicBotsAssertionsRetained": 29,
+  "visibilityAssertionsAdded": 2,
+  "limits": "Local disposable evidence only; original-export comparison not requested; no hosted capacity, device or production acceptance"
+}

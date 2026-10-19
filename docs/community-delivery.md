@@ -169,6 +169,14 @@ a greater cursor and is fetched afterwards. A wake during the read leaves the ro
 next read. Five-second active-room reconciliation independently covers a completely missed wake-up.
 No transaction stays open while a response waits for a viewer.
 
+Checked-out delivery clients observe PostgreSQL client `error` events during reads
+and pruning, including socket cancellation during shutdown or the connection
+deadline. Query failures still propagate and failed clients are discarded on
+release; the temporary listener is removed before returning the client to the
+pool. The maintained cancellation regression covers both operations under both
+shutdown and the unchanged four-second deadline, including listener cleanup.
+See the [CI correction evidence](evidence/ci-integration/2026-10-19.md).
+
 The durable log stores message references and revisions, never historical bodies. Recovery looks up
 each referenced message's **current public state** in the same read transaction. Previously created
 content currently removed is returned with a null body; purged rows become null-body tombstones.

@@ -67,7 +67,7 @@ movement/reconciliation and payout webhooks are **not implemented**.
 Official documentation checked 2026-10-19; locked versions:
 `@privy-io/node` 0.36.0, `@privy-io/react-auth` 3.50.0, Redis client 6.3.0.
 
-- [Custom UI](https://docs.privy.io/authentication/user-authentication/whitelabel): supported React hooks in an account-page island within existing server-rendered TypeScript. Provider bundle size/latency still needs measurement.
+- [Custom UI](https://docs.privy.io/authentication/user-authentication/whitelabel): supported React hooks in an account-page island within existing server-rendered TypeScript. Hosted anonymous loading observations are recorded below; population and end-to-end signup latency remain unverified.
 - [Core JS](https://docs.privy.io/recipes/core-js): provider requests consultation for low-level integration; use the supported React workflow.
 - [Tokens](https://docs.privy.io/authentication/user-authentication/access-tokens): supported signature, issuer, audience and expiry verification. Browser email/account/wallet ownership claims are never authoritative.
 - [Freeze/unfreeze](https://docs.privy.io/user-management/users/managing-users/freezing-users): freeze revokes refresh sessions; unfreeze does not restore them. Issued JWTs still need the local fence below. Selected-app behavior requires a hosted trial.
@@ -301,6 +301,24 @@ menu/dialog focus restoration. Automated WCAG AA-tag checks cover the email
 form, signed-in area and wallet dialog. Manual screen-reader and physical-device
 acceptance, complete WCAG 2.2 AA conformance and provider recovery remain unverified.
 
+The [explicit staging deployment](evidence/account-refresh/hosted-deployment.json)
+of `a1dcf40` became live at 2026-10-19 22:39:36 UTC. Readiness, account, public
+discovery and Live pages returned 200; anonymous session inspection returned 401.
+Main, automatic deployment and the replay worker were unchanged. Real anonymous
+desktop/mobile [browser observations](evidence/account-refresh/hosted-anonymous.json)
+found no page errors, overflow or top-level CSP violations. The email form became
+ready in 2.275 and 2.296 seconds in these workstation runs; the provider bundle
+transferred about 1.72 MB compressed. CAPTCHA frames loaded, but this check did
+not submit email or validate CAPTCHA. The optional Google/passkey buttons shown
+in local fixtures remain disabled in the selected app.
+
+[Read-only account postflight](evidence/account-refresh/hosted-accounts.json)
+confirmed the three retained accounts and the founder's one manual account,
+one active manual-account session, and no live money journals or grants. The
+cumulative provider-session exchange count is now two; this did not create an
+additional account and is not a captured returning-user or revocation trial.
+No additional reset was performed for the UI rollout.
+
 ## Evidence
 
 The refreshed complete local gate passed **524 tests, no skips**, with 93.92%
@@ -313,8 +331,10 @@ no image/volume/cache pruning was performed.
 
 Locked-install audit reports 10 moderate, zero high/critical findings in the
 Privy wallet dependency tree. A forced SDK downgrade is not an accepted fix.
-The approximately 5.6 MB minified provider bundle is account-page-only; hosted
-transfer/decode and signup latency remain to be measured.
+The approximately 5.6 MB minified provider bundle is account-page-only. The
+hosted compressed transfer and initial readiness observations above do not
+establish a population latency budget, isolated decode cost or end-to-end
+signup completion performance.
 
 [Screenshots and recorded UI checks](evidence/email-first/README.md) use local
 SSR fixtures at identical 1440x1000 and 390x844 viewports. The installed SDK runs

@@ -42,6 +42,28 @@ These checks do not establish full WCAG conformance, screen-reader usability,
 physical-device passkeys, live optional-provider flows, or financial acceptance.
 The founder's [real hosted signup](../email-first/hosted-signup.json) is separate.
 
+## Hosted rollout
+
+The [deployment report](hosted-deployment.json) records revision `a1dcf40` live
+on the authorized staging web service. `/ready`, `/account`, `/debates` and
+`/live` returned 200; an anonymous session lookup returned 401. No database reset,
+financial enablement, automatic-deployment change or worker revision change was
+part of the UI rollout.
+
+Real anonymous [desktop](hosted-desktop.png) and [mobile](hosted-mobile.png)
+screenshots use the same viewport dimensions as the local comparison. These
+staging views have Google/passkeys off, unlike the explicit local optional-method
+fixture. [Browser observations](hosted-anonymous.json) use no request interception:
+email readiness was 2.275/2.296 seconds and compressed bundle transfer about
+1.72 MB, with no page errors, overflow or top-level CSP violations. CAPTCHA frames
+loaded; no email, OTP or CAPTCHA response was submitted. These workstation runs
+are not physical-device, inbox or population-performance evidence.
+
+The [account postflight](hosted-accounts.json) verifies the retained accounts and
+manual signup still exist, with no live coin journals or grants. Two cumulative
+provider-session exchanges map to the same new account; one app session is active.
+The postflight does not establish a captured returning-user/revocation journey.
+
 Reproduce the refresh evidence after `npm run build`:
 
 ```sh

@@ -12,6 +12,10 @@ import {
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
+  type HeadObjectCommandOutput,
+  type GetObjectCommandOutput,
+  type ListObjectsV2CommandOutput,
+  type DeleteObjectsCommandOutput,
 } from "@aws-sdk/client-s3";
 import {
   checkReplaySignal,
@@ -22,6 +26,31 @@ import {
   validRecordingKey,
   type ReplayManifest,
 } from "./replay-packaging.ts";
+
+// The storage adapter consumes only these commands and response fields. Keep
+// its injection boundary independent of the SDK's unused callback overloads.
+export type ReplayStorageCommand =
+  | HeadObjectCommand
+  | GetObjectCommand
+  | PutObjectCommand
+  | ListObjectsV2Command
+  | DeleteObjectsCommand;
+export type ReplayStorageResponse = Pick<
+  HeadObjectCommandOutput,
+  "ContentLength" | "ETag" | "Metadata" | "ContentType"
+> & {
+  Body?: GetObjectCommandOutput["Body"] | Readable;
+  Contents?: ListObjectsV2CommandOutput["Contents"];
+  Errors?: DeleteObjectsCommandOutput["Errors"];
+  $metadata?: unknown;
+};
+export type ReplayStorageClient = {
+  send(
+    command: ReplayStorageCommand,
+    options?: { abortSignal?: AbortSignal },
+  ): Promise<ReplayStorageResponse>;
+  destroy?(): void;
+};
 
 export type ReplayStorageConfig = {
   bucket: string;
@@ -71,8 +100,7 @@ export type ReplayUploadRetry = {
 };
 export function createReplayStorage(
   config: ReplayStorageConfig,
-  client: Pick<S3Client, "send"> &
-    Partial<Pick<S3Client, "destroy">> = new S3Client({
+  client: ReplayStorageClient = new S3Client({
     endpoint: config.endpoint,
     region: config.endpoint?.includes(".r2.cloudflarestorage.com")
       ? "auto"

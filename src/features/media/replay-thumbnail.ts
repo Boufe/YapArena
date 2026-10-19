@@ -6,7 +6,6 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
-  type S3Client,
 } from "@aws-sdk/client-s3";
 import {
   run,
@@ -17,6 +16,7 @@ import {
 import { replayPrefix } from "./replay.ts";
 import type { createReplayJobs } from "./replay-jobs.ts";
 import type { Logger } from "pino";
+import type { ReplayStorageClient } from "./replay-storage.ts";
 
 export function replayThumbnailKey(sourceKey: string) {
   if (!validRecordingKey(sourceKey))
@@ -38,7 +38,7 @@ export function validateReplayThumbnail(bytes: Uint8Array) {
 }
 export function createReplayThumbnailStorage(
   { bucket }: { bucket: string },
-  client: Pick<S3Client, "send">,
+  client: Pick<ReplayStorageClient, "send">,
 ) {
   async function read(key: string, maximum: number, signal?: AbortSignal) {
     const result = await client.send(

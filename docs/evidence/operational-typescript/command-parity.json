@@ -1,0 +1,42 @@
+{
+  "result": "PASS",
+  "scope": "Identical allowlisted environments; no supplied database URL, provider account or .env",
+  "results": [
+    {
+      "name": "provision-database",
+      "mode": "missing connection",
+      "exitCode": 1,
+      "diagnostic": "Database provisioning failed (operator review required).",
+      "identical": true
+    },
+    {
+      "name": "migrate-database",
+      "mode": "missing connection",
+      "exitCode": 1,
+      "diagnostic": "Database migration failed (check provisioning and migration review).",
+      "identical": true
+    },
+    {
+      "name": "inventory-database",
+      "mode": "missing connection",
+      "exitCode": 1,
+      "diagnostic": "Database inventory failed (inspection connection required).",
+      "identical": true
+    },
+    {
+      "name": "verify-browser-release",
+      "mode": "invalid",
+      "exitCode": 1,
+      "diagnostic": "Browser release gate FAILED: DATABASE_TEST_MODE must be docker (default) or host",
+      "identical": true
+    },
+    {
+      "name": "verify-browser-release",
+      "mode": "host",
+      "chrome": "missing executable",
+      "exitCode": 1,
+      "diagnostic": "Browser release gate FAILED: Install Chrome/Chromium or set BROWSER_CHROME_PATH to its executable",
+      "identical": true
+    }
+  ]
+}

@@ -101,7 +101,7 @@ storage operations. Never overwrite segments that may be cached.
 3. With FFmpeg on PATH, encode locally:
 
    ```sh
-   node scripts/package-replay.js /private/path/source.mp4 /private/path/new-hls /private/path/reviewed.vtt
+   node scripts/package-replay.ts /private/path/source.mp4 /private/path/new-hls /private/path/reviewed.vtt
    ```
 
 4. Repeat with a **new output directory** and the verified recording key to upload to
@@ -109,7 +109,7 @@ storage operations. Never overwrite segments that may be cached.
    mechanism):
 
    ```sh
-   node --env-file=.env.media scripts/package-replay.js /private/path/source.mp4 /private/path/new-upload-hls /private/path/reviewed.vtt debates/EVENT_UUID/RECORDING_UUID.mp4
+   node --env-file=.env.media scripts/package-replay.ts /private/path/source.mp4 /private/path/new-upload-hls /private/path/reviewed.vtt debates/EVENT_UUID/RECORDING_UUID.mp4
    ```
 
 Replace the caption-file argument with `-` to upload a package without captions. In automatic
@@ -151,7 +151,7 @@ end, offline and errors cancel that stability window.
 
 ## Authenticated edge deployment
 
-Deploy `edge/replay-worker.js` separately with an R2 binding to the private recording
+Deploy `edge/replay-worker.ts` separately with an R2 binding to the private recording
 bucket. Adapt `edge/wrangler.example.toml`; provision a HTTPS custom domain, disable public
 bucket URLs and set `APP_ORIGIN` to the exact application origin. Install a high-entropy
 `REPLAY_SIGNING_SECRET` in the worker secret store, and the identical value as

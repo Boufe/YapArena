@@ -113,7 +113,7 @@ Run the disposable quality/browser gates with:
 
 ```sh
 A4_VERIFY=true A4_QUALITY=true A4_BROWSER=true DATABASE_TEST_MODE=host \
-  node scripts/verify-database-isolation.js
+  node scripts/verify-database-isolation.ts
 ```
 
 This runs fresh/upgrade database checks and the quality/browser gates. `verify-arena-browser.js` extends that disposable browser

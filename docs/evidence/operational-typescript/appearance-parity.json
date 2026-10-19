@@ -1,0 +1,58 @@
+{
+  "result": "PASS",
+  "fixture": "Exact existing verify-homepage-browser.js fixture; fixed clock 2026-10-01T12:00:00Z, reduced motion, paused animations, same synthetic RENDER_GIT_COMMIT in both builds",
+  "dom": "identical",
+  "geometry": "identical",
+  "pageErrors": [],
+  "publicAssetsCompared": 42,
+  "publicAssetDifferences": [],
+  "screenshots": [
+    {
+      "width": 1440,
+      "baselineSha256": "45b8304a79d151b7c42097d6c996f56f40753c5d5dd77417d142e1ec4c20dd08",
+      "convertedSha256": "45b8304a79d151b7c42097d6c996f56f40753c5d5dd77417d142e1ec4c20dd08",
+      "identicalPixels": true,
+      "identicalBytes": true
+    },
+    {
+      "width": 1920,
+      "baselineSha256": "5301b1fbce12005938f67b5f8ea8bec84d13370304c41e46b74cfca464b3ccce",
+      "convertedSha256": "5301b1fbce12005938f67b5f8ea8bec84d13370304c41e46b74cfca464b3ccce",
+      "identicalPixels": true,
+      "identicalBytes": true
+    },
+    {
+      "width": 1024,
+      "baselineSha256": "e5e9fda187cd93b59f2d6d94118c4c5b9107490fa6c0dd18f072b8e9093be3c6",
+      "convertedSha256": "e5e9fda187cd93b59f2d6d94118c4c5b9107490fa6c0dd18f072b8e9093be3c6",
+      "identicalPixels": true,
+      "identicalBytes": true
+    },
+    {
+      "width": 768,
+      "baselineSha256": "bf36a08f2401ae8e2adc7e47a42b3ce7a77cd5be45d27debec456f752bbfe9ae",
+      "convertedSha256": "bf36a08f2401ae8e2adc7e47a42b3ce7a77cd5be45d27debec456f752bbfe9ae",
+      "identicalPixels": true,
+      "identicalBytes": true
+    },
+    {
+      "width": 390,
+      "baselineSha256": "b1038910bdd4e267ead28022af08060dd8094b29f5606fd18265282f3e9f565e",
+      "convertedSha256": "b1038910bdd4e267ead28022af08060dd8094b29f5606fd18265282f3e9f565e",
+      "identicalPixels": true,
+      "identicalBytes": true
+    },
+    {
+      "width": 320,
+      "baselineSha256": "ae6e59ea074c3eb697a04e1fc1b2c5e6152324d8c8ce9e5aa074b53b1091eb58",
+      "convertedSha256": "ae6e59ea074c3eb697a04e1fc1b2c5e6152324d8c8ce9e5aa074b53b1091eb58",
+      "identicalPixels": true,
+      "identicalBytes": true
+    }
+  ],
+  "uncontrolledReleaseCaptures": {
+    "compared": 19,
+    "identicalPixels": 11,
+    "remaining": "live clocks, generated session charts, animation phase and minor raster variation; not accepted as identical snapshots"
+  }
+}

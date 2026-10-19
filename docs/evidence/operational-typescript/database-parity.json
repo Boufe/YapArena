@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "results": [
+    {
+      "scenario": "fresh-inventory.json",
+      "matchingSections": 19,
+      "normalization": "inspection timestamp only",
+      "identical": true
+    },
+    {
+      "scenario": "upgrade-inventory.json",
+      "matchingSections": 19,
+      "normalization": "inspection timestamp only",
+      "identical": true
+    }
+  ]
+}

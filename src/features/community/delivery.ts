@@ -90,11 +90,13 @@ export function publicFrame(
 export function createCommunityDelivery(database: Pool) {
   let stopped = false;
   const activeClients = new Set<PoolClient>();
-  function track(client: PoolClient) {
+  function track(client: PoolClient, onError: () => void) {
     if (stopped) {
       client.release();
       throw new Error("community delivery is stopping");
     }
+    // A checked-out client emits socket errors as well as rejecting its query.
+    client.on("error", onError);
     activeClients.add(client);
     return setTimeout(
       () =>
@@ -106,8 +108,11 @@ export function createCommunityDelivery(database: Pool) {
   }
   async function transaction<T>(action: (client: PoolClient) => Promise<T>) {
     const client = await database.connect();
-    const deadline = track(client);
     let failed = false;
+    const onError = () => {
+      failed = true;
+    };
+    const deadline = track(client, onError);
     try {
       await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
       await client.query("SET LOCAL statement_timeout = '3s'");
@@ -121,6 +126,7 @@ export function createCommunityDelivery(database: Pool) {
     } finally {
       clearTimeout(deadline);
       activeClients.delete(client);
+      client.off("error", onError);
       client.release(failed);
     }
   }
@@ -240,8 +246,11 @@ export function createCommunityDelivery(database: Pool) {
     async prune() {
       // Delete a prefix per room and advance the recovery floor in the same transaction.
       const client = await database.connect();
-      const deadline = track(client);
       let failed = false;
+      const onError = () => {
+        failed = true;
+      };
+      const deadline = track(client, onError);
       try {
         await client.query("BEGIN");
         await client.query("SET LOCAL statement_timeout = '3s'");
@@ -289,6 +298,7 @@ export function createCommunityDelivery(database: Pool) {
       } finally {
         clearTimeout(deadline);
         activeClients.delete(client);
+        client.off("error", onError);
         client.release(failed);
       }
     },

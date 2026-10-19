@@ -30,7 +30,14 @@ export function createReplayWorker({
   storage: ReturnType<typeof createReplayStorage>;
   logger: Pick<Logger, "info" | "warn">;
   options?: ReplayWorkerOptions;
-  packageMedia?: typeof buildReplayPackage;
+  packageMedia?: (
+    input: string,
+    directory: string,
+    reviewedCaptions: string | null,
+    options: NonNullable<Parameters<typeof buildReplayPackage>[3]> & {
+      signal: AbortSignal;
+    },
+  ) => ReturnType<typeof buildReplayPackage>;
   idleWork?: (signal: AbortSignal) => Promise<void>;
 }) {
   const limits = {

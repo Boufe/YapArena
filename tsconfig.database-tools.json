@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2024"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true
+  },
+  "files": [
+    "scripts/provision-database.ts",
+    "scripts/migrate-database.ts",
+    "scripts/inventory-database.ts",
+    "scripts/verify-database-isolation.ts",
+    "scripts/test-http-request.ts",
+    "scripts/verify-discovery.ts",
+    "scripts/verify-identity-social.ts",
+    "scripts/verify-matching.ts",
+    "scripts/verify-measurement.ts",
+    "scripts/smoke-staging.ts",
+    "scripts/seed-discovery.ts",
+    "scripts/migration-exports.d.ts"
+  ]
+}

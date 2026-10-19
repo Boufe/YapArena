@@ -29,7 +29,7 @@ identification is deferred.
 ## Chat submission migration and rollout
 
 `1791244800000_add_chat_submissions.js` is additive and must run after
-`1791158400000_isolate_server_database.js`, as the owner through `scripts/migrate-database.js`.
+`1791158400000_isolate_server_database.js`, as the owner through `scripts/migrate-database.ts`.
 Follow the [database isolation runbook](security/database-isolation.md),
 [image release procedure](operations.md#release-and-deploy-an-image), and
 [staging deployment sequence](render-staging.md#deploy-the-web-service). Apply migrations before
@@ -174,7 +174,7 @@ hosted concurrent audience and shared-network acceptance still require measured 
 
 Run `npm run check` and the PostgreSQL integration exercise in the CI integration job. Locally,
 after building and applying migrations to a disposable local database, run
-`node scripts/verify-community.js` in an operator fixture process. Supply an owner connection
+`node scripts/verify-community.ts` in an operator fixture process. Supply an owner connection
 as `DATABASE_FIXTURE_URL` and a runtime connection as both `DATABASE_URL` and
 `COMMUNITY_RUNTIME_URL`; otherwise fixture setup/cleanup can fail under runtime privileges,
 or queries use the owner and do not establish runtime-role behavior. The exercise creates and removes synthetic users and a synthetic
@@ -192,7 +192,7 @@ quota preservation, both posting windows, private correlation, access denial and
 revisions. After `npm run build`, use Node.js 24 and run:
 
 ```sh
-node scripts/verify-community-local.js
+node scripts/verify-community-local.ts
 ```
 
 It creates and removes a volume-free PostgreSQL 18.4 Docker cluster, runs `verify-community.js` with
@@ -201,7 +201,7 @@ journeys and `verify-chat-client.js`. It never reads `.env` or accepts hosted da
 Docker is unavailable and PostgreSQL 17/18 tools are installed, the same isolated trial supports:
 
 ```sh
-COMMUNITY_POSTGRES_MODE=host node scripts/verify-community-local.js
+COMMUNITY_POSTGRES_MODE=host node scripts/verify-community-local.ts
 ```
 
 The host mode creates a temporary SCRAM-authenticated cluster and stops/removes it afterward;
@@ -213,7 +213,7 @@ exercise local synthetic behavior; they do not establish hosted isolation or aud
 For a local browser trial, start the app and run:
 
 ```sh
-BROWSER_DATABASE_PORT=55433 node --env-file=.env scripts/verify-community-browser.js
+BROWSER_DATABASE_PORT=55433 node --env-file=.env scripts/verify-community-browser.ts
 ```
 
 Set `BROWSER_BASE_URL`, `BROWSER_DATABASE_PORT`, `BROWSER_CHROME_PATH`, and

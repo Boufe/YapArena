@@ -1,0 +1,8 @@
+{
+  "result": "PASS",
+  "comparison": "Identical ES2024 edge ESM bundle with syntax/whitespace minified and identifier names retained, using existing esbuild",
+  "sha256": "ac0c47c0f9a94455be6278235af88aba8588d4c69d0ad5aa164891864e03166e",
+  "bytes": 4230,
+  "scope": "Local bundle only; no Wrangler publication or hosted provider settings changed",
+  "note": "Fully identifier-minified bundles use different short local names; no byte-equality claim for that mode"
+}

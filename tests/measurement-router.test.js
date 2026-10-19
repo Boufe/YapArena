@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
-import request from "../scripts/test-http-request.js";
+import request from "../scripts/test-http-request.ts";
 
 import { createApp } from "../dist/app.js";
 import {

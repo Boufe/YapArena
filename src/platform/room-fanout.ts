@@ -1,5 +1,9 @@
-import type { Response } from "express";
-import { createSseSink, encodeSse, type StreamSink } from "./sse.ts";
+import {
+  createSseSink,
+  encodeSse,
+  type StreamSink,
+  type SseResponse,
+} from "./sse.ts";
 
 export interface RoomProjection {
   head: string;
@@ -247,7 +251,7 @@ export function createRoomFanout(
       id: string,
       cursor: string | null,
       ip: string,
-      response: Response,
+      response: SseResponse,
     ) {
       if (
         stopped ||

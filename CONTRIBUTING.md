@@ -156,6 +156,17 @@ See [prerequisites, native PostgreSQL mode, deterministic fixtures and evidence
 limits](docs/browser-release-checks.md). Missing prerequisites and assertions fail the
 gate; real hosted/device media acceptance remains separate.
 
+## Operational TypeScript
+
+Author the production edge worker and maintained critical release/database automation in
+strict TypeScript. Follow the [operational source inventory and execution guide](docs/operational-typescript.md).
+`npm run typecheck:operations` checks all converted files explicitly, with separate Node,
+browser-automation and edge projects; the ordinary `typecheck`, `build` and `check` commands
+include this gate. Server declarations emitted under ignored `dist/` provide types for the
+verifiers' existing built-server imports. Use Node 24 for direct `node scripts/name.ts` commands.
+Keep runtime validation, fixture assertions, SQL, ordering, diagnostics and evidence boundaries
+intact. Do not rewrite applied JavaScript migrations or convert unrelated scripts incidentally.
+
 ## Documentation changes
 
 Verify claims against the reviewed branch's source, scripts, migrations, workflows and saved trial

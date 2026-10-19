@@ -12,6 +12,13 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+The [operational TypeScript migration](operational-typescript.md) checks the production
+edge replay worker and critical database/release automation through the existing quality
+gate. It retains the merged browser-release workflows and their deterministic fixtures;
+applied migrations and product behavior remain unchanged. The
+[verification record](evidence/operational-typescript/2026-10-18.md) distinguishes baseline
+failures, local converted checks and remaining hosted/device evidence limits.
+
 The [core browser release gate](browser-release-checks.md) runs maintained homepage,
 Live preview, account/A4, debate workspace and shared-data journeys from one disposable
 local command and the required CI integration job. Its owner-only A4 fixtures cover
@@ -19,6 +26,18 @@ exact execution and exploratory nonexecution without changing production randomn
 Original-export visual comparisons remain explicit; hosted media, physical-device
 and audience-capacity acceptance remain separate. [Local verification and the
 reversible failure proof](evidence/browser-release/2026-10-18.md) record the tested scope.
+
+The [A4 startup readiness fix](evidence/a4-readiness/2026-10-19.md) keeps inline
+participation controls disabled while initial account/workspace data loads, then
+restores them after the action guard is released. Its maintained browser regression
+holds an actual workspace request and checks a single creation request/run/open
+round after readiness. PR #39 passed all five required CI checks and was merged
+into the operational TypeScript branch before integrating that branch into main.
+The separate [CI integration correction](evidence/ci-integration/2026-10-19.md)
+foregrounds pages before observing their intentionally visibility-dependent polling
+and handles checked-out delivery-client error events during cancellation. These
+authorized corrections follow the behavior-preserving conversion; they do not
+change its recorded historical evidence or resolve hosted/device capacity gates.
 
 The [strict frontend migration](evidence/frontend-typescript/2026-10-17.md) moves all 33
 handwritten browser/service-worker modules into `frontend/` TypeScript while retaining existing

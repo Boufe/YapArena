@@ -31,7 +31,7 @@ gap with additive migration `1791345540042_preserve-chat-idempotency.js`; no app
 Executed with Node 24.19.0, disposable SCRAM PostgreSQL 17.10, distinct owner/runtime logins and
 synthetic data: `node --test tests/community-state.test.js tests/community-repository.test.js
 tests/community-router.test.js` (35/35 passed), and `COMMUNITY_POSTGRES_MODE=host node
-scripts/verify-community-local.js` (SQL/runtime/browser PASS, 2026-10-07 01:06 UTC). Baseline delivery:
+scripts/verify-community-local.ts` (SQL/runtime/browser PASS, 2026-10-07 01:06 UTC). Baseline delivery:
 desktop 2,216ms, phone viewport 2,221ms, reconnect 28ms, removal 1,669ms; these are individual polling
 observations. Logs: `/tmp/yaparena-prerequisite-unit.log`, `/tmp/yaparena-prerequisites.log`.
 The initial sandbox attempts failed on local sockets/shared memory; the recorded trials ran with
@@ -168,6 +168,14 @@ connection deadline. A mutation committed during that read either appears in the
 a greater cursor and is fetched afterwards. A wake during the read leaves the room dirty for the
 next read. Five-second active-room reconciliation independently covers a completely missed wake-up.
 No transaction stays open while a response waits for a viewer.
+
+Checked-out delivery clients observe PostgreSQL client `error` events during reads
+and pruning, including socket cancellation during shutdown or the connection
+deadline. Query failures still propagate and failed clients are discarded on
+release; the temporary listener is removed before returning the client to the
+pool. The maintained cancellation regression covers both operations under both
+shutdown and the unchanged four-second deadline, including listener cleanup.
+See the [CI correction evidence](evidence/ci-integration/2026-10-19.md).
 
 The durable log stores message references and revisions, never historical bodies. Recovery looks up
 each referenced message's **current public state** in the same read transaction. Previously created
@@ -404,14 +412,14 @@ hold a read after projection, add the older subscriber, and require all interven
 
 ## Authorized hosted browser procedure
 
-`scripts/verify-community-browser.js` defaults to loopback PostgreSQL. The explicitly enabled
+`scripts/verify-community-browser.ts` defaults to loopback PostgreSQL. The explicitly enabled
 `BROWSER_HOSTED_SYNTHETIC=1` mode is restricted to the existing HTTPS staging origin and a
 certificate-validated port-5432 operator connection; it verifies the distinct owner identity.
 Supply `DATABASE_FIXTURE_URL` only to that one-off trial process, with `sslmode=verify-full`
 and a readable CA certificate path. Never add that URL to the Render web environment.
 Set `BROWSER_BASE_URL=https://yaparena-staging-web.onrender.com`,
 `COMMUNITY_DURABLE_TRIAL=1` and an ignored `BROWSER_ARTIFACT_DIR`, then run
-`node scripts/verify-community-browser.js`. It creates synthetic accounts/topic/event, tests
+`node scripts/verify-community-browser.ts`. It creates synthetic accounts/topic/event, tests
 independent sessions, stream/HTTP races, moderation and lifecycle, and cleans its scoped rows.
 Keep the trial log and postflight database counts. The operator must have the separate hosted
 change authorization and backup required by the staging runbook before running it.

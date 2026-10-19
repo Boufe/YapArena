@@ -150,27 +150,27 @@ jobs:
         run: |
           docker compose run --rm \
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
-            migrate node scripts/seed-discovery.js
+            migrate node scripts/seed-discovery.ts
 
           docker compose run --rm \
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
-            migrate node scripts/verify-discovery.js
+            migrate node scripts/verify-discovery.ts
 
           docker compose run --rm \
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
-            migrate node scripts/verify-identity-social.js
+            migrate node scripts/verify-identity-social.ts
 
           docker compose run --rm \
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
-            migrate node scripts/verify-matching.js
+            migrate node scripts/verify-matching.ts
 
           docker compose run --rm \
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
-            migrate node scripts/verify-community.js
+            migrate node scripts/verify-community.ts
 
           docker compose run --rm \
             --volume "${{ github.workspace }}/scripts:/app/scripts:ro" \
-            migrate node scripts/verify-measurement.js
+            migrate node scripts/verify-measurement.ts
 
           curl --fail --silent --show-error http://localhost:3000/ \
             | grep --fixed-strings 'id="ya-market-v4"'
@@ -195,7 +195,7 @@ jobs:
       - name: Smoke test the running app
         env:
           SMOKE_BASE_URL: http://localhost:3000
-        run: node scripts/smoke-staging.js
+        run: node scripts/smoke-staging.ts
 
       - name: Verify desktop and mobile browser journeys and accessibility
         env:
@@ -204,8 +204,8 @@ jobs:
           BROWSER_ARTIFACT_DIR: /tmp/yaparena-browser
         run: |
           export BROWSER_CHROME_PATH="$(command -v google-chrome || command -v chromium)"
-          node --env-file=.env scripts/verify-measurement-browser.js
-          node --env-file=.env scripts/verify-community-browser.js
+          node --env-file=.env scripts/verify-measurement-browser.ts
+          node --env-file=.env scripts/verify-community-browser.ts
 
       - name: Verify persisted API request
         run: |

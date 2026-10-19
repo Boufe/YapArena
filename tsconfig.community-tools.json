@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
+  },
+  "files": [
+    "scripts/migration-exports.d.ts",
+    "scripts/verify-community-local.ts",
+    "scripts/verify-community-load.ts",
+    "scripts/verify-community-delivery.ts",
+    "scripts/verify-community.ts",
+    "scripts/verify-community-browser.ts",
+    "scripts/verify-chat-client.ts",
+    "scripts/verify-media-operations.ts",
+    "scripts/verify-media-clock-child.ts"
+  ]
+}

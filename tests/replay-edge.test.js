@@ -8,7 +8,7 @@ import {
   authorized,
   rewritePlaylist,
   serveReplay,
-} from "../edge/replay-worker.js";
+} from "../edge/replay-worker.ts";
 const secret = "synthetic-test-secret-32-characters-only";
 const recording = "debates/33333333-3333-4333-8333-333333333333/recording.mp4";
 const access = () =>

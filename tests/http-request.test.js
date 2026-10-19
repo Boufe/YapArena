@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { after, it } from "node:test";
 import supertest from "supertest";
-import request from "../scripts/test-http-request.js";
+import request from "../scripts/test-http-request.ts";
 
 const servers = [];
 async function listen(server, options) {

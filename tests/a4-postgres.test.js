@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { describe, it, before, after } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
-import request from "../scripts/test-http-request.js";
+import request from "../scripts/test-http-request.ts";
 import { createA4Repository } from "../dist/features/a4/repository.js";
 import {
   createPublicBotRepository,

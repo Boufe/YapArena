@@ -18,7 +18,10 @@ async function desired(client: PoolClient, id: string): Promise<Desired> {
   return result.rows[0] ?? { revision: -1, side: null };
 }
 
-export function createMediaOperations({
+export function createMediaOperations<
+  Provider extends Pick<ReturnType<typeof createMediaProvider>, "setTurn"> &
+    Partial<Pick<ReturnType<typeof createMediaProvider>, "recordingResult">>,
+>({
   database,
   media,
   provider,
@@ -29,7 +32,7 @@ export function createMediaOperations({
 }: {
   database: Pool;
   media: ReturnType<typeof createMediaRepository>;
-  provider: ReturnType<typeof createMediaProvider>;
+  provider: Provider;
   logger: Pick<Logger, "warn">;
   count?: (
     kind:
@@ -195,7 +198,7 @@ export function createMediaOperations({
           for (const recording of pending) {
             if (stopping) return;
             try {
-              const result = await provider.recordingResult(
+              const result = await provider.recordingResult!(
                 recording.egressId,
                 recording.key,
                 probeAbort!.signal,

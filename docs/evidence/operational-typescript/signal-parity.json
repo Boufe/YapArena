@@ -1,0 +1,40 @@
+{
+  "result": "PASS",
+  "scope": "Controlled local build-child fixture; identical preflight, forwarded signal, exit status and finally report; no database started",
+  "results": [
+    {
+      "signal": "SIGINT",
+      "exitCode": 130,
+      "report": {
+        "status": "failed",
+        "postgres": "host",
+        "quality": "full runtime-backed npm run check",
+        "steps": [
+          {
+            "name": "build",
+            "status": "failed"
+          }
+        ],
+        "scope": "Disposable local PostgreSQL and synthetic browser/media fixtures; no hosted or physical-device acceptance"
+      },
+      "identical": true
+    },
+    {
+      "signal": "SIGTERM",
+      "exitCode": 130,
+      "report": {
+        "status": "failed",
+        "postgres": "host",
+        "quality": "full runtime-backed npm run check",
+        "steps": [
+          {
+            "name": "build",
+            "status": "failed"
+          }
+        ],
+        "scope": "Disposable local PostgreSQL and synthetic browser/media fixtures; no hosted or physical-device acceptance"
+      },
+      "identical": true
+    }
+  ]
+}

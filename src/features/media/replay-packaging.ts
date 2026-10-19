@@ -1,4 +1,8 @@
-import { spawn } from "node:child_process";
+import {
+  spawn,
+  type SpawnOptions,
+  type ChildProcess,
+} from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import {
@@ -58,7 +62,11 @@ export type ProcessOptions = {
   signal?: AbortSignal;
   timeoutMs?: number;
   maxOutputBytes?: number;
-  spawnProcess?: typeof spawn;
+  spawnProcess?: (
+    command: string,
+    args: string[],
+    options: SpawnOptions,
+  ) => ChildProcess;
 };
 // Never invoke a shell or include raw encoder stderr, private media metadata or
 // storage credentials in public errors. Wait for process close after killing it.

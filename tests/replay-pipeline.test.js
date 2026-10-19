@@ -21,7 +21,7 @@ import {
   verifyReplayTools,
 } from "../dist/features/media/replay-packaging.js";
 import { createReplayWorker } from "../dist/features/media/replay-worker.js";
-import { replayStorageFixture } from "./helpers/replay-storage.js";
+import { replayStorageFixture } from "./helpers/replay-storage.ts";
 
 const room = "00000000-0000-4000-8000-000000000001";
 const sourceKey = `debates/${room}/recording.mp4`;

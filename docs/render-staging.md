@@ -55,14 +55,14 @@ credentials or API settings. Verify those in the provider dashboards and keep th
    run CI (including database isolation checks), and validate `render.yaml` with
    `render blueprints validate render.yaml`. Inventory and back up the target first. For an upgrade,
    stop traffic/background jobs while provisioning moves the existing public schema objects.
-2. In a secured operator container or release runner, run `scripts/provision-database.js` as the
+2. In a secured operator container or release runner, run `scripts/provision-database.ts` as the
    administrator using a provisioning-only secret environment. Next run the **same reviewed image**
    with the owner URL as `DATABASE_URL`, in a separate one-off process:
 
    ```sh
    docker run --rm --env-file /secure/yaparena-migration.env \
      ghcr.io/OWNER/REPOSITORY@sha256:REVIEWED_DIGEST \
-     node scripts/migrate-database.js
+     node scripts/migrate-database.ts
    ```
 
    The protected file contains only the migration process's `DATABASE_URL`. Do not mount it in the

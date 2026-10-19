@@ -1,4 +1,17 @@
-import type { Response } from "express";
+export interface SseResponse {
+  readonly writableLength: number;
+  status(code: number): SseResponse;
+  set(headers: Record<string, string>): SseResponse;
+  set(name: string, value: string): SseResponse;
+  json(value: unknown): unknown;
+  flushHeaders(): void;
+  write(frame: Buffer): boolean;
+  end(): unknown;
+  destroy(): unknown;
+  on(event: string, listener: () => void): unknown;
+  once(event: string, listener: () => void): unknown;
+  off(event: string, listener: () => void): unknown;
+}
 
 export interface StreamSink {
   send(event: string, data: unknown, id?: string): boolean;
@@ -14,7 +27,7 @@ export function encodeSse(event: string, data: unknown, id?: string) {
 // Node's writable queue plus our own queue share a hard byte budget. No state is
 // dropped: pressure closes the connection so the application resumes durably.
 export function createSseSink(
-  response: Response,
+  response: SseResponse,
   onClose: () => void,
   onPressure: () => void,
   budget = 65536,

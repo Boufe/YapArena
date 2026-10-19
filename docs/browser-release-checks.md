@@ -86,6 +86,15 @@ The existing integration job runs this regression as part of the full browser ga
 no sleep, retry, forced click or timeout increase is involved. See the
 [readiness fix evidence](evidence/a4-readiness/2026-10-19.md).
 
+The shared-data verifier registers its own synthetic account rather than copying
+the workspace account's cookies. The workspace intentionally leaves its normal
+60-second “Pilot studies” run in flight; publishing that same creator would let
+an unrelated later settlement replace this verifier's expected latest round.
+The verifier checks distinct creator IDs, that the workspace creator stays private,
+and that the initial public history contains 36 seeded rounds plus the same two
+completed mixed histories created for this separate actor through the real worker. It
+leaves the workspace run and all existing timing/settlement assertions intact.
+
 The shared-data verifier brings each page to the foreground before waiting for its
 live chart refresh, and asserts that it is visible. Homepage polling pauses in
 hidden tabs; applying a received update also waits until hover, focus and chart

@@ -1,0 +1,77 @@
+{
+  "codeCommit": "fd3104a",
+  "identityCommit": "21b5521",
+  "failedCiHead": "65c92a8",
+  "failedCiRun": 39208295220,
+  "sourceSha256": "4756b09d565cbb08ac26620c9dc5146e1f194b2f38edc19a0d906ba5accab4ed",
+  "cause": "Shared verifier inherited and published the arena creator, whose normal 60-second Pilot studies run could settle later and become the legitimate latest round.",
+  "ciFailureObservations": {
+    "failedCase": "mixed",
+    "activeInspectionRegressionPassed": true,
+    "homeVisible": true,
+    "inspecting": 0,
+    "focused": "ya-search",
+    "displayedRound": 41,
+    "displayedArgument": "Pilot studies",
+    "displayedBots": 500,
+    "expectedNewMixedBots": 30
+  },
+  "identityOnlyLocalFailure": {
+    "codeCommit": "21b5521",
+    "assertion": "before.items.some(r => r.mode === mixed)",
+    "result": {
+      "result": "FAIL",
+      "checks": {
+        "operatorSeedIsIdempotentAndUsesStoredArgumentResults": true,
+        "separateCreatorKeepsWorkspaceRoundsPrivate": true
+      },
+      "errors": [],
+      "home": {
+        "hidden": false,
+        "focused": "",
+        "hovered": [
+          "HTML",
+          "BODY",
+          "ya-market-v4",
+          "main",
+          "ya-carousel",
+          "DIV",
+          "ya-carousel-dots",
+          "BUTTON",
+          "SPAN"
+        ],
+        "inspecting": 0,
+        "status": "",
+        "latestRound": "56f94b79-66ba-4518-a150-036cf6d85536"
+      }
+    }
+  },
+  "preservedHistoryFixtures": {
+    "labels": ["Opening case", "Cost analysis"],
+    "population": 500,
+    "roundSeconds": 10,
+    "speed": 20,
+    "settlement": "real worker; unchanged 50 polls at 500ms"
+  },
+  "baseline": {
+    "seedRounds": 36,
+    "completedMixedHistory": 2,
+    "expectedTotal": 38,
+    "callerConsentRemainsFalse": true
+  },
+  "quality": {
+    "node": "24.19.0",
+    "postgres": "18.4 Docker",
+    "passed": 502,
+    "failed": 0,
+    "skipped": 0,
+    "coverage": {
+      "line": 94.8,
+      "branch": 93.12,
+      "function": 95.8
+    }
+  },
+  "verificationCommand": "DATABASE_TEST_MODE=docker BROWSER_ARTIFACT_DIR=/private/tmp/yaparena-shared-actor-history-fixed-20261019 npm run verify:browser",
+  "finalBrowserAndCiResults": "Recorded in PR #38 verification; historical failed runs above remain failures.",
+  "limits": "Synthetic disposable local/CI evidence; no hosted/device/capacity acceptance."
+}

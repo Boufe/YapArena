@@ -1,6 +1,7 @@
-import type { BrowserContext } from "playwright-core";
+import type { BrowserContext, Response } from "playwright-core";
 import type { Pool } from "pg";
 import type { PublicBotActivity } from "../src/features/a4/public-bot-types.ts";
+import type { HomeData } from "../src/features/discovery/homepage-model.ts";
 import type { Run } from "./browser-fixture-types.ts";
 /* global document,window */
 import assert from "node:assert/strict";
@@ -31,7 +32,6 @@ export async function verifyPublicBotsBrowser({
   assert.ok(["127.0.0.1", "localhost"].includes(new URL(base).hostname));
   await mkdir(artifactDir, { recursive: true });
   const isolated = await context.browser()!.newContext({
-    storageState: await context.storageState(),
     viewport: { width: 1440, height: 1100 },
     reducedMotion: "reduce",
     bypassCSP: false,
@@ -57,8 +57,59 @@ export async function verifyPublicBotsBrowser({
     );
     return data;
   }
+  async function settled(runId: string) {
+    let complete!: Run;
+    for (let i = 0; i < 50; i++) {
+      complete = await api<Run>(`a4/runs/${runId}`);
+      if (complete.state === "complete") break;
+      await delay(500);
+    }
+    assert.equal(complete.state, "complete");
+    return complete;
+  }
   const shots = [];
+  let expectedRound: { id: string; mode: "mixed" | "observer" } | undefined;
+  const homepageResponses: Response[] = [];
+  home.on("response", (response) => {
+    if (
+      new URL(response.url()).pathname === "/api/public/homepage" &&
+      response.status() === 200
+    )
+      homepageResponses.push(response);
+  });
   try {
+    // The arena creator can still have its normal 60-second round in flight.
+    // Keep its consent and settlements independent of this shared-history trial.
+    await api("auth/register", {
+      email: `public-bots-${randomUUID()}@example.test`,
+      password: randomUUID() + randomUUID(),
+    });
+    const account = (await api<{ user: { id: string } }>("auth/me")).user.id;
+    const caller = await context.request.get(base + "/api/auth/me");
+    assert.equal(caller.status(), 200);
+    const callerIdentity: { user: { id: string } } = await caller.json();
+    assert.notEqual(account, callerIdentity.user.id);
+    await api("me/profile", {
+      handle: "shared-ui-" + randomUUID().slice(0, 8),
+      displayName: "UI Test Participant",
+      bio: "Synthetic local interface trial.",
+    });
+    const profile = await isolated.request.patch(base + "/api/me/profile", {
+      data: { publicationState: "published" },
+      headers: { "Idempotency-Key": randomUUID() },
+    });
+    assert.equal(profile.status(), 200);
+    const histories = await Promise.all(
+      ["Opening case", "Cost analysis"].map((argumentLabel) =>
+        api<{ id: string }>("a4/runs", {
+          debateId: debate,
+          mode: "mixed",
+          config: { population: 500, roundSeconds: 10, argumentLabel },
+          speed: 20,
+        }),
+      ),
+    );
+    await Promise.all(histories.map((history) => settled(history.id)));
     const seed = () =>
       promisify(execFile)(process.execPath, ["scripts/seed-public-bots.ts"], {
         env: {
@@ -79,10 +130,23 @@ export async function verifyPublicBotsBrowser({
     ).rows.map((r) => r.id);
     checks.operatorSeedIsIdempotentAndUsesStoredArgumentResults = true;
     await api("a4/publication", { published: true });
+    const callerPublication = await context.request.get(
+      base + "/api/a4/publication",
+    );
+    assert.equal(callerPublication.status(), 200);
+    const callerConsent: { published: boolean } =
+      await callerPublication.json();
+    assert.equal(
+      callerConsent.published,
+      false,
+      "sharing this fixture must not publish the arena creator's other rounds",
+    );
+    checks.separateCreatorKeepsWorkspaceRoundsPrivate = true;
     await home.goto(base + "/");
     await watch.goto(base + "/debates/" + debateSlug);
     home.setDefaultTimeout(20000);
     watch.setDefaultTimeout(20000);
+    await home.bringToFront();
     const dismiss = home.getByRole("button", { name: "Not now", exact: true });
     if (await dismiss.isVisible()) await dismiss.click();
     await home.locator(`[data-trending="${topic}"]`).click();
@@ -106,6 +170,7 @@ export async function verifyPublicBotsBrowser({
       `public/debates/${debate}/activity`,
     );
     assert.ok(before.items.length >= 18);
+    assert.equal(before.items.length, 38);
     assert.ok(before.items.some((r) => r.mode === "mixed"));
     await home.locator(`[data-expand="${topic}"]`).click();
     assert.equal(
@@ -117,8 +182,17 @@ export async function verifyPublicBotsBrowser({
     await home.locator("#ya-search").focus();
     await home.mouse.move(0, 0);
     checks.databaseBackedHomeExpansionAndDebateArguments = true;
-    const account = (await api<{ user: { id: string } }>("auth/me")).user.id;
     async function round(mode: "mixed" | "observer", label: string) {
+      const inspecting = mode === "observer";
+      const previousRound = await home
+        .locator("#ya-chart")
+        .getAttribute("data-latest-round");
+      if (inspecting) {
+        await home.bringToFront();
+        await home.locator("#ya-carousel .ya-scrub-control input").focus();
+        await home.locator("#ya-carousel-count").hover();
+        assert.equal(await home.locator("#ya-chart.is-scrubbing").count(), 1);
+      }
       const created = await api<{ id: string }>("a4/runs", {
         debateId: debate,
         mode,
@@ -131,6 +205,7 @@ export async function verifyPublicBotsBrowser({
       });
       const state = await api<Run>(`a4/runs/${created.id}`),
         id = state.rounds[0]!.id;
+      expectedRound = { id, mode };
       if (mode === "mixed")
         await api(`a4/rounds/${id}/submit`, {
           accountId: account,
@@ -145,16 +220,61 @@ export async function verifyPublicBotsBrowser({
         ).items.some((r) => r.id === id),
         "pending round remains sealed",
       );
-      let complete!: Run;
-      for (let i = 0; i < 50; i++) {
-        complete = await api<Run>(`a4/runs/${created.id}`);
-        if (complete.state === "complete") break;
-        await delay(500);
+      await settled(created.id);
+      const latest = (
+        await api<PublicBotActivity>(`public/debates/${debate}/activity`)
+      ).items.at(-1)!;
+      assert.equal(latest.id, id);
+      assert.equal(latest.mode, mode);
+      assert.equal(latest.humans, mode === "mixed" ? 1 : 0);
+      assert.equal(latest.ownLimit, null);
+      assert.equal(latest.runId, null);
+      if (inspecting) {
+        const containsRound = async (response: Response) => {
+          if (
+            new URL(response.url()).pathname !== "/api/public/homepage" ||
+            response.status() !== 200
+          )
+            return false;
+          const snapshot: HomeData = await response.json();
+          return snapshot.ideas.some(
+            (idea) =>
+              idea.id === topic && idea.activity?.items.at(-1)?.id === id,
+          );
+        };
+        let received = false;
+        for (const response of homepageResponses) {
+          if (await containsRound(response)) {
+            received = true;
+            break;
+          }
+        }
+        if (!received)
+          await home.waitForResponse(containsRound, { timeout: 20000 });
+        assert.equal(
+          await home.locator("#ya-chart").getAttribute("data-latest-round"),
+          previousRound,
+          "active inspection holds a received settlement until interaction ends",
+        );
       }
-      assert.equal(complete.state, "complete");
-      // Hidden tabs intentionally pause polling; observe each visible UI in turn.
+      // Observe polling only after foregrounding and ending chart interaction.
       await home.bringToFront();
+      await home.locator("#ya-search").click();
+      await home.mouse.move(0, 0);
       assert.equal(await home.evaluate(() => document.hidden), false);
+      assert.deepEqual(
+        await home.evaluate(() => ({
+          carouselActive: document
+            .querySelector("#ya-carousel")!
+            .matches(":hover,:focus-within"),
+          tickerActive: document
+            .querySelector(".ya-ticker")!
+            .matches(":hover,:focus-within"),
+          inspecting: document.querySelectorAll(".is-scrubbing").length,
+        })),
+        { carouselActive: false, tickerActive: false, inspecting: 0 },
+        "live refresh observation requires an idle homepage",
+      );
       await home.waitForFunction(
         (id) =>
           document.querySelector<SVGSVGElement>("#ya-chart")?.dataset
@@ -169,17 +289,10 @@ export async function verifyPublicBotsBrowser({
         id,
         { timeout: 20000 },
       );
+      if (inspecting) checks.activeInspectionDefersAndIdleReleasesUpdate = true;
       await watch.bringToFront();
       assert.equal(await watch.evaluate(() => document.hidden), false);
       await watch.locator(`[data-chart-round="${id}"]`).waitFor();
-      const latest = (
-        await api<PublicBotActivity>(`public/debates/${debate}/activity`)
-      ).items.at(-1)!;
-      assert.equal(latest.id, id);
-      assert.equal(latest.mode, mode);
-      assert.equal(latest.humans, mode === "mixed" ? 1 : 0);
-      assert.equal(latest.ownLimit, null);
-      assert.equal(latest.runId, null);
       return id;
     }
     const observer = await round("observer", "Observer argument follow-up");
@@ -267,8 +380,6 @@ export async function verifyPublicBotsBrowser({
     checks.signedOutSharedHistoryWithoutPrivateAccess = true;
     await watch.bringToFront();
     await watch.locator("[data-inline-publish]").uncheck();
-    await home.locator("#ya-search").focus();
-    await home.mouse.move(0, 0);
     await watch.waitForFunction(
       (id) =>
         !document.querySelector<HTMLElement>(`[data-chart-round="${id}"]`)!,
@@ -281,6 +392,8 @@ export async function verifyPublicBotsBrowser({
       36,
     );
     await home.bringToFront();
+    await home.locator("#ya-search").click();
+    await home.mouse.move(0, 0);
     await home.waitForFunction(
       (id) =>
         document.querySelector<SVGSVGElement>("#ya-chart")?.dataset
@@ -318,6 +431,36 @@ export async function verifyPublicBotsBrowser({
     );
     console.log(JSON.stringify({ result: "PASS", checks }));
   } catch (error) {
+    await home.screenshot({
+      path: artifactDir + "/home-failure.png",
+      fullPage: true,
+    });
+    await writeFile(
+      artifactDir + "/evidence.json",
+      JSON.stringify(
+        {
+          result: "FAIL",
+          checks,
+          expectedRound,
+          errors,
+          home: await home.evaluate(() => ({
+            hidden: document.hidden,
+            focused: document.activeElement?.id,
+            hovered: Array.from(
+              document.querySelectorAll(":hover"),
+              (n) => n.id || n.tagName,
+            ),
+            inspecting: document.querySelectorAll(".is-scrubbing").length,
+            status: document.querySelector("#ya-status")?.textContent,
+            latestRound:
+              document.querySelector<SVGSVGElement>("#ya-chart")?.dataset
+                .latestRound,
+          })),
+        },
+        null,
+        2,
+      ) + "\n",
+    );
     await watch.screenshot({
       path: artifactDir + "/failure.png",
       fullPage: true,

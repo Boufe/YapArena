@@ -31,7 +31,8 @@
     "verify:media-packaging": "node scripts/verify-media-packaging.ts",
     "verify:replay-pipeline": "npm run build && node scripts/verify-replay-pipeline.ts",
     "report:playback": "node scripts/report-playback.js",
-    "typecheck:operations": "tsc --project tsconfig.json --emitDeclarationOnly && tsc --project tsconfig.database-tools.json && tsc --project tsconfig.browser-automation.json && tsc --project tsconfig.community-tools.json && tsc --project tsconfig.replay-tools.json && tsc --project tsconfig.edge.json"
+    "typecheck:operations": "tsc --project tsconfig.json --emitDeclarationOnly && tsc --project tsconfig.database-tools.json && tsc --project tsconfig.browser-automation.json && tsc --project tsconfig.community-tools.json && tsc --project tsconfig.replay-tools.json && tsc --project tsconfig.edge.json",
+    "verify:community-native-setup": "npm run build && LC_ALL=C LANG=C COMMUNITY_POSTGRES_MODE=host node scripts/verify-community-local.ts --setup-only"
   },
   "keywords": [],
   "author": "",

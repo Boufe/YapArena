@@ -1,0 +1,24 @@
+{
+  "result": "FAIL",
+  "checks": {
+    "operatorSeedIsIdempotentAndUsesStoredArgumentResults": true,
+    "databaseBackedHomeExpansionAndDebateArguments": true
+  },
+  "home": {
+    "hidden": false,
+    "focused": "",
+    "hovered": [
+      "HTML",
+      "BODY",
+      "ya-market-v4",
+      "main",
+      "ya-carousel",
+      "DIV",
+      "DIV",
+      "ya-carousel-count"
+    ],
+    "inspecting": 1,
+    "latestRound": "6a0003ca-6269-4865-9471-f07f84f687e9"
+  },
+  "regressionSourceSha256": "1f9fd5672438daf3a0f827197e354e69abee8a779ae4b28daca374edf4b29e9f"
+}

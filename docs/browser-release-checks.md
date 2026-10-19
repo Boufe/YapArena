@@ -86,11 +86,29 @@ The existing integration job runs this regression as part of the full browser ga
 no sleep, retry, forced click or timeout increase is involved. See the
 [readiness fix evidence](evidence/a4-readiness/2026-10-19.md).
 
+The shared-data verifier registers its own synthetic account rather than copying
+the workspace account's cookies. The workspace intentionally leaves its normal
+60-second “Pilot studies” run in flight; publishing that same creator would let
+an unrelated later settlement replace this verifier's expected latest round.
+The verifier checks distinct creator IDs, that the workspace creator stays private,
+and that the initial public history contains 36 seeded rounds plus the same two
+completed mixed histories created for this separate actor through the real worker. It
+leaves the workspace run and all existing timing/settlement assertions intact.
+
 The shared-data verifier brings each page to the foreground before waiting for its
-live chart refresh, and asserts that it is visible. Homepage polling deliberately
-pauses in hidden tabs; browser automation must observe the same visible state as a
-user. Existing settlement, consent and refresh assertions and their 20-second
-timeouts remain unchanged. See the [CI correction evidence](evidence/ci-integration/2026-10-19.md).
+live chart refresh, and asserts that it is visible. Homepage polling pauses in
+hidden tabs; applying a received update also waits until hover, focus and chart
+inspection end. Before observing the homepage, the verifier clicks its existing
+search input normally and moves the pointer outside the interactive regions,
+then asserts that inspection/hover/focus have ended. It does not reload the page.
+A maintained observer-round case deliberately focuses the chart's range control
+and hovers the carousel, observes a real homepage response containing the settled
+round, and proves the chart retains its old round until interaction ends. Both
+homepage charts and the debate must then display the exact new round. Existing
+settlement, consent, privacy and refresh assertions and their 20-second timeouts
+remain unchanged. Failures retain the homepage screenshot and interaction state
+alongside the existing debate evidence. See the
+[CI correction evidence](evidence/ci-integration/2026-10-19.md#post-merge-browser-correction).
 
 The existing required `integration` job runs this gate on pull requests and main.
 It uses `npm run verify:browser -- --integration-only` after the required

@@ -12,6 +12,19 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+The [native Unicode test setup fix](evidence/native-postgres-utf8/2026-10-18.md)
+explicitly initializes the disposable community, isolation and replay PostgreSQL
+clusters as UTF-8. A focused native C-locale setup check is wired into the existing
+CI integration job; it uses the actual migrated chat column and retains the full
+community workload separately. Product code, schema and hosted settings are unchanged.
+Local native and Docker community gates passed with identical 30-second soaks;
+the native database-backed quality gate passed 502 tests with zero skips. The new
+GitHub-hosted CI results and its package-source setup correction are tracked in
+[PR #38](https://github.com/Boufe/YapArena/pull/38). The
+[combined integration verification](evidence/native-postgres-utf8/2026-10-19.md)
+records its inherited readiness and cancellation corrections, fresh native Unicode
+workload and cleanup controls; local results establish no hosted capacity.
+
 The [operational TypeScript migration](operational-typescript.md) checks the production
 edge replay worker and critical database/release automation through the existing quality
 gate. It retains the merged browser-release workflows and their deterministic fixtures;
@@ -34,8 +47,9 @@ holds an actual workspace request and checks a single creation request/run/open
 round after readiness. PR #39 passed all five required CI checks and was merged
 into the operational TypeScript branch before integrating that branch into main.
 The separate [CI integration correction](evidence/ci-integration/2026-10-19.md)
-foregrounds pages before observing their intentionally visibility-dependent polling
-and handles checked-out delivery-client error events during cancellation. These
+foregrounds pages and ends active inspection before observing their intentionally
+visibility-dependent polling, isolates shared-history consent from the workspace
+creator's still-active fixtures, and handles checked-out delivery-client error events during cancellation. These
 authorized corrections follow the behavior-preserving conversion; they do not
 change its recorded historical evidence or resolve hosted/device capacity gates.
 

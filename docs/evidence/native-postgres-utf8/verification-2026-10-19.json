@@ -1,0 +1,114 @@
+{
+  "testedRevision": "fc69139920f4a64fe91d5cf1f5ea5d73a825bf70",
+  "parent": "1deb33c",
+  "originalUtf8Head": "a8e3487",
+  "node": "24.19.0",
+  "postgresNative": "17.10 (Homebrew)",
+  "chrome": "155.0.8059.80",
+  "sourceSha256": {
+    "scripts/verify-community-local.ts": "ee51cef8df488d1f2c3ae261bcb5a5a5227e7cda5a21ca8f50f35dcd3f20374f",
+    "scripts/verify-database-isolation.ts": "f2728d932c1294a211438f3734d046771159c25e3aa2f01ad7c63a4a4758d286",
+    "scripts/verify-replay-pipeline.ts": "6e5037af0e070b685f0d21274d1a49a98a9e4cadfc0f98be7cac559aba1c4858",
+    "src/features/community/delivery.ts": "babb9f90782045c94d31c37d10d7c7e224342bedb22ed779cb3d90f62f9c20ef",
+    "scripts/verify-public-bots-browser.ts": "223ed054f3d8047d5d24b5d3b260597bada74b0c4ae426d4c5b2add00a6ac7f6",
+    "frontend/a4-inline.ts": "8f5b85af3a5e84b7aed85e129109d284eeb32ccf7e5f49447829cb7628f9f13a"
+  },
+  "nativeSmoke": {
+    "serverEncoding": "UTF8",
+    "clientEncoding": "UTF8",
+    "locale": "C",
+    "collation": "C",
+    "characters": 500,
+    "bytes": 1500,
+    "columnLimit": 500,
+    "exactReadback": true
+  },
+  "nativeCommunityLoad": {
+    "viewers": 500,
+    "rooms": 50,
+    "seconds": 30,
+    "writes": 300,
+    "deliverySamples": 3000,
+    "deliveryP50Ms": 41,
+    "deliveryP95Ms": 139,
+    "stormRecoveryMs": 485,
+    "restartRecoveryMs": 890,
+    "rssGrowthMiB": 47.69,
+    "slowClientMutations": 460,
+    "bufferPressure": 10,
+    "finalStreams": 0,
+    "maxRuntimeConnections": 8,
+    "secondProcessMutations": 60
+  },
+  "nativeBrowserRelease": {
+    "status": "passed",
+    "postgres": "host",
+    "quality": "full runtime-backed npm run check",
+    "steps": [
+      {
+        "name": "build",
+        "status": "passed"
+      },
+      {
+        "name": "fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers",
+        "status": "passed"
+      },
+      {
+        "name": "homepage navigation, interactions, responsive layout and accessibility",
+        "status": "passed"
+      },
+      {
+        "name": "Live/replay preview playback and handoff",
+        "status": "passed"
+      }
+    ],
+    "scope": "Disposable local PostgreSQL and synthetic browser/media fixtures; no hosted or physical-device acceptance"
+  },
+  "quality": {
+    "passed": 502,
+    "failed": 0,
+    "skipped": 0,
+    "coverage": {
+      "line": 94.8,
+      "branch": 93.12,
+      "function": 95.8
+    }
+  },
+  "limits": "Synthetic disposable local environments only; no hosted/device capacity or production acceptance",
+  "postgresDocker": "18.4 (Debian 18.4-1.pgdg12+1)",
+  "dockerUnicodeSetup": {
+    "trial": "community-unicode-setup",
+    "result": "PASS",
+    "mode": "docker",
+    "serverEncoding": "UTF8",
+    "clientEncoding": "UTF8",
+    "locale": "en_US.utf8",
+    "collation": "en_US.utf8",
+    "version": "18.4 (Debian 18.4-1.pgdg12+1)",
+    "characters": 500,
+    "bytes": 1500,
+    "columnLimit": 500,
+    "exactReadback": true
+  },
+  "dockerCommunityLoad": {
+    "trial": "community-http-load",
+    "result": "PASS",
+    "viewers": 500,
+    "rooms": 50,
+    "seconds": 30,
+    "writes": 300,
+    "deliverySamples": 3000,
+    "deliveryP50Ms": 61,
+    "deliveryP95Ms": 109,
+    "stormRecoveryMs": 425,
+    "restartRecoveryMs": 987,
+    "maxStreams": 500,
+    "maxRooms": 50,
+    "rssGrowthMiB": 57.63,
+    "slowClientStressMutations": 460,
+    "bufferPressure": 10,
+    "finalStreams": 0,
+    "maxRuntimeConnections": 8,
+    "secondProcessMutations": 60
+  }
+}

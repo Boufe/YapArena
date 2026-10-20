@@ -336,11 +336,12 @@ describe(
         }),
         /funding request conflicts/,
       );
-      await assert.rejects(
-        createCoinSandboxRepository(runtime, config).confirmSimulatedFunding(
-          { userId, sessionTokenHash: "synthetic-unusable-session" },
-          { requestId: result.request.id },
-        ),
+      assert.throws(
+        () =>
+          createCoinSandboxRepository(runtime, config).confirmSimulatedFunding(
+            { userId, sessionTokenHash: "synthetic-unusable-session" },
+            { requestId: result.request.id },
+          ),
         /simulated credits are prohibited/,
       );
       await assert.rejects(

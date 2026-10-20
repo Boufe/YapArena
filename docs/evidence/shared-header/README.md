@@ -93,9 +93,12 @@ The follow-up uses container queries in addition to viewport fallbacks so layout
 responds to the space the header actually has. Focused synthetic
 [visitor](after/header-guest-zoom.png) and
 [member](after/header-member-zoom.png) checks now verify 1280 × 900 at 200% zoom.
-The community browser's existing zoom, narrow-screen, draft recovery, IME,
-reconnect, moderation and axe checks also pass locally. The full community soak
-and new GitHub CI run are recorded separately when complete.
+The [complete community trial](community-results.json) passed locally, including
+the existing zoom, narrow-screen, draft recovery, IME, reconnect, moderation and
+axe checks, plus a 300-second synthetic 500-client/50-room HTTP soak and cleanup.
+This is not hosted/media capacity evidence. Remaining responsive rules now live
+in the shared stylesheet; desktop/mobile comparisons verify identical header
+geometry, typography and colors without depending on the debate stylesheet.
 
 ## Hosted observations
 

@@ -1,3 +1,88 @@
+@media (max-width: 1190px) {
+  .arena-nav {
+    gap: 22px;
+  }
+  .arena-nav nav {
+    gap: 20px;
+  }
+  .brand {
+    font-size: 0.9rem;
+    gap: 10px;
+  }
+  .arena-header-search {
+    max-width: 300px;
+  }
+  .arena-header-account {
+    gap: 9px;
+  }
+}
+@media (max-width: 920px) {
+  .arena-nav {
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    padding-block: 12px;
+  }
+  .arena-header-search {
+    order: 4;
+    max-width: none;
+    flex-basis: 100%;
+  }
+  .arena-header-account {
+    margin-left: auto;
+  }
+  .arena-nav nav {
+    margin-left: auto;
+  }
+  .arena-wallet-menu summary {
+    font-size: 0.75rem;
+    padding: 5px 10px;
+  }
+}
+@media (max-width: 740px) {
+  .site-header .container {
+    width: calc(100% - 28px);
+  }
+  .arena-nav {
+    gap: 10px;
+  }
+  .arena-nav .brand {
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+  }
+  .arena-brand-symbol {
+    width: 28px;
+    height: 32px;
+  }
+  .arena-nav nav {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+    padding: 0 10px;
+    font-size: 0.85rem;
+  }
+  .arena-nav nav a {
+    padding: 4px 0;
+  }
+  .arena-header-account {
+    gap: 8px;
+  }
+  .arena-wallet-menu summary svg {
+    width: 17px;
+  }
+  .arena-wallet-menu summary {
+    min-height: 36px;
+    padding: 5px 8px;
+    gap: 5px;
+    font-size: 0.68rem;
+  }
+  .arena-avatar {
+    width: 34px;
+    height: 34px;
+  }
+  .arena-header-search {
+    order: 4;
+  }
+}
 .site-header {
   container: site-header / inline-size;
   background: linear-gradient(100deg, #070e18, #0a1522 75%, #07101a);
@@ -35,7 +120,7 @@
   padding: 12px 0;
 }
 .arena-nav nav a:hover {
-  color: var(--ice);
+  color: #8bcfff;
 }
 .arena-header-search {
   margin: 0 auto;
@@ -45,13 +130,19 @@
   position: relative;
 }
 .arena-header-search input {
+  font-family: inherit;
+  line-height: 1.5;
   width: 100%;
   min-height: 42px;
   padding: 9px 18px 9px 42px;
   border-radius: 28px;
-  border-color: #253747;
+  border: 1px solid #253747;
   background: #172634;
+  color: var(--text);
   font-size: 0.9rem;
+}
+.arena-header-search input::placeholder {
+  color: #8b9bae;
 }
 .arena-header-search svg {
   width: 21px;
@@ -857,5 +948,16 @@
   .site-header .arena-avatar {
     width: 38px;
     height: 38px;
+  }
+}
+
+@container site-header (max-width: 740px) {
+  .arena-nav .brand {
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+  }
+  .arena-brand-symbol {
+    width: 28px;
+    height: 32px;
   }
 }

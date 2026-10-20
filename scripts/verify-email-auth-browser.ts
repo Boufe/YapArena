@@ -64,6 +64,13 @@ app.get("/test/entry", (_request, response) =>
       ),
   ),
 );
+app.get("/test/header-only", (_request, response) =>
+  response.send(
+    renderAbout(base)
+      .replace('<html lang="en">', '<html lang="en" data-email-first>')
+      .replace(/<link rel="stylesheet" href="\/assets\/arena\.css[^"]*">/, ""),
+  ),
+);
 app.get("/test/debate", (_request, response) =>
   response.send(`<!doctype html><html lang="en" data-email-first><head><title>Auth return fixture</title><link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/arena.css"><link rel="stylesheet" href="/assets/site-header.css"><script defer src="/test/axe.js"></script></head><body>
   <main><a href="/account?next=%2Ftest%2Fdebate" id="return-link">Sign in to participate</a>
@@ -193,11 +200,66 @@ try {
         await page.locator("[data-site-header]").screenshot({
           path: resolve(directory, `header-${state}-zoom.png`),
         });
+        checks.push(`${name}: ${state} header reflows at 200% CSS zoom`);
       } finally {
         await page.evaluate(() => {
           document.documentElement.style.zoom = "";
         });
         await page.setViewportSize(viewport);
+      }
+    }
+    async function compareSharedHeaderStyles() {
+      const other = await context.newPage();
+      try {
+        await other.goto(`${base}/test/header-only`);
+        await other
+          .locator('[data-site-header][data-session="guest"]')
+          .waitFor();
+        await other.evaluate(() => document.fonts.ready);
+        const snapshot = () =>
+          [
+            ".brand",
+            ".arena-brand-symbol",
+            ".arena-nav nav",
+            ".arena-nav nav a",
+            ".arena-header-search",
+            ".arena-header-search input",
+            ".arena-header-account",
+            ".header-login",
+            ".header-signup",
+          ].map((selector) => {
+            const node = document.querySelector(selector)!;
+            const style = getComputedStyle(node);
+            const bounds = node.getBoundingClientRect();
+            return {
+              selector,
+              fontSize: style.fontSize,
+              fontFamily: style.fontFamily,
+              lineHeight: style.lineHeight,
+              color: style.color,
+              background: style.backgroundColor,
+              borderWidth: style.borderWidth,
+              borderRadius: style.borderRadius,
+              letterSpacing: style.letterSpacing,
+              padding: style.padding,
+              gap: style.gap,
+              x: bounds.x,
+              y: bounds.y,
+              width: bounds.width,
+              height: bounds.height,
+            };
+          });
+        assert.deepEqual(
+          await other.evaluate(snapshot),
+          await page.evaluate(snapshot),
+          "shared header appearance does not depend on the debate stylesheet",
+        );
+        checks.push(
+          `${name}: identical header geometry, typography and colors with and without debate styles`,
+        );
+      } finally {
+        await other.close();
+        await page.bringToFront();
       }
     }
     page.on("pageerror", (error) => errors.push(error.message));
@@ -637,6 +699,7 @@ try {
       "public browsing does not load the provider bundle",
     );
     assert.equal(await page.locator("[data-header-member]").isVisible(), false);
+    await compareSharedHeaderStyles();
     await page.screenshot({
       path: resolve(directory, `header-guest-${name}.png`),
       fullPage: false,

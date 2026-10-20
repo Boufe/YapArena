@@ -20,10 +20,14 @@ and adds operation-bound security passkeys, retained-credential account manageme
 provider-change monitoring, session controls, speaker revocation and an isolated
 coin sandbox with persistent funding, source accounting, manual withdrawals and
 YES/NO A4 participation. These additions are under combined release verification;
-source implementation is not hosted or production acceptance. The selected staging deletion removed IDs
+retained-key recovery also replaces a lost sole email or Google identity without
+changing the account or merging by email. Authentication returns to the initiating
+action for confirmation. Source implementation is not hosted or production
+acceptance. The selected staging deletion removed IDs
 1–4 after encrypted backup and restore/concurrency rehearsal, preserving the
-three accounts the founder explicitly retained. The feature revision is live
-with shared Redis connectivity and ordinary signup enabled. The founder completed
+three accounts the founder explicitly retained. The earlier hosted feature revision
+`f942dc6` has shared Redis connectivity and ordinary signup enabled; the newer
+security and financial sandbox changes have not yet been deployed. The founder completed
 genuine hosted email signup; backend inspection confirmed one new account and
 provider mapping. The [account visual refresh](evidence/account-refresh/README.md)
 adds focused authentication, an account dashboard and clearer withdrawal progress.
@@ -36,6 +40,12 @@ Real Base Sepolia test-USDC receipt evidence is separate from labelled conversio
 simulations. No live financial routes are enabled. Existing A4 remains nonredeemable
 play money; the new 100 YC/USDC direction does not convert historical grants or
 satisfy the combined paid-release gates.
+
+The [application-to-Cloud sign-out trial](evidence/account-completion-baseline/media-app-cloud-revocation/README.md)
+passed with actual local HTTP sessions and a disposable PostgreSQL queue:
+a separate runtime pool disconnected the Cloud speaker, rejected original and
+server-refreshed speaking tokens, and preserved public watching. It does not
+establish a genuine hosted Privy journey or physical audiovisual acceptance.
 
 Reviewed 2026-10-19 against fetched `origin/main` at `78d5087`, the PR #38 merge.
 PRs #31–39 are merged: the A4/workspace/homepage/shared-data stack, both TypeScript

@@ -1,10 +1,10 @@
 {
   "result": "PASS",
-  "at": "2026-10-20T07:04:37.053Z",
-  "revision": "e8b0e1c3a70a64099e6f998d0205b853968c82d9",
+  "at": "2026-10-20T15:50:51.871Z",
+  "revision": "4b880918934f8be0060f260392ea29f0601a01e9",
   "browser": "155.0.8059.85",
-  "assetSha256": "a5f58223505ad21ccdc23b979f1d0036381082beefd52b8cdda190415e57b310",
-  "sourceSha256": "dd1eafbf5c6c0af2d972bad5fcb8f7c2f80beb678161ae57d5001f07f21f49f4",
+  "assetSha256": "62fdfdbec9f5d42c20f06846e3c32758ed8e3b6bc79d165455ed758c0ea477f9",
+  "sourceSha256": "1e528360b29d9c32e9ca040859807be8f8c819c0611cf8263f5c3c26c52e5eb4",
   "checks": [
     "Every application session-issuing route serializes actual HTTP cookie headers across two browser tabs.",
     "A delayed response body retains the session lock; reads remain unlocked and sign-out waits for the final replacement cookie.",

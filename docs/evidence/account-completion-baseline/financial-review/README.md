@@ -87,3 +87,37 @@ state file was tracked. This pattern scan is not exhaustive and does not inspect
 screenshot pixels. Current runtime logs omit request bodies and redact credentials,
 cookies, webhook signatures and private provider error objects; metric labels use
 bounded events/phases and route templates.
+
+## Independent continuation after retained-key recovery
+
+The authentication worker independently rechecked the integrated financial
+boundary at `64d9ad0553d45a32ec711a7301dfd9c783463c9d`. Recomputing every
+SHA-256 entry in `source-hashes.json` found **22 of 23 files unchanged** from
+this review's recorded revision. The sole difference is the addition of
+`provider_identity_recoveries` to the database-isolation verifier's private
+application-table inventory. All recorded financial engines, router, webhook,
+operator, financial migrations and financial PostgreSQL tests remain
+byte-identical.
+
+This continuation re-read migration `1792426010000` with the existing immutable
+request guards: runtime withdrawals begin as quotes and may only advance to
+review; owner approval/submission/external evidence and nonce insertion remain
+separate. Sandbox-only ledger write policies and the report owner/session/quote
+guards remain unchanged. The new recovery migration `1792426011000` has static
+SQL, a fixed search path and a narrowly granted definer entry point; it adds no
+financial-table writes or financial-role grants. No new financial privilege,
+source-accounting or conservation finding was identified in this continuation.
+The worker authored parts of the recovery implementation, so this statement is
+an independent financial integration review, not an independent sign-off on its
+own authentication code.
+
+The lead's subsequent focused local run records **151/151** tests on each fresh
+and upgraded simulation database and **5/5** on each separate fresh/upgraded Base
+treasury database, with no skips. That run includes the new recovery transaction
+preserving the same funded source book, cash projection, funding request records
+and profile.
+Its source-identical backend result does not cover the later storage-message
+frontend adjustment; the final combined gate and browser rerun remain required.
+None of these results establishes genuine hosted Privy email verification,
+physical-device or screen-reader acceptance, live financial eligibility, funding
+or release approval. Live funding and redemption remain disabled.

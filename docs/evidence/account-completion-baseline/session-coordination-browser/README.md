@@ -1,9 +1,11 @@
 # Browser session response ordering
 
-Actual local native Chromium trial: **7 groups passed** at revision
-`e8b0e1c3a70a64099e6f998d0205b853968c82d9` (coordinator source from
-`7e813e3`; the later commit adds logger redaction). The [results](results.json) record
+Actual local native Chromium trial: **7 groups passed** with HEAD
+`4b880918934f8be0060f260392ea29f0601a01e9` and the uncommitted addition of
+the provider-identity recovery completion route. The [results](results.json) record
 browser version, timestamp, and exact coordinator source/built-asset hashes.
+Those hashes delimit this run; the earlier eleven-route run remains in Git
+history at `2c944d7`.
 
 The verifier starts a dedicated loopback HTTP server and uses two tabs with
 native Fetch, Web Locks and an actual synthetic HttpOnly cookie. It does not
@@ -12,7 +14,8 @@ credential rotation committing before its delayed response headers.
 
 Verified groups:
 
-- All eleven application session-issuing paths serialize cookie headers.
+- All twelve application session-issuing paths serialize cookie headers,
+  including the new retained-key provider-identity replacement.
 - A held response body retains the lock; reads remain unlocked and logout waits.
 - All four revocation paths send the replacement cookie after committed rotation;
   the fixture models logout-other-sessions preserving that current session.

@@ -74,6 +74,18 @@ freeze/unfreeze sequence (up to 20 seconds). A concurrent local revocation may
 wait for that sequence. Per-request provider inspection holds no such lock or
 checked-out connection while awaiting Privy.
 
+The approved lost-login replacement has a separate authority boundary: a new
+Privy-verified email identifies the replacement provider user, while a retained
+YapArena security passkey authorizes replacing the existing account's sole email
+or Google binding. A refreshed token or email match does not supply that
+authorization. Retiring the old binding advances the account generation,
+revokes old local sessions and speaking grants, consumes the operation and new
+provider session, and creates one successor cookie after commit. The old
+provider subject stays permanently tombstoned. Provider-control jobs and
+inspection fingerprints must be scoped to the currently bound subject so old
+work cannot affect the successor identity. No old provider user is deleted or
+modified. Acceptance is recorded in the linked completion matrix.
+
 F02 supplies fresh retained-credential proof for credential-management operations. A mutation
 may return a new session only when that proof authorizes it; the old invoking session is never
 implicitly exempted from credential revocation. The replacement is inserted at the new
@@ -97,6 +109,14 @@ serializes new-account provisioning; discovering an existing mapping rejects the
 challenge and requires a new one. No path acquires an existing account lock while holding a
 wallet advisory lock. Password hashing and SIWE/RPC verification happen before the issuance
 transaction; their authoritative state is checked again under the account lock.
+
+Provider provisioning and replacement additionally take the relevant DID
+advisory locks before the account row. Replacement locks both old and new
+subjects in a fixed order, then rechecks account, session, credential and
+operation state. Its remote provider inspections finish before acquiring a
+database connection or these transaction locks. The database exposes a narrow
+replacement function rather than granting runtime general ownership-update
+permission on provider mappings.
 
 The generation advance under that lock is the revocation ordering point. COMMIT makes it
 visible to every instance. An issuance which commits first is deleted by the revocation. An

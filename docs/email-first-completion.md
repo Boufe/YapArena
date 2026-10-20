@@ -220,11 +220,20 @@ passkeys; email remains enabled, automatic account merging and embedded wallets
 remain off. This configuration evidence is separate from genuine hosted journey
 acceptance.
 
+The founder approved using the same email inbox when replacing a lost sole
+Google login. The new email still requires Privy verification and a retained
+YapArena security passkey; the old Google identity is retired, and identities
+are never merged by matching email. The additional bounded application-to-Cloud
+logout trial was also approved within the previously confirmed five included
+participant-minutes. Its outcome must be recorded separately from this approval.
+
 The [read-only staging preflight](evidence/account-completion-baseline/staging-database-preflight.json)
 verified all three retained accounts plus the one genuine manual signup, absence
 of the four selected reset accounts, zero live journals/grants, separate owner
 and runtime authority, and no private-schema browser grants. It found 28 applied
-and 12 pending migrations. No additional hosted identity deletion or financial
+and 12 pending migrations at that preflight revision. The new provider-recovery
+migration raises the pending count to 13; release requires another preflight.
+No additional hosted identity deletion or financial
 mutation occurred.
 
 Implemented workflows include operation-bound security passkeys and retained

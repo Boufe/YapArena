@@ -143,12 +143,42 @@ do not mint Privy tokens or replace provider email verification. First-key setup
 requires a valid account session, no prior strong method and no financial history;
 existing password/wallet accounts approve setup with that retained method.
 
+The founder also approved replacement of a lost sole email or Google login when
+a YapArena security passkey is retained. This is a replacement of the local
+provider binding, not recovery or modification of the original Privy user.
+The user first opens the existing account with the retained key, verifies a new
+email through Privy's normal code flow, reviews the replacement and approves an
+exact one-use security-key challenge. An already-bound replacement identity
+requires review; it never triggers an automatic account merge.
+For a lost Google login, the founder approved using that same inbox as the new
+email-code login. Privy must verify inbox access, and the retained YapArena
+passkey must independently approve the replacement; a matching address alone
+never establishes account ownership.
+
+The replacement preserves the internal account, profile, balances and security
+keys. The old provider identity becomes a permanent retired mapping, every old
+application session and outstanding operation loses authority, and one successor
+session is issued after the atomic commit. A delayed provider-control job for
+the retired identity must not freeze, unfreeze or alter the replacement identity.
+The [completion matrix](email-first-completion.md) tracks implementation and
+acceptance of this newly approved flow separately.
+Recovery requires working origin storage to coordinate the provider replacement
+across tabs and refreshes. If storage is unavailable, the UI blocks recovery and
+explains the problem before requesting an email code. A failed recovery cannot
+silently become ordinary signup.
+
 Each Privy `sid` can issue at most one YapArena session. Token refresh/replay
 cannot recreate an expired/revoked app session. Exchange requires exact Origin,
 rejects switching an active account, and publishes a cookie only after commit.
 Production `__Host-session` is Secure, HttpOnly, host-only, SameSite Strict.
 Safe return retains the initiating local path, query and fragment. Account-page
 OAuth query strings are omitted from HTTP logs.
+The approved return behavior brings the user back to the initiating action for
+confirmation. Same-page authentication preserves the existing document and
+draft inputs; a redirect keeps only a bounded, expiring public action locator
+and safe local URL. Signing in never submits the initiating stake, payment,
+follow or account mutation. Provider callback parameters are removed from the
+returned URL.
 
 Normal **Sign out** now revokes all YapArena sessions by founder decision.
 Explicit owned-session and logout-others controls retain their targeted semantics.

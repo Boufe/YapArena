@@ -170,6 +170,7 @@ try {
     ["DELETE", `/api/auth/security/passkeys/${id}`],
     ["POST", `/api/auth/security/wallet/operations/${id}/complete`],
     ["POST", `/api/auth/security/provider/link/${id}/complete`],
+    ["POST", `/api/auth/security/provider/recovery/${id}/complete`],
   ] as const;
   for (const [index, [method, path]] of routes.entries()) {
     const first = `held-${index}`,

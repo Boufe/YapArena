@@ -60,3 +60,28 @@ Primary references checked during review:
 - [Render deploy](https://api-docs.render.com/reference/create-deploy) documents
   explicit commit deployment. Selecting a commit does not disable auto-deploy;
   the actual release must preserve and inspect the staging auto-deploy settings.
+
+Follow-up source review on 2026-10-20 covers only the later helper changes named
+in `followUpReviews` in the hash record. The fixed pending list now contains all
+thirteen additive migrations, including `1792426011000_add-provider-identity-recovery`.
+The backup comment correctly states that the private restored application rows
+include retained users and provider mappings; it excludes provider-side state and
+does not invoke provider APIs. This is not a full Supabase disaster-recovery trial.
+
+The database helper now rejects every connection port except `5432`, after the
+fixed project/host and numeric-port validation and before either connection.
+Current official [Supabase connection documentation](https://supabase.com/docs/guides/database/connecting-to-postgres)
+identifies `5432` as direct/session mode and `6543` as transaction mode. Its
+transaction-mode limitations explain that session settings and session advisory
+locks do not persist. The release guard deliberately requires one persistent
+session for exported backup snapshots and migration-runner state; it does not
+weaken hostname verification or require a paid IPv4 add-on.
+
+The Render helper now projects only a safe background-job configuration boolean
+and refuses web deployment if `RUN_BACKGROUND_JOBS` is explicitly false. Its
+default matches the application configuration: an absent value means true. This
+protects the web process responsible for account/media revocation; it does not
+claim that a replay encoder runs the account worker or that configuration alone
+proves successful job execution. The actual outbox/Cloud trial has separate
+evidence. No source blocker was found in these changes, and no release mutation
+was performed by this reviewer.

@@ -19,5 +19,22 @@
       "path": "src/platform/auth/router.ts",
       "sha256": "3d787bd9418e4c8d545d936479d3f9031f9370c7bdb8bcf52b926a7860771f46"
     }
+  ],
+  "followUpReviews": [
+    {
+      "reviewedAt": "2026-10-20T16:13:30.892626+00:00",
+      "repositoryHead": "454468f420dd55a987aaa2914cad80d1dac253ca",
+      "scope": "Read-only follow-up: pending13 list, private restore comment, direct/session port5432 guard, backgroundJobs safe projection and web deploy guard. Original review hashes remain historical; no release execution.",
+      "files": [
+        {
+          "path": "scripts/release-account-render.ts",
+          "sha256": "66a2f11b1ec2520f7d588ca5a407ce622406a510d52e1b680ef4ad84b9f8634b"
+        },
+        {
+          "path": "scripts/release-account-staging.ts",
+          "sha256": "996ecd6f34f5db1ce93b3d8875e84607548e1d6974ab6fb7b41d3fd448d141be"
+        }
+      ]
+    }
   ]
 }

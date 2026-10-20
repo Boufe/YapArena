@@ -168,6 +168,46 @@ try {
     liveGrantLots = await liveCount("coin_grant_lots");
   assert.equal(liveJournals, 0);
   assert.ok(liveGrantLots === null || liveGrantLots === 0);
+  step =
+    "inspect legacy speaker eligibility aggregates without exporting seats";
+  // Mirror f942dc6 media.getPublicEvent/sideFor/assertDeviceReady: the old
+  // speaker route filters topic publication, not debate publication or the
+  // participant row's active flag. Do not undercount by adding those filters.
+  const legacySpeakerInventory = (
+    await owner.client.query<{
+      activeStatusEventsWithPublishedTopic: number;
+      assignedSeats: number;
+      activeParticipantRoleSeats: number;
+      assignedSeatsWithFreshDeviceChecks: number;
+      deviceReadyActiveParticipantSeats: number;
+      eventsWithDeviceReadyActiveParticipants: number;
+      liveViewerEligibleEvents: number;
+    }>(
+      `WITH events AS (
+        SELECT d.id,d.status,d.publication_state
+        FROM yaparena.debates d JOIN yaparena.topics t ON t.id=d.topic_id
+        WHERE t.publication_state='published' AND d.status IN('scheduled','ready','live')
+      ),seats AS (
+        SELECT e.id, u.account_status='active' AND EXISTS(
+          SELECT 1 FROM yaparena.account_roles r WHERE r.user_id=p.user_id AND r.role='participant'
+        ) AS active_participant,
+        EXISTS(SELECT 1 FROM yaparena.media_device_checks c WHERE c.debate_id=p.debate_id
+          AND c.user_id=p.user_id AND c.camera_ok AND c.microphone_ok
+          AND c.checked_at>CURRENT_TIMESTAMP-INTERVAL '30 minutes') AS device_ready
+        FROM events e JOIN yaparena.event_participants p ON p.debate_id=e.id
+        JOIN yaparena.users u ON u.id=p.user_id
+      ) SELECT (SELECT count(*)::int FROM events) AS "activeStatusEventsWithPublishedTopic",
+        count(*)::int AS "assignedSeats",
+        count(*) FILTER(WHERE active_participant)::int AS "activeParticipantRoleSeats",
+        count(*) FILTER(WHERE device_ready)::int AS "assignedSeatsWithFreshDeviceChecks",
+        count(*) FILTER(WHERE active_participant AND device_ready)::int AS "deviceReadyActiveParticipantSeats",
+        count(DISTINCT id) FILTER(WHERE active_participant AND device_ready)::int AS "eventsWithDeviceReadyActiveParticipants",
+        (SELECT count(*)::int FROM events WHERE status='live' AND publication_state='published') AS "liveViewerEligibleEvents"
+        FROM seats`,
+    )
+  ).rows[0]!;
+  for (const count of Object.values(legacySpeakerInventory))
+    assert.ok(Number.isSafeInteger(count) && count >= 0);
   step = "inspect effective private-schema browser privileges";
   const browserBoundary = (
     await owner.client.query<{
@@ -240,6 +280,7 @@ try {
     accounts,
     liveJournals,
     liveGrantLots,
+    legacySpeakerInventory,
     browserBoundary,
     runtimeBoundary,
     mutations: 0,
@@ -248,6 +289,7 @@ try {
       "One non-retained Privy-mapped account and all three retained accounts exist; no email, DID, wallet, cookie or individual row is exported.",
       "TLS configuration verifies this client connection; no database URL, endpoint, credential or CA file path is exported.",
       "No migration, backup, reset, provider mutation, financial operation, service suspension or deployment is performed.",
+      "Legacy speaker counts mirror old event/seat/role/device predicates before cookie authentication; no valid session, provider state or active Cloud connection is inferred. Eligibility can change after this read-only snapshot.",
     ],
   };
   await mkdir(evidenceDirectory, { recursive: true });
@@ -264,6 +306,7 @@ try {
       retainedAccounts: accounts.retained,
       totalAccounts: accounts.total,
       liveJournals,
+      legacySpeakerInventory,
       evidence: `staging-database-${phase}.json`,
     }),
   );

@@ -1,9 +1,9 @@
 {
-  "at": "2026-10-20T16:04:07.807Z",
+  "at": "2026-10-20T16:37:25.284Z",
   "phase": "preflight",
   "passed": true,
-  "revision": "d13a209afd6545abce40305ba7ca4b4cbd963e1b",
-  "helperSha256": "ae7c98963a09d4dafe0572c887a60011092bbf8d7dcd12f486e5b94cbafad012",
+  "revision": "b3f6aa0a36553fb5c6372bacb671721315cf8ffb",
+  "helperSha256": "eb3678ea7d3d64c886f0941de8702e7383fec4b11db9a29ca999b3154e225eff",
   "projectRef": "ypteqfmjietdqjzyvgtk",
   "targetVerified": true,
   "tls": {
@@ -73,6 +73,15 @@
   },
   "liveJournals": 0,
   "liveGrantLots": 0,
+  "legacySpeakerInventory": {
+    "activeStatusEventsWithPublishedTopic": 1,
+    "assignedSeats": 0,
+    "activeParticipantRoleSeats": 0,
+    "assignedSeatsWithFreshDeviceChecks": 0,
+    "deviceReadyActiveParticipantSeats": 0,
+    "eventsWithDeviceReadyActiveParticipants": 0,
+    "liveViewerEligibleEvents": 0
+  },
   "browserBoundary": {
     "schemaAccess": 0,
     "relationAccess": 0,
@@ -93,6 +102,7 @@
     "Read-only SQL connection and catalog evidence; not hosted REST/browser identity or returning-user authentication acceptance.",
     "One non-retained Privy-mapped account and all three retained accounts exist; no email, DID, wallet, cookie or individual row is exported.",
     "TLS configuration verifies this client connection; no database URL, endpoint, credential or CA file path is exported.",
-    "No migration, backup, reset, provider mutation, financial operation, service suspension or deployment is performed."
+    "No migration, backup, reset, provider mutation, financial operation, service suspension or deployment is performed.",
+    "Legacy speaker counts mirror old event/seat/role/device predicates before cookie authentication; no valid session, provider state or active Cloud connection is inferred. Eligibility can change after this read-only snapshot."
   ]
 }

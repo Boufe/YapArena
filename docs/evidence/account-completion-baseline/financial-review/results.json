@@ -1,0 +1,74 @@
+{
+  "reviewedAt": "2026-10-20T06:58:48.723Z",
+  "testedRevision": "58e7b2749b644aeac4695cd2bacb2826cd61c20a",
+  "executor": "Lead integrated verification; this independent reviewer read the complete raw output and matched current financial source to the recorded revision.",
+  "command": "LC_ALL=C LANG=C DATABASE_TEST_MODE=host ACCOUNT_SECURITY_VERIFY=true A4_QUALITY=false node scripts/verify-database-isolation.ts > /private/tmp/yaparena-account-final-focused.log 2>&1",
+  "environment": {
+    "node": "24.19.0",
+    "postgres": "17.10 (Homebrew)",
+    "mode": "Native disposable loopback PostgreSQL, separate owner/runtime identities, C locale and UTF8; main simulation databases physically separate from Base treasury databases."
+  },
+  "exitCode": 0,
+  "results": {
+    "baseTreasuryFresh": {
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    },
+    "baseTreasuryUpgrade": {
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    },
+    "focusedFresh": {
+      "tests": 143,
+      "passed": 143,
+      "failed": 0,
+      "skipped": 0
+    },
+    "focusedUpgrade": {
+      "tests": 143,
+      "passed": 143,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "resolvedFindings": [
+    {
+      "commit": "bbd87c6",
+      "finding": "Text alias ordering could select an older review as current.",
+      "acceptance": "Qualified numeric column orders latest review/history; real >=12-review digit-boundary case rejects old quote and accepts only the new exact fresh consent."
+    },
+    {
+      "commit": "c5de858",
+      "finding": "Runtime SQL privileges did not enforce owner-only withdrawal approval/signing evidence.",
+      "acceptance": "Additive migration10000 denies runtime unapproved-status inserts, nonreservation status transitions, forged operator events and nonce inserts; owner proof/reservation/review and offline signed identity remain valid, unique sender nonce enforced."
+    }
+  ],
+  "sourceIntegrity": {
+    "financialFiles": 23,
+    "allMatchTestedRevision": true,
+    "hashManifest": "source-hashes.json",
+    "focusedLogSha256": "69f6106cf93aa0f451735ef8f414435b05fbe7ae4e415a1cb417fa515ecda193"
+  },
+  "privacyInspection": {
+    "scope": "Added text lines in the origin/main diff; secret values never printed.",
+    "genuineCandidatesFound": 0,
+    "triagedInertFixture": {
+      "path": "scripts/verify-media-cloud-revocation.ts",
+      "line": 293,
+      "classification": "Unused inert storage configuration; no storage calls."
+    },
+    "trackedPrivateConfigurationOrBackupFilesFound": 0,
+    "limitations": "Pattern scan is not exhaustive secret detection and does not inspect screenshot pixels."
+  },
+  "limitations": [
+    "Focused fresh/upgrade verification is not the final full repository coverage or browser-release gate.",
+    "Base treasury tests use synthetic authoritative receipts and an offline generated test key. They make no RPC calls, broadcast no transaction and establish no new actual-provider acceptance.",
+    "The actual fixed-USDC Base Sepolia ledger trial has its own earlier revision and source hashes; it is not five-network conversion, live custody, eligibility or treasury funding approval.",
+    "Live funding/redemption remain disabled. The existing live read-only wallet projection is not completed source-qualified live withdrawal implementation.",
+    "A separately identified in-flight cookie issuance/logout race is being fixed by the auth workstream; this financial review does not close all authentication acceptance."
+  ]
+}

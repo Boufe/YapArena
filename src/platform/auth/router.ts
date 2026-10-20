@@ -86,6 +86,10 @@ export function createRequireAuthentication({
     response: Response,
     next: NextFunction,
   ) {
+    // Authentication failures must be private too: downstream feature routers
+    // cannot install their cache policy before this middleware rejects access.
+    response.set("Cache-Control", "private, no-store");
+    response.vary("Cookie");
     const token = request.cookies[cookie.name];
 
     if (!token) {

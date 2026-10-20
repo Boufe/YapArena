@@ -270,9 +270,9 @@ Two concrete defense gaps were identified:
   the existing owner/admin-secret guard. The actual staging inspection found
   no deployed owner credential; this closes accidental future injection.
 
-Both fixes pass strict server checking, lint and formatting. Their compiled
-logger/configuration checks and the final combined run are still pending in
-this note. No additional critical source finding was identified in this scope.
+Both fixes pass strict server checking, lint and formatting. After the shared
+build, the actual compiled logger/configuration suite passed **42/42**, with no
+skips, at `454468f`; the final combined run remains pending in this note. No additional critical source finding was identified in this scope.
 Existing cookie protections, replay/generation fences, provider inspection
 outside the pool, exact origin checks and private error serialization remain
 intact. Helmet's installed default sends `Referrer-Policy: no-referrer`; the
@@ -313,3 +313,14 @@ Genuine hosted provider journeys, physical-device/screen-reader acceptance,
 provider incident-freeze ownership, all-strong-methods-lost adjudication and the
 live financial release gates remain separately required. Local protocol,
 intercepted-SDK and native Chromium evidence must retain their distinct labels.
+
+The separate provider reviewer subsequently found an early authentication-error
+cache-policy gap: a missing/expired cookie was rejected before downstream
+private feature middleware could install its cache headers. The lead accepted
+a narrow correction in `createRequireAuthentication`: set `private, no-store`
+and merge `Cookie` into `Vary` before any token lookup. New real HTTP assertions
+cover missing, expired and accepted cookies, preservation of an existing Origin
+vary value, and the real application's provider-outage error handler. Strict
+checking, lint and formatting pass; the compiled auth regression and final
+combined gate are pending. This changes response headers only, leaves public
+routes untouched, and does not claim a new paid Cloud or hosted replay trial.

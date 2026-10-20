@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 import express from "express";
+import cookieParser from "cookie-parser";
+import { createRequireAuthentication } from "../dist/platform/auth/router.js";
+import { ProviderUnavailableError } from "../dist/platform/auth/privy.js";
 import request from "../scripts/test-http-request.ts";
 
 import { createApp } from "../dist/app.js";
@@ -35,6 +38,62 @@ function createAuthenticationApp({
     sessions,
   };
 }
+
+describe("private authentication response caching", () => {
+  it("marks missing, expired and successful cookie lookups private before authorization and preserves existing Vary", async () => {
+    const sessions = { findUserByTokenHash: mock.fn(async () => null) };
+    const app = express()
+      .use(cookieParser())
+      .use((_r, s, next) => {
+        s.set("Cache-Control", "public, max-age=300");
+        s.vary("Origin");
+        next();
+      });
+    app.get(
+      "/protected",
+      createRequireAuthentication({ sessions, environment: "development" }),
+      (_r, s) => s.status(200).json({ private: true }),
+    );
+    const missing = await request(app).get("/protected");
+    assert.equal(sessions.findUserByTokenHash.mock.callCount(), 0);
+    const expired = await request(app)
+      .get("/protected")
+      .set("Cookie", "session=synthetic-expired-cookie");
+    sessions.findUserByTokenHash.mock.mockImplementation(
+      async () => publicUser,
+    );
+    const success = await request(app)
+      .get("/protected")
+      .set("Cookie", "session=synthetic-current-cookie");
+    assert.deepEqual(
+      [missing.status, expired.status, success.status],
+      [401, 401, 200],
+    );
+    for (const response of [missing, expired, success]) {
+      assert.equal(response.headers["cache-control"], "private, no-store");
+      assert.equal(response.headers.vary, "Origin, Cookie");
+    }
+  });
+  it("keeps provider-outage responses uncacheable and cookie-varying through the real app error handler", async () => {
+    const { app } = createAuthenticationApp({
+      sessions: {
+        findUserByTokenHash: async () => {
+          throw new ProviderUnavailableError("synthetic provider outage");
+        },
+      },
+    });
+    const response = await request(app)
+      .get("/api/auth/me")
+      .set("Cookie", "session=synthetic-current-cookie");
+    assert.equal(response.status, 503);
+    assert.match(
+      response.headers["cache-control"],
+      /(?:^|,\s*)no-store(?:,|$)/,
+    );
+    assert.match(response.headers.vary, /(?:^|,\s*)Cookie(?:,|$)/);
+    assert.doesNotMatch(response.headers["cache-control"], /public|max-age/);
+  });
+});
 
 describe("authentication API", () => {
   it("registers a normalized email and starts a session", async () => {

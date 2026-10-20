@@ -84,3 +84,28 @@ both endpoint revisions and exact source/asset hashes; application assets
 remained frozen during the run. Its complete screenshot set supersedes the
 earlier current images. Later protected-response cache-header changes and the
 full repository release gate are separately verified.
+
+The Privy-only interface was tested again at **2026-10-20 19:12:34 UTC**, at
+`14bc559ae8c28948299727499e11d01005907d7f` plus the source hashes recorded in
+`results.json`. The command exited zero with all **22** groups passing on
+PostgreSQL 17.10 and Chromium 155.0.8059.85; browser, axe and layout error lists
+are empty. Every recorded source/asset hash still matched at completion.
+
+This run deliberately prepares a **retained legacy independent key fixture**
+through a real password-authorized enrollment challenge, native WebAuthn and
+the existing HTTP completion API. It does not expose or click a new independent
+key enrollment control. The empty legacy section is hidden, and the verifier
+asserts that the removed Add security passkey control is absent. A stale
+fixture wait for the former empty-section text failed before financial actions;
+replacing that wait with the initialized approval hook and hidden-section
+assertions required no application or asset changes. The current screenshot
+set supersedes earlier images. Current same-Privy-key setup and approval have
+their own independently recorded native/installed-SDK acceptance; this legacy
+fixture does not establish that provider journey.
+
+The verifier passed strict operational TypeScript, ESLint and formatting before
+this final run. Its browser readiness check narrows the hook's property presence
+before checking the function, without adding an assertion or changing the
+application. The final withdrawal dialog and mobile CSS200% images were also
+visually inspected: the readable exact debit/fee/net/destination remain visible
+and the narrow layout remains within the page width.

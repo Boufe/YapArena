@@ -508,29 +508,71 @@ try {
         { exact: true },
       )
       .waitFor();
-    await security
-      .getByText("No security passkey added yet.", { exact: true })
-      .waitFor();
+    await page.waitForFunction(
+      () =>
+        "yapApproveCoinWithdrawal" in window &&
+        typeof window.yapApproveCoinWithdrawal === "function",
+    );
+    assert.equal(await security.isHidden(), true);
+    assert.equal(
+      await security
+        .getByRole("button", { name: "Add security passkey", exact: true })
+        .count(),
+      0,
+    );
     await page.screenshot({
       path: resolve(evidenceDirectory, `before-${name}.png`),
       fullPage: true,
     });
-    phase = `${name}: retained password authorizes native key enrollment`;
-    await security
-      .getByRole("button", { name: "Add security passkey", exact: true })
-      .click();
+    phase = `${name}: retained password authorizes fixture-only native legacy key enrollment`;
+    // Preserve financial acceptance with a deliberately retained legacy key.
+    // This invokes the real API/native protocol, not a removed enrollment UI
+    // and not Privy's separately tested same-key enrollment workflow.
+    const enrollmentInput = {
+      userId: identity.userId,
+      sessionTokenHash: hashSessionToken(identity.token),
+      origin,
+    };
+    const enrollment = await passkeys.enrollmentOptions(enrollmentInput),
+      enrollmentProof = await operations.create({
+        ...enrollmentInput,
+        credential: { type: "password" },
+        purpose: "security.passkey.enroll",
+        terms: { challengeId: enrollment.id },
+      });
+    const { extensions, ...creationOptions } = enrollment.options;
+    assert.deepEqual(extensions, { credProps: true });
+    const registration = await page.evaluate(
+      async (options) => {
+        const credential = await navigator.credentials.create({
+          publicKey: PublicKeyCredential.parseCreationOptionsFromJSON(options),
+        });
+        if (
+          !(credential instanceof PublicKeyCredential) ||
+          !(credential.response instanceof AuthenticatorAttestationResponse)
+        )
+          throw new Error("Native legacy fixture registration missing");
+        return credential.toJSON();
+      },
+      { ...creationOptions, extensions: { credProps: true } },
+    );
+    const enrolled = await context.request.post(
+      `${origin}/api/auth/security/passkeys/enrollment/${enrollment.id}/complete`,
+      {
+        headers: { origin },
+        data: {
+          response: registration,
+          approval: { id: enrollmentProof.id, password: fixturePassword },
+        },
+      },
+    );
+    assert.equal(enrolled.status(), 200);
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
     const approval = page.getByRole("dialog");
-    await approval
-      .getByLabel("Current password", { exact: true })
-      .fill(fixturePassword);
-    await approval
-      .getByRole("button", { name: "Approve change", exact: true })
-      .focus();
-    await page.keyboard.press("Enter");
     await security
-      .getByText("Security passkey added. Other sessions were signed out.", {
-        exact: true,
-      })
+      .getByRole("button", { name: /^Remove existing security key added/ })
       .waitFor();
     await root
       .getByText(
@@ -1318,7 +1360,7 @@ try {
       document.documentElement.style.zoom = "";
     });
     checks.push(
-      `${name}: keyboard activation of retained proof and enrollment, native-dialog focus, automated WCAG2.2AA tags and no horizontal overflow at normal and CSS200% layout zoom; not screen-reader/physical-device evidence`,
+      `${name}: keyboard activation of financial retained-proof controls, explicitly fixture-only native legacy enrollment, native-dialog focus, automated WCAG2.2AA tags and no horizontal overflow at normal and CSS200% layout zoom; not current Privy enrollment UI, screen-reader or physical-device evidence`,
     );
     await cdp.send("WebAuthn.removeVirtualAuthenticator", { authenticatorId });
     await context.close();
@@ -1346,7 +1388,7 @@ try {
         postgres: postgresVersion,
         browser: browser.version(),
         scope:
-          "Real application browser assets and runtime-role PostgreSQL API in a new disposable native cluster; synthetic identities and deterministic financial simulation; Chrome virtual WebAuthn, no genuine Privy/hosted/provider-chain/physical-device/screen-reader acceptance; CSS200% zoom is layout emulation.",
+          "Real application browser assets and runtime-role PostgreSQL API in a new disposable native cluster; synthetic identities and deterministic financial simulation; retained legacy key prepared by explicit password-authorized real API/native fixture, not removed enrollment controls or current Privy enrollment UI; Chrome virtual WebAuthn, no genuine Privy/hosted/provider-chain/physical-device/screen-reader acceptance; CSS200% zoom is layout emulation.",
         checks,
         errors,
         expectedRejections: failures,

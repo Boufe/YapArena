@@ -324,3 +324,58 @@ vary value, and the real application's provider-outage error handler. Strict
 checking, lint and formatting pass; the compiled auth regression and final
 combined gate are pending. This changes response headers only, leaves public
 routes untouched, and does not claim a new paid Cloud or hosted replay trial.
+
+## Privy-only corrective continuation, 2026-10-20
+
+Reviewer: authentication workstream (`/root/auth_security`), reviewing the lead's
+latest security router, server factory and reconciliation controller at
+`f58e99a`. The reviewer authored the scoped restart backend, shared first-key
+policy and retained-provider-key access changes; the lead and provider reviewer
+reviewed those changes separately. This continuation is not an independent
+approval of the reviewer's own source.
+
+No new blocking finding remained in the inspected integration. Exact-origin and
+private response controls precede the sessionless restart routes. The bearer is
+verified by the server and derives the account; the browser cannot select an
+account, provider SID, RP or session duration. Availability returns only an
+eligibility code. A native challenge is issued only after an explicit request,
+and a cookie is issued only after the atomic completion. A mandatory limiter
+uses the server-derived account. Provider outage remains 503; malformed tokens
+become a fixed 401 without exposing SDK errors.
+
+The first-setup exception is limited to an exact historical first-addition
+intent, unchanged provider identity, fresh unconsumed provider SID, no financial
+history and no current or historical accepted strong method. Current reset,
+generation and minimum-issued-at fences remain. Fresh native user verification
+of the current provider key is required; an email session alone is insufficient.
+The founder explicitly approved the sole-current-key case when the original
+intent never recorded a candidate. A previously captured candidate remains bound
+to its exact credential ID and public key. Expired proofs are not extended or
+reused. Privy-origin accepted keys cannot use the independent-key login or
+new-DID identity replacement APIs, and a removed or changed provider key cannot
+approve its own reconciliation.
+
+The inspected controller captures its actor before asynchronous work, cancels
+queued requests and application-owned ceremonies on an account/provider change,
+and gates later SDK calls, requests and UI updates on that same actor. A changed
+reconciliation token remounts and clears the previous state. Privy's already-open
+registration ceremony exposes no caller abort signal in the installed SDK;
+the application fences its continuation, rather than claiming it can cancel
+that native prompt.
+
+The [corrective integrated gate](privy-passkey-integrated/README.md) records the
+actual full 798-test quality result, unchanged coverage thresholds, 198 focused
+PostgreSQL cases on each fresh/upgrade path, separate A4/treasury suites and core
+browser gates. The raw fresh/upgrade output includes the ten new restart cases,
+including malformed proof, exact candidate, historical strong methods, expiry,
+concurrent completion, immutable SQL and rollback checks. Its first failed run
+is retained: the PostgreSQL repetition-limit error was corrected with separate
+length/character validation, without weakening accepted values. The later
+[coin browser rerun](coin-sandbox-browser/README.md) passed all 22 groups with
+exact source/asset hashes and no browser, axe or layout errors.
+
+These remain local database/protocol/intercepted-provider browser results. They
+do not prove genuine hosted provider public-key availability, physical-device or
+screen-reader acceptance. The retained legacy key used by the financial fixture
+is explicitly separate from current Privy enrollment. All financial live-release
+and provider eligibility requirements remain separate gates.

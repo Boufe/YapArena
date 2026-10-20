@@ -7,7 +7,84 @@ import request from "supertest";
 import {
   createRedisAbuseStore,
   createSharedAbuseLimiter,
+  createSharedAccountAttemptLimiter,
 } from "../dist/platform/shared-abuse.js";
+
+it("scopes resolved-account recovery attempts independently, without storing account identifiers or caching authorization", async () => {
+  const counters = new Map(),
+    outcomes = [];
+  const options = {
+    store: {
+      async increment(key) {
+        const count = (counters.get(key) ?? 0) + 1;
+        counters.set(key, count);
+        return { count, ttl: 3000 };
+      },
+    },
+    namespace: "isolated",
+    secret: "s".repeat(32),
+    limit: 1,
+    windowMs: 3000,
+    observe: (outcome) => outcomes.push(outcome),
+  };
+  const first = createSharedAccountAttemptLimiter(options),
+    second = createSharedAccountAttemptLimiter(options);
+  assert.equal(await first("12345678901234", "security.login"), "allowed");
+  assert.equal(await second("12345678901234", "security.login"), "throttled");
+  assert.equal(
+    await second("12345678901234", "provider.credentials.reconcile"),
+    "allowed",
+  );
+  assert.equal(await second("12345678901235", "security.login"), "allowed");
+  assert.equal(
+    [...counters.keys()].some((key) => key.includes("12345678901234")),
+    false,
+  );
+  const unavailable = createSharedAccountAttemptLimiter({
+    ...options,
+    store: {
+      async increment() {
+        throw new Error("private cause");
+      },
+    },
+  });
+  assert.equal(
+    await unavailable("12345678901234", "security.login"),
+    "unavailable",
+  );
+  await assert.rejects(
+    first("browser-choice", "security.login"),
+    /verified recovery/,
+  );
+  await assert.rejects(first("1", "arbitrary-operation"), /verified recovery/);
+  assert.throws(
+    () => createSharedAccountAttemptLimiter({ ...options, limit: 0 }),
+    /invalid shared abuse/,
+  );
+  assert.throws(
+    () =>
+      createSharedAccountAttemptLimiter({
+        ...options,
+        namespace: "PII:unsafe",
+      }),
+    /invalid shared abuse/,
+  );
+  assert.throws(
+    () => createSharedAccountAttemptLimiter({ ...options, secret: "short" }),
+    /invalid shared abuse/,
+  );
+  assert.throws(
+    () => createSharedAccountAttemptLimiter({ ...options, windowMs: 999 }),
+    /invalid shared abuse/,
+  );
+  assert.deepEqual(outcomes, [
+    "allowed",
+    "throttled",
+    "allowed",
+    "allowed",
+    "unavailable",
+  ]);
+});
 
 // Protocol fixtures exercise the actual locked Redis client. Operational
 // acceptance separately uses a real, verifier-owned Redis container.

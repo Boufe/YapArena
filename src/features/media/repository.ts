@@ -72,6 +72,36 @@ export function createMediaRepository(
   db: Pool,
   replayPublication?: { enabled: boolean; allowedRooms?: readonly string[] },
 ) {
+  async function pauseWithClient(
+    client: PoolClient,
+    debateId: string,
+    actorId: string | null,
+    reason: string,
+  ) {
+    const current = await client.query<MediaState>(
+      `SELECT ${fields} FROM debate_media WHERE debate_id = $1 FOR UPDATE`,
+      [debateId],
+    );
+    const state = current.rows[0];
+    if (!state || state.state !== "running")
+      throw new MediaConflictError("debate is not running");
+    const result = await client.query<MediaState>(
+      `UPDATE debate_media SET state = 'paused',
+      remaining_ms = GREATEST(0, EXTRACT(EPOCH FROM (turn_deadline_at - CURRENT_TIMESTAMP)) * 1000)::integer,
+      active_ms = active_ms + GREATEST(0, EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - last_resumed_at)) * 1000)::integer,
+      last_resumed_at = NULL, turn_deadline_at = NULL, incident = $2,
+      revision = revision + 1, updated_at = CURRENT_TIMESTAMP WHERE debate_id = $1
+      AND (SELECT status FROM debates WHERE id = $1) = 'live' RETURNING ${fields}`,
+      [debateId, reason],
+    );
+    if (!result.rows[0]) throw new MediaConflictError("debate is not live");
+    await client.query(
+      `INSERT INTO event_history (debate_id, actor_user_id, action, from_status, to_status, reason)
+      VALUES ($1, $2, 'media_paused', 'live', 'live', $3)`,
+      [debateId, actorId, reason],
+    );
+    return result.rows[0];
+  }
   const readSnapshot = createSharedRead<{
     state: Pick<
       MediaState,
@@ -248,32 +278,11 @@ export function createMediaRepository(
         return result.rows[0]!;
       });
     },
+    pauseWithClient,
     async pause(debateId: string, actorId: string | null, reason: string) {
-      return transaction(db, async (client) => {
-        const current = await client.query<MediaState>(
-          `SELECT ${fields} FROM debate_media WHERE debate_id = $1 FOR UPDATE`,
-          [debateId],
-        );
-        const state = current.rows[0];
-        if (!state || state.state !== "running")
-          throw new MediaConflictError("debate is not running");
-        const result = await client.query<MediaState>(
-          `UPDATE debate_media SET state = 'paused',
-          remaining_ms = GREATEST(0, EXTRACT(EPOCH FROM (turn_deadline_at - CURRENT_TIMESTAMP)) * 1000)::integer,
-          active_ms = active_ms + GREATEST(0, EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - last_resumed_at)) * 1000)::integer,
-          last_resumed_at = NULL, turn_deadline_at = NULL, incident = $2,
-          revision = revision + 1, updated_at = CURRENT_TIMESTAMP WHERE debate_id = $1
-          AND (SELECT status FROM debates WHERE id = $1) = 'live' RETURNING ${fields}`,
-          [debateId, reason],
-        );
-        if (!result.rows[0]) throw new MediaConflictError("debate is not live");
-        await client.query(
-          `INSERT INTO event_history (debate_id, actor_user_id, action, from_status, to_status, reason)
-          VALUES ($1, $2, 'media_paused', 'live', 'live', $3)`,
-          [debateId, actorId, reason],
-        );
-        return result.rows[0];
-      });
+      return transaction(db, (client) =>
+        pauseWithClient(client, debateId, actorId, reason),
+      );
     },
     async resume(debateId: string, actorId: string, revision: number) {
       return transaction(db, async (client) => {

@@ -23,6 +23,69 @@ const config = {
   s3AccessKey: "synthetic-key",
   s3SecretKey: "synthetic-secret",
 };
+it("revokes only exact speaker identities on Cloud with an explicit cutoff after a fresh clock check", async (t) => {
+  const removals = [],
+    probes = [];
+  t.mock.method(
+    RoomServiceClient.prototype,
+    "removeParticipant",
+    async (...args) => removals.push(args),
+  );
+  let date = new Date().toUTCString(),
+    age = "0";
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    probes.push({ url: String(url), options });
+    return new Response(null, {
+      headers: {
+        ...(date === null ? {} : { date }),
+        ...(age === null ? {} : { age }),
+      },
+    });
+  });
+  const provider = createMediaProvider({
+    ...config,
+    livekitUrl: "wss://trial.livekit.cloud",
+  });
+  assert.equal(provider.supportsTokenRevocation, true);
+  const started = Math.floor(Date.now() / 1000);
+  await provider.removeSpeaker(id, `speaker-${id}`);
+  assert.equal(removals.length, 1);
+  assert.equal(removals[0][0], `debate-${id}`);
+  assert.equal(removals[0][1], `speaker-${id}`);
+  assert.ok(removals[0][2].revokeTokenTs >= BigInt(started + 30));
+  assert.ok(
+    removals[0][2].revokeTokenTs <= BigInt(Math.floor(Date.now() / 1000) + 30),
+  );
+  assert.equal(probes[0].url, "https://trial.livekit.cloud/");
+  assert.equal(probes[0].options.method, "HEAD");
+  assert.equal(probes[0].options.redirect, "error");
+  await assert.rejects(
+    provider.removeSpeaker(id, `viewer-${id}`),
+    /unavailable/,
+  );
+  const local = createMediaProvider(config);
+  assert.equal(local.supportsTokenRevocation, false);
+  await assert.rejects(local.removeSpeaker(id, `speaker-${id}`), /unavailable/);
+  for (const value of [
+    null,
+    "invalid-clock",
+    new Date(Date.now() - 15000).toUTCString(),
+    new Date(Date.now() + 15000).toUTCString(),
+  ]) {
+    date = value;
+    await assert.rejects(provider.removeSpeaker(id, `speaker-${id}`), /clock/);
+  }
+  date = new Date().toUTCString();
+  for (const value of ["1", "invalid"]) {
+    age = value;
+    await assert.rejects(provider.removeSpeaker(id, `speaker-${id}`), /clock/);
+  }
+  assert.equal(
+    removals.length,
+    1,
+    "failed clock checks never fall back to implicit provider revocation",
+  );
+});
 it("reads a small private thumbnail without exposing signed recording URLs", async (t) => {
   const jpeg = Buffer.from([255, 216, 255, 0, 255, 217]);
   t.mock.method(S3Client.prototype, "send", async (command) => {

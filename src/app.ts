@@ -22,7 +22,16 @@ import type { createSessionRepository } from "./platform/auth/sessions.ts";
 import type { createWalletRepository } from "./platform/auth/wallets.ts";
 import type { RequestHandler } from "express";
 import type { createAccountWallet } from "./features/account-wallet/repository.ts";
+import type { createMediaAccountRevocation } from "./features/media/account-revocation.ts";
+import { createCoinSandboxRouter } from "./features/account-wallet/sandbox-router.ts";
 import { createEmailAuthSecurity } from "./platform/auth/browser-security.ts";
+import { ProviderAccountError } from "./platform/auth/provider-accounts.ts";
+import { ProviderUnavailableError } from "./platform/auth/privy.ts";
+import { SessionUnavailableError } from "./platform/auth/sessions.ts";
+import {
+  createAccountSecurityRouter,
+  type SecurityRouterOptions,
+} from "./platform/auth/security-router.ts";
 
 import { createMessageRouter } from "./features/messages/router.ts";
 import { createDiscoveryRouter } from "./features/discovery/router.ts";
@@ -66,6 +75,24 @@ export const handleError: ErrorRequestHandler = (
       .set("Retry-After", "1")
       .status(503)
       .json({ error: "public media temporarily busy; retry shortly" });
+  if (error instanceof ProviderUnavailableError)
+    return response
+      .set("Cache-Control", "no-store")
+      .set("Retry-After", "5")
+      .status(503)
+      .json({
+        error:
+          "Account verification is temporarily unavailable. Logout and session revocation remain available.",
+      });
+  if (error instanceof ProviderAccountError)
+    return response.set("Cache-Control", "no-store").status(error.status).json({
+      error: "Account access changed. Ownership verification is required.",
+    });
+  if (error instanceof SessionUnavailableError)
+    return response
+      .set("Cache-Control", "no-store")
+      .status(401)
+      .json({ error: "authentication required" });
 
   if (error instanceof SyntaxError) {
     return response.status(400).json({
@@ -95,6 +122,7 @@ export function createApp({
   matching,
   media,
   mediaProvider,
+  mediaAccountRevocation,
   mediaAdmissionSecret,
   community,
   communityStreams,
@@ -116,6 +144,9 @@ export function createApp({
   sessionDurationMs = 7 * 24 * 60 * 60 * 1_000,
   siweRpcUrls = {},
   authProvider,
+  accountSecurity,
+  coinSandbox,
+  coinWebhook,
   sharedAuthLimiter,
   sharedAccountLimiter,
   accountWallet,
@@ -128,6 +159,7 @@ export function createApp({
   matching?: ReturnType<typeof createMatchingRepository>;
   media?: ReturnType<typeof createMediaRepository>;
   mediaProvider?: ReturnType<typeof createMediaProvider>;
+  mediaAccountRevocation?: ReturnType<typeof createMediaAccountRevocation>;
   mediaAdmissionSecret?: string;
   community?: ReturnType<typeof createCommunityRepository>;
   communityStreams?: Pick<
@@ -152,9 +184,22 @@ export function createApp({
   sessionDurationMs?: number;
   siweRpcUrls?: Readonly<Record<string, string>>;
   authProvider?: Parameters<typeof createAuthRouter>[0]["provider"];
+  accountSecurity?: Pick<
+    SecurityRouterOptions,
+    | "operations"
+    | "passkeys"
+    | "walletOperations"
+    | "legacyProviderLink"
+    | "access"
+  >;
   sharedAuthLimiter?: RequestHandler;
   sharedAccountLimiter?: RequestHandler;
   accountWallet?: ReturnType<typeof createAccountWallet>;
+  coinSandbox?: Pick<
+    Parameters<typeof createCoinSandboxRouter>[0],
+    "sandbox" | "debates" | "operations"
+  >;
+  coinWebhook?: RequestHandler;
   synchronizeProvider?: (userId: string) => Promise<void>;
 }) {
   const app = express();
@@ -259,9 +304,14 @@ export function createApp({
     app.use(
       "/api/media/webhook",
       express.raw({ type: "application/webhook+json", limit: "256kb" }),
-      createMediaWebhookRouter({ media, provider: mediaProvider }),
+      createMediaWebhookRouter({
+        media,
+        provider: mediaProvider,
+        accountRevocation: mediaAccountRevocation,
+      }),
     );
   }
+  if (coinWebhook) app.use("/api/coin-sandbox/webhook", coinWebhook);
   app.use(express.json({ limit: requestBodyLimit }));
   app.use(cookieParser());
   app.use(createCsrfOriginProtection({ environment, applicationOrigin }));
@@ -347,6 +397,31 @@ export function createApp({
       },
     }),
   );
+  if (accountSecurity)
+    app.use(
+      "/api/auth",
+      createAccountSecurityRouter({
+        ...accountSecurity,
+        sessions,
+        environment,
+        applicationOrigin: applicationOrigin ?? "http://localhost:3000",
+        sessionDurationMs,
+        siweRpcUrls,
+        sharedAccountLimiter,
+      }),
+    );
+  if (coinSandbox)
+    app.use(
+      "/api/coin-sandbox",
+      createRequireAuthentication({ sessions, environment }),
+      createCoinSandboxRouter({
+        ...coinSandbox,
+        environment,
+        applicationOrigin: applicationOrigin ?? "http://localhost:3000",
+        rpcUrls: siweRpcUrls,
+        sharedWriteLimiter: sharedAccountLimiter,
+      }),
+    );
   if (a4)
     app.use(
       "/api/a4",
@@ -393,6 +468,8 @@ export function createApp({
       createMediaRouter({
         media,
         provider: mediaProvider,
+        accountRevocation: mediaAccountRevocation,
+        environment,
         recordPlayback: createMediaTelemetry(metrics.registry),
         matching,
         identity,

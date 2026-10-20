@@ -34,6 +34,7 @@ export function createLogger({
         paths: [
           "req.headers.authorization",
           "req.headers.cookie",
+          'req.headers["x-yap-signature"]',
           'res.headers["set-cookie"]',
         ],
         censor: "[REDACTED]",

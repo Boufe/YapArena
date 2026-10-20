@@ -73,9 +73,11 @@ export function getCookieSettings(environment: string) {
 export function createRequireAuthentication({
   sessions,
   environment,
+  localRevocation = false,
 }: {
   sessions: ReturnType<typeof createSessionRepository>;
   environment: string;
+  localRevocation?: boolean;
 }) {
   const cookie = getCookieSettings(environment);
 
@@ -90,7 +92,10 @@ export function createRequireAuthentication({
       return response.status(401).json({ error: "authentication required" });
     }
 
-    const user = await sessions.findUserByTokenHash(hashSessionToken(token));
+    const user = await sessions.findUserByTokenHash(
+      hashSessionToken(token),
+      localRevocation ? { localRevocation: true } : undefined,
+    );
 
     if (!user) {
       return response.status(401).json({ error: "authentication required" });
@@ -146,6 +151,11 @@ export function createAuthRouter({
   const requireAuthentication = createRequireAuthentication({
     sessions,
     environment,
+  });
+  const requireLocalRevocation = createRequireAuthentication({
+    sessions,
+    environment,
+    localRevocation: true,
   });
   const authLimiter = createApiRateLimiter({
     windowMs: rateLimitWindowMs,
@@ -372,15 +382,102 @@ export function createAuthRouter({
   });
 
   router.post("/logout", async (request, response) => {
+    if (request.body && Object.keys(request.body).length)
+      return response.status(400).json({
+        error: "this operation accepts no account or session selectors",
+      });
     const token = request.cookies[cookie.name];
-
+    if (!token) {
+      response.clearCookie(cookie.name, cookie.options);
+      return response.status(401).json({
+        error:
+          "this session has ended; sign in again to sign out other devices",
+      });
+    }
     if (token) {
-      await sessions.deleteByTokenHash(hashSessionToken(token));
+      const hash = hashSessionToken(token);
+      const user = await sessions.findUserByTokenHash(hash, {
+        localRevocation: true,
+      });
+      if (!user) {
+        response.clearCookie(cookie.name, cookie.options);
+        return response.status(401).json({
+          error:
+            "this session has ended; sign in again to sign out other devices",
+        });
+      }
+      if (user) {
+        try {
+          await sessions.revoke(user.id, hash, false, String(request.id));
+          if (synchronizeProvider)
+            void Promise.resolve()
+              .then(() => synchronizeProvider(user.id))
+              .catch(() => recordAuth("provider_revocation_retry"));
+        } catch (error) {
+          if (!(error instanceof SessionUnavailableError)) throw error;
+          response.clearCookie(cookie.name, cookie.options);
+          return response.status(401).json({
+            error:
+              "this session ended before sign-out-all completed; sign in again to end other sessions",
+          });
+        }
+      }
     }
 
     response.clearCookie(cookie.name, cookie.options);
     return response.status(204).end();
   });
+
+  router.get("/sessions", requireLocalRevocation, async (request, response) => {
+    try {
+      return response.json(
+        await sessions.list(
+          request.user!.id,
+          hashSessionToken(request.cookies[cookie.name]),
+        ),
+      );
+    } catch (error) {
+      if (error instanceof SessionUnavailableError)
+        return response.status(401).json({ error: "authentication required" });
+      throw error;
+    }
+  });
+  // Session revocation remains available when provider or shared Redis is down.
+  router.delete(
+    "/sessions/:id",
+    requireLocalRevocation,
+    async (request, response) => {
+      if (request.body && Object.keys(request.body).length)
+        return response
+          .status(400)
+          .json({ error: "this operation accepts no account selectors" });
+      const id = request.params.id;
+      if (
+        typeof id !== "string" ||
+        !/^[1-9][0-9]{0,18}$/.test(id) ||
+        BigInt(id) > 9223372036854775807n
+      )
+        return response.status(400).json({ error: "invalid session" });
+      try {
+        const removed = await sessions.revokeSession(
+          request.user!.id,
+          hashSessionToken(request.cookies[cookie.name]),
+          id,
+          String(request.id),
+        );
+        if (!removed)
+          return response.status(404).json({ error: "session unavailable" });
+        if (removed.current) response.clearCookie(cookie.name, cookie.options);
+        return response.json(removed);
+      } catch (error) {
+        if (error instanceof SessionUnavailableError)
+          return response
+            .status(401)
+            .json({ error: "authentication required" });
+        throw error;
+      }
+    },
+  );
 
   for (const [path, retainCurrent] of [
     ["/logout-all", false],
@@ -389,7 +486,7 @@ export function createAuthRouter({
     router.post(
       path,
       authLimiter,
-      requireAuthentication,
+      requireLocalRevocation,
       async (request, response) => {
         // No account/session selector is accepted. Ownership comes from the live cookie.
         if (request.body && Object.keys(request.body).length)
@@ -403,13 +500,10 @@ export function createAuthRouter({
             retainCurrent,
             String(request.id),
           );
-          if (synchronizeProvider) {
-            try {
-              await synchronizeProvider(request.user!.id);
-            } catch {
-              recordAuth("provider_revocation_retry");
-            }
-          }
+          if (synchronizeProvider)
+            void Promise.resolve()
+              .then(() => synchronizeProvider(request.user!.id))
+              .catch(() => recordAuth("provider_revocation_retry"));
         } catch (error) {
           if (error instanceof SessionUnavailableError)
             return response

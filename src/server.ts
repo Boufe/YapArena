@@ -1,5 +1,8 @@
 import { createA4Repository } from "./features/a4/repository.ts";
 import { createAccountWallet } from "./features/account-wallet/repository.ts";
+import { createCoinSandboxRepository } from "./features/account-wallet/sandbox-repository.ts";
+import { createCoinDebateSandbox } from "./features/account-wallet/debate-sandbox.ts";
+import { createSandboxWebhookRouter } from "./features/account-wallet/sandbox-webhooks.ts";
 import { createPublicBotRepository } from "./features/a4/public-bots.ts";
 import { createApp } from "./app.ts";
 import { createMessageRepository } from "./features/messages/repository.ts";
@@ -9,6 +12,7 @@ import { createMatchingRepository } from "./features/matching/repository.ts";
 import { createMediaRepository } from "./features/media/repository.ts";
 import { createMediaProvider } from "./features/media/provider.ts";
 import { createMediaOperations } from "./features/media/operations.ts";
+import { createMediaAccountRevocation } from "./features/media/account-revocation.ts";
 import { createReplayJobs } from "./features/media/replay-jobs.ts";
 import { createCommunityRepository } from "./features/community/repository.ts";
 import { createMeasurementRepository } from "./features/measurement/repository.ts";
@@ -22,9 +26,17 @@ import {
 } from "./platform/auth/privy.ts";
 import { createProviderRevocation } from "./platform/auth/provider-revocation.ts";
 import { createProviderAccounts } from "./platform/auth/provider-accounts.ts";
+import { createProviderSessionMonitor } from "./platform/auth/provider-session-monitor.ts";
+import { createAccountOperationRepository } from "./platform/auth/account-operations.ts";
+import { AccountOperationError } from "./platform/auth/account-operations.ts";
+import { createSecurityPasskeyRepository } from "./platform/auth/security-passkeys.ts";
+import { createProviderWalletOperations } from "./platform/auth/provider-wallet-operations.ts";
+import { createLegacyProviderLink } from "./platform/auth/legacy-provider-link.ts";
+import { createAccountAccessRepository } from "./platform/auth/account-access.ts";
 import {
   createRedisAbuseStore,
   createSharedAbuseLimiter,
+  createSharedAccountAttemptLimiter,
 } from "./platform/shared-abuse.ts";
 import { loadConfig } from "./platform/config.ts";
 import { createDatabase } from "./platform/database.ts";
@@ -84,8 +96,21 @@ const mediaOperations =
       })
     : undefined;
 const mediaProvider = mediaOperations?.provider;
+const mediaAccountRevocation = mediaProvider
+  ? createMediaAccountRevocation(database, {
+      supportsTokenRevocation: mediaProvider.supportsTokenRevocation,
+      mintSpeakerToken: (debateId, suffix, side) =>
+        mediaProvider.token(debateId, suffix, true, side),
+      removeSpeaker: (debateId, identity) =>
+        mediaProvider.removeSpeaker(debateId, identity),
+      timeoutMs: 6000,
+      observe: ({ result, seconds }) => {
+        metrics.mediaControl.inc({ kind: `speaker_revocation_${result}` });
+        metrics.authLatency.observe({ phase: "speaker_revocation" }, seconds);
+      },
+    })
+  : undefined;
 const users = createUserRepository(database);
-const sessions = createSessionRepository(database);
 const wallets = createWalletRepository(database);
 const providerConfig = loadProviderConfig(process.env);
 const abuseStore = providerConfig
@@ -105,13 +130,73 @@ const authProvider = providerConfig
       accounts: createProviderAccounts(database),
     }
   : undefined;
+const sessions = createSessionRepository(database, {
+  verifyProviderSession: authProvider
+    ? createProviderSessionMonitor(database, authProvider.verifier)
+    : undefined,
+});
 const providerRevocation = providerConfig
   ? createProviderRevocation(
       database,
       createPrivySessionControl(providerConfig),
     )
   : undefined;
+const accountAttempt =
+  providerConfig && abuseStore
+    ? createSharedAccountAttemptLimiter({
+        store: abuseStore,
+        namespace: providerConfig.namespace,
+        secret: providerConfig.keySecret,
+        limit: 20,
+        windowMs: 15 * 60_000,
+        observe: (outcome) => metrics.redisOutcome.inc({ outcome }),
+      })
+    : undefined;
+const accountSecurity = {
+  operations: createAccountOperationRepository(database),
+  passkeys: createSecurityPasskeyRepository(database),
+  walletOperations: createProviderWalletOperations(database),
+  legacyProviderLink: authProvider
+    ? createLegacyProviderLink(database, authProvider.verifier)
+    : undefined,
+  access: authProvider
+    ? createAccountAccessRepository(database, authProvider.verifier, {
+        authorizeAttempt: async (userId, purpose) => {
+          if (!accountAttempt)
+            throw new AccountOperationError(
+              503,
+              "sign-in protection is temporarily unavailable",
+            );
+          const outcome = await accountAttempt(userId, purpose);
+          if (outcome !== "allowed")
+            throw new AccountOperationError(
+              outcome === "throttled" ? 429 : 503,
+              outcome === "throttled"
+                ? "too many attempts; try again shortly"
+                : "sign-in protection is temporarily unavailable",
+            );
+        },
+      })
+    : undefined,
+};
+const coinDebates = config.coinSandboxEnabled
+  ? createCoinDebateSandbox(database, "simulation")
+  : undefined;
 const app = createApp({
+  coinWebhook: config.coinSandboxWebhookSecret
+    ? createSandboxWebhookRouter({
+        database,
+        rail: "simulation",
+        secret: config.coinSandboxWebhookSecret,
+      })
+    : undefined,
+  coinSandbox: coinDebates
+    ? {
+        sandbox: createCoinSandboxRepository(database, { rail: "simulation" }),
+        debates: coinDebates,
+        operations: accountSecurity.operations,
+      }
+    : undefined,
   messages,
   a4,
   publicBots: createPublicBotRepository(database),
@@ -120,6 +205,7 @@ const app = createApp({
   matching,
   media,
   mediaProvider,
+  mediaAccountRevocation,
   mediaAdmissionSecret: config.media?.livekitSecret,
   community,
   communityStreams,
@@ -140,6 +226,7 @@ const app = createApp({
   sessionDurationMs: config.sessionDurationMs,
   siweRpcUrls: config.siweRpcUrls,
   authProvider,
+  accountSecurity,
   synchronizeProvider: providerRevocation
     ? (userId) => providerRevocation.synchronize(userId)
     : undefined,
@@ -176,6 +263,15 @@ const runtime = createRuntime({
   app,
   database,
   sessions,
+  accountSecurityCleanup: async () => {
+    await Promise.all([
+      accountSecurity.operations.deleteExpired(),
+      accountSecurity.passkeys.deleteExpiredChallenges(),
+      accountSecurity.access?.deleteExpiredChallenges(),
+    ]);
+  },
+  mediaAccountRevocation,
+  coinDebates,
   identity,
   matching,
   community,

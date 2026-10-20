@@ -97,6 +97,28 @@ function captureLogger(options = {}) {
   };
 }
 
+it("redacts sandbox webhook authentication proofs and never logs the notification body", async () => {
+  const capture = captureLogger(),
+    app = express();
+  app.use(createHttpLogger(capture.logger));
+  app.post(
+    "/api/coin-sandbox/webhook",
+    express.raw({ type: "application/json" }),
+    (_r, s) => s.status(202).json({ accepted: true }),
+  );
+  const signature = "synthetic-private-sandbox-signature",
+    privateBody = "synthetic-private-financial-event";
+  await request(app)
+    .post("/api/coin-sandbox/webhook")
+    .set("Content-Type", "application/json")
+    .set("x-request-id", "sandbox-webhook-redaction")
+    .set("x-yap-signature", signature)
+    .send(JSON.stringify({ event: privateBody }));
+  const record = await capture.completion("sandbox-webhook-redaction", 202, 30);
+  capture.assertAbsent([signature, privateBody]);
+  assert.equal(record.req.headers["x-yap-signature"], "[REDACTED]");
+});
+
 function fixture({ environment = "development", ...overrides } = {}) {
   const capture = captureLogger();
   const sessionRecords = new Map();
@@ -113,6 +135,7 @@ function fixture({ environment = "development", ...overrides } = {}) {
       findByEmail: async () => registered ?? null,
     },
     sessions: {
+      revoke: async () => sessionRecords.clear(),
       create: async (_userId, hash) => sessionRecords.set(hash, user),
       findUserByTokenHash: async (hash) => sessionRecords.get(hash) ?? null,
       deleteByTokenHash: async (hash) => sessionRecords.delete(hash),

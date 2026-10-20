@@ -12,7 +12,10 @@ import { createAccountOperationRepository } from "../dist/platform/auth/account-
 import { createAccountAccessRepository } from "../dist/platform/auth/account-access.js";
 import { createProviderIdentityRecovery } from "../dist/platform/auth/provider-identity-recovery.js";
 import { createProviderSessionMonitor } from "../dist/platform/auth/provider-session-monitor.js";
-import { ProviderUnavailableError } from "../dist/platform/auth/privy.js";
+import {
+  ProviderUnavailableError,
+  ProviderCredentialChangedError,
+} from "../dist/platform/auth/privy.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import {
   createSessionToken,
@@ -982,6 +985,95 @@ describe(
         ).rows[0].consumed_at,
         null,
       );
+    });
+
+    it("temporarily denies an inspection failure during the matching active provider reset without revoking the rotated cookie", async () => {
+      for (const state of ["pending", "running", "manual"]) {
+        const f = await fixture(),
+          key = providerPasskeyFixture(),
+          begin = await f.repo.begin(f.f),
+          challenge = await options(f, begin, key);
+        const result = await f.repo.complete(completion(f, challenge, key));
+        f.f.sessionTokenHash = hashSessionToken(result.token);
+        await owner.query(
+          `UPDATE provider_revocation_jobs SET state=$2,
+          failure_reason=CASE WHEN $2='manual' THEN 'uncertain_provider_outcome' ELSE NULL END,
+          attempts=1,lease_until=clock_timestamp()+interval '30 seconds' WHERE user_id=$1`,
+          [f.f.userId, state],
+        );
+        const before = await securitySnapshot(f);
+        const monitor = createProviderSessionMonitor(a, {
+          async inspect() {
+            throw new ProviderCredentialChangedError(
+              "synthetic own-reset frozen response",
+            );
+          },
+        });
+        await assert.rejects(
+          monitor(f.f.userId, f.f.sessionTokenHash),
+          ProviderUnavailableError,
+        );
+        assert.deepEqual(await securitySnapshot(f), before);
+      }
+    });
+
+    it("still revokes actual key changes or independent/mismatched freezes while a provider reset exists", async () => {
+      for (const mode of [
+        "changed-key",
+        "independent-freeze",
+        "wrong-subject",
+      ]) {
+        const f = await fixture(),
+          key = providerPasskeyFixture(),
+          begin = await f.repo.begin(f.f),
+          challenge = await options(f, begin, key);
+        const result = await f.repo.complete(completion(f, challenge, key));
+        f.f.sessionTokenHash = hashSessionToken(result.token);
+        await owner.query(
+          `UPDATE provider_revocation_jobs SET state=$2,failure_reason=$3,
+          subject=CASE WHEN $4 THEN 'did:privy:other-owner-fixture' ELSE subject END,
+          attempts=1,lease_until=clock_timestamp()+interval '30 seconds' WHERE user_id=$1`,
+          [
+            f.f.userId,
+            mode === "independent-freeze" ? "manual" : "running",
+            mode === "independent-freeze"
+              ? "independent_provider_freeze"
+              : null,
+            mode === "wrong-subject",
+          ],
+        );
+        if (mode === "changed-key")
+          f.replace({
+            ...f.identity,
+            passkeys: [
+              {
+                ...key.evidence,
+                publicKey: providerPasskeyFixture().evidence.publicKey,
+              },
+            ],
+          });
+        const inspector =
+          mode === "changed-key"
+            ? f.verifier
+            : {
+                async inspect() {
+                  throw new ProviderCredentialChangedError(
+                    "synthetic unowned freeze",
+                  );
+                },
+              };
+        const before = await securitySnapshot(f);
+        await assert.rejects(
+          createProviderSessionMonitor(a, inspector)(
+            f.f.userId,
+            f.f.sessionTokenHash,
+          ),
+          { status: 403 },
+        );
+        const after = await securitySnapshot(f);
+        assert.equal(after.sessions, 0);
+        assert.notEqual(after.generation, before.generation);
+      }
     });
   },
 );

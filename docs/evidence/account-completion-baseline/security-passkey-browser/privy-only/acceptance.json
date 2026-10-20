@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "processExitCode": 0,
+  "at": "2026-10-20T18:36:44.497Z",
+  "revision": "2001abc4fd46a160c3fde9f4f687a19d66939b54",
+  "groups": 18,
+  "pageAndBackendErrors": 0,
+  "scriptSha256": "5a63db7cb099583219eb97bd7c96e187aba14d2f2c05244a745917ee74eef409",
+  "logSha256": "0464b03ae0f52d9a4154fa159e6f44a55cf1e3d7f6ea8c289f2373780dfe229c",
+  "limitations": [
+    "Provider user/token/OTP endpoints are intercepted synthetic fixtures; only public app metadata is read from Privy.",
+    "Virtual CTAP2 is not a physical device or screen reader.",
+    "Native SDK page is a minimal generated-island fixture, not the complete production account controller. Its session comparison hint is populated only after real cookie-authenticated GET /me.",
+    "A stale initial load-error notice was observed and reported; its separately prepared fix and first-setup restart require final rebuilt-asset acceptance.",
+    "The two new own-reset monitor failure regression groups were authored after the179x2PG run and still await the next integrated PostgreSQL run."
+  ]
+}

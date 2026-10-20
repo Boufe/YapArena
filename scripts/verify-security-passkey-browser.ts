@@ -12,6 +12,12 @@ import pg from "pg";
 import { runner } from "node-pg-migrate";
 import { chromium, type Browser, type Page } from "playwright-core";
 import axe from "axe-core";
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  type RegistrationResponseJSON,
+  type AuthenticationResponseJSON,
+} from "@simplewebauthn/server";
 import type {} from "pino-http";
 import { provisionDatabase } from "./provision-database.ts";
 import { createAccountSecurityRouter } from "../dist/platform/auth/security-router.js";
@@ -27,7 +33,13 @@ import type { ProviderIdentity } from "../dist/platform/auth/privy.js";
 import { createIdentityRepository } from "../dist/features/identity/repository.js";
 import { createCoinSandboxRepository } from "../dist/features/account-wallet/sandbox-repository.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
-import { createRequireAuthentication } from "../dist/platform/auth/router.js";
+import {
+  createRequireAuthentication,
+  createAuthRouter,
+} from "../dist/platform/auth/router.js";
+import { createUserRepository } from "../dist/platform/auth/users.js";
+import { createProviderPasskeys } from "../dist/platform/auth/provider-passkeys.js";
+import { createAccountAccessRepository } from "../dist/platform/auth/account-access.js";
 
 // No .env or external database URL is read. All credentials and provider
 // identities are synthetic, in a new loopback-only PostgreSQL cluster. Browser
@@ -43,7 +55,7 @@ const databaseName = "revocation_test_security_browser";
 const quiet = { info() {}, warn() {}, error() {} };
 const directory = await mkdtemp("/private/tmp/yaparena-security-browser-");
 const evidenceDirectory = resolve(
-  "docs/evidence/account-completion-baseline/security-passkey-browser",
+  "docs/evidence/account-completion-baseline/security-passkey-browser/privy-only",
 );
 await mkdir(evidenceDirectory, { recursive: true });
 let started = false;
@@ -101,6 +113,40 @@ function requestOptions(value: unknown): PublicKeyCredentialRequestOptionsJSON {
       assert.equal(credential.transports, undefined);
       return { type: "public-key", id: credential.id };
     }),
+  };
+}
+function authenticationResponse(value: unknown): AuthenticationResponseJSON {
+  assert.ok(
+    object(value) &&
+      typeof value.id === "string" &&
+      typeof value.rawId === "string" &&
+      value.type === "public-key" &&
+      object(value.response),
+  );
+  assert.deepEqual(value.clientExtensionResults, {});
+  const response = value.response;
+  assert.ok(
+    typeof response.clientDataJSON === "string" &&
+      typeof response.authenticatorData === "string" &&
+      typeof response.signature === "string",
+  );
+  assert.ok(
+    response.userHandle === undefined ||
+      typeof response.userHandle === "string",
+  );
+  return {
+    id: value.id,
+    rawId: value.rawId,
+    type: "public-key",
+    clientExtensionResults: {},
+    response: {
+      clientDataJSON: response.clientDataJSON,
+      authenticatorData: response.authenticatorData,
+      signature: response.signature,
+      ...(typeof response.userHandle === "string"
+        ? { userHandle: response.userHandle }
+        : {}),
+    },
   };
 }
 
@@ -179,7 +225,6 @@ try {
   const runtimePool = runtime;
   const sessions = createSessionRepository(runtimePool);
   const passkeys = createSecurityPasskeyRepository(runtimePool);
-  const operations = createAccountOperationRepository(runtimePool);
   const providerAccounts = createProviderAccounts(runtimePool);
   const profiles = createIdentityRepository(runtimePool);
   const sandbox = createCoinSandboxRepository(runtimePool, {
@@ -188,6 +233,9 @@ try {
   const providerIdentities = new Map<string, ProviderIdentity>();
   const providerTokens = new Map<string, ProviderIdentity>();
   const verifier = {
+    async configuration() {
+      return { google: true, passkeys: true };
+    },
     async verify(token: string) {
       const identity = providerTokens.get(token);
       assert.ok(identity, "synthetic provider token not configured");
@@ -199,6 +247,11 @@ try {
       return identity;
     },
   };
+  const operations = createAccountOperationRepository(runtimePool, verifier);
+  const providerPasskeys = createProviderPasskeys(runtimePool, verifier);
+  const providerSessions = createSessionRepository(runtimePool, {
+    verifyProviderSession: createProviderSessionMonitor(runtimePool, verifier),
+  });
   const providerIdentityRecovery = createProviderIdentityRecovery(
     runtimePool,
     verifier,
@@ -248,16 +301,40 @@ try {
       `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>YapArena security browser acceptance</title><link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/arena.css"><link rel="stylesheet" href="/assets/account-auth.css"><script defer src="/assets/session-coordination.js"></script><script defer src="/axe.js"></script></head><body><main class="container"><h1>Account security</h1><p>LOCAL REAL BACKEND · Synthetic account · Chrome virtual authenticator · No physical device or provider login</p><section id="account-security-passkeys" class="information-card account-card"></section></main><script type="module" src="/assets/account-security.bundle.js"></script></body></html>`,
     ),
   );
-  const authenticated = createRequireAuthentication({
-    sessions,
-    environment: "test",
-  });
+  app.get("/provider-sdk", (_request, response) =>
+    response.send(
+      `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Privy single-key local backend acceptance</title><link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/arena.css"><link rel="stylesheet" href="/assets/account-auth.css"><script defer src="/assets/session-coordination.js"></script></head><body><main class="container"><h1>Account settings</h1><p>LOCAL REAL BACKEND · Synthetic Privy responses · Installed SDK · Chrome virtual authenticator · No genuine provider acceptance</p><p id="account-notice" role="status"></p><div id="email-auth"></div><section id="provider-settings" class="information-card account-card"></section><section id="account-security-passkeys" class="information-card account-card"></section></main><script type="module" src="/assets/account-security.bundle.js"></script><script type="module" src="/assets/account-auth.bundle.js"></script></body></html>`,
+    ),
+  );
+  let usingProviderBridge = false;
+  const publicAppId = "cmvfjb3r800vy0hl3heg2cuvv";
+  function authRoutes() {
+    return createAuthRouter({
+      users: createUserRepository(runtimePool),
+      sessions: providerSessions,
+      environment: "test",
+      applicationOrigin: origin,
+      provider: { appId: publicAppId, verifier, accounts: providerAccounts },
+    });
+  }
+  let providerAuthRouter = authRoutes();
+  app.use("/api/auth", (request, response, next) =>
+    providerAuthRouter(request, response, next),
+  );
+  const authenticated: express.RequestHandler = (request, response, next) =>
+    createRequireAuthentication({
+      sessions: usingProviderBridge ? providerSessions : sessions,
+      environment: "test",
+    })(request, response, next);
   app.get("/api/auth/methods", authenticated, async (request, response) => {
     const result = await runtimePool.query<{ legacyPassword: boolean }>(
       'SELECT password_hash IS NOT NULL AS "legacyPassword" FROM users WHERE id=$1',
       [request.user!.id],
     );
-    response.json(result.rows[0]);
+    response.json({
+      ...result.rows[0],
+      provider: await providerAccounts.details(request.user!.id),
+    });
   });
   app.get("/api/auth/wallets", authenticated, async (request, response) => {
     const result = await runtimePool.query<{
@@ -270,12 +347,23 @@ try {
     );
     response.json({ wallets: result.rows });
   });
-  function securityRoutes() {
+  const scopedAttempts = new Map<string, number>();
+  function securityRoutes(providerBridge = false) {
     return createAccountSecurityRouter({
-      sessions,
+      sessions: providerBridge ? providerSessions : sessions,
       operations,
       passkeys,
       providerIdentityRecovery,
+      ...(providerBridge
+        ? {
+            providerPasskeys,
+            authorizeProviderPasskeyAttempt: async (userId: string) => {
+              assert.match(userId, /^\d+$/);
+              scopedAttempts.set(userId, (scopedAttempts.get(userId) ?? 0) + 1);
+            },
+            access: createAccountAccessRepository(runtimePool, verifier),
+          }
+        : {}),
       environment: "test",
       applicationOrigin: origin,
     });
@@ -306,6 +394,530 @@ try {
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     headless: true,
   });
+  const metadataResponse = await fetch(
+    `https://auth.privy.io/api/v1/apps/${publicAppId}`,
+    {
+      headers: { "privy-app-id": publicAppId },
+      signal: AbortSignal.timeout(10000),
+    },
+  );
+  assert.equal(metadataResponse.status, 200);
+  const metadata: unknown = await metadataResponse.json();
+  assert.ok(object(metadata));
+  for (const [name, viewport] of [
+    ["desktop", { width: 1440, height: 1000 }],
+    ["mobile", { width: 390, height: 844 }],
+  ] as const) {
+    phase = `${name}: installed SDK with real same-key backend`;
+    usingProviderBridge = true;
+    securityRouter = securityRoutes(true);
+    providerAuthRouter = authRoutes();
+    const context = await browser.newContext({
+      viewport,
+      reducedMotion: "reduce",
+    });
+    const page = await context.newPage();
+    lastPage = page;
+    page.on("pageerror", (error) => errors.push(error.name));
+    page.on("response", (response) => {
+      if (response.status() >= 400)
+        responseFailures.push({
+          route: new URL(response.url()).pathname.replace(
+            /[0-9a-f]{8}-[0-9a-f-]{27,}/g,
+            ":id",
+          ),
+          status: response.status(),
+        });
+    });
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("WebAuthn.enable");
+    const { authenticatorId } = await cdp.send(
+      "WebAuthn.addVirtualAuthenticator",
+      {
+        options: {
+          protocol: "ctap2",
+          transport: "internal",
+          hasResidentKey: true,
+          hasUserVerification: true,
+          isUserVerified: true,
+          automaticPresenceSimulation: true,
+        },
+      },
+    );
+    const identity = providerIdentity();
+    const now = Math.floor(Date.now() / 1000),
+      email = identity.email!;
+    const token = [
+      Buffer.from(JSON.stringify({ alg: "ES256", typ: "JWT" })).toString(
+        "base64url",
+      ),
+      Buffer.from(
+        JSON.stringify({
+          iss: "privy.io",
+          aud: publicAppId,
+          sub: identity.subject,
+          sid: identity.sessionId,
+          iat: now,
+          exp: now + 600,
+        }),
+      ).toString("base64url"),
+      "synthetic-provider-signature",
+    ].join(".");
+    providerTokens.set(token, identity);
+    let providerInitCalls = 0,
+      providerLinkCalls = 0,
+      activationCalls = 0,
+      registrationCount = 0;
+    let credentialId: string | undefined;
+    const registration = await generateRegistrationOptions({
+      rpName: "Synthetic Privy provider fixture",
+      rpID: new URL(origin).hostname,
+      userID: new Uint8Array(randomBytes(32)),
+      userName: email,
+      attestationType: "none",
+      supportedAlgorithmIDs: [-7],
+      authenticatorSelection: {
+        authenticatorAttachment: "platform",
+        residentKey: "required",
+        userVerification: "required",
+      },
+    });
+    function acceptLinkedKey(id: string, key: Uint8Array) {
+      credentialId = id;
+      identity.credentials = [
+        ...identity.credentials!,
+        { type: "passkey", id },
+      ];
+      identity.methods = ["email", "passkey"];
+      identity.credentialsDigest = providerCredentialsDigest(
+        identity.credentials,
+      );
+      identity.passkeys = [
+        { credentialId: id, publicKey: Buffer.from(key).toString("base64") },
+      ];
+    }
+    async function verifyFixtureRegistration(
+      response: RegistrationResponseJSON,
+    ) {
+      const verified = await verifyRegistrationResponse({
+        response,
+        expectedChallenge: registration.challenge,
+        expectedOrigin: origin,
+        expectedRPID: new URL(origin).hostname,
+        requireUserVerification: true,
+      });
+      assert.equal(verified.verified, true);
+      assert.ok(verified.registrationInfo);
+      registrationCount++;
+      acceptLinkedKey(
+        verified.registrationInfo.credential.id,
+        verified.registrationInfo.credential.publicKey,
+      );
+    }
+    const providerUser = () => ({
+      id: identity.subject,
+      is_guest: false,
+      created_at: now - 100,
+      has_accepted_terms: true,
+      mfa_methods: [],
+      linked_accounts: [
+        {
+          type: "email",
+          address: email,
+          verified_at: now,
+          first_verified_at: now - 100,
+          latest_verified_at: now,
+        },
+        ...(credentialId
+          ? [
+              {
+                type: "passkey",
+                credential_id: credentialId,
+                authenticator_name: "Synthetic Chrome authenticator",
+                verified_at: now,
+                first_verified_at: now,
+                latest_verified_at: now,
+              },
+            ]
+          : []),
+      ],
+    });
+    const providerSession = () => ({
+      user: providerUser(),
+      token,
+      privy_access_token: token,
+      refresh_token: "synthetic-refresh-not-provider-issued",
+      is_new_user: false,
+      session_update_action: "set",
+    });
+    const unexpectedPaths: string[] = [];
+    await context.route(
+      (url) =>
+        url.origin === "https://auth.privy.io" &&
+        url.pathname.startsWith("/api/"),
+      async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        const headers = {
+          "access-control-allow-origin": origin,
+          "access-control-allow-credentials": "true",
+          "access-control-allow-methods": "GET, POST, OPTIONS",
+          "access-control-allow-headers":
+            route.request().headers()["access-control-request-headers"] ??
+            "authorization, content-type, privy-app-id",
+        };
+        if (route.request().method() === "OPTIONS")
+          return route.fulfill({ status: 204, headers });
+        if (path === `/api/v1/apps/${publicAppId}`)
+          return route.fulfill({
+            headers,
+            json: {
+              ...metadata,
+              captcha_enabled: false,
+              enabled_captcha_provider: null,
+            },
+          });
+        if (
+          path === "/api/v1/passwordless/init" ||
+          path === "/api/v1/analytics_events" ||
+          path === "/api/v1/sessions/logout"
+        )
+          return route.fulfill({ headers, json: { success: true } });
+        if (
+          path === "/api/v1/passwordless/authenticate" ||
+          path === "/api/v1/sessions"
+        )
+          return route.fulfill({ headers, json: providerSession() });
+        if (path === "/api/v1/users/me")
+          return route.fulfill({ headers, json: { user: providerUser() } });
+        if (path === "/api/v1/passkeys/link/init") {
+          providerInitCalls++;
+          return route.fulfill({
+            headers,
+            json: {
+              relying_party: origin,
+              options: {
+                rp: registration.rp,
+                user: {
+                  id: registration.user.id,
+                  name: registration.user.name,
+                  display_name: registration.user.displayName,
+                },
+                challenge: registration.challenge,
+                pub_key_cred_params: registration.pubKeyCredParams,
+                timeout: 60000,
+                attestation: "none",
+                authenticator_selection: {
+                  authenticator_attachment: "platform",
+                  resident_key: "required",
+                  require_resident_key: true,
+                  user_verification: "required",
+                },
+              },
+            },
+          });
+        }
+        if (path === "/api/v1/passkeys/link") {
+          providerLinkCalls++;
+          const body: unknown = route.request().postDataJSON();
+          assert.ok(object(body) && object(body.authenticator_response));
+          const credential = body.authenticator_response;
+          assert.ok(
+            typeof credential.id === "string" && object(credential.response),
+          );
+          const response = credential.response;
+          assert.ok(
+            typeof response.client_data_json === "string" &&
+              typeof response.attestation_object === "string",
+          );
+          await verifyFixtureRegistration({
+            id: credential.id,
+            rawId: credential.id,
+            type: "public-key",
+            clientExtensionResults: {},
+            response: {
+              clientDataJSON: response.client_data_json,
+              attestationObject: response.attestation_object,
+            },
+          });
+          return route.fulfill({ headers, json: providerUser() });
+        }
+        unexpectedPaths.push(path);
+        return route.abort();
+      },
+    );
+    const completedBodies: { path: string; body: unknown }[] = [];
+    page.on("request", (request) => {
+      const path = new URL(request.url()).pathname;
+      if (
+        request.method() === "POST" &&
+        path.includes("/provider/passkeys/") &&
+        path.endsWith("/complete")
+      )
+        completedBodies.push({ path, body: request.postDataJSON() as unknown });
+      if (request.method() === "POST" && path.endsWith("/activation"))
+        activationCalls++;
+    });
+    await page.goto(`${origin}/provider-sdk`);
+    if (name === "mobile") {
+      // Existing-provider-key mode: create a native fixture credential once,
+      // before the synthetic provider login. This is not a product registration.
+      const { extensions, ...creation } = registration;
+      assert.deepEqual(extensions, { credProps: true });
+      const response = await page.evaluate(
+        async (options) => {
+          const key = await navigator.credentials.create({
+            publicKey:
+              PublicKeyCredential.parseCreationOptionsFromJSON(options),
+          });
+          if (
+            !(key instanceof PublicKeyCredential) ||
+            !(key.response instanceof AuthenticatorAttestationResponse)
+          )
+            throw new Error("fixture provider credential missing");
+          const json = key.toJSON();
+          return json;
+        },
+        { ...creation, extensions: { credProps: true } },
+      );
+      assert.ok(
+        object(response) &&
+          object(response.response) &&
+          typeof response.id === "string" &&
+          typeof response.response.clientDataJSON === "string" &&
+          typeof response.response.attestationObject === "string",
+      );
+      await verifyFixtureRegistration({
+        id: response.id,
+        rawId: response.id,
+        type: "public-key",
+        clientExtensionResults: {},
+        response: {
+          clientDataJSON: response.response.clientDataJSON,
+          attestationObject: response.response.attestationObject,
+        },
+      });
+    }
+    const auth = page.locator("#email-auth");
+    phase = `${name}: synthetic SDK email login into real application router`;
+    await auth.getByLabel("Email address", { exact: true }).fill(email);
+    await auth
+      .getByRole("button", { name: "Continue with email", exact: false })
+      .click();
+    await auth.getByLabel("Verification code", { exact: true }).fill("123456");
+    await auth
+      .getByRole("button", { name: "Verify and continue", exact: false })
+      .click();
+    await page
+      .getByText("You’re signed in. Your profile is optional.", { exact: true })
+      .waitFor();
+    const originalCookie = (await context.cookies()).find(
+      (entry) => entry.name === "session",
+    );
+    assert.ok(originalCookie);
+    const originalHash = createHash("sha256")
+      .update(originalCookie.value)
+      .digest("hex");
+    const account = await sessions.findUserByTokenHash(originalHash);
+    assert.ok(account);
+    // This deliberately minimal SDK page has no account.ts controller. Supply
+    // its comparison hint only after an actual successful cookie-authenticated
+    // GET; the bridge still derives and verifies the owner independently.
+    await page.evaluate(async () => {
+      const response = await fetch("/api/auth/me", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      if (!response.ok)
+        throw new Error("fixture current account verification failed");
+      const value: { user?: { id?: unknown } } = await response.json();
+      if (typeof value.user?.id !== "string")
+        throw new Error("fixture current account ID missing");
+      window.yapRememberSessionAccount?.(value.user.id);
+    });
+    const countBefore = (
+      await runtimePool.query<{ count: number }>(
+        "SELECT count(*)::int count FROM users",
+      )
+    ).rows[0]!.count;
+    await page.screenshot({
+      path: resolve(evidenceDirectory, `provider-${name}-before.png`),
+      fullPage: true,
+    });
+    if (name === "desktop") {
+      phase = `${name}: installed SDK native provider registration`;
+      await page
+        .getByRole("button", { name: "Add a passkey", exact: true })
+        .click();
+    } else {
+      phase = `${name}: existing provider-key native activation`;
+      await page
+        .getByRole("button", { name: "Finish passkey setup", exact: true })
+        .click();
+    }
+    phase = `${name}: real provider-key bridge completion notice`;
+    await page
+      .getByText(
+        "Passkey ready for sign-in and account approvals. Other sessions were signed out.",
+        { exact: true },
+      )
+      .waitFor();
+    assert.equal(registrationCount, 1);
+    assert.equal(providerInitCalls, name === "desktop" ? 1 : 0);
+    assert.equal(providerLinkCalls, name === "desktop" ? 1 : 0);
+    assert.ok(activationCalls >= 1);
+    const keys = await passkeys.list(account.id);
+    assert.equal(keys.length, 1);
+    const key = keys[0]!;
+    assert.equal(key.credentialId, credentialId);
+    assert.equal(key.provenance, "privy");
+    assert.equal(
+      (
+        await runtimePool.query<{ count: number }>(
+          "SELECT count(*)::int count FROM users",
+        )
+      ).rows[0]!.count,
+      countBefore,
+    );
+    const currentCookie = (await context.cookies()).find(
+      (entry) => entry.name === "session",
+    );
+    assert.ok(currentCookie);
+    assert.notEqual(currentCookie.value, originalCookie.value);
+    assert.equal(await sessions.findUserByTokenHash(originalHash), null);
+    const currentHash = createHash("sha256")
+      .update(currentCookie.value)
+      .digest("hex");
+    assert.equal(
+      (await providerSessions.findUserByTokenHash(currentHash))?.id,
+      account.id,
+    );
+    assert.equal(completedBodies.length, 1);
+    assert.equal(scopedAttempts.get(account.id), 1);
+    const completed = completedBodies[0]!;
+    assert.equal(
+      (
+        await context.request.post(`${origin}${completed.path}`, {
+          headers: { origin, authorization: `Bearer ${token}` },
+          data: completed.body,
+        })
+      ).status(),
+      410,
+    );
+    const outsider = await browser.newContext();
+    const other = await fixture();
+    await outsider.addCookies([
+      {
+        name: "session",
+        value: other.token,
+        url: origin,
+        httpOnly: true,
+        sameSite: "Strict",
+      },
+    ]);
+    assert.equal(
+      (
+        await outsider.request.post(`${origin}${completed.path}`, {
+          headers: { origin, authorization: `Bearer ${token}` },
+          data: completed.body,
+        })
+      ).status(),
+      410,
+    );
+    await outsider.close();
+    checks.push(
+      `${name}: installed SDK ${name === "desktop" ? "registers one native virtual credential" : "uses the existing native fixture credential"}; real same-key bridge activates its exported COSE key, rotates one application cookie and rejects completion replay/cross-account use without creating another user`,
+    );
+    const terms = {
+      amount: "5000000",
+      asset: "USDC",
+      destination: "fixture-only-destination",
+    };
+    const proof = await operations.create({
+      userId: account.id,
+      sessionTokenHash: currentHash,
+      origin,
+      purpose: "withdrawal.request",
+      terms,
+      credential: { type: "passkey", keyId: key.id },
+    });
+    assert.ok(proof.authenticationOptions);
+    const authentication = authenticationResponse(
+      await page.evaluate(async (options) => {
+        const value = await navigator.credentials.get({
+          publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(options),
+        });
+        if (
+          !(value instanceof PublicKeyCredential) ||
+          !(value.response instanceof AuthenticatorAssertionResponse)
+        )
+          throw new Error("native operation proof missing");
+        return value.toJSON();
+      }, requestOptions(proof.authenticationOptions)),
+    );
+    const approval = await operations.prepare({
+      userId: account.id,
+      sessionTokenHash: currentHash,
+      origin,
+      id: proof.id,
+      purpose: "withdrawal.request",
+      terms,
+      rpcUrls: {},
+      authentication,
+    });
+    const connection = await runtimePool.connect();
+    try {
+      await connection.query("BEGIN");
+      await approval.consume(connection, async () => {});
+      await connection.query("COMMIT");
+    } finally {
+      connection.release();
+    }
+    await assert.rejects(
+      operations.prepare({
+        userId: account.id,
+        sessionTokenHash: currentHash,
+        origin,
+        id: proof.id,
+        purpose: "withdrawal.request",
+        terms,
+        rpcUrls: {},
+        authentication,
+      }),
+      (error) => object(error) && error.status === 410,
+    );
+    await assert.rejects(
+      operations.create({
+        userId: account.id,
+        sessionTokenHash: currentHash,
+        origin,
+        purpose: "provider.credentials.change",
+        terms: {
+          action: "remove",
+          method: "passkey",
+          target: key.credentialId,
+        },
+        credential: { type: "passkey", keyId: key.id },
+      }),
+      (error) => object(error) && error.status === 403,
+    );
+    assert.equal(
+      (await cdp.send("WebAuthn.getCredentials", { authenticatorId }))
+        .credentials.length,
+      1,
+    );
+    assert.deepEqual(unexpectedPaths, []);
+    await page.screenshot({
+      path: resolve(evidenceDirectory, `provider-${name}-after.png`),
+      fullPage: true,
+    });
+    checks.push(
+      `${name}: the exact same native credential signs a fresh amount/asset/destination-bound application proof; PostgreSQL consumes it once, replay and self-removal authorization fail, and no second credential or financial transfer is created`,
+    );
+    await cdp.send("WebAuthn.removeVirtualAuthenticator", { authenticatorId });
+    await context.close();
+  }
+  usingProviderBridge = false;
+
   for (const [name, viewport] of [
     ["desktop", { width: 1440, height: 1000 }],
     ["mobile", { width: 390, height: 844 }],
@@ -331,23 +943,6 @@ try {
         sameSite: "Strict",
       },
     ]);
-    // Model a person authenticating with an existing device, then selecting a
-    // different device for enrollment. Only scheduling is instrumented: the
-    // original native WebAuthn API generates every protocol response.
-    await context.addInitScript(() => {
-      const nativeCreate = CredentialsContainer.prototype.create;
-      let registrations = 0;
-      CredentialsContainer.prototype.create = async function (
-        this: CredentialsContainer,
-        options?: CredentialCreationOptions,
-      ) {
-        if (++registrations > 1)
-          await new Promise<void>((done) => {
-            Reflect.set(window, "__continueSecurityRegistration", done);
-          });
-        return nativeCreate.call(this, options);
-      };
-    });
     const page = await context.newPage();
     lastPage = page;
     page.on("pageerror", (error) => errors.push(error.name));
@@ -385,19 +980,71 @@ try {
     await page.goto(origin);
     phase = `${name}: load security passkey controls`;
     const root = page.locator("#account-security-passkeys");
-    const add = root.getByRole("button", {
-      name: "Add security passkey",
-      exact: true,
-    });
     await root
-      .getByText("No security passkey added yet.", { exact: true })
+      .getByText(
+        "No passkey is available for account approvals. Add a passkey through Privy in Account settings.",
+        { exact: true },
+      )
       .waitFor();
-    phase = `${name}: first key registration`;
-    await add.click();
+    assert.equal(
+      await root
+        .getByRole("button", { name: "Add security passkey", exact: true })
+        .count(),
+      0,
+    );
+    async function legacyEnrollment(
+      prepare?: (
+        operation: Awaited<ReturnType<typeof passkeys.enrollmentOptions>>,
+      ) => Promise<unknown>,
+    ) {
+      const cookie = (await context.cookies()).find(
+        (entry) => entry.name === "session",
+      );
+      assert.ok(cookie);
+      const input = {
+        userId: identity.userId,
+        sessionTokenHash: createHash("sha256")
+          .update(cookie.value)
+          .digest("hex"),
+        origin,
+      };
+      // A fixture-only native ceremony preserves acceptance for already retained
+      // legacy credentials. The removed product enrollment UI is not exercised.
+      const operation = await passkeys.enrollmentOptions(input);
+      const approval = prepare ? await prepare(operation) : undefined;
+      const { extensions, ...creationOptions } = operation.options;
+      assert.deepEqual(extensions, { credProps: true });
+      const response = await page.evaluate(
+        async (options) => {
+          const credential = await navigator.credentials.create({
+            publicKey:
+              PublicKeyCredential.parseCreationOptionsFromJSON(options),
+          });
+          if (
+            !(credential instanceof PublicKeyCredential) ||
+            !(credential.response instanceof AuthenticatorAttestationResponse)
+          )
+            throw new Error("native legacy fixture registration missing");
+          return credential.toJSON();
+        },
+        { ...creationOptions, extensions: { credProps: true } },
+      );
+      const path = `/api/auth/security/passkeys/enrollment/${operation.id}/complete`,
+        body = { response, ...(approval ? { approval } : {}) };
+      const completed = await context.request.post(`${origin}${path}`, {
+        headers: { origin },
+        data: body,
+      });
+      assert.equal(completed.status(), 200);
+      completions.push({ path, body });
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("yap:account-changed")),
+      );
+    }
+    phase = `${name}: fixture-only native legacy key preparation`;
+    await legacyEnrollment();
     await root
-      .getByText("Security passkey added. Other sessions were signed out.", {
-        exact: true,
-      })
+      .getByRole("button", { name: /^Remove existing security key added/ })
       .waitFor();
     assert.equal((await passkeys.list(identity.userId)).length, 1);
     phase = `${name}: replay, old-session and cross-account rejection`;
@@ -440,40 +1087,82 @@ try {
     );
     await outsider.close();
     checks.push(
-      `${name}: actual navigator.credentials registration verified by real runtime PostgreSQL backend; session rotated; replay and cross-account completion rejected`,
+      `${name}: fixture-only native legacy registration verified by real runtime PostgreSQL backend (not a current enrollment UI); session rotated; replay and cross-account completion rejected`,
     );
-    phase = `${name}: cancel second-key approval`;
+    phase = `${name}: cancel generated retained-approval dialog`;
+    await page.evaluate(
+      (terms) => {
+        const button = document.createElement("button");
+        button.id = "legacy-fixture-approval";
+        button.textContent = "Synthetic retained-approval fixture";
+        button.addEventListener("click", () => {
+          void window.yapPrepareProviderPasskey?.(terms).catch(() => {
+            button.dataset.cancelled = "true";
+          });
+        });
+        document.querySelector("main")?.append(button);
+      },
+      {
+        intentId: randomUUID(),
+        subject: identity.providerIdentity.subject,
+        beforeDigest: identity.providerIdentity.credentialsDigest,
+      },
+    );
+    const add = page.locator("#legacy-fixture-approval"),
+      approval = page.getByRole("dialog");
     await add.click();
-    const approval = page.getByRole("dialog");
     await approval
-      .getByRole("heading", { name: "Add security passkey", exact: true })
+      .getByRole("heading", { name: "Approve Privy passkey", exact: true })
       .waitFor();
     await approval.press("Escape");
-    await root
-      .getByText("Security passkey setup cancelled.", { exact: true })
-      .waitFor();
+    await page.waitForFunction(
+      () =>
+        document.querySelector<HTMLElement>("#legacy-fixture-approval")?.dataset
+          .cancelled === "true",
+    );
     assert.equal((await passkeys.list(identity.userId)).length, 1);
     assert.equal(
       await add.evaluate((element) => document.activeElement === element),
       true,
     );
-    phase = `${name}: authorize second-key registration`;
-    await add.click();
-    await approval
-      .getByRole("button", { name: "Approve change", exact: true })
-      .click();
-    await page.waitForFunction(
-      () =>
-        typeof Reflect.get(window, "__continueSecurityRegistration") ===
-        "function",
-    );
-    await cdp.send("WebAuthn.setAutomaticPresenceSimulation", {
-      authenticatorId,
-      enabled: false,
-    });
-    const secondAuthenticator = await cdp.send(
-      "WebAuthn.addVirtualAuthenticator",
-      {
+    await add.evaluate((element) => element.remove());
+    phase = `${name}: retain native legacy two-key protocol acceptance`;
+    let secondAuthenticator: { authenticatorId: string } | undefined;
+    await legacyEnrollment(async (challenge) => {
+      const cookie = (await context.cookies()).find(
+        (entry) => entry.name === "session",
+      );
+      assert.ok(cookie);
+      const operation = await operations.create({
+        userId: identity.userId,
+        sessionTokenHash: createHash("sha256")
+          .update(cookie.value)
+          .digest("hex"),
+        origin,
+        purpose: "security.passkey.enroll",
+        terms: { challengeId: challenge.id },
+        credential: {
+          type: "passkey",
+          keyId: (await passkeys.list(identity.userId))[0]!.id,
+        },
+      });
+      assert.ok(operation.authenticationOptions);
+      const authentication = await page.evaluate(async (options) => {
+        const credential = await navigator.credentials.get({
+          publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(options),
+        });
+        if (
+          !(credential instanceof PublicKeyCredential) ||
+          !(credential.response instanceof AuthenticatorAssertionResponse)
+        )
+          throw new Error("native retained-key assertion missing");
+        return credential.toJSON();
+      }, requestOptions(operation.authenticationOptions));
+      await cdp.send("WebAuthn.setAutomaticPresenceSimulation", {
+        authenticatorId,
+        enabled: false,
+      });
+      secondAuthenticator = await cdp.send("WebAuthn.addVirtualAuthenticator", {
         options: {
           protocol: "ctap2",
           transport: "usb",
@@ -482,47 +1171,44 @@ try {
           isUserVerified: true,
           automaticPresenceSimulation: true,
         },
-      },
-    );
-    await page.evaluate(() => {
-      const resume: unknown = Reflect.get(
-        window,
-        "__continueSecurityRegistration",
-      );
-      if (typeof resume !== "function")
-        throw new Error("native registration pause missing");
-      Reflect.deleteProperty(window, "__continueSecurityRegistration");
-      resume();
+      });
+      return { id: operation.id, authentication };
     });
+    assert.ok(secondAuthenticator);
     await root
-      .getByText("Security passkey added. Other sessions were signed out.", {
-        exact: true,
-      })
+      .getByRole("button", { name: /^Remove existing security key added/ })
+      .nth(1)
       .waitFor();
     assert.equal((await passkeys.list(identity.userId)).length, 2);
     phase = `${name}: authorize key removal with retained key`;
     await root
-      .getByRole("button", { name: /^Remove security passkey added/ })
+      .getByRole("button", { name: /^Remove existing security key added/ })
       .first()
       .click();
     await approval
       .getByRole("button", { name: "Approve change", exact: true })
       .click();
     await root
-      .getByText("Security passkey removed. Other sessions were signed out.", {
-        exact: true,
-      })
+      .getByText(
+        "Existing security key removed. Other sessions were signed out.",
+        {
+          exact: true,
+        },
+      )
       .waitFor();
     assert.equal((await passkeys.list(identity.userId)).length, 1);
     checks.push(
-      `${name}: browser-generated operation authentication adds a second key and authorizes removal using a retained key; cancellation preserves credentials and restores focus`,
+      `${name}: fixture-only native two-key protocol preserves legacy enrollment acceptance; generated current UI authorizes retained-key removal and cancellation preserves credentials/focus`,
     );
     phase = `${name}: final-key, origin and accessibility checks`;
     await root
-      .getByRole("button", { name: /^Remove security passkey added/ })
+      .getByRole("button", { name: /^Remove existing security key added/ })
       .click();
     await approval
-      .getByRole("heading", { name: "Remove security passkey", exact: true })
+      .getByRole("heading", {
+        name: "Remove existing security key",
+        exact: true,
+      })
       .waitFor();
     assert.equal(
       await approval
@@ -532,7 +1218,7 @@ try {
     );
     await approval
       .getByText(
-        "An existing trusted credential is required. Recover your security passkey or linked wallet before changing account security.",
+        "An existing trusted credential is required. Recover your retained passkey or linked wallet before changing account security.",
         { exact: true },
       )
       .waitFor();
@@ -947,9 +1633,11 @@ try {
             [
               "scripts/verify-security-passkey-browser.ts",
               "public/account-security.bundle.js",
+              "public/account-auth.bundle.js",
               "public/session-coordination.js",
               "public/account-auth.css",
               "frontend/account-security.ts",
+              "frontend/account-auth.tsx",
               "frontend/session-coordination.ts",
               "frontend/auth-events.ts",
               "src/platform/auth/security-passkeys.ts",
@@ -960,9 +1648,12 @@ try {
               "src/platform/auth/provider-credentials.ts",
               "src/platform/auth/provider-revocation.ts",
               "src/platform/auth/provider-session-monitor.ts",
+              "src/platform/auth/provider-passkeys.ts",
+              "src/platform/auth/privy.ts",
               "src/features/identity/repository.ts",
               "src/features/account-wallet/sandbox-repository.ts",
               "migrations/1792426011000_add-provider-identity-recovery.js",
+              "migrations/1792426012000_add-provider-passkey-provenance.js",
               "dist/platform/auth/security-passkeys.js",
               "dist/platform/auth/security-router.js",
               "dist/platform/auth/account-operations.js",
@@ -971,6 +1662,8 @@ try {
               "dist/platform/auth/provider-credentials.js",
               "dist/platform/auth/provider-revocation.js",
               "dist/platform/auth/provider-session-monitor.js",
+              "dist/platform/auth/provider-passkeys.js",
+              "dist/platform/auth/privy.js",
               "dist/features/identity/repository.js",
               "dist/features/account-wallet/sandbox-repository.js",
             ].map(async (path) => [path, await sourceHash(path)]),
@@ -978,7 +1671,7 @@ try {
         ),
         postgres: version,
         scope:
-          "Real browser WebAuthn API, Chrome virtual CTAP2 authenticator and real runtime-role PostgreSQL application backend; synthetic provider identity/session setup; not genuine Privy authentication, hosted acceptance, screen-reader or physical-device evidence.",
+          "Installed Privy SDK, actual navigator.credentials registration/authentication, Chrome virtual CTAP2 and real authentication/bridge/operation repositories with runtime-role PostgreSQL; all provider authentication, OTP verification and user GET responses are synthetic intercepted fixtures. Retained legacy credentials are prepared by explicitly labelled fixture ceremonies, not removed product enrollment UI. Not genuine Privy token verification/enrollment/export availability, hosted acceptance, screen-reader or physical-device evidence.",
         checks,
         errors,
       },

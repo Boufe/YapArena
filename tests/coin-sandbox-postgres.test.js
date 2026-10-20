@@ -24,6 +24,7 @@ import {
   appendSandboxBookEvent,
   ensureSandboxBuckets,
   lockSandboxBook,
+  assertSandboxNewPayoutAuthorization,
 } from "../dist/features/account-wallet/sandbox-repository.js";
 import { postCoinJournal } from "../dist/features/account-wallet/ledger.js";
 
@@ -175,6 +176,133 @@ describe(
         )
       ).rows[0];
     }
+    it("refuses new payout approval after suspension or loss of stronger credentials while permitting safe rejection", async () => {
+      for (const state of ["suspended", "no-strong-method"]) {
+        const actor = await fixture();
+        await fund(actor);
+        const { quote } = await reserve(actor);
+        if (state === "suspended")
+          await owner.query(
+            "UPDATE users SET account_status='suspended' WHERE id=$1",
+            [actor.userId],
+          );
+        else
+          await owner.query("UPDATE users SET password_hash=NULL WHERE id=$1", [
+            actor.userId,
+          ]);
+        const before = await counts(actor);
+        await assert.rejects(
+          approve(actor, quote),
+          state === "suspended"
+            ? /account unavailable for new payout authorization/
+            : /set up a security passkey/,
+        );
+        assert.deepEqual(await counts(actor), before);
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT status FROM coin_sandbox_requests WHERE id=$1",
+              [quote.id],
+            )
+          ).rows[0].status,
+          "review",
+        );
+        const rejected = await operator.review({
+          userId: actor.userId,
+          requestId: quote.id,
+          decision: "reject",
+          idempotencyKey: randomUUID(),
+        });
+        assert.equal(rejected.status, "failed");
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT balance::text FROM coin_accounts WHERE user_id=$1 AND asset='USDC' AND kind='available'",
+              [actor.userId],
+            )
+          ).rows[0].balance,
+          "10000000",
+        );
+      }
+    });
+    it("blocks approval and signing authority under an uncertain funding correction but still reconciles an already submitted payout", async () => {
+      const actor = await fixture(),
+        funding = await fund(actor),
+        { quote } = await reserve(actor, "10000000");
+      await operator.correctFunding({
+        userId: actor.userId,
+        requestId: funding.quote.id,
+        idempotencyKey: randomUUID(),
+        reason: "incorrect_funding",
+      });
+      const before = await counts(actor);
+      await assert.rejects(
+        approve(actor, quote),
+        /financial activity is paused/,
+      );
+      assert.deepEqual(await counts(actor), before);
+      const client = await owner.connect();
+      try {
+        await client.query("BEGIN");
+        await assert.rejects(
+          assertSandboxNewPayoutAuthorization(client, actor.userId),
+          /financial activity is paused/,
+        );
+        await client.query("ROLLBACK");
+      } finally {
+        client.release();
+      }
+      assert.equal(
+        (
+          await operator.review({
+            userId: actor.userId,
+            requestId: quote.id,
+            decision: "reject",
+            idempotencyKey: randomUUID(),
+          })
+        ).status,
+        "failed",
+      );
+      const submitted = await fixture(),
+        original = await fund(submitted),
+        reserved = await reserve(submitted, "10000000");
+      await approve(submitted, reserved.quote);
+      await operator.observe({
+        userId: submitted.userId,
+        requestId: reserved.quote.id,
+        event: event(reserved.quote),
+      });
+      await operator.correctFunding({
+        userId: submitted.userId,
+        requestId: original.quote.id,
+        idempotencyKey: randomUUID(),
+        reason: "incorrect_funding",
+      });
+      await owner.query(
+        "UPDATE users SET account_status='suspended',password_hash=NULL WHERE id=$1",
+        [submitted.userId],
+      );
+      const reconciled = await operator.observe({
+        userId: submitted.userId,
+        requestId: reserved.quote.id,
+        event: event(reserved.quote, {
+          source: "reconciliation",
+          status: "failed",
+          finalNoTransfer: true,
+        }),
+      });
+      assert.equal(reconciled.status, "failed");
+      assert.equal(reconciled.disposition, "release");
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT balance::text FROM coin_accounts WHERE user_id=$1 AND asset='USDC' AND kind='available'",
+            [submitted.userId],
+          )
+        ).rows[0].balance,
+        "10000000",
+      );
+    });
     it("runs the authenticated HTTP quote, fresh proof and reservation against the real ledger", async () => {
       const actor = await fixture();
       const intruder = await fixture();

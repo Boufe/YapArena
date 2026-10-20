@@ -203,6 +203,18 @@ export async function assertSandboxFinancialOpen(
   )
     error("financial activity is paused for correction review", 403);
 }
+// New review/signing authority must follow the current account state, even
+// when the user reserved funds earlier. Authoritative reconciliation and safe
+// rejection intentionally remain available after suspension or a correction.
+export async function assertSandboxNewPayoutAuthorization(
+  client: PoolClient,
+  userId: string,
+) {
+  if (!(await lockAccount(client, userId)))
+    error("account unavailable for new payout authorization", 403);
+  await assertSandboxStrongMethod(client, userId);
+  await assertSandboxFinancialOpen(client, userId);
+}
 export async function lockSandboxBook(
   client: PoolClient,
   userId: string,
@@ -1164,6 +1176,7 @@ export function createCoinSandboxOperatorRepository(
           prepared.amount !== BigInt(request.terms.net!)
         )
           error("signed payout does not authorize the approved request");
+        await assertSandboxNewPayoutAuthorization(client, input.userId);
         const prior = (
           await client.query<{
             sender: string;
@@ -1328,6 +1341,8 @@ export function createCoinSandboxOperatorRepository(
         }
         if (request.status !== "review")
           error("withdrawal is not awaiting review");
+        if (input.decision === "approve")
+          await assertSandboxNewPayoutAuthorization(client, input.userId);
         const snapshot = await lockSandboxBook(client, input.userId),
           buckets = await ensureSandboxBuckets(client, input.userId);
         const approved = input.decision === "approve",

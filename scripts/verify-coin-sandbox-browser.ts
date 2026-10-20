@@ -75,6 +75,34 @@ const layoutFailures: {
   elements: { tag: string; id: string; left: number; right: number }[];
 }[] = [];
 const quiet = { info() {}, warn() {}, error() {} };
+const evidenceSources = [
+  "scripts/verify-coin-sandbox-browser.ts",
+  "public/account-coins.js",
+  "public/account-security.bundle.js",
+  "public/account-auth.css",
+  "frontend/account-coins.ts",
+  "frontend/account-security.ts",
+  ...[
+    "sandbox-repository",
+    "sandbox-router",
+    "debate-sandbox",
+    "grant-accounting",
+    "ledger",
+    "external-operations",
+  ].flatMap((name) => [
+    `src/features/account-wallet/${name}.ts`,
+    `dist/features/account-wallet/${name}.js`,
+  ]),
+  ...[
+    "security-passkeys",
+    "security-router",
+    "account-operations",
+    "sessions",
+  ].flatMap((name) => [
+    `src/platform/auth/${name}.ts`,
+    `dist/platform/auth/${name}.js`,
+  ]),
+];
 function deferred() {
   let release: () => void = () => {};
   const promise = new Promise<void>((done) => {
@@ -158,6 +186,14 @@ async function automatedA11y(page: Page) {
 }
 
 try {
+  const revision = execFileSync("git", ["rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).trim();
+  const sourceHashes = Object.fromEntries(
+    await Promise.all(
+      evidenceSources.map(async (path) => [path, await sourceHash(path)]),
+    ),
+  );
   const postgresVersion = (
     await exec("pg_config", ["--version"])
   ).stdout.trim();
@@ -788,35 +824,27 @@ try {
     await context.close();
   }
   assert.deepEqual(errors, []);
-  const paths = [
-    "scripts/verify-coin-sandbox-browser.ts",
-    "public/account-coins.js",
-    "public/account-security.bundle.js",
-    "public/account-auth.css",
-    "frontend/account-coins.ts",
-    "frontend/account-security.ts",
-    "src/features/account-wallet/sandbox-repository.ts",
-    "src/features/account-wallet/sandbox-router.ts",
-    "src/features/account-wallet/debate-sandbox.ts",
-    "src/platform/auth/account-operations.ts",
-    "dist/features/account-wallet/sandbox-repository.js",
-    "dist/features/account-wallet/sandbox-router.js",
-    "dist/features/account-wallet/debate-sandbox.js",
-  ];
+  phase = "verify tested source and build remained stable during browser run";
+  assert.deepEqual(
+    Object.fromEntries(
+      await Promise.all(
+        evidenceSources.map(async (path) => [path, await sourceHash(path)]),
+      ),
+    ),
+    sourceHashes,
+  );
   await writeFile(
     resolve(evidenceDirectory, "results.json"),
     JSON.stringify(
       {
         at: new Date().toISOString(),
-        revision: execFileSync("git", ["rev-parse", "HEAD"], {
+        revision,
+        revisionAtEnd: execFileSync("git", ["rev-parse", "HEAD"], {
           encoding: "utf8",
         }).trim(),
-        sourceHashes: Object.fromEntries(
-          await Promise.all(
-            paths.map(async (path) => [path, await sourceHash(path)]),
-          ),
-        ),
+        sourceHashes,
         postgres: postgresVersion,
+        browser: browser.version(),
         scope:
           "Real application browser assets and runtime-role PostgreSQL API in a new disposable native cluster; synthetic identities and deterministic financial simulation; Chrome virtual WebAuthn, no genuine Privy/hosted/provider-chain/physical-device/screen-reader acceptance; CSS200% zoom is layout emulation.",
         checks,

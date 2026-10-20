@@ -369,9 +369,7 @@ describe("credential-safe HTTP logs", () => {
         "logout",
         204,
       );
-      const cleared = clientCookie(logout, sessionName, environment, {
-        cleared: true,
-      });
+      assert.equal(logout.headers["set-cookie"], undefined);
       assert.equal(
         sessionRecords.has(hashSessionToken(walletCookie.token)),
         false,
@@ -389,7 +387,6 @@ describe("credential-safe HTTP logs", () => {
         loginCookie.token,
         walletCookie.cookie,
         walletCookie.token,
-        cleared.cookie,
         password,
         signature,
       ]);

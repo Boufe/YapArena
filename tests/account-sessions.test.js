@@ -28,15 +28,22 @@ function page({ confirm = true, response = { ok: true }, failure } = {}) {
   );
   const calls = [];
   const prompts = [];
+  const events = new EventTarget();
+  const dispatched = [];
   vm.runInNewContext(source, {
     Event,
+    AbortSignal,
     document: {
       querySelector(selector) {
         return elements[selector.slice(1)];
       },
     },
     window: {
-      dispatchEvent() {},
+      addEventListener: events.addEventListener.bind(events),
+      dispatchEvent(event) {
+        dispatched.push(event.type);
+        return events.dispatchEvent(event);
+      },
       confirm(message) {
         prompts.push(message);
         return confirm;
@@ -52,6 +59,8 @@ function page({ confirm = true, response = { ok: true }, failure } = {}) {
     elements,
     calls,
     prompts,
+    dispatched,
+    changeAccount: () => events.dispatchEvent(new Event("yap:account-changed")),
     click: (id) => elements[id].click({ currentTarget: elements[id] }),
   };
 }
@@ -108,7 +117,37 @@ describe("account session controls", () => {
       );
     }
   });
+  it("discards old successful or failed replies after the account changes", async () => {
+    for (const control of ["sign-out-all", "sign-out-others"]) {
+      for (const failed of [false, true]) {
+        let finish, fail;
+        const response = new Promise((resolve, reject) => {
+          finish = resolve;
+          fail = reject;
+        });
+        const fixture = page({ response });
+        const pending = fixture.click(control);
+        assert.equal(fixture.calls.length, 1);
+        assert.ok(fixture.calls[0].options.signal instanceof AbortSignal);
+        fixture.changeAccount();
+        fixture.elements["account-notice"].textContent = "Replacement account";
+        if (failed) fail(new Error("old network error"));
+        else finish({ ok: true });
+        await pending;
+        assert.equal(fixture.elements["signed-in"].hidden, false);
+        assert.equal(
+          fixture.elements["account-notice"].textContent,
+          "Replacement account",
+        );
+        assert.deepEqual(fixture.dispatched, []);
+        assert.equal(fixture.elements[control].disabled, false);
+      }
+    }
+  });
   it("works when session controls are absent from the current page", () => {
-    vm.runInNewContext(source, { document: { querySelector: () => null } });
+    vm.runInNewContext(source, {
+      window: new EventTarget(),
+      document: { querySelector: () => null },
+    });
   });
 });

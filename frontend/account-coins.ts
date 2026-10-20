@@ -385,9 +385,16 @@ if (container) {
   }
   select<HTMLButtonElement>("[data-coin-refresh]").onclick = () =>
     void action(async (g) => {
-      await api("/settlements", "POST", {});
+      let settlementError: unknown;
+      try {
+        await api("/settlements", "POST", {});
+      } catch (error) {
+        settlementError = error;
+      }
+      if (g !== version) return;
       await load(g);
       await loadRounds(g);
+      if (g === version && settlementError) throw settlementError;
     });
   select<HTMLButtonElement>("[data-coin-initialize]").onclick = () =>
     void action(async (g) => {

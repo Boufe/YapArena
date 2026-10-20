@@ -76,6 +76,7 @@ async function buildFrontend(): Promise<void> {
         ["replay-entry", "replay.bundle", "iife"],
         ["hero-live", "hero-live.bundle", "esm"],
         ["homepage", "homepage.bundle", "iife"],
+        ["account-security", "account-security.bundle", "iife"],
       ] as const
     ).map(([entry, output, format]) =>
       build({

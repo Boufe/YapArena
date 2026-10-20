@@ -181,6 +181,17 @@ function parseMedia(environment: NodeJS.ProcessEnv, nodeEnvironment: string) {
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
   const nodeEnvironment = environment.NODE_ENV ?? "development";
   const homepageReference = environment.HOMEPAGE_REFERENCE_ENABLED ?? "false";
+  const coinSandbox = environment.COIN_SANDBOX_ENABLED ?? "false";
+  if (!["true", "false"].includes(coinSandbox))
+    throw new Error("COIN_SANDBOX_ENABLED must be true or false");
+  const coinSandboxWebhookSecret = environment.COIN_SANDBOX_WEBHOOK_SECRET;
+  if (
+    coinSandboxWebhookSecret &&
+    (coinSandbox !== "true" || Buffer.byteLength(coinSandboxWebhookSecret) < 32)
+  )
+    throw new Error(
+      "COIN_SANDBOX_WEBHOOK_SECRET requires enabled simulation and a secret of at least 32 bytes",
+    );
   if (!["true", "false"].includes(homepageReference))
     throw new Error("HOMEPAGE_REFERENCE_ENABLED must be true or false");
   if (homepageReference === "true" && nodeEnvironment === "production")
@@ -360,6 +371,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
   return Object.freeze({
     environment: nodeEnvironment,
     homepageReferenceEnabled: homepageReference === "true",
+    coinSandboxEnabled: coinSandbox === "true",
+    coinSandboxWebhookSecret,
     host,
     port,
     databaseUrl,

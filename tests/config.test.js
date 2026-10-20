@@ -51,6 +51,8 @@ describe("configuration", () => {
     assert.deepEqual(loadConfig({ DATABASE_URL: databaseUrl }), {
       environment: "development",
       homepageReferenceEnabled: false,
+      coinSandboxEnabled: false,
+      coinSandboxWebhookSecret: undefined,
       host: "0.0.0.0",
       port: 3000,
       databaseUrl,
@@ -91,6 +93,8 @@ describe("configuration", () => {
       {
         environment: "production",
         homepageReferenceEnabled: false,
+        coinSandboxEnabled: false,
+        coinSandboxWebhookSecret: undefined,
         host: "127.0.0.1",
         port: 8080,
         databaseUrl,
@@ -110,6 +114,50 @@ describe("configuration", () => {
         a4Mode: "disabled",
         a4Funding: { starterCoins: 1000, refillCoins: 1000, botCoins: 1000 },
       },
+    );
+  });
+
+  it("enables only an explicit isolated coin sandbox and requires a strong enabled webhook secret", () => {
+    const secret = "isolated-sandbox-webhook-secret-32-bytes";
+    assert.equal(
+      loadConfig({ DATABASE_URL: databaseUrl, COIN_SANDBOX_ENABLED: "true" })
+        .coinSandboxEnabled,
+      true,
+    );
+    assert.equal(
+      loadConfig({
+        DATABASE_URL: databaseUrl,
+        COIN_SANDBOX_ENABLED: "true",
+        COIN_SANDBOX_WEBHOOK_SECRET: secret,
+      }).coinSandboxWebhookSecret,
+      secret,
+    );
+    for (const value of ["live", "1", "TRUE", "simulation"])
+      assert.throws(
+        () =>
+          loadConfig({
+            DATABASE_URL: databaseUrl,
+            COIN_SANDBOX_ENABLED: value,
+          }),
+        /COIN_SANDBOX_ENABLED/,
+      );
+    for (const enabled of ["false", "true"])
+      assert.throws(
+        () =>
+          loadConfig({
+            DATABASE_URL: databaseUrl,
+            COIN_SANDBOX_ENABLED: enabled,
+            COIN_SANDBOX_WEBHOOK_SECRET: "short",
+          }),
+        /COIN_SANDBOX_WEBHOOK_SECRET/,
+      );
+    assert.throws(
+      () =>
+        loadConfig({
+          DATABASE_URL: databaseUrl,
+          COIN_SANDBOX_WEBHOOK_SECRET: secret,
+        }),
+      /COIN_SANDBOX_WEBHOOK_SECRET/,
     );
   });
 

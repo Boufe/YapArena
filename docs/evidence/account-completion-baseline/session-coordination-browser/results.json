@@ -1,0 +1,27 @@
+{
+  "result": "PASS",
+  "at": "2026-10-20T07:04:37.053Z",
+  "revision": "e8b0e1c3a70a64099e6f998d0205b853968c82d9",
+  "browser": "155.0.8059.85",
+  "assetSha256": "a5f58223505ad21ccdc23b979f1d0036381082beefd52b8cdda190415e57b310",
+  "sourceSha256": "dd1eafbf5c6c0af2d972bad5fcb8f7c2f80beb678161ae57d5001f07f21f49f4",
+  "checks": [
+    "Every application session-issuing route serializes actual HTTP cookie headers across two browser tabs.",
+    "A delayed response body retains the session lock; reads remain unlocked and sign-out waits for the final replacement cookie.",
+    "All four revocation controls wait for a committed credential rotation's delayed headers and revoke using the replacement cookie; sign-out-other-sessions preserves only that current session.",
+    "A different account's login queued before old-account logout keeps its cookie and active session; the captured account comparison rejects the stale logout with409.",
+    "The ten-second lock-wait timeout cancels a queued mutation before any HTTP submission.",
+    "The actual thirty-second Fetch timeout aborts old headers; a later server response cannot overwrite the replacement HttpOnly cookie.",
+    "A browser without Web Locks receives a clear failure and never submits a weaker session mutation."
+  ],
+  "limitations": [
+    "Local synthetic HTTP server and Chromium only; no provider or database acceptance.",
+    "Coordination applies to supported application browser flows; arbitrary API clients do not participate in browser locks.",
+    "No physical-device or other-browser acceptance is inferred."
+  ],
+  "documentation": [
+    "https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API",
+    "https://w3c.github.io/web-locks/",
+    "https://fetch.spec.whatwg.org/"
+  ]
+}

@@ -30,8 +30,12 @@ passed without dropping assertions or changing coverage thresholds.
 [Backend source hashes](backend-source-hashes.json) were archived after the run;
 those server, migration and test sources did not change between the passing gate
 and archive. Subsequent frontend focus restoration and explanatory-copy changes
-require their own rebuilt browser evidence. The dedicated SDK, native same-key,
-coin and cookie browser reports identify their own source/asset hashes.
+passed their rebuilt dedicated checks:
+[92 SDK scenarios](../single-privy-passkey-browser/README.md),
+[18 native passkey groups](../security-passkey-browser/privy-only/README.md),
+[22 coin groups](../coin-sandbox-browser/README.md) and
+[cookie ordering for 14 issuer paths](../single-privy-passkey-bootstrap-cookie-browser/README.md).
+Those reports identify their separate worktree revisions and source/asset hashes.
 
 Environment: local PostgreSQL 17, disposable owner/runtime identities and synthetic
 browser/media/provider fixtures. This establishes neither genuine Privy credential

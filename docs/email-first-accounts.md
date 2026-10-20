@@ -20,8 +20,8 @@ authorize bypassing that reset. The founder also superseded the separate
 YapArena passkey design: use only Privy enrollment in Account settings and one
 passkey login option. The same credential's server-verifiable operation proof
 is implemented locally, with 798 quality tests, 198 fresh/upgrade PostgreSQL
-cases and 18 native passkey browser groups passing. The final SDK suite, exact
-corrective CI, deployment and genuine provider acceptance remain separate.
+cases and 18 native passkey browser groups passing. The 92-scenario SDK suite also passed. Exact corrective CI, deployment and
+genuine provider acceptance remain separate.
 Earlier separate-key descriptions and trials retain their recorded scope.
 
 ## Direction and phases

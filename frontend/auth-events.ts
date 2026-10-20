@@ -1,3 +1,5 @@
+import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
+
 export type AuthMode = "login" | "signup";
 export type AuthRequest = {
   returnTo?: string;
@@ -5,6 +7,17 @@ export type AuthRequest = {
   source?: HTMLElement;
 };
 export type AuthCompletion = { returnTo: string | null };
+export type SecurityApproval = {
+  id: string;
+  password?: string;
+  signature?: string;
+  authentication?: AuthenticationResponseJSON;
+};
+export type ProviderPasskeyTerms = {
+  intentId: string;
+  subject: string;
+  beforeDigest: string;
+};
 export type ProviderChange = {
   action: "link" | "remove" | "update";
   method: "email" | "google_oauth" | "passkey";
@@ -18,6 +31,11 @@ declare global {
     yapLinkProviderIdentity?: (token: string) => Promise<void>;
     yapRecoverProviderIdentity?: (token: string) => Promise<void>;
     yapApproveProviderChange?: (change: ProviderChange) => Promise<void>;
+    yapPrepareProviderPasskey?: (
+      terms: ProviderPasskeyTerms,
+      resume?: { intentId: string; token: string },
+      returnFocus?: HTMLElement,
+    ) => Promise<SecurityApproval>;
   }
   interface WindowEventMap {
     "yap:request-auth": CustomEvent<AuthRequest>;

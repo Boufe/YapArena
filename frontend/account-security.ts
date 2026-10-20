@@ -1,15 +1,14 @@
 import {
   startAuthentication,
-  startRegistration,
   WebAuthnAbortService,
 } from "@simplewebauthn/browser";
-import type {
-  AuthenticationResponseJSON,
-  PublicKeyCredentialCreationOptionsJSON,
-  PublicKeyCredentialRequestOptionsJSON,
-} from "@simplewebauthn/browser";
+import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import type { WalletChangeTarget } from "./account-types.js";
-import type { ProviderChange } from "./auth-events.js";
+import type {
+  ProviderChange,
+  ProviderPasskeyTerms,
+  SecurityApproval,
+} from "./auth-events.js";
 declare global {
   interface Window {
     yapSecurityWalletChange?: (target: WalletChangeTarget) => Promise<void>;
@@ -18,13 +17,13 @@ declare global {
       requestId: string,
       terms: Record<string, string>,
       sessionId: string,
-    ) => Promise<Approval>;
+    ) => Promise<SecurityApproval>;
     yapApproveRecoveryCost?: (
       reportId: string,
       quoteId: string,
       terms: Record<string, string>,
       sessionId: string,
-    ) => Promise<Approval>;
+    ) => Promise<SecurityApproval>;
   }
 }
 
@@ -33,13 +32,19 @@ type SecurityKey = {
   createdAt: string;
   deviceType: string;
   backedUp: boolean;
+  credentialId: string;
+  provenance: "privy" | "yaparena";
 };
 type Wallet = { id: string; address: string; chainId: string };
-type Approval = {
-  id: string;
-  password?: string;
-  signature?: string;
-  authentication?: AuthenticationResponseJSON;
+type ApprovalChoices = {
+  legacyPassword: boolean;
+  passkeys: {
+    id: string;
+    createdAt: string;
+    credentialId?: string;
+    provenance?: "privy" | "yaparena";
+  }[];
+  wallets: Wallet[];
 };
 type Operation = {
   id: string;
@@ -64,27 +69,36 @@ function displayUsdc(atomic: string | undefined) {
 const mount = document.querySelector<HTMLElement>("#account-security-passkeys");
 if (mount) {
   const root = mount;
+  root.hidden = true;
   const heading = document.createElement("h3");
-  heading.textContent = "Security passkeys";
+  heading.textContent = "Existing security keys";
+  heading.tabIndex = -1;
   const help = document.createElement("p");
   help.textContent =
-    "Approve account changes and withdrawals with your device or security key. Keep your existing sign-in method available.";
+    "Your existing security keys remain available for account approvals.";
   const list = document.createElement("ul");
   list.className = "account-list";
   const notice = document.createElement("p");
   notice.role = "status";
   notice.setAttribute("aria-live", "polite");
   notice.setAttribute("aria-atomic", "true");
-  const add = document.createElement("button");
-  add.type = "button";
-  add.className = "button-secondary";
-  add.textContent = "Add security passkey";
-  root.append(heading, help, list, add, notice);
+  root.append(heading, help, list, notice);
   let keys: SecurityKey[] = [],
     busy = false,
     version = 0,
     logoutGeneration = 0;
+  let lastLoadError: string | null = null;
   let cancelApproval: (() => void) | undefined;
+  function focusSection() {
+    const target = root.hidden
+      ? (document.querySelector<HTMLElement>("#account-security h2") ??
+        document.querySelector<HTMLElement>("main h1"))
+      : heading;
+    if (target) {
+      target.tabIndex = -1;
+      target.focus();
+    }
+  }
   function assertGeneration(generation: number) {
     if (generation !== logoutGeneration)
       throw new DOMException("Security change cancelled", "AbortError");
@@ -133,7 +147,6 @@ if (mount) {
   }
   function setBusy(value: boolean) {
     busy = value;
-    add.disabled = value;
     for (const button of list.querySelectorAll("button"))
       button.disabled = value;
     const walletLink =
@@ -157,43 +170,46 @@ if (mount) {
     try {
       const data = await api<{ passkeys: SecurityKey[] }>("/security/passkeys");
       if (current !== version) return;
+      if (lastLoadError !== null && notice.textContent === lastLoadError)
+        notice.textContent = "";
+      lastLoadError = null;
       window.yapSecurityWalletChange = changeWallet;
       window.yapLinkProviderIdentity = linkProviderIdentity;
       window.yapRecoverProviderIdentity = recoverProviderIdentity;
       window.yapApproveProviderChange = approveProviderChange;
+      window.yapPrepareProviderPasskey = prepareProviderPasskey;
       window.yapApproveCoinWithdrawal = approveCoinWithdrawal;
       window.yapApproveRecoveryCost = approveRecoveryCost;
       keys = data.passkeys;
+      const legacyKeys = keys.filter((key) => key.provenance === "yaparena");
+      root.hidden = legacyKeys.length === 0;
       list.replaceChildren();
-      for (const key of keys) {
+      for (const key of legacyKeys) {
         const item = document.createElement("li"),
           description = document.createElement("p"),
           remove = document.createElement("button");
         const created = new Date(key.createdAt).toLocaleString();
-        description.textContent = `Security passkey · Added ${created}`;
+        description.textContent = `Existing security key · Added ${created}`;
         remove.type = "button";
         remove.className = "button-secondary";
-        remove.textContent = "Remove passkey";
+        remove.textContent = "Remove existing security key";
         remove.setAttribute(
           "aria-label",
-          `Remove security passkey added ${created}`,
+          `Remove existing security key added ${created}`,
         );
         remove.disabled = busy;
         remove.addEventListener("click", () => void removeKey(key));
         item.append(description, remove);
         list.append(item);
       }
-      if (!keys.length) {
-        const item = document.createElement("li");
-        item.textContent = "No security passkey added yet.";
-        list.append(item);
-      }
     } catch (error) {
-      if (current === version)
-        notice.textContent =
+      if (current === version) {
+        lastLoadError =
           error instanceof Error
             ? error.message
             : "Security settings are unavailable.";
+        notice.textContent = lastLoadError;
+      }
     }
   }
   async function walletSignature(
@@ -230,13 +246,22 @@ if (mount) {
     excludedKey?: string,
     issue?: (credential: SecurityCredential) => Promise<Operation>,
     excludedWallet?: string,
-  ): Promise<Approval> {
+    loadChoices?: () => Promise<ApprovalChoices>,
+    restoreTarget?: HTMLElement,
+  ): Promise<SecurityApproval> {
     const generation = logoutGeneration;
-    const [methods, walletData, securityData] = await Promise.all([
-      api<{ legacyPassword: boolean }>("/methods"),
-      api<{ wallets: Wallet[] }>("/wallets"),
-      api<{ passkeys: SecurityKey[] }>("/security/passkeys"),
-    ]);
+    const approvalAccount = window.yapCurrentSessionAccount?.() ?? null;
+    const choices = loadChoices
+      ? await loadChoices()
+      : await Promise.all([
+          api<{ legacyPassword: boolean }>("/methods"),
+          api<{ wallets: Wallet[] }>("/wallets"),
+          api<{ passkeys: SecurityKey[] }>("/security/passkeys"),
+        ]).then(([methods, walletData, securityData]) => ({
+          ...methods,
+          ...walletData,
+          ...securityData,
+        }));
     assertGeneration(generation);
     const dialog = document.createElement("dialog");
     dialog.className = "information-card account-operation-dialog";
@@ -255,7 +280,7 @@ if (mount) {
     title.id = titleId;
     title.textContent =
       purpose === "security.passkey.remove"
-        ? "Remove security passkey"
+        ? "Remove existing security key"
         : purpose === "wallet.link"
           ? "Link wallet"
           : purpose === "wallet.unlink"
@@ -268,20 +293,25 @@ if (mount) {
                   ? "Change sign-in methods"
                   : purpose === "withdrawal.request"
                     ? "Approve sandbox withdrawal"
-                    : purpose === "recovery.cost.consent"
-                      ? "Approve recovery cost consent"
-                      : "Add security passkey";
+                    : purpose === "provider.passkey.link"
+                      ? "Approve Privy passkey"
+                      : purpose === "recovery.cost.consent"
+                        ? "Approve recovery cost consent"
+                        : "Approve account change";
     dialog.setAttribute("aria-labelledby", titleId);
     description.textContent =
       "Approve this change with a trusted method that stays on your account. Approval expires in five minutes.";
     if (purpose.startsWith("wallet."))
       description.textContent = `${title.textContent} ${terms.address} on chain ${terms.chainId}. Approve with a trusted method that stays on your account. This does not authorize a transaction.`;
     if (purpose === "provider.identity.recover")
-      description.textContent = `Permanently retire ${terms.oldMethod === "google_oauth" ? "your previous Google sign-in" : `the old email sign-in ${terms.oldIdentifier}`} and replace it with the Privy-verified email ${terms.newEmail}. Your YapArena account, profile and balances stay with you. All other YapArena sessions will end. Only your retained YapArena security passkey can approve this exact replacement. This does not authorize a payment.`;
+      description.textContent = `Permanently retire ${terms.oldMethod === "google_oauth" ? "your previous Google sign-in" : `the old email sign-in ${terms.oldIdentifier}`} and replace it with the Privy-verified email ${terms.newEmail}. Your YapArena account, profile and balances stay with you. All other YapArena sessions will end. Only your retained passkey can approve this exact replacement. This does not authorize a payment.`;
     if (purpose === "provider.identity.link")
       description.textContent = `Add sign-in for ${terms.email}. Your existing account and credentials stay with you. Approve this change with a trusted method.`;
     if (purpose === "provider.credentials.change")
       description.textContent = `Approve ${terms.action} for ${terms.method}: ${terms.target}. Privy will verify the new method. You will then review the exact changes and verify again before YapArena accepts them.`;
+    if (purpose === "provider.passkey.link")
+      description.textContent =
+        "Approve this exact Privy passkey setup with a trusted method already on your account. Then use Privy to add or verify your passkey. This does not authorize a payment.";
     if (purpose === "withdrawal.request")
       description.textContent = `Sandbox only — ${terms.rail === "simulation" ? "deterministic simulation" : "Base Sepolia test USDC"}. Deduct ${displayUsdc(terms.gross)} from your sandbox balance, including a ${displayUsdc(terms.fee)} network fee. The destination receives ${displayUsdc(terms.net)}. Destination: ${terms.destination}. Network: ${terms.network}. This approves this exact request and does not sign a live transaction.`;
     if (purpose === "recovery.cost.consent") {
@@ -302,21 +332,34 @@ if (mount) {
     password.type = "password";
     password.autocomplete = "current-password";
     passwordLabel.append(password);
-    for (const key of securityData.passkeys.filter(
-      (key) => key.id !== excludedKey,
+    for (const key of choices.passkeys.filter(
+      (key) =>
+        key.id !== excludedKey &&
+        !(
+          purpose === "provider.credentials.change" &&
+          terms.action === "remove" &&
+          terms.method === "passkey" &&
+          key.credentialId === terms.target
+        ),
     )) {
       const option = document.createElement("option");
       option.value = `passkey:${key.id}`;
-      option.textContent = `Security passkey added ${new Date(key.createdAt).toLocaleString()}`;
+      const label =
+        key.provenance === "privy"
+          ? "Passkey"
+          : key.provenance === "yaparena"
+            ? "Existing security key"
+            : "Retained passkey";
+      option.textContent = `${label} added ${new Date(key.createdAt).toLocaleString()}`;
       select.append(option);
     }
-    if (methods.legacyPassword && purpose !== "provider.identity.recover") {
+    if (choices.legacyPassword && purpose !== "provider.identity.recover") {
       const option = document.createElement("option");
       option.value = "password";
       option.textContent = "Current password";
       select.append(option);
     }
-    for (const wallet of walletData.wallets.filter(
+    for (const wallet of choices.wallets.filter(
       (wallet) =>
         wallet.id !== excludedWallet && purpose !== "provider.identity.recover",
     )) {
@@ -345,7 +388,7 @@ if (mount) {
     submit.disabled = !select.options.length;
     if (!select.options.length)
       message.textContent =
-        "An existing trusted credential is required. Recover your security passkey or linked wallet before changing account security.";
+        "An existing trusted credential is required. Recover your retained passkey or linked wallet before changing account security.";
     form.append(
       title,
       description,
@@ -358,9 +401,10 @@ if (mount) {
     dialog.append(form);
     document.body.append(dialog);
     const prior =
-      document.activeElement instanceof HTMLElement
+      restoreTarget ??
+      (document.activeElement instanceof HTMLElement
         ? document.activeElement
-        : null;
+        : null);
     return new Promise((resolve, reject) => {
       let finished = false,
         submitting = false;
@@ -369,7 +413,40 @@ if (mount) {
         password.value = "";
         dialog.close();
         dialog.remove();
-        if (restoreFocus) (prior?.isConnected ? prior : add).focus();
+        if (restoreFocus) {
+          const restore = (remainingFrames: number) => {
+            if (
+              generation !== logoutGeneration ||
+              approvalAccount !== (window.yapCurrentSessionAccount?.() ?? null)
+            )
+              return;
+            const active = document.activeElement;
+            if (
+              active &&
+              active !== document.body &&
+              active !== document.documentElement &&
+              active !== prior
+            )
+              return;
+            if (
+              prior?.isConnected &&
+              prior !== document.body &&
+              prior !== document.documentElement &&
+              !prior.matches(":disabled") &&
+              prior.getClientRects().length > 0
+            ) {
+              prior.focus();
+            } else if (remainingFrames > 0) {
+              requestAnimationFrame(() => restore(remainingFrames - 1));
+            } else {
+              focusSection();
+            }
+          };
+          // The React opener is still disabled until its rejected/returned
+          // approval promise commits the busy-state render. Wait at most two
+          // frames, preserving any newer user focus or account transition.
+          requestAnimationFrame(() => restore(1));
+        }
       };
       const cancelForLogout = () => {
         if (finished) return;
@@ -417,16 +494,16 @@ if (mount) {
                 credential,
               });
           if (finished || generation !== logoutGeneration) return;
-          const proof: Approval = { id: operation.id };
+          const proof: SecurityApproval = { id: operation.id };
           if (selected === "password") proof.password = password.value;
           else if (selected.startsWith("passkey:")) {
             if (!operation.authenticationOptions)
-              throw new Error("Security passkey approval is unavailable.");
+              throw new Error("Passkey approval is unavailable.");
             proof.authentication = await startAuthentication({
               optionsJSON: operation.authenticationOptions,
             });
           } else {
-            const wallet = walletData.wallets.find(
+            const wallet = choices.wallets.find(
               (wallet) => wallet.id === selected.slice(7),
             );
             if (!wallet || !operation.authorizationMessage)
@@ -461,62 +538,6 @@ if (mount) {
       select.focus();
     });
   }
-  async function enroll() {
-    if (busy) return;
-    const generation = logoutGeneration;
-    setBusy(true);
-    notice.textContent = "Preparing security passkey setup…";
-    let completionSent = false;
-    try {
-      const challenge = await api<{
-        id: string;
-        options: PublicKeyCredentialCreationOptionsJSON;
-        bootstrapAllowed: boolean;
-      }>("/security/passkeys/enrollment", "POST", {});
-      assertGeneration(generation);
-      const proof = challenge.bootstrapAllowed
-        ? undefined
-        : await approval("security.passkey.enroll", {
-            challengeId: challenge.id,
-          });
-      assertGeneration(generation);
-      notice.textContent =
-        "Follow your device’s prompt to create your security passkey.";
-      const response = await startRegistration({
-        optionsJSON: challenge.options,
-      });
-      assertGeneration(generation);
-      completionSent = true;
-      await api(
-        `/security/passkeys/enrollment/${encodeURIComponent(challenge.id)}/complete`,
-        "POST",
-        { response, approval: proof },
-      );
-      assertGeneration(generation);
-      await load();
-      assertGeneration(generation);
-      notice.textContent =
-        "Security passkey added. Other sessions were signed out.";
-      setBusy(false);
-      add.focus();
-      changed();
-    } catch (error) {
-      if (generation !== logoutGeneration) return;
-      notice.textContent =
-        completionSent && !(error instanceof SecurityResponseError)
-          ? "The setup result could not be confirmed. Refresh your passkey list before trying again."
-          : error instanceof Error && error.name === "NotAllowedError"
-            ? "Security passkey setup cancelled."
-            : error instanceof Error
-              ? error.message
-              : "Security passkey setup is unavailable.";
-    } finally {
-      if (generation === logoutGeneration) {
-        setBusy(false);
-        add.focus();
-      }
-    }
-  }
   async function removeKey(key: SecurityKey) {
     if (busy) return;
     const generation = logoutGeneration;
@@ -541,9 +562,9 @@ if (mount) {
       await load();
       assertGeneration(generation);
       notice.textContent =
-        "Security passkey removed. Other sessions were signed out.";
+        "Existing security key removed. Other sessions were signed out.";
       setBusy(false);
-      add.focus();
+      focusSection();
       changed();
     } catch (error) {
       if (generation !== logoutGeneration) return;
@@ -558,11 +579,10 @@ if (mount) {
     } finally {
       if (generation === logoutGeneration) {
         setBusy(false);
-        add.focus();
+        focusSection();
       }
     }
   }
-  add.addEventListener("click", () => void enroll());
   async function changeWallet(target: WalletChangeTarget) {
     if (busy) return;
     const generation = logoutGeneration;
@@ -623,7 +643,8 @@ if (mount) {
           ? "Wallet linked. Your session was renewed."
           : "Wallet unlinked. Other sessions were signed out.";
       setBusy(false);
-      (prior?.isConnected ? prior : add).focus();
+      if (prior?.isConnected) prior.focus();
+      else focusSection();
       changed();
     } catch (error) {
       if (generation !== logoutGeneration) return;
@@ -638,7 +659,8 @@ if (mount) {
     } finally {
       if (generation === logoutGeneration) {
         setBusy(false);
-        (prior?.isConnected ? prior : add).focus();
+        if (prior?.isConnected) prior.focus();
+        else focusSection();
       }
     }
   }
@@ -686,7 +708,7 @@ if (mount) {
       notice.textContent =
         "Sign-in method linked to your existing account. Other sessions were signed out.";
       setBusy(false);
-      add.focus();
+      focusSection();
       changed();
     } catch (error) {
       if (generation !== logoutGeneration) throw error;
@@ -702,7 +724,7 @@ if (mount) {
     } finally {
       if (generation === logoutGeneration) {
         setBusy(false);
-        add.focus();
+        focusSection();
       }
     }
   }
@@ -725,7 +747,7 @@ if (mount) {
         undefined,
         async (credential) => {
           if (credential.type !== "passkey")
-            throw new Error("Use your retained YapArena security passkey.");
+            throw new Error("Use your retained passkey.");
           const operation = await api<Operation & typeof candidate>(
             "/security/provider/recovery",
             "POST",
@@ -782,6 +804,62 @@ if (mount) {
         terms,
         approval: proof,
       });
+    } finally {
+      if (generation === logoutGeneration) setBusy(false);
+    }
+  }
+  async function prepareProviderPasskey(
+    terms: ProviderPasskeyTerms,
+    resume?: { intentId: string; token: string },
+    returnFocus?: HTMLElement,
+  ) {
+    if (busy) throw new Error("Finish the current security change first.");
+    if (resume && resume.intentId !== terms.intentId)
+      throw new Error("Passkey setup changed. Refresh Account settings.");
+    const generation = logoutGeneration;
+    setBusy(true);
+    try {
+      // The bridge consumes this proof only after Privy verifies the new key.
+      // Returning it here must not authorize or consume a separate operation.
+      const proof = await approval(
+        "provider.passkey.link",
+        { ...terms },
+        undefined,
+        resume
+          ? async (credential) => {
+              const operation = await api<
+                Operation & { terms: ProviderPasskeyTerms }
+              >(
+                `/security/provider/passkeys/${encodeURIComponent(resume.intentId)}/operations`,
+                "POST",
+                { credential },
+                resume.token,
+              );
+              if (
+                operation.terms.intentId !== terms.intentId ||
+                operation.terms.subject !== terms.subject ||
+                operation.terms.beforeDigest !== terms.beforeDigest
+              )
+                throw new Error(
+                  "Passkey setup changed. Refresh Account settings.",
+                );
+              return operation;
+            }
+          : undefined,
+        undefined,
+        resume
+          ? () =>
+              api<ApprovalChoices>(
+                "/security/access/reconciliation/candidate",
+                "POST",
+                {},
+                resume.token,
+              )
+          : undefined,
+        returnFocus,
+      );
+      assertGeneration(generation);
+      return proof;
     } finally {
       if (generation === logoutGeneration) setBusy(false);
     }
@@ -868,6 +946,8 @@ if (mount) {
   }
   window.addEventListener("yap:account-changed", () => {
     cancelSecurityChange();
+    root.hidden = true;
+    list.replaceChildren();
     void load();
   });
   window.addEventListener("yap:provider-logout", () => {
@@ -876,12 +956,18 @@ if (mount) {
     delete window.yapLinkProviderIdentity;
     delete window.yapRecoverProviderIdentity;
     delete window.yapApproveProviderChange;
+    delete window.yapPrepareProviderPasskey;
     delete window.yapApproveCoinWithdrawal;
     delete window.yapApproveRecoveryCost;
     ++version;
     keys = [];
     list.replaceChildren();
+    root.hidden = true;
     notice.textContent = "";
+    lastLoadError = null;
   });
+  // A refresh after the SDK linked a key can deliberately fence normal reads.
+  // Keep this scoped helper available so its exact pending intent can resume.
+  window.yapPrepareProviderPasskey = prepareProviderPasskey;
   void load();
 }

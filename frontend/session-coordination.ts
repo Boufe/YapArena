@@ -20,7 +20,7 @@ import type {} from "./auth-events.js";
       `^/api/auth/security/access/(?:login|reconciliation)/${identifier}/complete$`,
     ),
     new RegExp(
-      `^/api/auth/security/(?:passkeys/enrollment|wallet/operations|provider/link|provider/recovery)/${identifier}/complete$`,
+      `^/api/auth/security/(?:passkeys/enrollment|wallet/operations|provider/link|provider/recovery|provider/passkeys|provider/passkeys/bootstrap)/${identifier}/complete$`,
     ),
   ];
   const deleteIssuer = new RegExp(

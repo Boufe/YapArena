@@ -8,6 +8,7 @@ import {
   useLoginWithOAuth,
   useLoginWithPasskey,
   useLinkAccount,
+  useLinkWithPasskey,
   useLinkEmail,
   useUpdateEmail,
   useUnlinkEmail,
@@ -26,7 +27,12 @@ import {
   rememberAuthReturn,
   clearAuthReturn,
 } from "./auth-return.js";
-import type { AuthMode, ProviderChange } from "./auth-events.js";
+import type {
+  AuthMode,
+  ProviderChange,
+  ProviderPasskeyTerms,
+  SecurityApproval,
+} from "./auth-events.js";
 
 type Config = {
   enabled: boolean;
@@ -61,10 +67,20 @@ function announceSession() {
   window.dispatchEvent(new Event("yap:account-changed"));
   channel?.postMessage("changed");
 }
+class SecurityRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+  ) {
+    super(message);
+  }
+}
 async function securityRequest(
   path: string,
   body: unknown,
   token?: string,
+  signal?: AbortSignal,
 ): Promise<Response> {
   if (!window.yapSessionFetch)
     throw new Error(
@@ -79,12 +95,18 @@ async function securityRequest(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(30000),
+    signal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
+      : AbortSignal.timeout(30000),
   });
   if (!response.ok) {
-    const value: { error?: string } = await response.json().catch(() => ({}));
-    throw new Error(
+    const value: { error?: string; code?: string } = await response
+      .json()
+      .catch(() => ({}));
+    throw new SecurityRequestError(
       value.error ?? "Security verification is unavailable. Try again.",
+      response.status,
+      value.code,
     );
   }
   return response;
@@ -93,8 +115,9 @@ async function securityJSON<T>(
   path: string,
   body: unknown,
   token?: string,
+  signal?: AbortSignal,
 ): Promise<T> {
-  return (await securityRequest(path, body, token)).json();
+  return (await securityRequest(path, body, token, signal)).json();
 }
 function rememberLink(value: boolean) {
   try {
@@ -581,34 +604,6 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
     }, "We couldn’t send a code. Check your email address and try again shortly.");
   }
   const seconds = Math.max(0, Math.ceil((resendAt - clock) / 1_000));
-  async function keyLogin() {
-    await run(
-      async () => {
-        const challenge = await securityJSON<{
-          id: string;
-          authenticationOptions: PublicKeyCredentialRequestOptionsJSON;
-        }>("access/login", {});
-        const authentication = await startAuthentication({
-          optionsJSON: challenge.authenticationOptions,
-        });
-        if (cancelled.current) return;
-        await securityRequest(
-          `access/login/${encodeURIComponent(challenge.id)}/complete`,
-          { authentication },
-        );
-        finishJourney();
-        announceSession();
-        if (failedRecoveryStart.current || recoveryIntent())
-          setMessage(
-            "App access restored. Return to account settings to restart or finish lost sign-in recovery.",
-          );
-        else if (!completeAuthReturn(authReturn()))
-          setMessage("You’re signed in with your security passkey.");
-      },
-      "Security passkey sign-in was cancelled or no matching key was found.",
-      true,
-    );
-  }
   return (
     <div className="auth-card" data-step={step} aria-busy={!ready || busy}>
       <div className="auth-card-top">
@@ -775,16 +770,6 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         </div>
       )}
       <div className="auth-alternatives">
-        <button
-          className="button-secondary"
-          type="button"
-          disabled={busy || linkIntent.current}
-          onClick={() => {
-            if (!linkIntent.current) void keyLogin();
-          }}
-        >
-          Use a YapArena security passkey
-        </button>
         {google && !recovering && (
           <button
             className="button-secondary"
@@ -934,6 +919,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
       />
       {reconciliationToken && (
         <Reconciliation
+          key={reconciliationToken}
           token={reconciliationToken}
           onClose={() => setReconciliationToken(null)}
           onComplete={() => {
@@ -957,7 +943,53 @@ type ProviderCredential = {
 const providerMethodNames = {
   email: "Email",
   google_oauth: "Google account",
-  passkey: "Provider sign-in passkey",
+  passkey: "Passkey",
+};
+const passkeySetupStorageKey = "yaparena-provider-passkey-setup";
+function pendingPasskeySetup(): string | null {
+  try {
+    const id = sessionStorage.getItem(passkeySetupStorageKey);
+    return id && /^[0-9a-f]{8}-[0-9a-f-]{27}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+// A pending setup must remain reachable when protected profile reads are
+// deliberately denied until the provider's exact key addition is accepted.
+const passkeyResumeMount = document.querySelector("#provider-settings")
+  ? document.createElement("div")
+  : null;
+if (passkeyResumeMount) {
+  passkeyResumeMount.id = "passkey-setup-resume";
+  document.querySelector("#account-notice")?.after(passkeyResumeMount);
+}
+function rememberPasskeySetup(id: string | null) {
+  try {
+    if (id) {
+      sessionStorage.setItem(passkeySetupStorageKey, id);
+      if (sessionStorage.getItem(passkeySetupStorageKey) !== id)
+        throw new Error("Setup was not retained");
+    } else sessionStorage.removeItem(passkeySetupStorageKey);
+  } catch {
+    throw new Error(
+      "Allow browser storage before setting up a passkey. No new passkey was requested.",
+    );
+  }
+}
+type ProviderPasskeyIntent = {
+  id: string;
+  expiresAt: string;
+  bootstrapAllowed: boolean;
+  terms: ProviderPasskeyTerms;
+};
+type ProviderPasskeyActivation = ProviderPasskeyIntent & {
+  authenticationOptions: PublicKeyCredentialRequestOptionsJSON;
+};
+type PasskeyActor = {
+  epoch: number;
+  accountId: string | null;
+  subject: string;
+  abort: AbortController;
 };
 type LinkedWallet = { id: string; address: string; chainId: string };
 async function injectedWalletRequest(
@@ -1007,10 +1039,81 @@ function Reconciliation({
     onClose();
   }
   const [candidate, setCandidate] = useState<RecoveryCandidate | null>(null),
+    [restartAvailable, setRestartAvailable] = useState(false),
+    [restartRequiresLogin, setRestartRequiresLogin] = useState(false),
+    [restartChecking, setRestartChecking] = useState(false),
+    [restartNotice, setRestartNotice] = useState(false),
     [selected, setSelected] = useState(""),
     [password, setPassword] = useState(""),
     [message, setMessage] = useState("Checking sign-in changes…"),
     [busy, setBusy] = useState(false);
+  const mounted = useRef(true);
+  const operationAbort = useRef(new AbortController());
+  const operationEpoch = useRef(0);
+  const completedRecovery = useRef(false);
+  const providerState = usePrivy();
+  const liveActor = useRef({
+    ready: providerState.ready,
+    authenticated: providerState.authenticated,
+    subject: providerState.user?.id ?? null,
+  });
+  liveActor.current = {
+    ready: providerState.ready,
+    authenticated: providerState.authenticated,
+    subject: providerState.user?.id ?? null,
+  };
+  const priorActor = useRef(liveActor.current);
+  function captureActor() {
+    return {
+      epoch: operationEpoch.current,
+      accountId: window.yapCurrentSessionAccount?.() ?? null,
+      ...liveActor.current,
+      signal: operationAbort.current.signal,
+    };
+  }
+  function sameActor(actor: ReturnType<typeof captureActor>) {
+    const current = liveActor.current;
+    return (
+      mounted.current &&
+      !actor.signal.aborted &&
+      actor.epoch === operationEpoch.current &&
+      actor.accountId === (window.yapCurrentSessionAccount?.() ?? null) &&
+      actor.ready === current.ready &&
+      actor.authenticated === current.authenticated &&
+      actor.subject === current.subject
+    );
+  }
+  function assertActor(actor: ReturnType<typeof captureActor>) {
+    if (!sameActor(actor))
+      throw new DOMException(
+        "Verification cancelled after the account changed.",
+        "AbortError",
+      );
+  }
+  function invalidateActor() {
+    if (completedRecovery.current) return;
+    operationEpoch.current++;
+    operationAbort.current.abort();
+    mounted.current = false;
+    setPassword("");
+    WebAuthnAbortService.cancelCeremony();
+    onClose();
+  }
+  useEffect(() => {
+    const before = priorActor.current,
+      after = liveActor.current;
+    priorActor.current = after;
+    if (
+      before.ready !== after.ready ||
+      before.authenticated !== after.authenticated ||
+      before.subject !== after.subject
+    )
+      invalidateActor();
+  }, [
+    providerState.ready,
+    providerState.authenticated,
+    providerState.user?.id,
+  ]);
   useEffect(() => {
     const prior =
       document.activeElement instanceof HTMLElement
@@ -1020,13 +1123,25 @@ function Reconciliation({
     dialog.current?.showModal();
     title.current?.focus();
     let cancelled = false;
+    mounted.current = true;
+    operationAbort.current = new AbortController();
+    completedRecovery.current = false;
+    operationEpoch.current++;
+    const signal = operationAbort.current.signal;
+    window.addEventListener("yap:account-changed", invalidateActor);
+    window.addEventListener("yap:provider-logout", invalidateActor);
+    setRestartAvailable(false);
+    setRestartRequiresLogin(false);
+    setRestartChecking(false);
+    setRestartNotice(false);
     void securityJSON<RecoveryCandidate>(
       "access/reconciliation/candidate",
       {},
       token,
+      signal,
     )
-      .then((value) => {
-        if (cancelled) return;
+      .then(async (value) => {
+        if (cancelled || !mounted.current) return;
         setCandidate(value);
         setSelected(
           value.passkeys[0]
@@ -1040,9 +1155,53 @@ function Reconciliation({
         setMessage(
           "Review the exact sign-in methods below. Continue only if you recognize every change.",
         );
+        if (
+          !value.legacyPassword &&
+          !value.passkeys.length &&
+          !value.wallets.length &&
+          !value.before.some((entry) => entry.type === "passkey") &&
+          value.after.some((entry) => entry.type === "passkey")
+        ) {
+          setRestartChecking(true);
+          const availability = await securityJSON<{ code: string }>(
+            "provider/passkeys/bootstrap/candidate",
+            {},
+            token,
+            signal,
+          ).catch((error: unknown) => {
+            if (
+              !cancelled &&
+              mounted.current &&
+              error instanceof SecurityRequestError &&
+              [
+                "provider_session_revoked",
+                "provider_reset_pending",
+                "provider_reset_review_required",
+              ].includes(error.code ?? "")
+            ) {
+              setRestartRequiresLogin(
+                error.code === "provider_session_revoked",
+              );
+              setRestartNotice(true);
+              setMessage(error.message);
+            }
+            return null;
+          });
+          if (!cancelled && mounted.current) setRestartChecking(false);
+          if (
+            !cancelled &&
+            mounted.current &&
+            availability?.code === "first_passkey_restart_available"
+          ) {
+            setRestartAvailable(true);
+            setMessage(
+              "Your first passkey setup was interrupted. Verify your current Privy passkey to finish setup.",
+            );
+          }
+        }
       })
       .catch((error) => {
-        if (!cancelled) {
+        if (!cancelled && mounted.current) {
           recoveryOutcome("recovery_failed");
           setMessage(
             error instanceof Error
@@ -1053,16 +1212,74 @@ function Reconciliation({
       });
     return () => {
       cancelled = true;
+      mounted.current = false;
+      operationAbort.current.abort();
+      operationEpoch.current++;
+      window.removeEventListener("yap:account-changed", invalidateActor);
+      window.removeEventListener("yap:provider-logout", invalidateActor);
       WebAuthnAbortService.cancelCeremony();
       dialog.current?.close();
       if (prior?.isConnected) prior.focus();
     };
   }, [token]);
+  async function restartFirstPasskey() {
+    if (locked.current || !candidate || !restartAvailable) return;
+    locked.current = true;
+    setBusy(true);
+    const actor = captureActor();
+    try {
+      const operation = await securityJSON<{
+        id: string;
+        before: ProviderCredential[];
+        after: ProviderCredential[];
+        authenticationOptions: PublicKeyCredentialRequestOptionsJSON;
+      }>("provider/passkeys/bootstrap/restart", {}, token, actor.signal);
+      assertActor(actor);
+      if (
+        JSON.stringify(operation.before) !== JSON.stringify(candidate.before) ||
+        JSON.stringify(operation.after) !== JSON.stringify(candidate.after)
+      )
+        throw new Error(
+          "Sign-in methods changed again. Close and start verification again.",
+        );
+      setMessage("Verify your current Privy passkey to finish setup.");
+      const authentication = await startAuthentication({
+        optionsJSON: operation.authenticationOptions,
+      });
+      assertActor(actor);
+      await securityRequest(
+        `provider/passkeys/bootstrap/${encodeURIComponent(operation.id)}/complete`,
+        { authentication },
+        token,
+        actor.signal,
+      );
+      assertActor(actor);
+      rememberPasskeySetup(null);
+      recoveryOutcome("recovery_completed");
+      completedRecovery.current = true;
+      onComplete();
+    } catch (error) {
+      if (sameActor(actor)) {
+        recoveryOutcome("recovery_failed");
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Passkey verification could not be completed.",
+        );
+      }
+    } finally {
+      if (sameActor(actor)) {
+        locked.current = false;
+        setBusy(false);
+      }
+    }
+  }
   async function complete() {
     if (locked.current || !candidate || !selected) return;
     locked.current = true;
     setBusy(true);
     setMessage("Waiting for verification…");
+    const actor = captureActor();
     try {
       const credential =
         selected === "password"
@@ -1076,7 +1293,8 @@ function Reconciliation({
         after: ProviderCredential[];
         authenticationOptions?: PublicKeyCredentialRequestOptionsJSON;
         authorizationMessage: string | null;
-      }>("access/reconciliation", { credential }, token);
+      }>("access/reconciliation", { credential }, token, actor.signal);
+      assertActor(actor);
       if (
         JSON.stringify(operation.before) !== JSON.stringify(candidate.before) ||
         JSON.stringify(operation.after) !== JSON.stringify(candidate.after)
@@ -1097,6 +1315,7 @@ function Reconciliation({
         approval.authentication = await startAuthentication({
           optionsJSON: operation.authenticationOptions,
         });
+        assertActor(actor);
       } else {
         const wallet = candidate.wallets.find(
           (value) => value.id === selected.slice(7),
@@ -1105,6 +1324,7 @@ function Reconciliation({
           throw new Error("Open your retained wallet extension to continue.");
         const accounts = await injectedWalletRequest("eth_requestAccounts"),
           chainId = await injectedWalletRequest("eth_chainId");
+        assertActor(actor);
         const address: unknown = Array.isArray(accounts) ? accounts[0] : null;
         if (
           typeof address !== "string" ||
@@ -1120,6 +1340,7 @@ function Reconciliation({
           hex,
           wallet.address,
         ]);
+        assertActor(actor);
         if (typeof signature !== "string")
           throw new Error("Your wallet did not return a signature.");
         approval.signature = signature;
@@ -1129,10 +1350,14 @@ function Reconciliation({
         `access/reconciliation/${encodeURIComponent(operation.id)}/complete`,
         { approval },
         token,
+        actor.signal,
       );
+      assertActor(actor);
       recoveryOutcome("recovery_completed");
+      completedRecovery.current = true;
       onComplete();
     } catch (error) {
+      if (!sameActor(actor)) return;
       recoveryOutcome("recovery_failed");
       setPassword("");
       setMessage(
@@ -1141,8 +1366,10 @@ function Reconciliation({
           : "Verification failed. If the result is uncertain, check account access before retrying.",
       );
     } finally {
-      locked.current = false;
-      setBusy(false);
+      if (sameActor(actor)) {
+        locked.current = false;
+        setBusy(false);
+      }
     }
   }
   return createSettingsPortal(
@@ -1186,32 +1413,36 @@ function Reconciliation({
                 </li>
               ))}
             </ul>
-            <label>
-              Verify with a retained method
-              <select
-                value={selected}
-                disabled={busy}
-                onChange={(event) => {
-                  setSelected(event.target.value);
-                  setPassword("");
-                }}
-              >
-                {candidate.passkeys.map((key) => (
-                  <option key={key.id} value={`passkey:${key.id}`}>
-                    Security passkey added{" "}
-                    {new Date(key.createdAt).toLocaleString()}
-                  </option>
-                ))}
-                {candidate.legacyPassword && (
-                  <option value="password">Current password</option>
-                )}
-                {candidate.wallets.map((wallet) => (
-                  <option key={wallet.id} value={`wallet:${wallet.id}`}>
-                    {wallet.address} · chain {wallet.chainId}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {(candidate.legacyPassword ||
+              candidate.passkeys.length > 0 ||
+              candidate.wallets.length > 0) && (
+              <label>
+                Verify with a retained method
+                <select
+                  value={selected}
+                  disabled={busy}
+                  onChange={(event) => {
+                    setSelected(event.target.value);
+                    setPassword("");
+                  }}
+                >
+                  {candidate.passkeys.map((key) => (
+                    <option key={key.id} value={`passkey:${key.id}`}>
+                      Security passkey added{" "}
+                      {new Date(key.createdAt).toLocaleString()}
+                    </option>
+                  ))}
+                  {candidate.legacyPassword && (
+                    <option value="password">Current password</option>
+                  )}
+                  {candidate.wallets.map((wallet) => (
+                    <option key={wallet.id} value={`wallet:${wallet.id}`}>
+                      {wallet.address} · chain {wallet.chainId}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {selected === "password" && (
               <label>
                 Current password
@@ -1225,12 +1456,17 @@ function Reconciliation({
                 />
               </label>
             )}
-            {!selected && (
-              <p>
-                No retained security method is available. Ownership review is
-                required. Email sign-in cannot replace a lost security passkey.
-              </p>
-            )}
+            {!selected &&
+              !restartAvailable &&
+              !restartRequiresLogin &&
+              !restartChecking &&
+              !restartNotice && (
+                <p>
+                  No retained security method is available. Ownership review is
+                  required. Email sign-in cannot replace a lost security
+                  passkey.
+                </p>
+              )}
           </>
         )}
         <p role="status" aria-live="polite" aria-atomic="true">
@@ -1239,6 +1475,36 @@ function Reconciliation({
         <button className="button" type="submit" disabled={busy || !selected}>
           Accept these methods and restore access
         </button>
+        {restartAvailable && (
+          <button
+            className="button"
+            type="button"
+            disabled={busy}
+            onClick={() => void restartFirstPasskey()}
+          >
+            Verify my first passkey and finish setup
+          </button>
+        )}
+        {restartRequiresLogin && (
+          <button
+            className="button-secondary"
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              cancelRecovery();
+              window.dispatchEvent(
+                new CustomEvent("yap:request-auth", {
+                  detail: {
+                    mode: "login",
+                    returnTo: "/account#account-security",
+                  },
+                }),
+              );
+            }}
+          >
+            Sign in again to restart setup
+          </button>
+        )}
         <button
           className="button-secondary"
           type="button"
@@ -1276,6 +1542,14 @@ function Settings({
     password: "Password",
   };
   const [userMethods, setMethods] = useState<string[]>([]);
+  const [securityKeys, setSecurityKeys] = useState<
+    { credentialId: string; provenance: "privy" | "yaparena" }[]
+  >([]);
+  const [pendingPasskey, setPendingPasskey] = useState(pendingPasskeySetup);
+  const passkeyApproval = useRef<SecurityApproval | undefined>(undefined);
+  const passkeyIntent = useRef(pendingPasskey);
+  const passkeyEpoch = useRef(0);
+  const activePasskeyActor = useRef<PasskeyActor | null>(null);
   const [provider, setProvider] = useState<{
     subject?: string;
     methods: string[];
@@ -1292,6 +1566,74 @@ function Settings({
   const { ready, authenticated, user, getAccessToken } = usePrivy(),
     pending = useRef(false),
     refreshVersion = useRef(0);
+  const liveProvider = useRef({
+    ready,
+    authenticated,
+    subject: user?.id ?? null,
+  });
+  liveProvider.current = { ready, authenticated, subject: user?.id ?? null };
+  const priorProvider = useRef(liveProvider.current);
+  const { linkWithPasskey } = useLinkWithPasskey();
+  function passkeyActor(resume = false): PasskeyActor {
+    const current = liveProvider.current,
+      accountId = window.yapCurrentSessionAccount?.() ?? null;
+    if (
+      !current.ready ||
+      !current.authenticated ||
+      !current.subject ||
+      (!resume && (!accountId || current.subject !== provider?.subject))
+    )
+      throw new Error(
+        "Verify your current account before setting up a passkey.",
+      );
+    return {
+      epoch: passkeyEpoch.current,
+      accountId,
+      subject: current.subject,
+      abort: new AbortController(),
+    };
+  }
+  function samePasskeyActor(actor: PasskeyActor) {
+    const current = liveProvider.current;
+    return (
+      activePasskeyActor.current === actor &&
+      !actor.abort.signal.aborted &&
+      actor.epoch === passkeyEpoch.current &&
+      actor.accountId === (window.yapCurrentSessionAccount?.() ?? null) &&
+      current.ready &&
+      current.authenticated &&
+      current.subject === actor.subject
+    );
+  }
+  function assertPasskeyActor(actor: PasskeyActor) {
+    if (!samePasskeyActor(actor))
+      throw new DOMException(
+        "Passkey setup cancelled after the account changed.",
+        "AbortError",
+      );
+  }
+  function cancelPasskeyActor() {
+    passkeyEpoch.current++;
+    const active = activePasskeyActor.current !== null;
+    activePasskeyActor.current?.abort.abort();
+    activePasskeyActor.current = null;
+    passkeyApproval.current = undefined;
+    if (active) {
+      WebAuthnAbortService.cancelCeremony();
+      pending.current = false;
+      setBusy(false);
+      setMessage("");
+    }
+    if (active || passkeyIntent.current) {
+      passkeyIntent.current = null;
+      setPendingPasskey(null);
+      try {
+        rememberPasskeySetup(null);
+      } catch {
+        /* No stale intent can authorize a different cookie. */
+      }
+    }
+  }
   const updateEmail = useUpdateEmail(),
     linkEmail = useLinkEmail(),
     unlinkEmail = useUnlinkEmail(),
@@ -1314,7 +1656,8 @@ function Settings({
     );
   }
   const links = useLinkAccount({
-    onSuccess: () => {
+    onSuccess: ({ linkMethod }) => {
+      if (linkMethod === "passkey") return;
       void reconcile().catch(() =>
         setMessage(
           "Verify your provider sign-in and retry ownership verification.",
@@ -1323,14 +1666,167 @@ function Settings({
       setBusy(false);
       pending.current = false;
     },
-    onError: () => {
+    onError: (_error, details) => {
+      if (details.linkMethod === "passkey") return;
       setMessage(
-        "Linking was cancelled or unavailable. Your accepted YapArena methods were not changed.",
+        passkeyIntent.current
+          ? "Passkey setup was interrupted. If your device created the passkey, choose Finish passkey setup. Otherwise wait five minutes before starting again."
+          : "Linking was cancelled or unavailable. Your accepted YapArena methods were not changed.",
       );
       setBusy(false);
       pending.current = false;
     },
   });
+  function showPasskeyError(error: unknown) {
+    setMessage(
+      error instanceof Error
+        ? error.message
+        : "Passkey setup could not be confirmed. Choose Finish passkey setup to check its state.",
+    );
+  }
+  async function finishPasskey(
+    id: string,
+    actor: PasskeyActor,
+    returnFocus: HTMLElement | undefined,
+  ) {
+    assertPasskeyActor(actor);
+    const token = await getAccessToken();
+    assertPasskeyActor(actor);
+    if (!token) throw new Error("Sign in with Privy to finish passkey setup.");
+    const activation = await securityJSON<ProviderPasskeyActivation>(
+      `provider/passkeys/${encodeURIComponent(id)}/activation`,
+      {},
+      token,
+      actor.abort.signal,
+    );
+    assertPasskeyActor(actor);
+    if (!activation.bootstrapAllowed && !passkeyApproval.current) {
+      if (!window.yapPrepareProviderPasskey)
+        throw new Error(
+          "Reload Account settings to verify your retained method.",
+        );
+      const approval = await window.yapPrepareProviderPasskey(
+        activation.terms,
+        { intentId: id, token },
+        returnFocus,
+      );
+      assertPasskeyActor(actor);
+      passkeyApproval.current = approval;
+    }
+    setMessage("Verify this passkey to finish setup.");
+    const authentication = await startAuthentication({
+      optionsJSON: activation.authenticationOptions,
+    });
+    assertPasskeyActor(actor);
+    await securityRequest(
+      `provider/passkeys/${encodeURIComponent(id)}/complete`,
+      { authentication, approval: passkeyApproval.current },
+      token,
+      actor.abort.signal,
+    );
+    assertPasskeyActor(actor);
+    rememberPasskeySetup(null);
+    passkeyIntent.current = null;
+    passkeyApproval.current = undefined;
+    setPendingPasskey(null);
+    activePasskeyActor.current = null;
+    pending.current = false;
+    setBusy(false);
+    setMessage(
+      "Passkey ready for sign-in and account approvals. Other sessions were signed out.",
+    );
+    announceSession();
+  }
+  async function addPasskey(
+    credentialId?: string,
+    resumeId?: string,
+    returnFocus?: HTMLElement,
+  ) {
+    if (pending.current) return;
+    const opener =
+      returnFocus ??
+      (document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : undefined);
+    pending.current = true;
+    setBusy(true);
+    let actor: PasskeyActor | undefined;
+    try {
+      actor = passkeyActor(Boolean(resumeId));
+      activePasskeyActor.current = actor;
+      if (resumeId) {
+        await finishPasskey(resumeId, actor, opener);
+        return;
+      }
+      if (!authenticated || user?.id !== provider?.subject)
+        throw new Error(
+          "Sign in with your current Privy account before adding a passkey.",
+        );
+      const intent = await securityJSON<ProviderPasskeyIntent>(
+        "provider/passkeys",
+        credentialId ? { credentialId } : {},
+        undefined,
+        actor.abort.signal,
+      );
+      assertPasskeyActor(actor);
+      rememberPasskeySetup(intent.id);
+      passkeyIntent.current = intent.id;
+      setPendingPasskey(intent.id);
+      passkeyApproval.current = undefined;
+      if (!intent.bootstrapAllowed) {
+        if (!window.yapPrepareProviderPasskey)
+          throw new Error(
+            "Load your account security settings before continuing.",
+          );
+        const approval = await window.yapPrepareProviderPasskey(
+          intent.terms,
+          undefined,
+          opener,
+        );
+        assertPasskeyActor(actor);
+        passkeyApproval.current = approval;
+      }
+      if (credentialId) await finishPasskey(intent.id, actor, opener);
+      else {
+        setMessage("Follow Privy’s prompt to add your passkey.");
+        assertPasskeyActor(actor);
+        await linkWithPasskey();
+        assertPasskeyActor(actor);
+        await finishPasskey(intent.id, actor, opener);
+      }
+    } catch (error) {
+      if (!actor || samePasskeyActor(actor)) showPasskeyError(error);
+    } finally {
+      if (!actor || samePasskeyActor(actor)) {
+        activePasskeyActor.current = null;
+        pending.current = false;
+        setBusy(false);
+      }
+    }
+  }
+  useEffect(() => {
+    const cancel = () => cancelPasskeyActor();
+    window.addEventListener("yap:account-changed", cancel);
+    window.addEventListener("yap:provider-logout", cancel);
+    return () => {
+      window.removeEventListener("yap:account-changed", cancel);
+      window.removeEventListener("yap:provider-logout", cancel);
+      cancelPasskeyActor();
+    };
+  }, []);
+  useEffect(() => {
+    const previous = priorProvider.current,
+      current = liveProvider.current;
+    priorProvider.current = current;
+    if (
+      previous.ready &&
+      (activePasskeyActor.current !== null || previous.authenticated) &&
+      (!ready ||
+        previous.authenticated !== authenticated ||
+        previous.subject !== current.subject)
+    )
+      cancelPasskeyActor();
+  }, [ready, authenticated, user?.id]);
   async function change(action: () => Promise<void>) {
     if (pending.current) return;
     pending.current = true;
@@ -1390,8 +1886,16 @@ function Settings({
           } | null;
           legacyPassword: boolean;
         } = await response.json();
+        const keyResponse = await fetch("/api/auth/security/passkeys", {
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        const keyData: { passkeys: typeof securityKeys } | null = keyResponse.ok
+          ? await keyResponse.json()
+          : null;
         if (current === refreshVersion.current) {
           setProvider(value.provider);
+          setSecurityKeys(keyData?.passkeys ?? []);
           setMethods([
             ...(value.legacyPassword ? ["password"] : []),
             ...(value.provider?.methods ?? []),
@@ -1412,8 +1916,52 @@ function Settings({
     document.querySelector<HTMLElement>("#provider-settings");
   // The settings are rendered into the signed-in account area by a separate
   // portal, preserving all existing profile and wallet controllers.
-  return settingsRoot
-    ? createSettingsPortal(
+  return settingsRoot ? (
+    <>
+      {pendingPasskey &&
+        passkeyResumeMount &&
+        createSettingsPortal(
+          <section className="information-card">
+            <h3>Passkey setup</h3>
+            <p>
+              Finish verifying the passkey you added before continuing to your
+              account.
+            </p>
+            <button
+              className="button-secondary"
+              type="button"
+              disabled={busy || !ready || !authenticated}
+              onClick={(event) =>
+                void addPasskey(undefined, pendingPasskey, event.currentTarget)
+              }
+            >
+              Finish passkey setup
+            </button>
+            <button
+              className="button-secondary"
+              type="button"
+              disabled={busy}
+              onClick={(event) =>
+                window.dispatchEvent(
+                  new CustomEvent("yap:request-auth", {
+                    detail: {
+                      mode: "login",
+                      source: event.currentTarget,
+                      returnTo: "/account#account-security",
+                    },
+                  }),
+                )
+              }
+            >
+              Sign in again to restart setup
+            </button>
+            <p role="status" aria-live="polite" aria-atomic="true">
+              {message}
+            </p>
+          </section>,
+          passkeyResumeMount,
+        )}
+      {createSettingsPortal(
         <>
           <h3>Sign-in methods</h3>
           <div className="auth-method-list">
@@ -1428,34 +1976,18 @@ function Settings({
             )}
           </div>
           <p>
-            Keep access to your verified email. Changes to financial
-            authorization require separate ownership verification.
+            Your passkey works for sign-in and secure account approvals. Keep
+            another sign-in method available in case you lose access to a
+            device.
           </p>
           {provider ? (
             <>
               {(!authenticated || user?.id !== provider.subject) && (
                 <p>
-                  Sign in with your current email or provider passkey before
-                  changing provider methods. A YapArena security passkey
-                  restores app access and does not create a Privy session.
+                  Sign in with your current email or passkey before changing
+                  sign-in methods.
                 </p>
               )}
-              {provider.methods.length === 1 &&
-                ["email", "google_oauth"].includes(
-                  provider.methods[0] ?? "",
-                ) && (
-                  <button
-                    className="button-secondary"
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
-                      window.dispatchEvent(new Event("yap:recover-provider"))
-                    }
-                  >
-                    Lost this sign-in? Replace it using your YapArena security
-                    passkey
-                  </button>
-                )}
               <form
                 className="stack-form"
                 onSubmit={(event) => {
@@ -1614,26 +2146,53 @@ function Settings({
                   disabled={
                     busy || !authenticated || user?.id !== provider.subject
                   }
-                  onClick={() =>
-                    void change(async () => {
-                      await approve({
-                        action: "link",
-                        method: "passkey",
-                        target: "new-provider-passkey",
-                      });
-                      links.linkPasskey();
-                    })
+                  onClick={(event) =>
+                    void addPasskey(undefined, undefined, event.currentTarget)
                   }
                 >
-                  Add provider sign-in passkey
+                  Add a passkey
                 </button>
               )}
               <ul className="account-list">
                 {(provider.credentials ?? []).map((entry) => (
                   <li key={`${entry.type}:${entry.id}`}>
                     <p>
-                      {methodNames[entry.type]}: {entry.id}
+                      {entry.type === "passkey"
+                        ? securityKeys.some(
+                            (key) =>
+                              key.provenance === "privy" &&
+                              key.credentialId === entry.id,
+                          )
+                          ? "Passkey · Ready for sign-in and account approvals"
+                          : "Passkey · Finish setup for account approvals"
+                        : `${methodNames[entry.type]}: ${entry.id}`}
                     </p>
+                    {entry.type === "passkey" &&
+                      !securityKeys.some(
+                        (key) =>
+                          key.provenance === "privy" &&
+                          key.credentialId === entry.id,
+                      ) &&
+                      !pendingPasskey && (
+                        <button
+                          className="button-secondary"
+                          type="button"
+                          disabled={
+                            busy ||
+                            !authenticated ||
+                            user?.id !== provider.subject
+                          }
+                          onClick={(event) =>
+                            void addPasskey(
+                              entry.id,
+                              undefined,
+                              event.currentTarget,
+                            )
+                          }
+                        >
+                          Finish passkey setup
+                        </button>
+                      )}
                     <button
                       className="button-secondary"
                       type="button"
@@ -1706,8 +2265,9 @@ function Settings({
           </p>
         </>,
         settingsRoot,
-      )
-    : null;
+      )}
+    </>
+  ) : null;
 }
 import { createPortal as createSettingsPortal } from "react-dom";
 

@@ -107,8 +107,11 @@ approval. Missing the target never releases a reserve, retries a payment or
 changes a customer's financial eligibility; reconcile the original operation.
 
 If every retained strong credential is lost, email sign-in can still provide
-ordinary account access. Financial operations remain locked while recovery
-approval with the selected identity provider is unresolved. The implemented
+ordinary account access. Operations requiring strong proof, including withdrawals,
+remain unavailable without a retained credential; email cannot reset or replace
+those credentials. The application cannot detect that a physical credential has
+been lost and does not automatically impose an account-wide hold on that basis.
+An approved provider recovery procedure is still required. The implemented
 retained-credential and discoverable-passkey journeys do not establish a complete
 manual all-strong-methods-lost recovery service.
 

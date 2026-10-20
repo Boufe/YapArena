@@ -50,6 +50,8 @@ staging web and replay services. Each mutation requires its matching
 current `ACCOUNT_STAGING_RENDER_COMMIT`. It emits only allowlisted metadata.
 The operator must verify actual stopped writers, backup/rehearsal, release gates,
 live deployment status and readiness separately.
+The [account staging runbook](account-staging-release.md) gives the ordered
+commands, backup/rehearsal requirements and postflight boundaries.
 
 These former JavaScript files retain their names with a `.ts` extension:
 

@@ -1,5 +1,15 @@
 # Account-completion browser baseline
 
+Later acceptance is recorded separately in the
+[739-test integrated gate](final-integrated-release-gate/README.md),
+[PostgreSQL 18 compatibility run](pg18-auth-compatibility/README.md),
+[70-group return/loading/error browser run](auth-return-browser/README.md),
+[14 native security/recovery groups](security-passkey-browser/README.md),
+[22 native coin groups](coin-sandbox-browser/README.md) and
+[actual application-to-Cloud logout trial](media-app-cloud-revocation/README.md).
+Their revision and environment boundaries govern those results; this page
+preserves the original visual baseline.
+
 Captured 2026-10-20 against revision
 `03ecffb71d20c662350940eef014571a2ac2bf7f`, using a frozen copy of its existing
 generated browser assets. [The machine-readable results](before/browser-results.json)

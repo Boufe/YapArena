@@ -19,8 +19,10 @@ record](email-first-accounts.md) and the detailed
 and adds operation-bound security passkeys, retained-credential account management,
 provider-change monitoring, session controls, speaker revocation and an isolated
 coin sandbox with persistent funding, source accounting, manual withdrawals and
-YES/NO A4 participation. These additions are under combined release verification;
-retained-key recovery also replaces a lost sole email or Google identity without
+YES/NO A4 participation. The [integrated local release gate](evidence/account-completion-baseline/final-integrated-release-gate/README.md)
+passed 739 tests with fresh/upgrade database and core browser acceptance.
+Final CI and hosted rollout remain separate gates.
+Retained-key recovery also replaces a lost sole email or Google identity without
 changing the account or merging by email. Authentication returns to the initiating
 action for confirmation. Source implementation is not hosted or production
 acceptance. The selected staging deletion removed IDs
@@ -215,7 +217,7 @@ these choices changes a confirmed product rule.
 | ------------------------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Browser UI framework and API contract style            | All user-facing work        | Can the team render public pages, share types safely, and test critical journeys?                             |
 | Live media approach and provider or self-hosting model | Live debate and replay      | Can it handle two speakers, audience viewing, recording, captions, failure recovery, and expected load?       |
-| Wallet-first sign-in and account migration design      | Profiles and permissions    | Can an existing account move to or link a wallet without losing history or granting spend authority?          |
+| Email-first sign-in and retained-account migration     | Profiles and permissions    | Can verified login methods link to a stable account without losing history or granting spend authority?       |
 | Topic/side mapping and duplicate-topic review          | Topics, matching, histories | Can user-created propositions map consistently to persistent topics without silently moving existing records? |
 | Universal debate timing and extension rules            | Timers and engagement       | What are the initial time, maximum duration, eligible extension action, and rule-version semantics?           |
 | Content, media retention, and appeal policies          | Replay and moderation       | What can be recorded, removed, retained, appealed, and restored?                                              |
@@ -287,9 +289,10 @@ the interface.
 ## Work package 2 — Identity, profiles, and social graph
 
 **Build** account-level permissions for profile editing, follows, challenges, and moderation.
-Keep public browsing anonymous. Design the transition from current email/password sessions to
-wallet-first product access explicitly; do not conflate wallet connection, login, and a financial
-authorization. Prevent duplicate profile ownership when credentials are linked or changed.
+Keep public browsing anonymous. Follow the approved [email-first account design](email-first-accounts.md)
+with optional linked wallets and retained-credential reconciliation. Do not conflate wallet
+connection, login and financial authorization. Prevent duplicate profile ownership when
+credentials are linked or changed.
 
 - Users can create and edit permitted profile fields, follow and unfollow people or topics, and
   see a history of their nonfinancial participation.

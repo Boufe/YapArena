@@ -69,8 +69,9 @@ verification. Conversion quotes in the public sandbox remain deterministic
 simulations. [Recorded evidence](evidence/coin-testnet/ledger/README.md) identifies
 the exact scope; it is not multichain/provider or live-money acceptance. Error
 report/review and source-restoring compensation are implemented under the
-approved policy above; final combined browser/quality acceptance remains open. The [completion matrix](email-first-completion.md)
-tracks final combined and hosted gates.
+approved policy above. The [integrated local browser/quality gate](evidence/account-completion-baseline/final-integrated-release-gate/README.md)
+passed 739 tests at its recorded revision. The [completion matrix](email-first-completion.md)
+tracks final CI, hosted and external gates separately.
 
 ## Provider verification and limitations
 

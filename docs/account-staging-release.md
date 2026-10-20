@@ -1,0 +1,141 @@
+# Account and coin sandbox staging release
+
+This runbook operates only the named YapArena staging web service and replay
+worker. It does not authorize live money, a paid plan, account deletion or a
+production release. The [completion matrix](email-first-completion.md) and
+[independent helper review](evidence/account-completion-baseline/release-helper-review/README.md)
+record the acceptance boundaries.
+
+Use Node 24 and local PostgreSQL 17/18 tools. Keep the existing private operator
+configuration and backup key outside the repository. The commands load neither
+`.env` nor owner credentials into a runtime process. `ACCOUNT_STAGING_CA_PATH`
+names the verified public CA file. Private release directories and backup keys
+remain in restricted operator storage; never paste their contents into reports.
+
+## Before stopping writers
+
+Fetch origin, preserve shared edits, and verify the intended existing PR branch.
+Run the complete disposable database/browser release gate and obtain all five
+required CI successes for the exact pushed revision. Inspect the integrated diff
+and independent security/financial review. Do not change source or commit between
+backup preparation and migration application.
+
+```sh
+node scripts/release-account-render.ts inspect
+node scripts/verify-account-staging.ts preflight
+node scripts/verify-media-cloud-revocation.ts --inspect
+```
+
+The read-only database inspection requires verified TLS, separate owner/runtime
+roles, preserved retained/manual accounts and no live financial history.
+The media inspection creates no room or participant and prints only a count.
+If rooms exist, review their legacy speaker inventory before proceeding; do not
+delete rooms or disconnect viewers. Legacy issued JWTs at `f942dc6` have a
+15-minute lifetime. Record the last possible old issuance and drain that lifetime
+after stopping the old web process. Existing connected speakers require explicit
+containment because token expiry alone does not disconnect a connection.
+
+## Backup, rehearsal and additive migration
+
+```sh
+ACCOUNT_STAGING_RENDER_ACTION=suspend \
+  node scripts/release-account-render.ts suspend
+```
+
+Verify both named services are actually suspended. No unrelated writer may remain.
+Keep them suspended throughout preparation and migration. The helper's runtime
+activity sample supplements that control; it does not prevent future connections.
+
+```sh
+ACCOUNT_STAGING_WRITERS_STOPPED=true \
+  ACCOUNT_STAGING_RELEASE_GATES_PASSED=true \
+  node scripts/release-account-staging.ts prepare
+```
+
+Preparation uses one verified session connection on port 5432, exports a
+consistent application-schema snapshot under table locks, encrypts it, restores
+it into a disposable local cluster, compares rows/sequences and rehearses all
+thirteen pending migrations. It is not a full Supabase/provider disaster-recovery
+backup. Require terminal success and preserve the returned private directory.
+
+Reinspect suspension and unchanged HEAD. Supply that exact directory through
+`ACCOUNT_STAGING_RELEASE_DIRECTORY`; it contains no secret in its name.
+
+```sh
+ACCOUNT_STAGING_WRITERS_STOPPED=true \
+  ACCOUNT_STAGING_RELEASE_GATES_PASSED=true \
+  ACCOUNT_STAGING_APPLY_MIGRATIONS=approved \
+  node scripts/release-account-staging.ts migrate
+```
+
+The owner-only command rejects mismatched source, migration history, backup or
+database fingerprints and rechecks quiescence. It preserves all retained/manual
+accounts. Migrations are forward-only. After any uncertain failure, inspect the
+actual applied history before taking another action.
+
+## Deploy and verify
+
+While both writers remain suspended, enable only the deterministic web sandbox:
+
+```sh
+ACCOUNT_STAGING_RENDER_ACTION=configure-sandbox \
+  node scripts/release-account-render.ts configure-sandbox
+```
+
+Set `ACCOUNT_STAGING_RENDER_COMMIT` to the exact current 40-character pushed SHA.
+The release helper targets the web service only and requires background jobs
+enabled so provider/media revocation work runs. The replay encoder remains on
+its recorded revision; it does not process the account outbox.
+
+```sh
+ACCOUNT_STAGING_RENDER_ACTION=resume \
+  node scripts/release-account-render.ts resume
+ACCOUNT_STAGING_RENDER_ACTION=deploy \
+  node scripts/release-account-render.ts deploy
+node scripts/release-account-render.ts inspect
+```
+
+Render's [deploy-hook documentation](https://render.com/docs/deploy-hooks)
+reports a conflict while suspended; the API does not document a suspended-deploy
+bypass. Resume, then deploy the exact SHA. Deployment acceptance alone is
+insufficient: inspect until the exact web SHA is terminally live, verify
+readiness, and check that the worker's revision and runtime role remain correct.
+If the old revision resumes before replacement, restart the legacy-token drain
+clock from its final stop. Render's [shutdown sequence](https://render.com/docs/deploys#zero-downtime-deploys)
+allows old-instance overlap plus a shutdown grace period after the new instance
+is ready. Account for the actual configured bound, or the documented maximum of
+60 seconds plus 300 seconds on this free service, before beginning the
+15-minute JWT drain. Record eligible-speaker and room inventories before and
+after rollout; zero rooms alone does not rule out an issued token.
+Do not claim speaker containment until the old process has stopped, its token
+lifetime has elapsed and no legacy speaker connection remains. This procedure
+does not itself install a temporary runtime speaker-issuance switch.
+
+Build the exact deployed revision locally. Set
+`ACCOUNT_HOSTED_EXPECTED_REVISION` to its SHA, then run:
+
+```sh
+node scripts/verify-account-staging.ts postflight
+ACCOUNT_HOSTED_REDIS_PROBE=approved \
+  node scripts/verify-account-hosted-browser.ts
+```
+
+The guest browser verifier checks real served asset hashes, provider method
+configuration, protected anonymous responses, dialog loading, focus and mobile
+layout. Its optional single retired-registration request verifies the deployed
+Redis limiter path through aggregate metrics without creating an account.
+It sends no email code, performs no OAuth/credential ceremony and joins no room.
+It cannot establish hosted multi-instance outage or genuine user acceptance.
+
+Record applied migrations, retained-account counts, zero live activity, runtime
+privileges, exact deployed SHA, readiness, outbox outcomes and bounded errors.
+Keep screenshots and provider/browser evidence separate from local fixtures.
+Genuine email/Google/passkey/recovery and physical/screen-reader acceptance still
+need their own trials. Initialize no retained account's financial history before
+its first strong credential; sandbox allocation is separate from the unfunded
+50 USDC live promotional budget.
+
+On failure, preserve the encrypted backup and inspection output. Do not run down
+migrations, reset accounts or automatically restore over the shared database.
+Assess compatibility before resuming an older application; prefer a reviewed
+forward fix. Update the PR and completion matrix with the actual result.

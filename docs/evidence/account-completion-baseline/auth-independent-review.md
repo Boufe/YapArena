@@ -247,3 +247,69 @@ using weaker session mutation ordering. The design follows the current
 [Web Locks specification](https://w3c.github.io/web-locks/) and
 [Fetch specification](https://fetch.spec.whatwg.org/); those standards do not
 replace the recorded native test or remaining release gates.
+
+## Pre-deployment continuation, 2026-10-20
+
+Reviewer: authentication workstream (`/root/auth_security`). This continuation
+inspected the integrated source, logger/configuration, sessions and fixed-target
+staging helpers at `d13a209`, alongside the sanitized read-only staging evidence.
+It is independent of the lead's integration work. The reviewer authored the new
+identity-replacement module and the two narrow fixes below. The provider reviewer
+separately inspected identity replacement; the lead accepted the two narrow fix
+diffs. Compiled checks and the final combined gate remain required.
+
+Two concrete defense gaps were identified:
+
+- Financial `X-YapArena-Session` comparison hints were not redacted from HTTP
+  headers, although the analogous expected-account hint was. The narrow fix
+  adds redaction and a real HTTP completion-log assertion that preserves the
+  route/status while omitting the private correlation value. It is not an
+  authorization-token exposure.
+- The runtime startup guard omitted the newly introduced operator variable
+  `COIN_SANDBOX_OWNER_DATABASE_URL`. The narrow fix rejects that variable with
+  the existing owner/admin-secret guard. The actual staging inspection found
+  no deployed owner credential; this closes accidental future injection.
+
+Both fixes pass strict server checking, lint and formatting. Their compiled
+logger/configuration checks and the final combined run are still pending in
+this note. No additional critical source finding was identified in this scope.
+Existing cookie protections, replay/generation fences, provider inspection
+outside the pool, exact origin checks and private error serialization remain
+intact. Helmet's installed default sends `Referrer-Policy: no-referrer`; the
+request logger also strips Privy callback query values. The provider-control
+worker can hold an account ordering lock for its bounded 20-second cumulative
+provider deadline. A contending local revocation can therefore wait for that
+worker even though ordinary inspection outages hold no pool connection or
+account lock. A timed-out browser action remains unconfirmed.
+
+The read-only staging preflight records PostgreSQL **17.6**, 28 applied and
+exactly 13 reviewed pending migrations, four preserved accounts (three retained
+plus the subsequent manual account), no selected-reset accounts and no live
+journals/grants. The browser roles have no private-schema access and the runtime
+cannot assume owner, own objects or write migration history. These observations
+are preflight evidence, not evidence that migration or deployment occurred.
+The release helper pins the target/roles/TLS, matches the exact migration list
+and hashes, requires an encrypted private backup with exact restore/migration
+rehearsal and rechecks retained rows/sequences before owner-only application.
+Stopped Render writers and the final deployed revision/readiness must be
+verified separately; an environment assertion or idle-connection sample does
+not stop writers. The private schema backup is not a complete provider/global
+role disaster-recovery backup. New-revision maintenance must actually run to
+drain revocation jobs; the separate replay encoder is not that maintenance loop.
+
+A provider-maintenance risk remains distinct from these additive migrations:
+Supabase's current [PostgreSQL minor-release notice](https://supabase.com/changelog/postgres-15-19-17-11-breaking-changes)
+describes an upgrade from 17.6 to 17.11 with security fixes and compatibility
+checks for certain extensions/operators. The observed project is still on
+17.6. Availability of that upgrade for this project has not been verified, no
+YapArena-specific exploit has been demonstrated, and this review grants no
+authority to change database versions, plans or provider settings. Record and
+check the provider's maintenance path before production release. Application
+sources do not use the notice's legacy PGP encryption or `ltree` features;
+this is not a reason to block the independently reviewed 13 additive migrations
+on an assumed application vulnerability.
+
+Genuine hosted provider journeys, physical-device/screen-reader acceptance,
+provider incident-freeze ownership, all-strong-methods-lost adjudication and the
+live financial release gates remain separately required. Local protocol,
+intercepted-SDK and native Chromium evidence must retain their distinct labels.

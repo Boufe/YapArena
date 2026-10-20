@@ -343,7 +343,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
     environment.DATABASE_OWNER_PASSWORD ||
     environment.DATABASE_RUNTIME_PASSWORD ||
     environment.DATABASE_FIXTURE_URL ||
-    environment.DATABASE_INSPECTION_URL
+    environment.DATABASE_INSPECTION_URL ||
+    environment.COIN_SANDBOX_OWNER_DATABASE_URL
   ) {
     throw new Error(
       "runtime must not receive database provisioning or migration secrets",

@@ -138,6 +138,28 @@ it("redacts the browser's account comparison hint from sign-out logs", async () 
   assert.equal(record.req.headers["x-yaparena-expected-account"], "[REDACTED]");
 });
 
+it("redacts the financial browser session comparison hint from HTTP logs", async () => {
+  const capture = captureLogger(),
+    app = express(),
+    sessionHint = "synthetic-private-financial-session";
+  app.use(createHttpLogger(capture.logger));
+  app.post("/api/coin-sandbox/withdrawals", (_r, s) =>
+    s.status(409).json({ error: "account changed" }),
+  );
+  await request(app)
+    .post("/api/coin-sandbox/withdrawals")
+    .set("x-request-id", "financial-session-comparison-redaction")
+    .set("x-yaparena-session", sessionHint);
+  const record = await capture.completion(
+    "financial-session-comparison-redaction",
+    409,
+    40,
+  );
+  capture.assertAbsent([sessionHint]);
+  assert.equal(record.req.headers["x-yaparena-session"], "[REDACTED]");
+  assert.equal(record.req.url, "/api/coin-sandbox/withdrawals");
+});
+
 function fixture({ environment = "development", ...overrides } = {}) {
   const capture = captureLogger();
   const sessionRecords = new Map();

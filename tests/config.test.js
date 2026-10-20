@@ -243,6 +243,7 @@ describe("configuration", () => {
       "DATABASE_RUNTIME_PASSWORD",
       "DATABASE_FIXTURE_URL",
       "DATABASE_INSPECTION_URL",
+      "COIN_SANDBOX_OWNER_DATABASE_URL",
     ]) {
       assert.throws(
         () =>

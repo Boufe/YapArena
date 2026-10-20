@@ -16,6 +16,7 @@ declare global {
     yapApproveCoinWithdrawal?: (
       requestId: string,
       terms: Record<string, string>,
+      sessionId: string,
     ) => Promise<Approval>;
   }
 }
@@ -628,6 +629,7 @@ if (mount) {
   async function approveCoinWithdrawal(
     requestId: string,
     terms: Record<string, string>,
+    sessionId: string,
   ) {
     if (busy) throw new Error("Finish the current security change first.");
     setBusy(true);
@@ -643,7 +645,10 @@ if (mount) {
               method: "POST",
               credentials: "same-origin",
               cache: "no-store",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                "X-YapArena-Session": sessionId,
+              },
               body: JSON.stringify({ credential }),
               signal: AbortSignal.timeout(30000),
             },

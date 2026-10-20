@@ -61,6 +61,15 @@ function unavailable(): never {
 function sessionDigest(sessionId: string) {
   return createHash("sha256").update(sessionId).digest("hex");
 }
+export async function deleteExpiredAccessChallenges(database: Pool) {
+  return (
+    (
+      await database.query(
+        "DELETE FROM account_access_challenges WHERE expires_at<clock_timestamp()-interval '1 day'",
+      )
+    ).rowCount ?? 0
+  );
+}
 async function issueClock(client: PoolClient) {
   const createdAt = (
     await client.query<{ createdAt: Date }>(
@@ -657,13 +666,7 @@ export function createAccountAccessRepository(
       }
     },
     async deleteExpiredChallenges() {
-      return (
-        (
-          await database.query(
-            "DELETE FROM account_access_challenges WHERE expires_at<clock_timestamp()-interval '1 day'",
-          )
-        ).rowCount ?? 0
-      );
+      return deleteExpiredAccessChallenges(database);
     },
   });
 }

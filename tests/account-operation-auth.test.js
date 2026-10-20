@@ -4,6 +4,7 @@ import { after, before, describe, it } from "node:test";
 import pg from "pg";
 import { privateKeyToAccount } from "viem/accounts";
 import { parseSiweMessage } from "viem/siwe";
+import { waitForSiweIssuedAt } from "./siwe-fixture-clock.js";
 import {
   accountOperationTermsDigest,
   createAccountOperationRepository,
@@ -260,6 +261,7 @@ describe(
         prepare(f, operation, { signature: undefined }),
         /wallet approval is invalid/,
       );
+      await waitForSiweIssuedAt(operation.authorizationMessage);
       const signature = await signer.signMessage({
         message: operation.authorizationMessage,
       });
@@ -269,6 +271,7 @@ describe(
       );
       await consume(await prepare(f, operation, { signature }));
       const second = await issue(f, { type: "wallet", walletId: f.walletId });
+      await waitForSiweIssuedAt(second.authorizationMessage);
       const approved = await prepare(f, second, {
         signature: await signer.signMessage({
           message: second.authorizationMessage,

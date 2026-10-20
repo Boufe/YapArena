@@ -24,6 +24,7 @@ import { createAccountAccessRepository } from "../dist/platform/auth/account-acc
 import { providerCredentialsDigest } from "../dist/platform/auth/provider-credentials.js";
 import { createProviderIdentityRecovery } from "../dist/platform/auth/provider-identity-recovery.js";
 import { createCoinSandboxRepository } from "../dist/features/account-wallet/sandbox-repository.js";
+import { waitForSiweIssuedAt } from "./siwe-fixture-clock.js";
 import { ProviderUnavailableError } from "../dist/platform/auth/privy.js";
 
 const ownerUrl = process.env.WALLET_TEST_OWNER_DATABASE_URL;
@@ -430,6 +431,7 @@ describe(
         ...target,
         credential: { type: "passkey", keyId: enrolled.keyId },
       });
+      await waitForSiweIssuedAt(operation.proposedMessage);
       const proof = {
         ...f,
         ...target,
@@ -940,7 +942,43 @@ describe(
           owner.query("DELETE FROM provider_identities WHERE subject=$1", [
             f.identity.subject,
           ]),
-          { code: "23503" },
+          (error) => {
+            // PostgreSQL documents both class-23 conditions; RESTRICT reports
+            // 23503 on the tested 17 release and 23001 on the tested 18 release.
+            assert.ok(["23503", "23001"].includes(error.code));
+            assert.equal(
+              error.constraint,
+              "provider_identity_recoveries_provider_old_subject_fkey",
+            );
+            return true;
+          },
+        );
+        assert.deepEqual(
+          (
+            await owner.query(
+              "SELECT user_id,email,methods,credentials_snapshot FROM provider_identities WHERE subject=$1",
+              [f.identity.subject],
+            )
+          ).rows[0],
+          {
+            user_id: null,
+            email: null,
+            methods: [],
+            credentials_snapshot: null,
+          },
+        );
+        assert.deepEqual(
+          (
+            await owner.query(
+              "SELECT user_id,old_subject,new_subject FROM provider_identity_recoveries WHERE id=$1",
+              [operation.id],
+            )
+          ).rows[0],
+          {
+            user_id: f.f.userId,
+            old_subject: f.identity.subject,
+            new_subject: f.next.subject,
+          },
         );
         await assert.rejects(
           owner.query("DELETE FROM provider_identity_recoveries WHERE id=$1", [
@@ -1538,6 +1576,7 @@ describe(
         };
       assert.ok(operation.authorizationMessage.includes(f.identity.email));
       assert.ok(operation.authorizationMessage.includes(identity.email));
+      await waitForSiweIssuedAt(operation.authorizationMessage);
       await assert.rejects(
         service.reconcile({
           ...input,

@@ -1,0 +1,47 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.fill: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('#email-auth').getByLabel('Email address', { exact: true })[22m
+[2m    - locator resolved to <input value="" required="" type="email" name="email" id="auth-email" maxlength="254" inputmode="email" spellcheck="false" autocomplete="email" autocapitalize="none" placeholder="you@example.com"/>[22m
+[2m    - fill("single-passkey@example.invalid")[22m
+[2m  - attempting fill action[22m
+[2m    2 × waiting for element to be visible, enabled and editable[22m
+[2m      - element is not visible[22m
+[2m    - retrying fill action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible, enabled and editable[22m
+[2m      - element is not visible[22m
+[2m    - retrying fill action[22m
+[2m      - waiting 100ms[22m
+[2m    60 × waiting for element to be visible, enabled and editable[22m
+[2m       - element is not visible[22m
+[2m     - retrying fill action[22m
+[2m       - waiting 500ms[22m
+
+    at verifyPrivyPasskeySetup (/Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:1279:63)
+    at async file:///Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:1592:7 {
+  log: [
+    "  - waiting for locator('#email-auth').getByLabel('Email address', { exact: true })",
+    '    - locator resolved to <input value="" required="" type="email" name="email" id="auth-email" maxlength="254" inputmode="email" spellcheck="false" autocomplete="email" autocapitalize="none" placeholder="you@example.com"/>',
+    '    - fill("single-passkey@example.invalid")',
+    '  - attempting fill action',
+    '    2 × waiting for element to be visible, enabled and editable',
+    '      - element is not visible',
+    '    - retrying fill action',
+    '    - waiting 20ms',
+    '    2 × waiting for element to be visible, enabled and editable',
+    '      - element is not visible',
+    '    - retrying fill action',
+    '      - waiting 100ms',
+    '    60 × waiting for element to be visible, enabled and editable',
+    '       - element is not visible',
+    '     - retrying fill action',
+    '       - waiting 500ms'
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.19.0

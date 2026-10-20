@@ -111,6 +111,13 @@ const sourceHashes = Object.fromEntries(
 );
 await mkdir(directory, { recursive: true });
 const app = express();
+const passkeyCookieGates = new Map<
+  string,
+  {
+    held: ReturnType<typeof deferred>;
+    arrived: ReturnType<typeof deferred>;
+  }
+>();
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(createEmailAuthSecurity("test"));
 app.get("/test/axe.js", (_request, response) =>
@@ -297,6 +304,24 @@ app.get("/api/account-wallet", (_request, response) =>
   }),
 );
 app.post("/api/auth/journey", (_request, response) => response.sendStatus(204));
+app.post("/api/auth/login", async (request, response) => {
+  const fixture = request.query.passkeyQueue;
+  const gate =
+    typeof fixture === "string" ? passkeyCookieGates.get(fixture) : undefined;
+  if (!gate)
+    return response
+      .status(400)
+      .json({ error: "unknown synthetic login fixture" });
+  gate.arrived.release();
+  await gate.held.promise;
+  return response
+    .cookie("single_privy_actor", "B", {
+      httpOnly: true,
+      sameSite: "strict",
+      path: "/",
+    })
+    .sendStatus(204);
+});
 app.get("/api/measurement/consent", (_request, response) =>
   response.json({ granted: false }),
 );
@@ -582,12 +607,1012 @@ async function verifyExchangeFailureClassification(
     }
   }
 }
+async function verifyPrivyPasskeySetup(
+  name: string,
+  viewport: { width: number; height: number },
+  expiredRestart = false,
+  queuedCompletion = false,
+) {
+  // WebAuthn accepts localhost for a local secure-context fixture, not an IP RP.
+  const fixtureOrigin = new URL(base);
+  fixtureOrigin.hostname = "localhost";
+  const passkeyBase = fixtureOrigin.origin;
+  const context = await browser.newContext({ viewport });
+  let stage = "initialize";
+  let counters = () => ({});
+  try {
+    await context.addInitScript(() => {
+      if (window === window.top)
+        localStorage.setItem("yaparena-measurement-declined", "1");
+    });
+    const page = await context.newPage();
+    page.on("pageerror", (error) => errors.push(error.message));
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("WebAuthn.enable");
+    const { authenticatorId } = await cdp.send(
+      "WebAuthn.addVirtualAuthenticator",
+      {
+        options: {
+          protocol: "ctap2",
+          transport: "internal",
+          hasResidentKey: true,
+          hasUserVerification: true,
+          isUserVerified: true,
+          automaticPresenceSimulation: true,
+        },
+      },
+    );
+    const now = Math.floor(Date.now() / 1000),
+      subject = "did:privy:synthetic-single-passkey",
+      email = "single-passkey@example.invalid",
+      intentId = "00000000-0000-4000-8000-000000000011",
+      operationId = "00000000-0000-4000-8000-000000000012",
+      resumedOperationId = "00000000-0000-4000-8000-000000000014",
+      keyId = "00000000-0000-4000-8000-000000000013",
+      terms = { intentId, subject, beforeDigest: "2".repeat(64) },
+      challenge = Buffer.alloc(32, 7).toString("base64url");
+    const makeToken = (sid: string) =>
+      [
+        Buffer.from(JSON.stringify({ alg: "ES256", typ: "JWT" })).toString(
+          "base64url",
+        ),
+        Buffer.from(
+          JSON.stringify({
+            iss: "privy.io",
+            aud: appId,
+            sub: subject,
+            sid,
+            iat: now,
+            exp: now + 600,
+          }),
+        ).toString("base64url"),
+        "synthetic-signature-never-server-verified",
+      ].join(".");
+    let token = makeToken("synthetic-single-passkey");
+    let authenticated = false,
+      activated = false,
+      protectedReadsBlocked = false,
+      activationInterrupted = false,
+      credentialId: string | null = null,
+      beginCalls = 0,
+      operationCalls = 0,
+      resumedOperationCalls = 0,
+      scopedCandidateCalls = 0,
+      providerInitCalls = 0,
+      providerLinkCalls = 0,
+      providerLogins = 0,
+      restartCalls = 0,
+      restartCompletions = 0,
+      completeCalls = 0,
+      providerChangeCalls = 0,
+      beginUnavailable = false,
+      fixtureAccount = "single-passkey-account",
+      replacementActor = false,
+      holdBegin = false;
+    const beginGate = deferred(),
+      heldBeginArrived = deferred(),
+      heldBeginFinished = deferred();
+    const unexpectedProviderPaths: string[] = [];
+    counters = () => ({
+      beginCalls,
+      operationCalls,
+      resumedOperationCalls,
+      scopedCandidateCalls,
+      providerInitCalls,
+      providerLinkCalls,
+      completeCalls,
+    });
+    const user = () => ({
+      id: subject,
+      is_guest: false,
+      created_at: now - 100,
+      has_accepted_terms: true,
+      mfa_methods: [],
+      linked_accounts: [
+        {
+          type: "email",
+          address: email,
+          verified_at: now,
+          first_verified_at: now - 100,
+          latest_verified_at: now,
+        },
+        ...(credentialId
+          ? [
+              {
+                type: "passkey",
+                credential_id: credentialId,
+                authenticator_name: "Synthetic virtual authenticator",
+                verified_at: now,
+                first_verified_at: now,
+                latest_verified_at: now,
+              },
+            ]
+          : []),
+      ],
+    });
+    const session = () => ({
+      user: user(),
+      token,
+      privy_access_token: token,
+      refresh_token: "synthetic-refresh-never-sent-to-provider",
+      is_new_user: false,
+      session_update_action: "set",
+    });
+    await context.route(
+      (url) =>
+        url.origin === "https://auth.privy.io" &&
+        url.pathname.startsWith("/api/"),
+      async (route) => {
+        const path = new URL(route.request().url()).pathname,
+          headers = {
+            "access-control-allow-origin": passkeyBase,
+            "access-control-allow-credentials": "true",
+            "access-control-allow-methods": "GET, POST, OPTIONS",
+            "access-control-allow-headers":
+              route.request().headers()["access-control-request-headers"] ??
+              "authorization, content-type, privy-app-id",
+          };
+        if (route.request().method() === "OPTIONS")
+          return route.fulfill({ status: 204, headers });
+        if (path === `/api/v1/apps/${appId}`)
+          return route.fulfill({
+            headers,
+            json: {
+              ...providerSettings,
+              captcha_enabled: false,
+              enabled_captcha_provider: null,
+            },
+          });
+        if (path === "/api/v1/passwordless/init")
+          return route.fulfill({ headers, json: { success: true } });
+        if (path === "/api/v1/passwordless/authenticate") {
+          providerLogins++;
+          if (expiredRestart && providerLogins > 1)
+            token = makeToken("synthetic-fresh-first-passkey-session");
+          return route.fulfill({ headers, json: session() });
+        }
+        if (path === "/api/v1/sessions")
+          return route.fulfill({ headers, json: session() });
+        if (path === "/api/v1/users/me")
+          return route.fulfill({ headers, json: { user: user() } });
+        if (path === "/api/v1/passkeys/link/init") {
+          providerInitCalls++;
+          return route.fulfill({
+            headers,
+            json: {
+              relying_party: passkeyBase,
+              options: {
+                rp: { id: "localhost", name: "Synthetic Privy SDK fixture" },
+                user: {
+                  id: Buffer.from("synthetic-single-passkey").toString(
+                    "base64url",
+                  ),
+                  name: email,
+                  display_name: "Synthetic fixture",
+                },
+                challenge,
+                pub_key_cred_params: [{ type: "public-key", alg: -7 }],
+                timeout: 60000,
+                attestation: "none",
+                authenticator_selection: {
+                  authenticator_attachment: "platform",
+                  resident_key: "required",
+                  require_resident_key: true,
+                  user_verification: "required",
+                },
+              },
+            },
+          });
+        }
+        if (path === "/api/v1/passkeys/link") {
+          providerLinkCalls++;
+          const body: { authenticator_response?: { id?: unknown } } = route
+            .request()
+            .postDataJSON();
+          assert.equal(typeof body.authenticator_response?.id, "string");
+          assert.ok(body.authenticator_response?.id);
+          credentialId = String(body.authenticator_response.id);
+          // Unlike login, the installed SDK's link transport parses a raw user.
+          return route.fulfill({ headers, json: user() });
+        }
+        if (
+          path === "/api/v1/analytics_events" ||
+          path === "/api/v1/sessions/logout"
+        )
+          return route.fulfill({ headers, json: { success: true } });
+        unexpectedProviderPaths.push(path);
+        return route.abort();
+      },
+    );
+    await page.route("**/api/auth/me", (route) =>
+      route.fulfill(
+        protectedReadsBlocked
+          ? {
+              status: 503,
+              json: { error: "Finish the pending passkey setup." },
+            }
+          : authenticated
+            ? {
+                json: {
+                  user: {
+                    id: fixtureAccount,
+                    username: "Synthetic passkey fixture",
+                    email,
+                    roles: ["participant"],
+                  },
+                },
+              }
+            : { status: 401, json: { error: "authentication required" } },
+      ),
+    );
+    await page.route("**/api/auth/privy/exchange", (route) => {
+      // The original valid cookie reaches the provider-session monitor before
+      // ordinary exchange; its exact pending delta denies that lookup with503.
+      if (protectedReadsBlocked)
+        return route.fulfill({
+          status: 503,
+          json: { error: "Finish the pending passkey setup." },
+        });
+      if (expiredRestart && activationInterrupted)
+        return route.fulfill({
+          status: 403,
+          json: {
+            code: "provider_credentials_changed",
+            error: "Synthetic expired first-key setup",
+          },
+        });
+      authenticated = true;
+      return route.fulfill({ status: 204 });
+    });
+    await page.route("**/api/account-wallet", (route) =>
+      route.fulfill({
+        json: {
+          enabled: true,
+          withdrawalsEnabled: false,
+          available: "0",
+          withdrawable: "0",
+          reserved: "0",
+          pending: "0",
+          promotional: "0",
+          grants: [],
+        },
+      }),
+    );
+    await page.route("**/api/auth/methods", (route) =>
+      route.fulfill(
+        protectedReadsBlocked
+          ? {
+              status: 503,
+              json: { error: "Finish the pending passkey setup." },
+            }
+          : {
+              json: {
+                provider: {
+                  subject: replacementActor
+                    ? "did:privy:synthetic-replacement"
+                    : subject,
+                  email,
+                  methods: credentialId ? ["email", "passkey"] : ["email"],
+                  credentials: [
+                    { type: "email", id: email },
+                    ...(credentialId
+                      ? [{ type: "passkey", id: credentialId }]
+                      : []),
+                  ],
+                },
+                legacyPassword: !expiredRestart,
+              },
+            },
+      ),
+    );
+    await page.route("**/api/auth/security/passkeys", (route) =>
+      route.fulfill(
+        !authenticated
+          ? { status: 401, json: { error: "authentication required" } }
+          : protectedReadsBlocked
+            ? {
+                status: 503,
+                json: { error: "Finish the pending passkey setup." },
+              }
+            : {
+                json: {
+                  passkeys: activated
+                    ? [
+                        {
+                          id: keyId,
+                          credentialId,
+                          provenance: "privy",
+                          createdAt: new Date(now * 1000).toISOString(),
+                          deviceType: "singleDevice",
+                          backedUp: false,
+                        },
+                      ]
+                    : [],
+                },
+              },
+      ),
+    );
+    await page.route(
+      "**/api/auth/security/provider/passkeys",
+      async (route) => {
+        beginCalls++;
+        assert.deepEqual(route.request().postDataJSON(), {});
+        if (beginUnavailable)
+          return route.fulfill({
+            status: 503,
+            json: { error: "Synthetic provider unavailable; retry later." },
+          });
+        if (holdBegin) {
+          heldBeginArrived.release();
+          await beginGate.promise;
+        }
+        await route.fulfill({
+          json: {
+            id: intentId,
+            expiresAt: new Date(Date.now() + 300000).toISOString(),
+            bootstrapAllowed: expiredRestart,
+            terms,
+          },
+        });
+        if (holdBegin) heldBeginFinished.release();
+      },
+    );
+    await page.route("**/api/auth/security/operations", (route) => {
+      operationCalls++;
+      assert.deepEqual(route.request().postDataJSON(), {
+        purpose: "provider.passkey.link",
+        terms,
+        credential: { type: "password" },
+      });
+      return route.fulfill({
+        json: { id: operationId, authorizationMessage: null },
+      });
+    });
+    await page.route(
+      `**/api/auth/security/provider/passkeys/${intentId}/activation`,
+      (route) => {
+        assert.ok(credentialId);
+        if (expiredRestart && activationInterrupted)
+          return route.fulfill({
+            status: 410,
+            json: { error: "Synthetic original activation expired." },
+          });
+        if (!activationInterrupted) {
+          activationInterrupted = true;
+          protectedReadsBlocked = true;
+          return route.fulfill({
+            status: 503,
+            json: {
+              error: "Synthetic interruption. Choose Finish passkey setup.",
+            },
+          });
+        }
+        return route.fulfill({
+          json: {
+            id: intentId,
+            bootstrapAllowed: false,
+            terms,
+            authenticationOptions: {
+              challenge,
+              rpId: "localhost",
+              allowCredentials: [{ id: credentialId, type: "public-key" }],
+              userVerification: "required",
+              timeout: 60000,
+            },
+          },
+        });
+      },
+    );
+    await page.route("**/api/auth/wallets", (route) =>
+      route.fulfill(
+        protectedReadsBlocked
+          ? {
+              status: 503,
+              json: { error: "Finish the pending passkey setup." },
+            }
+          : { json: { wallets: [] } },
+      ),
+    );
+    await page.route(
+      "**/api/auth/security/access/reconciliation/candidate",
+      (route) => {
+        scopedCandidateCalls++;
+        assert.equal(
+          route.request().headers().authorization,
+          `Bearer ${token}`,
+        );
+        return route.fulfill({
+          json: {
+            before: [{ type: "email", id: email }],
+            after: [
+              { type: "email", id: email },
+              { type: "passkey", id: credentialId },
+            ],
+            legacyPassword: !expiredRestart,
+            passkeys: [],
+            wallets: [],
+          },
+        });
+      },
+    );
+    await page.route(
+      `**/api/auth/security/provider/passkeys/${intentId}/operations`,
+      (route) => {
+        resumedOperationCalls++;
+        assert.equal(
+          route.request().headers().authorization,
+          `Bearer ${token}`,
+        );
+        assert.deepEqual(route.request().postDataJSON(), {
+          credential: { type: "password" },
+        });
+        return route.fulfill({
+          json: { id: resumedOperationId, authorizationMessage: null, terms },
+        });
+      },
+    );
+    await page.route(
+      `**/api/auth/security/provider/passkeys/${intentId}/complete`,
+      (route) => {
+        completeCalls++;
+        const body: {
+          authentication: { id: string };
+          approval: { id: string; password: string };
+        } = route.request().postDataJSON();
+        assert.equal(body.authentication.id, credentialId);
+        assert.deepEqual(body.approval, {
+          id: resumedOperationId,
+          password: "synthetic-retained-passphrase",
+        });
+        activated = true;
+        protectedReadsBlocked = false;
+        return route.fulfill({
+          headers: queuedCompletion
+            ? {
+                "set-cookie":
+                  "single_privy_actor=A; Path=/; HttpOnly; SameSite=Strict",
+              }
+            : {},
+          json: { keyId },
+        });
+      },
+    );
+    await page.route(
+      "**/api/auth/security/provider/passkeys/bootstrap/candidate",
+      (route) => {
+        assert.ok(expiredRestart);
+        assert.equal(
+          route.request().headers().authorization,
+          `Bearer ${token}`,
+        );
+        if (providerLogins < 2)
+          return route.fulfill({
+            status: 401,
+            json: {
+              code: "provider_session_revoked",
+              error:
+                "Sign in with Privy again before restarting passkey setup.",
+            },
+          });
+        return route.fulfill({
+          json: { code: "first_passkey_restart_available" },
+        });
+      },
+    );
+    await page.route(
+      "**/api/auth/security/provider/passkeys/bootstrap/restart",
+      (route) => {
+        restartCalls++;
+        assert.ok(expiredRestart && credentialId && providerLogins === 2);
+        assert.equal(
+          route.request().headers().authorization,
+          `Bearer ${token}`,
+        );
+        return route.fulfill({
+          json: {
+            id: intentId,
+            before: [{ type: "email", id: email }],
+            after: [
+              { type: "email", id: email },
+              { type: "passkey", id: credentialId },
+            ],
+            authenticationOptions: {
+              challenge,
+              rpId: "localhost",
+              allowCredentials: [{ id: credentialId, type: "public-key" }],
+              userVerification: "required",
+              timeout: 60000,
+            },
+          },
+        });
+      },
+    );
+    await page.route(
+      `**/api/auth/security/provider/passkeys/bootstrap/${intentId}/complete`,
+      (route) => {
+        restartCompletions++;
+        assert.equal(
+          route.request().headers().authorization,
+          `Bearer ${token}`,
+        );
+        const body: { authentication: { id: string } } = route
+          .request()
+          .postDataJSON();
+        assert.deepEqual(Object.keys(body), ["authentication"]);
+        assert.equal(body.authentication.id, credentialId);
+        activated = true;
+        authenticated = true;
+        protectedReadsBlocked = false;
+        return route.fulfill({ json: { keyId } });
+      },
+    );
+    await page.route("**/api/auth/security/provider/change", (route) => {
+      providerChangeCalls++;
+      return route.fulfill({
+        status: 409,
+        json: { error: "unexpected provider removal" },
+      });
+    });
+    stage = "synthetic SDK email sign-in";
+    await page.goto(`${passkeyBase}/account`);
+    const auth = page.locator("#email-auth");
+    await auth
+      .getByRole("button", { name: "Continue with email", exact: false })
+      .waitFor();
+    await page.waitForFunction(
+      () =>
+        document.querySelector<HTMLButtonElement>(
+          '#email-auth button[type="submit"]',
+        )?.disabled === false,
+    );
+    await auth.getByLabel("Email address", { exact: true }).fill(email);
+    await auth
+      .getByRole("button", { name: "Continue with email", exact: false })
+      .click();
+    await auth.getByLabel("Verification code", { exact: true }).fill("123456");
+    await auth
+      .getByRole("button", { name: "Verify and continue", exact: false })
+      .click();
+    await page.getByText("Account ready.", { exact: true }).waitFor();
+    await page.waitForFunction(
+      () => typeof window.yapApproveProviderChange === "function",
+    );
+    assert.equal(
+      await page.locator("#account-security-passkeys").isVisible(),
+      false,
+    );
+    assert.equal(
+      await page
+        .locator("#account-security-passkeys")
+        .getByText("authentication required", { exact: true })
+        .count(),
+      0,
+    );
+    const add = page.getByRole("button", {
+        name: "Add a passkey",
+        exact: true,
+      }),
+      approval = page.getByRole("dialog", {
+        name: "Approve Privy passkey",
+        exact: true,
+      });
+    await add.waitFor();
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Add security passkey", exact: true })
+        .count(),
+      0,
+    );
+    if (!expiredRestart) {
+      stage = "cancel retained approval before SDK write";
+      await add.click();
+      await approval.waitFor();
+      assert.equal(await add.isDisabled(), true);
+      await add.evaluate((button) => {
+        if (!(button instanceof HTMLButtonElement))
+          throw new Error("Passkey setup control must be a button");
+        button.click();
+        button.click();
+      });
+      assert.equal(beginCalls, 1, "busy setup cannot start duplicate intents");
+      await approval
+        .getByRole("button", { name: "Cancel", exact: true })
+        .click();
+      await approval.waitFor({ state: "detached" });
+      await page.waitForFunction(() =>
+        Array.from(document.querySelectorAll("button")).some(
+          (button) =>
+            button.textContent?.trim() === "Add a passkey" && !button.disabled,
+        ),
+      );
+      await page.waitForFunction(
+        () => document.activeElement?.textContent?.trim() === "Add a passkey",
+        undefined,
+        { timeout: 1000 },
+      );
+      assert.equal(
+        await add.evaluate((button) => document.activeElement === button),
+        true,
+        "cancelling trusted authorization restores focus to the re-enabled setup opener",
+      );
+      assert.equal(providerInitCalls, 0);
+      assert.equal(providerLinkCalls, 0);
+      assert.equal(operationCalls, 0);
+      checks.push(
+        `${name}: Account settings exposes only Add a passkey; cancelling retained authorization issues no operation or SDK passkey request`,
+      );
+    }
+    // The server deliberately reuses its still-unconsumed exact intent.
+    stage = "SDK creates and activates one passkey";
+    await add.click();
+    if (!expiredRestart) {
+      await approval.waitFor();
+      await approval
+        .getByLabel("Current password", { exact: true })
+        .fill("synthetic-retained-passphrase");
+      await approval
+        .getByRole("button", { name: "Approve change", exact: true })
+        .click();
+    }
+    await page
+      .locator("#provider-settings")
+      .getByText("Synthetic interruption. Choose Finish passkey setup.", {
+        exact: true,
+      })
+      .waitFor();
+    assert.equal(operationCalls, expiredRestart ? 0 : 1);
+    assert.equal(
+      completeCalls,
+      0,
+      "preparing approval must not consume the bridge proof",
+    );
+    assert.equal(providerLinkCalls, 1);
+    assert.equal(completeCalls, 0);
+    assert.equal(
+      await page.evaluate(() =>
+        sessionStorage.getItem("yaparena-provider-passkey-setup"),
+      ),
+      intentId,
+    );
+    if (expiredRestart) {
+      stage = "fresh SDK sign-in after expired first-key setup";
+      authenticated = false;
+      protectedReadsBlocked = false;
+      await page.reload();
+      await page
+        .getByRole("dialog", { name: "Review sign-in changes", exact: true })
+        .getByRole("button", {
+          name: "Sign in again to restart setup",
+          exact: true,
+        })
+        .click();
+      await page.waitForFunction(
+        () =>
+          document.querySelector<HTMLButtonElement>(
+            '#email-auth button[type="submit"]',
+          )?.disabled === false,
+      );
+      await auth.getByLabel("Email address", { exact: true }).fill(email);
+      await auth
+        .getByRole("button", { name: "Continue with email", exact: false })
+        .click();
+      await auth
+        .getByLabel("Verification code", { exact: true })
+        .fill("123456");
+      await auth
+        .getByRole("button", { name: "Verify and continue", exact: false })
+        .click();
+      const restart = page.getByRole("button", {
+        name: "Verify my first passkey and finish setup",
+        exact: true,
+      });
+      await restart.waitFor();
+      assert.equal(restartCalls, 0);
+      assert.equal(restartCompletions, 0);
+      assert.equal(await page.locator("#signed-in").isVisible(), false);
+      await capture(
+        page,
+        `first-privy-passkey-restart-confirmation-${name}.png`,
+        true,
+      );
+      await restart.click();
+      await page.locator("#signed-in").waitFor({ state: "visible" });
+      assert.equal(providerLogins, 2);
+      assert.equal(providerInitCalls, 1);
+      assert.equal(providerLinkCalls, 1);
+      assert.equal(restartCalls, 1);
+      assert.equal(restartCompletions, 1);
+      assert.equal(operationCalls, 0);
+      assert.equal(completeCalls, 0);
+      assert.equal(
+        (await cdp.send("WebAuthn.getCredentials", { authenticatorId }))
+          .credentials.length,
+        1,
+      );
+      assert.equal(
+        await page.evaluate(() =>
+          sessionStorage.getItem("yaparena-provider-passkey-setup"),
+        ),
+        null,
+      );
+      await capture(
+        page,
+        `first-privy-passkey-restart-complete-${name}.png`,
+        true,
+      );
+      checks.push(
+        `${name}: before-funds first-key fixture requires another installed-SDK email login with a distinct synthetic SID after interruption, keeps app access denied, and offers restart only from the explicit server availability response`,
+      );
+      checks.push(
+        `${name}: explicit first-key restart obtains native user verification from the same single SDK-created credential, completes only its bootstrap endpoint and never uses a password proof, new enrollment or payment`,
+      );
+      return;
+    }
+    stage = "refresh interrupted exact intent with protected reads unavailable";
+    await page.reload();
+    const resume = page
+      .locator("#passkey-setup-resume")
+      .getByRole("button", { name: "Finish passkey setup", exact: true });
+    await resume.waitFor();
+    await page.waitForFunction(
+      () =>
+        document.querySelector<HTMLButtonElement>(
+          "#passkey-setup-resume button",
+        )?.disabled === false,
+    );
+    assert.equal(await page.locator("#signed-in").isVisible(), false);
+    assert.equal(
+      await page.evaluate(async () => (await fetch("/api/auth/me")).status),
+      503,
+    );
+    await resume.click();
+    await approval.waitFor();
+    let queueFixture: string | undefined;
+    if (queuedCompletion) {
+      queueFixture = name;
+      const gate = { held: deferred(), arrived: deferred() };
+      passkeyCookieGates.set(queueFixture, gate);
+      await page.evaluate((fixture) => {
+        if (!window.yapSessionFetch)
+          throw new Error("session coordination unavailable");
+        void window
+          .yapSessionFetch(
+            `/api/auth/login?passkeyQueue=${encodeURIComponent(fixture)}`,
+            { method: "POST" },
+          )
+          .then(() => {
+            window.yapRememberSessionAccount?.("replacement-passkey-account");
+            window.dispatchEvent(new Event("yap:account-changed"));
+            Reflect.set(window, "__queuedPasskeyLoginComplete", true);
+          });
+      }, queueFixture);
+      await gate.arrived.promise;
+    }
+    await approval
+      .getByLabel("Current password", { exact: true })
+      .fill("synthetic-retained-passphrase");
+    await approval
+      .getByRole("button", { name: "Approve change", exact: true })
+      .click();
+    if (queueFixture) {
+      stage =
+        "queued original-key completion is cancelled by replacement login";
+      await page.waitForFunction(async () =>
+        (await navigator.locks.query()).pending?.some(
+          (lock) => lock.name === "yaparena-application-session",
+        ),
+      );
+      assert.equal(completeCalls, 0);
+      fixtureAccount = "replacement-passkey-account";
+      replacementActor = true;
+      protectedReadsBlocked = false;
+      passkeyCookieGates.get(queueFixture)?.held.release();
+      await page.waitForFunction(
+        () => Reflect.get(window, "__queuedPasskeyLoginComplete") === true,
+      );
+      await approval.waitFor({ state: "detached" });
+      await page.waitForFunction(
+        async () =>
+          (await navigator.locks.query()).pending?.length === 0 &&
+          (await navigator.locks.query()).held?.length === 0,
+      );
+      assert.equal(completeCalls, 0);
+      assert.equal(providerInitCalls, 1);
+      assert.equal(providerLinkCalls, 1);
+      assert.equal(
+        (await context.cookies(passkeyBase)).find(
+          (cookie) => cookie.name === "single_privy_actor",
+        )?.value,
+        "B",
+      );
+      assert.equal(
+        await page.evaluate(() =>
+          sessionStorage.getItem("yaparena-provider-passkey-setup"),
+        ),
+        null,
+      );
+      passkeyCookieGates.delete(queueFixture);
+      checks.push(
+        `${name}: real replacement-login HTTP headers hold the shared browser lock; account change aborts queued original-key completion before any submission and preserves the replacement HttpOnly cookie`,
+      );
+      return;
+    }
+    await page
+      .getByText(
+        "Passkey ready for sign-in and account approvals. Other sessions were signed out.",
+        { exact: true },
+      )
+      .waitFor();
+    assert.equal(providerInitCalls, 1);
+    assert.equal(providerLinkCalls, 1);
+    assert.equal(completeCalls, 1);
+    assert.equal(beginCalls, 2);
+    assert.equal(scopedCandidateCalls, 1);
+    assert.equal(resumedOperationCalls, 1);
+    assert.equal(
+      operationCalls,
+      1,
+      "resume does not retry ordinary protected authorization",
+    );
+    assert.equal(
+      (await cdp.send("WebAuthn.getCredentials", { authenticatorId }))
+        .credentials.length,
+      1,
+    );
+    assert.equal(
+      await page.evaluate(() =>
+        sessionStorage.getItem("yaparena-provider-passkey-setup"),
+      ),
+      null,
+    );
+    await capture(page, `single-privy-passkey-${name}.png`, true);
+    checks.push(
+      `${name}: installed Privy SDK creates one virtual-authenticator passkey through intercepted link endpoints; refresh preserves only its exact intent, keeps protected account data hidden, obtains a new scoped retained proof, and activates the same credential without a second registration`,
+    );
+    stage = "same passkey cannot approve its removal";
+    await page
+      .getByRole("button", { name: "Remove Passkey", exact: true })
+      .click();
+    const removal = page.getByRole("dialog", {
+      name: "Change sign-in methods",
+      exact: true,
+    });
+    await removal.waitFor();
+    assert.equal(
+      await removal.getByRole("option", { name: /^Passkey added/ }).count(),
+      0,
+    );
+    assert.equal(
+      await removal
+        .getByRole("option", { name: "Current password", exact: true })
+        .count(),
+      1,
+    );
+    assert.equal(
+      await page
+        .locator("#account-security-passkeys")
+        .getByRole("button")
+        .count(),
+      0,
+      "Privy management has no duplicate local removal control",
+    );
+    await removal.getByRole("button", { name: "Cancel", exact: true }).click();
+    assert.equal(providerChangeCalls, 0);
+    beginUnavailable = true;
+    await add.click();
+    await page
+      .getByText("Synthetic provider unavailable; retry later.", {
+        exact: true,
+      })
+      .waitFor();
+    assert.equal(providerInitCalls, 1);
+    assert.equal(providerLinkCalls, 1);
+    assert.equal(completeCalls, 1);
+    await capture(page, `single-privy-passkey-unavailable-${name}.png`, true);
+    checks.push(
+      `${name}: a failed guarded setup request surfaces its retry notice without opening another provider ceremony or repeating bridge completion`,
+    );
+    stage = "held begin cannot continue under a replacement account";
+    beginUnavailable = false;
+    holdBegin = true;
+    await add.click();
+    await heldBeginArrived.promise;
+    fixtureAccount = "replacement-passkey-account";
+    replacementActor = true;
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
+    await page.waitForFunction(
+      () =>
+        window.yapCurrentSessionAccount?.() === "replacement-passkey-account",
+    );
+    beginGate.release();
+    await heldBeginFinished.promise;
+    await page.evaluate(
+      () =>
+        new Promise<void>((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => done())),
+        ),
+    );
+    assert.equal(operationCalls, 1);
+    assert.equal(resumedOperationCalls, 1);
+    assert.equal(providerInitCalls, 1);
+    assert.equal(providerLinkCalls, 1);
+    assert.equal(completeCalls, 1);
+    assert.equal(
+      await page.evaluate(() =>
+        sessionStorage.getItem("yaparena-provider-passkey-setup"),
+      ),
+      null,
+    );
+    checks.push(
+      `${name}: a delayed original-account begin response cannot retain an intent, collect proof, open a provider ceremony or complete activation after verified account replacement`,
+    );
+    assert.deepEqual(unexpectedProviderPaths, []);
+    checks.push(
+      `${name}: the Privy credential is absent from authorization choices for its own removal and has no duplicate application removal button; cancellation changes neither provider nor bridge`,
+    );
+  } catch (error) {
+    const failedPage = context.pages()[0];
+    if (failedPage)
+      await capture(failedPage, `single-passkey-failure-${name}.png`, true);
+    await writeFile(
+      resolve(directory, `single-passkey-failure-${name}.json`),
+      JSON.stringify(
+        {
+          stage,
+          settings: await failedPage
+            ?.locator("#provider-settings")
+            .innerText()
+            .catch(() => null),
+          resume: await failedPage
+            ?.locator("#passkey-setup-resume")
+            .innerText()
+            .catch(() => null),
+          intentRetained: await failedPage
+            ?.evaluate(() =>
+              Boolean(
+                sessionStorage.getItem("yaparena-provider-passkey-setup"),
+              ),
+            )
+            .catch(() => null),
+          focus: await failedPage
+            ?.evaluate(() => ({
+              tag: document.activeElement?.tagName ?? null,
+              button:
+                document.activeElement instanceof HTMLButtonElement
+                  ? (document.activeElement.textContent?.trim() ?? null)
+                  : null,
+            }))
+            .catch(() => null),
+          errors,
+          counters: counters(),
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    throw error;
+  } finally {
+    await context.close();
+  }
+}
 try {
   for (const [name, viewport] of [
     ["desktop", { width: 1440, height: 1000 }],
     ["mobile", { width: 390, height: 844 }],
   ] as const) {
     await verifyExchangeFailureClassification(name, viewport);
+    await verifyPrivyPasskeySetup(name, viewport);
+    if (name === "desktop")
+      await verifyPrivyPasskeySetup("desktop-expired-restart", viewport, true);
+    if (name === "desktop")
+      await verifyPrivyPasskeySetup(
+        "desktop-queued-completion",
+        viewport,
+        false,
+        true,
+      );
     const context = await browser.newContext({
       viewport,
       reducedMotion: "reduce",
@@ -1393,16 +2418,6 @@ try {
           },
         });
       await page.route("**/api/auth/methods", passwordMethods);
-      await page.route("**/api/auth/security/passkeys/enrollment", (route) =>
-        route.fulfill({
-          json: {
-            id: "fixture-enrollment",
-            bootstrapAllowed: false,
-            // The cancelled fixture never invokes native registration.
-            options: {},
-          },
-        }),
-      );
       let staleSecurityWrites = 0;
       const rejectStaleSecurityWrite = (route: Route) => {
         staleSecurityWrites++;
@@ -1419,15 +2434,29 @@ try {
         "**/api/auth/security/passkeys/enrollment/*/complete",
         rejectStaleSecurityWrite,
       );
-      const addSecurityKey = page.getByRole("button", {
-          name: "Add security passkey",
-          exact: true,
-        }),
+      const openProviderApproval = () =>
+          page.evaluate(() => {
+            if (!window.yapPrepareProviderPasskey)
+              throw new Error("Privy passkey approval helper unavailable");
+            void window
+              .yapPrepareProviderPasskey({
+                intentId: "00000000-0000-4000-8000-000000000009",
+                subject: "did:privy:synthetic-approval",
+                beforeDigest: "1".repeat(64),
+              })
+              .catch(() => {});
+          }),
         securityApproval = page.getByRole("dialog", {
-          name: "Add security passkey",
+          name: "Approve Privy passkey",
           exact: true,
         });
-      await addSecurityKey.click();
+      assert.equal(
+        await page
+          .getByRole("button", { name: "Add security passkey", exact: true })
+          .count(),
+        0,
+      );
+      await openProviderApproval();
       await securityApproval.waitFor();
       await securityApproval
         .getByLabel("Current password", { exact: true })
@@ -1454,7 +2483,7 @@ try {
         "changing accounts must erase the detached trusted-credential input",
       );
       assert.equal(staleSecurityWrites, 0);
-      await addSecurityKey.click();
+      await openProviderApproval();
       await securityApproval.waitFor();
       await securityApproval
         .getByLabel("Current password", { exact: true })
@@ -2881,12 +3910,11 @@ try {
       });
       await page.goto(`${base}/account`);
       await page.getByText("Account ready.", { exact: true }).waitFor();
-      await page
-        .getByRole("button", {
-          name: "Lost this sign-in? Replace it using your YapArena security passkey",
-          exact: true,
-        })
-        .click();
+      // Legacy recovery remains a guarded internal event for retained keys;
+      // current account UI exposes only the Privy passkey setup flow.
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("yap:recover-provider")),
+      );
       await authModal
         .getByRole("heading", { name: "Recover your sign-in.", exact: true })
         .waitFor();
@@ -3059,7 +4087,7 @@ try {
       await page.goto(`${base}/account`);
       await page.getByText("Account ready.", { exact: true }).waitFor();
       const settingsOpener = page.getByRole("button", {
-        name: "Lost this sign-in? Replace it using your YapArena security passkey",
+        name: "Refresh active sessions",
         exact: true,
       });
       await settingsOpener.focus();
@@ -3125,14 +4153,43 @@ try {
       for (const denial of ["read", "write"] as const) {
         await page.goto(`${base}/account?storage-denied=${denial}`);
         await page.getByText("Account ready.", { exact: true }).waitFor();
-        await settingsOpener.click();
+        await page.waitForFunction(
+          () =>
+            Boolean(window.yapCurrentSessionAccount?.()) &&
+            document.querySelector<HTMLButtonElement>(
+              '#email-auth button[type="submit"]',
+            )?.disabled === false,
+        );
+        await page.evaluate(() =>
+          window.dispatchEvent(new Event("yap:recover-provider")),
+        );
         await authModal.waitFor({ state: "visible" });
         await authModal
           .getByText(
             "Browser storage is required to safely recover sign-in. Allow storage, then try again. No account was changed.",
             { exact: true },
           )
-          .waitFor();
+          .waitFor()
+          .catch(async (error: unknown) => {
+            await capture(page, `storage-${denial}-failure-${name}.png`, true);
+            await writeFile(
+              resolve(directory, `storage-${denial}-failure-${name}.json`),
+              JSON.stringify(
+                {
+                  phase: `legacy internal recovery storage ${denial}`,
+                  notices: await authModal
+                    .locator('[role="status"]')
+                    .allTextContents(),
+                  comparisonReady: await page.evaluate(() =>
+                    Boolean(window.yapCurrentSessionAccount?.()),
+                  ),
+                },
+                null,
+                2,
+              ) + "\n",
+            );
+            throw error;
+          });
         const beforeDeniedSend: number = sends;
         await authModal
           .getByLabel("Email address", { exact: true })
@@ -3191,7 +4248,7 @@ try {
         errors,
         requirementFailures,
         scope:
-          "Local SSR fixture and installed Privy SDK; public provider metadata fetched live with CAPTCHA explicitly disabled in the fixture response only; OTP endpoints intercepted. No real CAPTCHA validation, email delivery, successful provider login, hosted session, physical device or complete WCAG conformance evidence.",
+          "Local SSR fixture and installed Privy SDK; public provider metadata fetched live with CAPTCHA explicitly disabled in the fixture response only. OTP/passkey provider endpoints and application responses are synthetic. Real Chromium virtual-authenticator ceremonies exercise native passkey creation/assertion; real PostgreSQL acceptance is recorded separately. No real CAPTCHA validation, email delivery, genuine provider login/link, hosted session, physical device or complete WCAG conformance evidence.",
       },
       null,
       2,

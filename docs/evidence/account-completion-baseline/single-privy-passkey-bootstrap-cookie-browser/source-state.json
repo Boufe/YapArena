@@ -1,0 +1,10 @@
+{
+  "capturedAfterRun": true,
+  "hashes": {
+    "frontend/session-coordination.ts": "3015f1d94b82c79355b712a42c2fc0245e4f1b1bb47dc7850bb1b3a9c8bfa8bf",
+    "scripts/verify-session-coordination-browser.ts": "b753fb1706e4bbadbaf91b173444888dab0b250974f46de4983f52337c96990f",
+    "public/session-coordination.js": "30664c91796e6a18fd69569750e5baa8809674572913116c0126b8213166507b"
+  },
+  "recordedHelperSourceMatches": true,
+  "recordedHelperAssetMatches": true
+}

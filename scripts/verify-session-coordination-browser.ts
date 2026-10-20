@@ -17,7 +17,8 @@ function deferred() {
   return { promise, release };
 }
 const directory = resolve(
-  "docs/evidence/account-completion-baseline/session-coordination-browser",
+  process.env.SESSION_COORDINATION_ARTIFACT_DIR ??
+    "docs/evidence/account-completion-baseline/session-coordination-browser",
 );
 const asset = await readFile("public/session-coordination.js");
 const app = express();
@@ -171,6 +172,8 @@ try {
     ["POST", `/api/auth/security/wallet/operations/${id}/complete`],
     ["POST", `/api/auth/security/provider/link/${id}/complete`],
     ["POST", `/api/auth/security/provider/recovery/${id}/complete`],
+    ["POST", `/api/auth/security/provider/passkeys/${id}/complete`],
+    ["POST", `/api/auth/security/provider/passkeys/bootstrap/${id}/complete`],
   ] as const;
   for (const [index, [method, path]] of routes.entries()) {
     const first = `held-${index}`,

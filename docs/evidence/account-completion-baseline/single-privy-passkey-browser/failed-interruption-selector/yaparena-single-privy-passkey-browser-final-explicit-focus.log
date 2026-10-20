@@ -1,0 +1,19 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Error: strict mode violation: getByText('Synthetic interruption. Choose Finish passkey setup.', { exact: true }) resolved to 2 elements:
+    1) <p role="status" aria-live="polite" aria-atomic="true">Synthetic interruption. Choose Finish passkey set…</p> aka locator('#passkey-setup-resume').getByText('Synthetic interruption.')
+    2) <p role="status" aria-live="polite" aria-atomic="true">Synthetic interruption. Choose Finish passkey set…</p> aka locator('#provider-settings').getByText('Synthetic interruption.')
+
+Call log:
+[2m  - waiting for getByText('Synthetic interruption. Choose Finish passkey setup.', { exact: true }) to be visible[22m
+
+    at verifyPrivyPasskeySetup (/Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:1245:8)
+    at async file:///Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:1566:5 {
+  log: [
+    "  - waiting for getByText('Synthetic interruption. Choose Finish passkey setup.', { exact: true }) to be visible"
+  ]
+}
+
+Node.js v24.19.0

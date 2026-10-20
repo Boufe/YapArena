@@ -1,0 +1,13 @@
+{
+  "reviewedAt": "2026-10-20T19:13:45.875Z",
+  "revision": "2ad4fba6c42f9b754d58ab533dfadd6870dd8273",
+  "scope": "Independent static source review; exact hashes identify shared uncommitted source",
+  "hashes": {
+    "src/platform/auth/provider-passkeys.ts": "354704a5710508c161392aa97ebe50e8f26c9e26564665dd057e6c090d3eda8b",
+    "src/platform/auth/provider-passkey-policy.ts": "6058fea5c594a1b92bf2f73ec7f164064877c37dd5dcee473900e7ecc6849d81",
+    "src/platform/auth/provider-passkey-bootstrap.ts": "1619bc8653faba33d2d68a18512db998160fb886b4f0629a6bb402bc69c993f3",
+    "migrations/1792426012000_add-provider-passkey-provenance.js": "a7d2896153e1779914ce48f59c8207c490a0e5c2de827bcb9b725ee7294f3de3",
+    "migrations/1792426013000_add-provider-passkey-bootstrap.js": "c3e5fb5e4609d852ef41fa65336b2942ab88b8f2546552a84d2838ca4546ba0c",
+    "src/platform/auth/account-operations.ts": "909bd5467b6b30ee183eed4c7cb9057f24a154a5d40d5927e2093538d274d61d"
+  }
+}

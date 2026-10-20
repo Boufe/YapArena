@@ -1,7 +1,7 @@
 {
-  "at": "2026-10-20T16:34:59.098Z",
+  "at": "2026-10-20T17:13:38.631Z",
   "mode": "inspect",
-  "revision": "2a7156abc4159060b7fa91b4373f17c12dfb7720",
+  "revision": "93952425100d15bde110a0b1b38b04e35d653b9b",
   "helperSha256": "66a2f11b1ec2520f7d588ca5a407ce622406a510d52e1b680ef4ad84b9f8634b",
   "mutations": [],
   "services": [
@@ -14,9 +14,9 @@
       "branch": "main",
       "plan": "free",
       "latestDeploy": {
-        "id": "dep-dbbbgek9v7es73ekde80",
+        "id": "dep-dbbptn8n74is739a7tag",
         "status": "live",
-        "commit": "f942dc6290e5794395c380612abc826ea7952b16"
+        "commit": "93952425100d15bde110a0b1b38b04e35d653b9b"
       },
       "database": {
         "runtimeRole": true,
@@ -31,7 +31,7 @@
         "extraCaPathConfigured": false,
         "pgRootCertConfigured": false
       },
-      "coinSandboxEnabled": false,
+      "coinSandboxEnabled": true,
       "sandboxWebhookConfigured": false,
       "backgroundJobsEnabledByConfiguration": true
     },
@@ -44,7 +44,7 @@
       "branch": "main",
       "plan": null,
       "latestDeploy": {
-        "id": "dep-dbb8vro473hc73c4hc80",
+        "id": "dep-dbbptkvavr4c73dquqpg",
         "status": "live",
         "commit": "fd60543b5f6d8f0b65fe1f93807252064d9317f2"
       },

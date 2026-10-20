@@ -1,0 +1,38 @@
+{
+  "at": "2026-10-20T17:01:15.442Z",
+  "revision": "93952425100d15bde110a0b1b38b04e35d653b9b",
+  "projectRef": "ypteqfmjietdqjzyvgtk",
+  "encryptedBackup": true,
+  "ciphertextSha256": "463d592cfcad1c0809de68970001fe13611786bd991b975a01e1fe2472db4805",
+  "tableCount": 62,
+  "sequenceCount": 13,
+  "runtimeNonIdleSessions": 0,
+  "exactRestoredFingerprints": true,
+  "restoredMigrationRehearsal": true,
+  "rehearsedMigrations": [
+    "1792426004000_add-account-operation-proofs",
+    "1792426005000_add-account-security-passkeys",
+    "1792426006000_add-isolated-coin-sandbox",
+    "1792426006100_add-coin-debate-rounds",
+    "1792426006200_add-sandbox-webhook-inbox",
+    "1792426006300_allow-guarded-sandbox-void",
+    "1792426006400_add-account-media-revocation",
+    "1792426006500_add-sandbox-treasury-funding",
+    "1792426007000_add-account-access-reconciliation",
+    "1792426008000_bind-media-replacement-intent",
+    "1792426009000_add-sandbox-error-reports",
+    "1792426010000_enforce-sandbox-withdrawal-operator-boundary",
+    "1792426011000_add-provider-identity-recovery"
+  ],
+  "hostedMigrationsApplied": 0,
+  "hostedAccountMutations": 0,
+  "retainedAccounts": 3,
+  "totalAccounts": 4,
+  "liveJournals": 0,
+  "limits": [
+    "Private application schemas only; not a full Supabase/provider/global-role disaster recovery backup.",
+    "Local restore intentionally omits original ACLs; hosted role/catalog boundary is verified separately.",
+    "Runtime-role activity is a point-in-time adjunct to independently verified stopped writers; it does not prevent later connections.",
+    "No deletion rehearsal, provider mutation, live funds, service-state change or deployment."
+  ]
+}

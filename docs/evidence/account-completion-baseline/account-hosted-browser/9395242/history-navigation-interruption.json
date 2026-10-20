@@ -1,0 +1,69 @@
+{
+  "observedAt": "2026-10-20T17:23:43.409Z",
+  "passed": false,
+  "origin": "https://yaparena-staging-web.onrender.com",
+  "expectedRevision": "93952425100d15bde110a0b1b38b04e35d653b9b",
+  "localRevision": "93952425100d15bde110a0b1b38b04e35d653b9b",
+  "revisionEvidence": "Expected operator-selected revision plus exact served asset hashes; this does not independently attest server commit identity.",
+  "elapsedMs": 6604,
+  "checks": [
+    "all fourteen hosted authentication/header/security assets match the selected local build",
+    "public health and PostgreSQL-backed readiness return 200",
+    "real public provider metadata and app flags agree; email/Google/passkeys enabled and merging/automatic wallets off",
+    "five private routes deny a fresh guest with 401/no-store and issue no application cookie"
+  ],
+  "failures": [
+    "hosted guest acceptance failed during desktop public account page HTTP; no raw provider/browser error was recorded"
+  ],
+  "sourceHashes": {
+    "scripts/verify-account-hosted-browser.ts": "398c542f88a6737a0ccce899ba17ff4de22d25302270a06ac23318ec6fa3e25f",
+    "src/platform/auth/router.ts": "72e4e1daa21152a147c4e360b3b13cbe520d6ac7b1bdf43014ff8a4598283803",
+    "src/platform/shared-abuse.ts": "32f4f5a76e962a0ab9827cead87113a116f108da0b81535a29dcdf3adc29cce6",
+    "src/platform/auth/browser-security.ts": "5beed60186ee941bb68338273c8dc1577ccd91f3a996720e7f952bebca136e04",
+    "src/platform/viewer-admission.ts": "5fc51c9e6d22b98b066e097c9241ee1447791d8b904ff42710f694b473818e13",
+    "frontend/site-header.ts": "a43c6d8a62dc765afab7dbc7d5979986b7d45ab9bbb6eee1a3a7245eac9e7b00",
+    "dist/platform/auth/router.js": "9d593d8c0384635cc7ecd6a7916ec030fb35ed36ede1270298ef18370f04a61d",
+    "dist/platform/shared-abuse.js": "ae120ba819589c30857ab9249c8fa77b0e1d0db41601249c99309445e023c329"
+  },
+  "assetHashes": {
+    "session-coordination.js": "62fdfdbec9f5d42c20f06846e3c32758ed8e3b6bc79d165455ed758c0ea477f9",
+    "auth-return.js": "891d6907811a6a507800ddb475ace41786885d69448ac699cb7c435029f0626d",
+    "site-header.js": "5fcf24e395827bc16da0014318da0b998b4f20af5846d45c77cabb98307eebe5",
+    "site.js": "0543de8bf00750b5ca1544f3d24502ed11193f00f9289320d6905cacff692dd8",
+    "account.js": "120efb4ec74cfd49cd897c408939a2b4780165cdb04f0bc771f79e528fa1d62d",
+    "account-session-list.js": "1e4da048f89dcea314e10483dc10ea046fb4efae47fe9d4069b1f01373bb49c5",
+    "account-sessions.js": "e544082c908e37d08cb5e05d3e2f72a57556770fba72fa7ab33c05e65b283aef",
+    "account-auth.bundle.js": "0240e20c93d9419806b5c80436d54276fba4fd47056072f4a781fa4023ea1617",
+    "account-security.bundle.js": "fbd23da267408af036e9ec32f1e844f9ad2bd678fb4978a95cfd41a76d598c21",
+    "account-coins.js": "18f9676e53a859a75a35531736b469675e3e680a0bd8931dd1d106880f18341d",
+    "account-auth.css": "dfa7bfe18baa0a76c45a9974aa24785f868f71ca31497794dfcaf11815c12da7",
+    "site-header.css": "e55326946fef05d5f21a7954ec6fa9d6895a620d3491de52a0c3fdcc42ec6518",
+    "site.css": "c2481b6017fb564fdaff0bf437a18f64f56e6dbb2492f2047199a93f06514bd7",
+    "arena.css": "087928e12c8be4a87d006b22b91f1534a647b44425d1129b1d54c2d3d4dc3cb1"
+  },
+  "providerMetadata": {
+    "appId": "cmvfjb3r800vy0hl3heg2cuvv",
+    "email": true,
+    "google": true,
+    "passkeys": true,
+    "automaticEthereumWallet": false,
+    "automaticSolanaWallet": false,
+    "mergeAccountsByEmail": false
+  },
+  "redisObservation": null,
+  "accountResponses": [],
+  "navigationFailures": [
+    {
+      "viewport": "desktop",
+      "origin": "https://yaparena-staging-web.onrender.com",
+      "pathname": "/",
+      "aborted": true,
+      "timedOut": false
+    }
+  ],
+  "limitations": [
+    "Guest browser only; no OTP, OAuth or provider-passkey ceremony, account creation, signed-in financial action or identity mutation.",
+    "Headless emulated viewports; no physical device, screen-reader or full WCAG conformance claim.",
+    "Redis probe is behavioral code-enforced noeviction/Lua evidence; it is not raw hosted INFO, a hosted outage drill or a multi-instance topology test."
+  ]
+}

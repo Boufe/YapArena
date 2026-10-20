@@ -39,7 +39,31 @@ acceptance. See the [completion matrix](email-first-completion.md) for current
 commands, tested revisions and limits.
 
 `verify-account-staging.ts` performs a read-only, strict-TLS catalog/account
-preflight. `release-account-staging.ts` is a separate guarded owner command for
+preflight. `inspect-account-provider-reset.ts` is also checked in the
+database-tools project. It reads only the fixed staging owner's TLS snapshot and
+bounded Privy user GETs using the named Render service configuration; output is
+aggregate state/digest comparisons only. It never changes provider or account
+state, loads `.env`, or records private identities or credentials.
+`retry-account-provider-reset.ts` is the separate fixed-staging owner command,
+checked in the same project. Its `retry-uncertain`, `reconcile-delayed` and
+`finalize-reviewed` commands require the matching `ACCOUNT_STAGING_PROVIDER_ACTION`
+and a caller-retained UUID. The latter two also require a private reviewed
+activity-log file and its exact SHA-256. `reconcile-delayed` permits only a single
+reviewed unfreeze after the selected freeze is independently established;
+`finalize-reviewed` permits only provider GETs and finalizes local state after
+the exact unfreeze is confirmed. Neither mode clears a fence on an unknown
+provider outcome.
+Build the reviewed server revision first; the CLI imports its compiled API.
+It selects the sole eligible manual/uncertain mapping, then delegates exact
+provider/digest inspection, atomic claim and full reset to the reviewed operator
+API. An incomplete audited attempt stops for inspection instead of starting
+another reset; do not switch to a new UUID to bypass that stop. It emits fixed stages
+and HTTP error status only, never account identifiers or provider response bodies.
+Its `--verify-transport` mode exercises the installed SDK's GET, POST freeze and
+DELETE freeze through the same mode-specific allowlist with an injected offline sender, and
+rejects incorrect methods, paths, bodies and content types. It makes no network
+or database calls and needs no operator configuration.
+`release-account-staging.ts` is a separate guarded owner command for
 encrypted backup, isolated restore/migration rehearsal and exact reviewed
 additive migrations. It requires independently stopped writers and passed
 release gates; its environment assertions alone do not establish either.

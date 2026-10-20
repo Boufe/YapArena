@@ -76,6 +76,34 @@ function object(value: unknown): Record<string, unknown> {
 function noStore(response: Response) {
   assert.match(response.headers.get("cache-control") ?? "", /\bno-store\b/);
 }
+function guestCookies(response: Response, allowMediaGuard: boolean) {
+  const cookies = response.headers.getSetCookie();
+  if (!allowMediaGuard) {
+    assert.equal(cookies.length, 0, "private guest route issues no cookies");
+    return;
+  }
+  assert.ok(cookies.length <= 1, "at most the media-admission guard is issued");
+  for (const cookie of cookies) {
+    const [pair, ...attributes] = cookie.split(";").map((part) => part.trim());
+    assert.match(
+      pair ?? "",
+      /^yap_media_guard=[a-f0-9]{32}\.\d{13}\.[A-Za-z0-9_-]{43}$/,
+      "only the non-authentication media-admission guard is issued",
+    );
+    assert.ok(attributes.includes("Secure"));
+    assert.ok(attributes.includes("HttpOnly"));
+    assert.ok(attributes.includes("SameSite=Strict"));
+    assert.ok(attributes.includes("Path=/"));
+    assert.equal(
+      attributes.some((part) => /^Domain=/i.test(part)),
+      false,
+    );
+    const lifetime = attributes.find((part) => /^Max-Age=/i.test(part));
+    assert.match(lifetime ?? "", /^Max-Age=\d+$/);
+    const seconds = Number(lifetime?.slice("Max-Age=".length));
+    assert.ok(seconds > 0 && seconds <= 900);
+  }
+}
 type RedisMetrics = { ok: number; observations: number; seconds: number };
 function redisMetrics(body: string): RedisMetrics {
   function value(pattern: RegExp) {
@@ -102,6 +130,22 @@ let redisObservation: {
   minimumAdditionalSuccessfulOperations: number;
 } | null = null;
 let providerMetadata: Record<string, boolean | string> | null = null;
+const accountResponses: {
+  viewport: string;
+  status: number;
+  origin: string;
+  pathname: string;
+  fromServiceWorker: boolean;
+  redirects: { status: number | null; origin: string; pathname: string }[];
+}[] = [];
+const navigationFailures: {
+  viewport: string;
+  origin: string;
+  pathname: string;
+  aborted: boolean;
+  timedOut: boolean;
+}[] = [];
+const completedHistoryBarriers: string[] = [];
 const browser = await chromium.launch({
   executablePath:
     process.env.BROWSER_CHROME_PATH ??
@@ -117,6 +161,8 @@ try {
     "src/platform/auth/router.ts",
     "src/platform/shared-abuse.ts",
     "src/platform/auth/browser-security.ts",
+    "src/platform/viewer-admission.ts",
+    "frontend/site-header.ts",
     "dist/platform/auth/router.js",
     "dist/platform/shared-abuse.js",
   ])
@@ -191,7 +237,7 @@ try {
     const response = await request(path);
     assert.equal(response.status, 401, `anonymous protected route: ${path}`);
     noStore(response);
-    assert.equal(response.headers.has("set-cookie"), false);
+    guestCookies(response, path === "/api/auth/me");
   }
   checks.push(
     "five private routes deny a fresh guest with 401/no-store and issue no application cookie",
@@ -229,6 +275,7 @@ try {
     const home = await page.goto(origin + "/", {
       waitUntil: "domcontentloaded",
     });
+    stage = `${name} homepage HTTP and CSP`;
     assert.equal(home?.status(), 200);
     const csp = home?.headers()["content-security-policy"] ?? "";
     assert.match(csp, /frame-ancestors 'none'/);
@@ -236,10 +283,12 @@ try {
     assert.match(csp, /script-src[^;]*'self'/);
     assert.doesNotMatch(csp, /script-src[^;]*'unsafe-eval'/);
     const guest = page.locator("[data-header-guest]");
+    stage = `${name} signed-out header`;
     await guest.waitFor({ state: "visible" });
     assert.equal(await page.locator("[data-header-member]").isVisible(), false);
     await page.screenshot({ path: resolve(directory, `home-${name}.png`) });
     await guest.locator("[data-auth-open=login]").click();
+    stage = `${name} login popup rendering`;
     const dialog = page.locator("#site-auth-dialog");
     await dialog
       .getByRole("heading", { name: "Welcome back.", exact: true })
@@ -247,6 +296,7 @@ try {
     await dialog
       .getByRole("button", { name: "Continue with email →", exact: true })
       .waitFor({ state: "visible" });
+    stage = `${name} genuine provider initialization and email focus`;
     await page.waitForFunction(
       () => {
         const submit = document.querySelector<HTMLButtonElement>(
@@ -260,6 +310,7 @@ try {
       undefined,
       { timeout: remaining() },
     );
+    stage = `${name} optional login controls and empty email`;
     assert.equal(
       await dialog
         .getByRole("button", { name: "Continue with Google", exact: true })
@@ -277,19 +328,75 @@ try {
       "",
     );
     await page.screenshot({ path: resolve(directory, `login-${name}.png`) });
+    stage = `${name} Escape closes popup and restores focus`;
     await page.keyboard.press("Escape");
     await dialog.waitFor({ state: "hidden" });
+    stage = `${name} Escape history traversal completion`;
+    await page.waitForFunction(
+      () => {
+        const state: unknown = history.state;
+        return !(
+          state &&
+          typeof state === "object" &&
+          "yapAuthDialog" in state
+        );
+      },
+      undefined,
+      { timeout: remaining() },
+    );
+    completedHistoryBarriers.push(name);
     await page.waitForFunction(
       () => document.activeElement?.getAttribute("data-auth-open") === "login",
     );
-    const account = await page.goto(origin + "/account", {
-      waitUntil: "domcontentloaded",
-    });
+    stage = `${name} public account page HTTP`;
+    const account = await page
+      .goto(origin + "/account", { waitUntil: "domcontentloaded" })
+      .catch((cause: unknown) => {
+        const url = new URL(page.url());
+        navigationFailures.push({
+          viewport: name,
+          origin: url.origin,
+          pathname: url.pathname,
+          aborted:
+            cause instanceof Error && /net::ERR_ABORTED/.test(cause.message),
+          timedOut: cause instanceof Error && cause.name === "TimeoutError",
+        });
+        throw cause;
+      });
+    if (account) {
+      const url = new URL(account.url());
+      const redirects: {
+        status: number | null;
+        origin: string;
+        pathname: string;
+      }[] = [];
+      let previous = account.request().redirectedFrom();
+      while (previous && redirects.length < 10) {
+        const response = await previous.response();
+        const redirectedUrl = new URL(previous.url());
+        redirects.push({
+          status: response?.status() ?? null,
+          origin: redirectedUrl.origin,
+          pathname: redirectedUrl.pathname,
+        });
+        previous = previous.redirectedFrom();
+      }
+      accountResponses.push({
+        viewport: name,
+        status: account.status(),
+        origin: url.origin,
+        pathname: url.pathname,
+        fromServiceWorker: account.fromServiceWorker(),
+        redirects,
+      });
+    }
     assert.equal(account?.status(), 200);
+    stage = `${name} public account email form`;
     await page
       .locator("#email-auth")
       .getByLabel("Email address", { exact: true })
       .waitFor();
+    stage = `${name} account provider initialization`;
     await page.waitForFunction(
       () =>
         document.querySelector<HTMLButtonElement>(
@@ -298,6 +405,7 @@ try {
       undefined,
       { timeout: remaining() },
     );
+    stage = `${name} account privacy and viewport layout`;
     assert.equal(await page.locator("#signed-in").isVisible(), false);
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth > innerWidth + 1,
@@ -307,6 +415,7 @@ try {
       path: resolve(directory, `account-${name}.png`),
       fullPage: true,
     });
+    stage = `${name} page exception and mutation counters`;
     assert.equal(pageErrors, 0, "no uncaught page exceptions");
     assert.equal(
       unexpectedMutations,
@@ -388,6 +497,9 @@ try {
     assetHashes,
     providerMetadata,
     redisObservation,
+    accountResponses,
+    navigationFailures,
+    completedHistoryBarriers,
     limitations: [
       "Guest browser only; no OTP, OAuth or provider-passkey ceremony, account creation, signed-in financial action or identity mutation.",
       "Headless emulated viewports; no physical device, screen-reader or full WCAG conformance claim.",

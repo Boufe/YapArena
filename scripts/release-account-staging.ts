@@ -40,20 +40,14 @@ const projectRef = "ypteqfmjietdqjzyvgtk";
 const privateRoot = "/private/tmp/yaparena-auth-operator";
 const credentialPath = resolve(privateRoot, "role-recovery.json");
 const keyPath = resolve(privateRoot, "selected-1-4-3/backup-key");
+// The original 13-migration release is retained in its dated evidence. This
+// release starts from that verified 41-migration staging schema.
+const reviewedAppliedCount = 41;
+const releaseEvidence =
+  "docs/evidence/account-completion-baseline/privy-passkey-release";
 const reviewedPending = [
-  "1792426004000_add-account-operation-proofs",
-  "1792426005000_add-account-security-passkeys",
-  "1792426006000_add-isolated-coin-sandbox",
-  "1792426006100_add-coin-debate-rounds",
-  "1792426006200_add-sandbox-webhook-inbox",
-  "1792426006300_allow-guarded-sandbox-void",
-  "1792426006400_add-account-media-revocation",
-  "1792426006500_add-sandbox-treasury-funding",
-  "1792426007000_add-account-access-reconciliation",
-  "1792426008000_bind-media-replacement-intent",
-  "1792426009000_add-sandbox-error-reports",
-  "1792426010000_enforce-sandbox-withdrawal-operator-boundary",
-  "1792426011000_add-provider-identity-recovery",
+  "1792426012000_add-provider-passkey-provenance",
+  "1792426013000_add-provider-passkey-bootstrap",
 ];
 const exec = promisify(execFile),
   sha = (value: Buffer | string) =>
@@ -334,6 +328,7 @@ try {
       (name) => !applied.includes(name),
     );
   assert.deepEqual(pending, reviewedPending);
+  assert.equal(applied.length, reviewedAppliedCount);
   assert.deepEqual(
     applied.filter((name) => !(name in migrationHashes)),
     [],
@@ -560,13 +555,11 @@ try {
       `${JSON.stringify(metadata, null, 2)}\n`,
       { mode: 0o600, flag: "wx" },
     );
-    await mkdir(resolve("docs/evidence/account-completion-baseline"), {
+    await mkdir(resolve(releaseEvidence), {
       recursive: true,
     });
     await writeFile(
-      resolve(
-        "docs/evidence/account-completion-baseline/staging-release-prepare.json",
-      ),
+      resolve(releaseEvidence, "staging-release-prepare.json"),
       `${JSON.stringify({ at: new Date().toISOString(), revision, projectRef, encryptedBackup: true, ciphertextSha256: metadata.ciphertextSha256, tableCount: tables.length, sequenceCount: metadata.sequences.length, runtimeNonIdleSessions, exactRestoredFingerprints: true, restoredMigrationRehearsal: true, rehearsedMigrations: pending, hostedMigrationsApplied: 0, hostedAccountMutations: 0, retainedAccounts: 3, totalAccounts: 4, liveJournals: 0, limits: ["Private application schemas only; not a full Supabase/provider/global-role disaster recovery backup.", "Local restore intentionally omits original ACLs; hosted role/catalog boundary is verified separately.", "Runtime-role activity is a point-in-time adjunct to independently verified stopped writers; it does not prevent later connections.", "No deletion rehearsal, provider mutation, live funds, service-state change or deployment."] }, null, 2)}\n`,
     );
     console.log(
@@ -635,9 +628,7 @@ try {
     assert.deepEqual(await migrations(client), Object.keys(migrationHashes));
     await verifyAccounts(client);
     await writeFile(
-      resolve(
-        "docs/evidence/account-completion-baseline/staging-release-migrate.json",
-      ),
+      resolve(releaseEvidence, "staging-release-migrate.json"),
       `${JSON.stringify({ at: new Date().toISOString(), revision, projectRef, appliedMigrations: pending, ownerOnly: true, runtimeNonIdleSessions, retainedAccounts: 3, totalAccounts: 4, liveJournals: 0, encryptedBackupSha256: value.ciphertextSha256, rollback: "Forward-only schema changes. Retained encrypted backup is emergency recovery evidence; do not run down migrations or reset accounts. Reassess application compatibility before code rollback." }, null, 2)}\n`,
     );
     console.log(

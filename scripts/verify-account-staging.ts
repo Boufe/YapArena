@@ -17,7 +17,9 @@ import pg from "pg";
 // credentials to an application/worker. The existing private file stays private.
 const projectRef = "ypteqfmjietdqjzyvgtk";
 const credentialPath = "/private/tmp/yaparena-auth-operator/role-recovery.json";
-const evidenceDirectory = resolve("docs/evidence/account-completion-baseline");
+const evidenceDirectory = resolve(
+  "docs/evidence/account-completion-baseline/privy-passkey-release",
+);
 const phase = process.argv[2];
 assert.ok(phase === "preflight" || phase === "postflight");
 assert.equal(process.argv.length, 3);
@@ -149,6 +151,34 @@ try {
   assert.equal(accounts.selectedResetAbsent, true);
   assert.equal(accounts.otherAccounts, 1);
   assert.equal(accounts.otherProviderMappedAccounts, 1);
+  step = "inspect provider session fences without exporting identities";
+  const providerSessionFences = (
+    await owner.client.query<{
+      activeMappings: number;
+      generationMismatch: number;
+      complete: number;
+      pending: number;
+      running: number;
+      manualUncertain: number;
+      manualInherited: number;
+      manualIndependentFreeze: number;
+      manualOther: number;
+    }>(
+      `SELECT
+        (SELECT count(*)::int FROM yaparena.provider_identities p JOIN yaparena.users u ON u.id=p.user_id WHERE u.account_status='active') AS "activeMappings",
+        (SELECT count(*)::int FROM yaparena.provider_identities p JOIN yaparena.users u ON u.id=p.user_id WHERE u.account_status='active' AND p.auth_generation<>u.auth_generation) AS "generationMismatch",
+        count(*) FILTER(WHERE j.state='complete')::int AS complete,
+        count(*) FILTER(WHERE j.state='pending')::int AS pending,
+        count(*) FILTER(WHERE j.state='running')::int AS running,
+        count(*) FILTER(WHERE j.state='manual' AND j.failure_reason='uncertain_provider_outcome')::int AS "manualUncertain",
+        count(*) FILTER(WHERE j.state='manual' AND j.failure_reason='inherited_manual')::int AS "manualInherited",
+        count(*) FILTER(WHERE j.state='manual' AND j.failure_reason='independent_provider_freeze')::int AS "manualIndependentFreeze",
+        count(*) FILTER(WHERE j.state='manual' AND (j.failure_reason IS NULL OR j.failure_reason NOT IN('uncertain_provider_outcome','inherited_manual','independent_provider_freeze')))::int AS "manualOther"
+       FROM yaparena.provider_revocation_jobs j`,
+    )
+  ).rows[0]!;
+  for (const count of Object.values(providerSessionFences))
+    assert.ok(Number.isSafeInteger(count) && count >= 0);
   async function liveCount(table: "coin_journals" | "coin_grant_lots") {
     const present = (
       await owner.client.query<{ present: boolean }>(
@@ -278,6 +308,7 @@ try {
       unknownApplied,
     },
     accounts,
+    providerSessionFences,
     liveJournals,
     liveGrantLots,
     legacySpeakerInventory,
@@ -305,6 +336,7 @@ try {
       pendingMigrations: report.migrations.pending.length,
       retainedAccounts: accounts.retained,
       totalAccounts: accounts.total,
+      providerSessionFences,
       liveJournals,
       legacySpeakerInventory,
       evidence: `staging-database-${phase}.json`,

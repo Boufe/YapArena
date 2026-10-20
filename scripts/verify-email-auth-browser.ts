@@ -981,6 +981,7 @@ try {
           )?.disabled,
       );
       assert.deepEqual(sessionRemovals, ["101", "100"]);
+      const previousRemovalGate = sessionRemovalGate;
       fixtureAccountId = "replacement-fixture";
       managedSessions = [
         {
@@ -988,6 +989,12 @@ try {
           current: true,
           createdAt: "2026-10-20T04:00:00.000Z",
           expiresAt: "2026-11-20T04:00:00.000Z",
+        },
+        {
+          id: "201",
+          current: false,
+          createdAt: "2026-10-20T03:00:00.000Z",
+          expiresAt: "2026-11-20T03:00:00.000Z",
         },
       ];
       await page.evaluate(() => {
@@ -1003,16 +1010,24 @@ try {
       });
       await sessions
         .getByText(
-          "1 active session. Devices and locations are not collected.",
+          "2 active sessions. Devices and locations are not collected.",
           { exact: true },
         )
         .waitFor();
+      sessionRemovalGate = deferred();
+      sessionRemovalStarted = deferred();
+      page.once("dialog", (confirmation) => void confirmation.accept());
+      await sessions
+        .getByRole("button", { name: /^Sign out session, started/ })
+        .click();
+      await sessionRemovalStarted.promise;
+      assert.deepEqual(sessionRemovals, ["101", "100", "201"]);
       const staleResponse = page.waitForResponse(
         (response) =>
           response.request().method() === "DELETE" &&
           new URL(response.url()).pathname === "/api/auth/sessions/100",
       );
-      sessionRemovalGate.release();
+      previousRemovalGate.release();
       await staleResponse;
       await page.evaluate(
         () =>
@@ -1027,13 +1042,18 @@ try {
       );
       assert.equal(
         await sessions
-          .getByText(
-            "1 active session. Devices and locations are not collected.",
-            { exact: true },
-          )
-          .isVisible(),
-        true,
+          .getByRole("button", { name: "Refresh active sessions", exact: true })
+          .isEnabled(),
+        false,
+        "the stale request cannot release the replacement account's pending removal",
       );
+      const replacementRemovalGate = sessionRemovalGate;
+      sessionRemovalGate = undefined;
+      replacementRemovalGate.release();
+      await sessions
+        .getByText("Session signed out.", { exact: true })
+        .waitFor();
+      assert.equal(await sessions.locator("li").count(), 1);
       assert.equal(
         await sessions
           .getByRole("button", { name: "Refresh active sessions", exact: true })
@@ -1049,7 +1069,7 @@ try {
       await capture(page, `session-race-protected-${name}.png`, true);
       sessionRemovalGate = undefined;
       checks.push(
-        `${name}: session list removes only the selected other session, restores refresh focus and ignores a late current-session DELETE after account change without signing out the replacement account`,
+        `${name}: session list removes only the selected session, permits a replacement account's removal while the old DELETE is held and keeps that newer removal busy when the old response arrives, without signing out the replacement account`,
       );
     }
     await page.route("**/api/auth/logout-other-sessions", (route) =>
@@ -1127,6 +1147,7 @@ try {
     assert.equal(await page.locator("#account-name").textContent(), "");
     assert.equal(await page.locator("[data-header-member]").isVisible(), false);
     await page.unroute("**/api/auth/me", oldAccountReadHandler);
+    await capture(page, `account-expired-signout-${name}.png`, true);
     checks.push(
       `${name}: an expired normal sign-out cookie clears account fields and member controls, ignores delayed pre-logout identity responses and explains that other-device sign-out is unconfirmed`,
     );
@@ -1330,6 +1351,7 @@ try {
     checks.push(
       `${name}: expired header sign-out clears the member menu and preserves the warning that other devices may remain signed in`,
     );
+    await capture(page, `header-expired-signout-${name}.png`, true);
     await page.unroute("**/api/auth/logout");
     appSignedIn = true;
     await page.evaluate(() =>

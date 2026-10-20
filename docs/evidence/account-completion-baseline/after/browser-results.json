@@ -1,11 +1,11 @@
 {
-  "at": "2026-10-20T05:38:41.027Z",
-  "revision": "c80d733fe31375f71628d10f6c7cf79d4321eaae",
+  "at": "2026-10-20T05:50:20.282Z",
+  "revision": "db7c3d1c2d413ed170ee854bc186dc2a2a55eb0c",
   "phase": "after",
   "assetHashes": {
     "account-auth.bundle.js": "9da450ef015f637e9257af4dc87335a7be5fcd5873e7c030813797059e93ab6e",
     "account-security.bundle.js": "12e9f874ec5f583eb5830ce93ecf2cdd8cdc8318cb3a4a6c293247205e4d3ce1",
-    "account-session-list.js": "68a0fdb6b1e004fb64c07e464905380cc612dae699993ed35d46fb3a2c7d6418",
+    "account-session-list.js": "301309f66517687424a941bd842f4890f67bd8f9a651dd930b472f300129a3ea",
     "account-sessions.js": "ed85968105e31078c4a4be19c91757ca8b22b3795c4fdc0a76ba26c777c2d819",
     "account.js": "357e9cfebe620832a2f755368b8de00573b726591522f7bc5401be1c3432df74",
     "site-header.js": "ecc28f093618cae857b01bfca61c9152ccf6b4df825323ccd376bb246852d6be",
@@ -16,7 +16,7 @@
     "arena.css": "087928e12c8be4a87d006b22b91f1534a647b44425d1129b1d54c2d3d4dc3cb1"
   },
   "sourceHashes": {
-    "scripts/verify-email-auth-browser.ts": "f0c20cbb19f00ab0f96f0211c7c12856fbb200c93e4586a8b03d159db428e046",
+    "scripts/verify-email-auth-browser.ts": "21056649a0a195e357100a614ca27c5861830f3fa891250dc21a641e5c97fadf",
     "dist/features/discovery/web.js": "8ef568a16b2388785e6034773e6a740c4651e2dc2da4ca30770dc833d3d173b2",
     "dist/features/discovery/account-web.js": "f1c287a85d3929d75e18d8ef8bfd7b4f6ee2be76d48e5d74abe8df35d5753f8a"
   },
@@ -29,7 +29,7 @@
     "desktop: invalid-code status has polite/atomic announcements and automated WCAG checks; virtual-clock cooldown permits a single resend, clears old code and restarts the wait",
     "desktop: balance dialog, Escape/focus, exact debate query/fragment preserved through sign-in link",
     "desktop: account-settings reflows with reachable controls at 200% CSS zoom",
-    "desktop: session list removes only the selected other session, restores refresh focus and ignores a late current-session DELETE after account change without signing out the replacement account",
+    "desktop: session list removes only the selected session, permits a replacement account's removal while the old DELETE is held and keeps that newer removal busy when the old response arrives, without signing out the replacement account",
     "desktop: an expired normal sign-out cookie clears account fields and member controls, ignores delayed pre-logout identity responses and explains that other-device sign-out is unconfirmed",
     "desktop: server-owned authentication methods, profile create/publish with permanent handle, other/all-session sign-out controls, account/dialog automated WCAG tags, no account overflow and unused wallet directory disabled",
     "desktop: identical header geometry, typography and colors with and without debate styles",
@@ -46,7 +46,7 @@
     "mobile: delayed provider readiness disables submit, delayed send/verification retain busy states and reject repeated native form submissions, paste-style whole-code text insertion",
     "mobile: invalid-code status has polite/atomic announcements and automated WCAG checks; virtual-clock cooldown permits a single resend, clears old code and restarts the wait",
     "mobile: balance dialog, Escape/focus, exact debate query/fragment preserved through sign-in link",
-    "mobile: session list removes only the selected other session, restores refresh focus and ignores a late current-session DELETE after account change without signing out the replacement account",
+    "mobile: session list removes only the selected session, permits a replacement account's removal while the old DELETE is held and keeps that newer removal busy when the old response arrives, without signing out the replacement account",
     "mobile: an expired normal sign-out cookie clears account fields and member controls, ignores delayed pre-logout identity responses and explains that other-device sign-out is unconfirmed",
     "mobile: server-owned authentication methods, profile create/publish with permanent handle, other/all-session sign-out controls, account/dialog automated WCAG tags, no account overflow and unused wallet directory disabled",
     "mobile: identical header geometry, typography and colors with and without debate styles",

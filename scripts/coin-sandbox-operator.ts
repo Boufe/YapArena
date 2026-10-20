@@ -15,9 +15,12 @@ import {
 import {
   baseSepoliaAsset,
   createBaseSepoliaAdapter,
+  createBaseSepoliaReceipt,
+  type BaseSepoliaTransfer,
 } from "../dist/features/account-wallet/base-sepolia.js";
 import { createCoinDebateSandbox } from "../dist/features/account-wallet/debate-sandbox.js";
 import {
+  atomicAmount,
   CoinOperationError,
   type ExternalObservation,
 } from "../dist/features/account-wallet/external-operations.js";
@@ -234,22 +237,19 @@ export async function runCoinSandboxOperator(input: {
           if (getAddress(text(row.terms.destination)) !== custody)
             invalid("funding custody destination conflicts");
         }
+        const transfer: BaseSepoliaTransfer = {
+          environment: "sandbox",
+          chainId: 84532,
+          token: baseSepoliaAsset.token,
+          from,
+          to: getAddress(text(row.terms.destination)),
+          amount: BigInt(
+            text(row.kind === "funding" ? row.terms.amount : row.terms.net),
+          ),
+        };
         const observation = await createBaseSepoliaAdapter(
           baseSepoliaAsset,
-        ).inspectTransfer(
-          {
-            environment: "sandbox",
-            chainId: 84532,
-            token: baseSepoliaAsset.token,
-            from,
-            to: getAddress(text(row.terms.destination)),
-            amount: BigInt(
-              text(row.kind === "funding" ? row.terms.amount : row.terms.net),
-            ),
-          },
-          hash,
-          nonce,
-        );
+        ).inspectTransfer(transfer, hash, nonce);
         // Notification status/finalNoTransfer never supply authority here. The
         // fixed adapter checks canonical finalized state and the ORIGINAL nonce.
         event = {
@@ -263,24 +263,10 @@ export async function runCoinSandboxOperator(input: {
           observation.status === "completed" &&
           observation.eventLogIndex !== null
         )
-          receipt = {
-            network: "base-sepolia:84532",
-            transactionId: hash.toLowerCase(),
-            locator: `log:${observation.eventLogIndex}`,
-            amount: text(
-              row.kind === "funding" ? row.terms.amount : row.terms.net,
-            ),
-            evidenceDigest: digest({
-              network: "base-sepolia:84532",
-              transactionId: hash.toLowerCase(),
-              blockNumber: observation.blockNumber,
-              blockHash: observation.blockHash,
-              logIndex: observation.eventLogIndex,
-              from,
-              to: row.terms.destination,
-              amount: row.kind === "funding" ? row.terms.amount : row.terms.net,
-            }),
-          };
+          receipt = createBaseSepoliaReceipt(
+            { ...transfer, hash },
+            observation,
+          );
       }
       if (row.kind === "funding") {
         if (event.status === "completed") {
@@ -309,6 +295,56 @@ export async function runCoinSandboxOperator(input: {
     let status: string = "recorded",
       processed = 0;
     switch (command) {
+      case "confirm-treasury": {
+        const body = fields(input.body, [
+          "operatorUserId",
+          "purpose",
+          "amount",
+          "idempotencyKey",
+          "transactionId",
+          "sender",
+        ]);
+        if (rail !== "base-sepolia" || !custody)
+          invalid(
+            "actual treasury confirmation requires the isolated Base Sepolia rail",
+          );
+        if (
+          body.purpose !== "promotional" &&
+          body.purpose !== "center" &&
+          body.purpose !== "correction"
+        )
+          invalid("treasury purpose is required");
+        const amount = text(body.amount),
+          from = getAddress(text(body.sender)),
+          hash = transactionHash(body.transactionId);
+        const transfer: BaseSepoliaTransfer = {
+          environment: "sandbox",
+          chainId: 84532,
+          token: baseSepoliaAsset.token,
+          from,
+          to: custody,
+          amount: atomicAmount(amount),
+        };
+        const observation = await createBaseSepoliaAdapter(
+          baseSepoliaAsset,
+        ).inspectTransfer(transfer, hash);
+        status = observation.status;
+        if (
+          observation.status === "completed" &&
+          observation.eventLogIndex !== null
+        )
+          await operator.confirmTreasuryFunding({
+            operatorUserId: accountId(body.operatorUserId),
+            purpose: body.purpose,
+            amount,
+            idempotencyKey: text(body.idempotencyKey),
+            receipt: createBaseSepoliaReceipt(
+              { ...transfer, hash },
+              observation,
+            ),
+          });
+        break;
+      }
       case "void-round": {
         const body = fields(input.body, ["roundId", "reason"]);
         if (

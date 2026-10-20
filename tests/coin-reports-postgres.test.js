@@ -309,6 +309,136 @@ describe(
         /append-only/,
       );
     });
+    it("orders reviews numerically across a sequence digit boundary and refuses an older superseded quote", async () => {
+      const context = await actor(),
+        funding = await fund(context),
+        r = await report(context, funding.id);
+      for (let index = 0; index < 12; index++)
+        await review(r.id, "evidence_required");
+
+      const writer = await owner.connect(),
+        oldQuoteId = randomUUID(),
+        supersedingId = randomUUID(),
+        quote = {
+          amount: "100000",
+          network: "simulation:usdc",
+          expiresAt: new Date(Date.now() + 120000).toISOString(),
+          description: "Synthetic quote before numeric sequence boundary",
+        };
+      let boundary;
+      try {
+        await writer.query("BEGIN");
+        // This disposable fixture only moves the identity forward. The table
+        // fence prevents other suites from interleaving these two inserts; it
+        // neither rewinds a counter nor relies on global test execution order.
+        await writer.query(
+          "LOCK TABLE coin_sandbox_report_events IN SHARE ROW EXCLUSIVE MODE",
+        );
+        const last = BigInt(
+          (
+            await writer.query(
+              "SELECT last_value::text AS value FROM coin_sandbox_report_events_sequence_seq",
+            )
+          ).rows[0].value,
+        );
+        boundary = 100n;
+        while (boundary <= last + 2n) boundary *= 10n;
+        assert.ok(boundary < 9223372036854775807n);
+        await writer.query(
+          "SELECT setval('coin_sandbox_report_events_sequence_seq',$1::bigint,true)",
+          [String(boundary - 2n)],
+        );
+        for (const [id, outcome, extra] of [
+          [oldQuoteId, "recovery_quote", { quote }],
+          [supersedingId, "no_error", {}],
+        ]) {
+          const terms = {
+            outcome,
+            note: "Private synthetic sequence-order evidence",
+            evidenceDigest: digest(id),
+            publicNote: "Synthetic review recorded.",
+            ...extra,
+          };
+          await writer.query(
+            "INSERT INTO coin_sandbox_report_events(id,report_id,user_id,kind,reference,terms_digest,terms) VALUES($1,$2,$3,'review',$4,$5,$6)",
+            [
+              id,
+              r.id,
+              context.userId,
+              digest(randomUUID()),
+              digest(terms),
+              terms,
+            ],
+          );
+        }
+        await writer.query("COMMIT");
+      } catch (error) {
+        await writer.query("ROLLBACK");
+        throw error;
+      } finally {
+        writer.release();
+      }
+
+      const visible = await reports.get(context, r.id),
+        stored = (
+          await owner.query(
+            "SELECT id,sequence::text AS value FROM coin_sandbox_report_events WHERE id=ANY($1::uuid[]) ORDER BY coin_sandbox_report_events.sequence",
+            [[oldQuoteId, supersedingId]],
+          )
+        ).rows;
+      assert.equal(visible.events.length, 14);
+      assert.deepEqual(
+        stored.map((event) => event.value),
+        [String(boundary - 1n), String(boundary)],
+      );
+      assert.deepEqual(
+        visible.events.slice(-2).map((event) => event.id),
+        [oldQuoteId, supersedingId],
+      );
+      await assert.rejects(
+        reports.getConsentTerms(context, {
+          reportId: r.id,
+          quoteId: oldQuoteId,
+        }),
+        /superseded/,
+      );
+
+      const current = await review(r.id),
+        currentTerms = await reports.getConsentTerms(context, {
+          reportId: r.id,
+          quoteId: current.id,
+        });
+      assert.equal(currentTerms.terms.quoteId, current.id);
+      assert.equal(
+        (await reports.get(context, r.id)).events.at(-1).id,
+        current.id,
+      );
+      const authorized = await proof(
+        context,
+        "recovery.cost.consent",
+        currentTerms.terms,
+      );
+      assert.equal(
+        (
+          await reports.consent(context, {
+            reportId: r.id,
+            quoteId: current.id,
+            idempotencyKey: randomUUID(),
+            approval: authorized.approval,
+          })
+        ).created,
+        true,
+      );
+      assert.deepEqual(
+        (
+          await owner.query(
+            "SELECT terms->>'quoteId' AS quote FROM coin_sandbox_report_events WHERE report_id=$1 AND kind='recovery_consent'",
+            [r.id],
+          )
+        ).rows,
+        [{ quote: current.id }],
+      );
+    });
     it("consumes exact retained authorization for consent once, without charging, recovery execution or owner-note disclosure", async () => {
       const context = await actor(),
         stranger = await actor(),

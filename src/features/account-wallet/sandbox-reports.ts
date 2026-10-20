@@ -150,7 +150,7 @@ function quote(value: unknown, rail: SandboxRail): RecoveryCostQuote {
 async function latestReview(client: PoolClient, reportId: string) {
   return (
     await client.query<SandboxReportEvent>(
-      `SELECT ${eventColumns} FROM coin_sandbox_report_events WHERE report_id=$1 AND kind='review' ORDER BY sequence DESC LIMIT 1`,
+      `SELECT ${eventColumns} FROM coin_sandbox_report_events WHERE report_id=$1 AND kind='review' ORDER BY coin_sandbox_report_events.sequence DESC LIMIT 1`,
       [reportId],
     )
   ).rows[0];
@@ -350,7 +350,7 @@ async function history(
 ): Promise<PublicSandboxReport> {
   const stored = (
     await client.query<SandboxReportEvent>(
-      `SELECT ${eventColumns} FROM coin_sandbox_report_events WHERE report_id=$1 ORDER BY sequence DESC LIMIT 100`,
+      `SELECT ${eventColumns} FROM coin_sandbox_report_events WHERE report_id=$1 ORDER BY coin_sandbox_report_events.sequence DESC LIMIT 100`,
       [report.id],
     )
   ).rows.reverse();

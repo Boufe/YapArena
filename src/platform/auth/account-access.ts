@@ -277,14 +277,19 @@ export function createAccountAccessRepository(
     async loginOptions(input: { origin: string }) {
       const client = await database.connect();
       try {
-        const { createdAt, expiresAt } = await issueClock(client),
-          id = randomUUID(),
+        const id = randomUUID(),
           nonce = randomBytes(32).toString("hex");
-        await client.query(
-          `INSERT INTO account_access_challenges(id,purpose,nonce,credential_type,created_at,expires_at)
-          VALUES($1,'security.login',$2,'passkey',$3,$4)`,
-          [id, nonce, createdAt, expiresAt],
-        );
+        // Preserve PostgreSQL's ordering precision. A JS Date round trip would
+        // discard microseconds and incorrectly reject a newer same-ms challenge.
+        const { expiresAt } = (
+          await client.query<{ expiresAt: Date }>(
+            `WITH issued AS(SELECT clock_timestamp() AS at)
+           INSERT INTO account_access_challenges(id,purpose,nonce,credential_type,created_at,expires_at)
+           SELECT $1,'security.login',$2,'passkey',at,at+interval '5 minutes' FROM issued
+           RETURNING expires_at AS "expiresAt"`,
+            [id, nonce],
+          )
+        ).rows[0]!;
         return {
           id,
           expiresAt,
@@ -328,8 +333,9 @@ export function createAccountAccessRepository(
         if (!(await lockAccount(client, found.userId))) unavailable();
         await lockChallenge(client, challenge);
         const unchangedGeneration = await client.query(
-          `SELECT id FROM users WHERE id=$1 AND auth_changed_at<$2::timestamptz`,
-          [found.userId, challenge.createdAt],
+          `SELECT u.id FROM users u JOIN account_access_challenges c ON c.id=$2
+           WHERE u.id=$1 AND u.auth_changed_at<c.created_at`,
+          [found.userId, challenge.id],
         );
         if (!unchangedGeneration.rowCount) unavailable();
         await passkey(

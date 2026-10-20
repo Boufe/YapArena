@@ -811,6 +811,56 @@ describe(
         /expired or account access changed/,
       );
     });
+    it("accepts a newer same-millisecond challenge without weakening the database generation fence", async () => {
+      const f = await accessFixture(),
+        service = createAccountAccessRepository(a, {
+          async verify() {
+            return f.identity;
+          },
+          async inspect() {
+            return f.identity;
+          },
+        }),
+        original = await service.loginOptions({ origin });
+      let newerId;
+      for (let attempt = 0; attempt < 5 && !newerId; attempt++) {
+        const id = randomUUID(),
+          created = (
+            await owner.query(
+              `WITH changed AS(
+          UPDATE users SET auth_generation=auth_generation+1 WHERE id=$1 RETURNING auth_changed_at
+        ), copied AS(
+          INSERT INTO account_access_challenges(id,purpose,nonce,credential_type,created_at,expires_at)
+          SELECT $2,purpose,nonce,credential_type,changed.auth_changed_at+interval '1 microsecond',changed.auth_changed_at+interval '5 minutes'
+          FROM account_access_challenges CROSS JOIN changed WHERE id=$3 RETURNING created_at
+        ) SELECT date_trunc('milliseconds',changed.auth_changed_at)=date_trunc('milliseconds',copied.created_at) AS same_ms FROM changed,copied`,
+              [f.f.userId, id, original.id],
+            )
+          ).rows[0];
+        if (created.same_ms) newerId = id;
+      }
+      assert.ok(
+        newerId,
+        "fixture must exercise distinct DB timestamps in one JS millisecond",
+      );
+      const result = await service.login({
+        id: newerId,
+        origin,
+        sessionDurationMs: 600000,
+        authentication: f.authenticatorDevice.authentication(
+          original.authenticationOptions,
+          { userHandle: f.userHandle },
+        ),
+      });
+      assert.equal(
+        (
+          await createSessionRepository(b).findUserByTokenHash(
+            hashSessionToken(result.token),
+          )
+        ).id,
+        f.f.userId,
+      );
+    });
     it("requires an exact displayed provider delta and bound SID before atomically restoring one session with a retained key", async () => {
       const f = await accessFixture();
       const credentials = [

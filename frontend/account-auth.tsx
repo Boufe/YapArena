@@ -61,7 +61,11 @@ async function securityRequest(
   body: unknown,
   token?: string,
 ): Promise<Response> {
-  const response = await fetch(`/api/auth/security/${path}`, {
+  if (!window.yapSessionFetch)
+    throw new Error(
+      "Secure account controls are unavailable. Reload and try again.",
+    );
+  const response = await window.yapSessionFetch(`/api/auth/security/${path}`, {
     method: "POST",
     credentials: "same-origin",
     cache: "no-store",
@@ -273,11 +277,18 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         const token = await getAccessToken();
         if (cancelled.current) return;
         if (!token) throw new Error("no provider token");
-        const response = await fetch("/api/auth/privy/exchange", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        if (!window.yapSessionFetch)
+          throw new Error(
+            "Secure sign-in is unavailable. Reload and try again.",
+          );
+        const response = await window.yapSessionFetch(
+          "/api/auth/privy/exchange",
+          {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
         if (!response.ok) {
           // Concurrent tabs may have completed the single-use exchange. Trust
           // the server cookie only, never provider state as application access.

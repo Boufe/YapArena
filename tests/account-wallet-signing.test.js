@@ -109,6 +109,9 @@ function page({
       };
     },
   });
+  // This fixture verifies exact wallet messages; origin-wide browser locking is
+  // exercised separately with real tabs and HTTP response cookies.
+  context.window.yapSessionFetch = context.fetch;
   vm.runInContext(source, context);
   return { context, signedMessages, completedLogins, issued, elements };
 }

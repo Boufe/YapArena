@@ -95,7 +95,12 @@ if (mount) {
     body?: unknown,
     providerToken?: string,
   ): Promise<Response> {
-    const response = await fetch(`/api/auth${path}`, {
+    const send = method === "GET" ? fetch : window.yapSessionFetch;
+    if (!send)
+      throw new Error(
+        "Secure account controls are unavailable. Reload and try again.",
+      );
+    const response = await send(`/api/auth${path}`, {
       method,
       credentials: "same-origin",
       cache: "no-store",

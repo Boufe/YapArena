@@ -31,13 +31,15 @@ if (sessionControls) {
     list.replaceChildren();
     sessionNotice.textContent = "";
   }
-  function announceSignedOut() {
+  function announceSignedOut(unconfirmed = false) {
     clearSessions();
     const signedIn = document.querySelector<HTMLElement>("#signed-in");
     const signedOut = document.querySelector<HTMLElement>("#signed-out");
     if (signedIn) signedIn.hidden = true;
     if (signedOut) signedOut.hidden = false;
-    window.dispatchEvent(new Event("yap:provider-logout"));
+    window.dispatchEvent(
+      new CustomEvent("yap:provider-logout", { detail: unconfirmed }),
+    );
     window.dispatchEvent(new Event("yap:account-changed"));
     if ("BroadcastChannel" in window) {
       const channel = new BroadcastChannel("yaparena-account");
@@ -46,8 +48,9 @@ if (sessionControls) {
     }
     const notice = document.querySelector<HTMLElement>("#account-notice");
     if (notice)
-      notice.textContent =
-        "This session is signed out. Sign in again to continue.";
+      notice.textContent = unconfirmed
+        ? "This session has ended. Sign in again to sign out other devices."
+        : "This session is signed out. Sign in again to continue.";
   }
   async function removeSession(session: ManagedAccountSession) {
     if (
@@ -75,11 +78,21 @@ if (sessionControls) {
         },
       );
       if (removalVersion !== version) return;
+      if (response.status === 401) {
+        announceSignedOut(true);
+        return;
+      }
       if (!response.ok && response.status !== 404)
         throw new Error("revocation unavailable");
-      if (session.current) {
-        announceSignedOut();
-        return;
+      if (response.ok) {
+        const removed: { current?: unknown } = await response.json();
+        if (removalVersion !== version) return;
+        if (typeof removed.current !== "boolean")
+          throw new Error("revocation unavailable");
+        if (removed.current) {
+          announceSignedOut();
+          return;
+        }
       }
       await loadSessions();
       sessionNotice.textContent = "Session signed out.";

@@ -12,6 +12,7 @@ import type {
   CollectionPage,
   AccountError,
 } from "./account-types.js";
+import type {} from "./auth-events.js";
 interface ProfileForm extends HTMLFormElement {
   readonly elements: HTMLFormControlsCollection & {
     handle: HTMLInputElement;
@@ -66,7 +67,16 @@ async function api<T = void>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(path, {
+  const coordinated =
+    path.startsWith("/api/auth/") &&
+    method !== "GET" &&
+    path !== "/api/auth/logout";
+  const send = coordinated ? window.yapSessionFetch : fetch;
+  if (!send)
+    throw new Error(
+      "Secure account controls are unavailable. Reload and try again.",
+    );
+  const response = await send(path, {
     method,
     credentials: "same-origin",
     headers: body === undefined ? {} : { "Content-Type": "application/json" },

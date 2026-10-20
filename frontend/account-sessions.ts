@@ -26,15 +26,19 @@ for (const [id, path, retainCurrent] of [
           signal: AbortSignal.timeout(10000),
         });
         if (version !== sessionControlEpoch) return;
-        if (!response.ok) {
+        const expired = response.status === 401;
+        if (!response.ok && !expired) {
           const body: { error?: string } = await response.json();
           throw new Error(body.error || "Sign-out failed. Please try again.");
         }
-        if (retainCurrent) {
+        if (retainCurrent && !expired) {
           notice.textContent =
             "Other sessions signed out. This device is still signed in.";
         } else {
-          window.dispatchEvent(new Event("yap:provider-logout"));
+          window.dispatchEvent(
+            new CustomEvent("yap:provider-logout", { detail: expired }),
+          );
+          window.dispatchEvent(new Event("yap:account-changed"));
           if ("BroadcastChannel" in window) {
             const channel = new BroadcastChannel("yaparena-account");
             channel.postMessage("changed");
@@ -42,8 +46,9 @@ for (const [id, path, retainCurrent] of [
           }
           document.querySelector<HTMLElement>("#signed-in")!.hidden = true;
           document.querySelector<HTMLElement>("#signed-out")!.hidden = false;
-          notice.textContent =
-            "All sessions signed out, including this device. Sign in again to continue.";
+          notice.textContent = expired
+            ? "This session has ended. Sign in again to sign out other devices."
+            : "All sessions signed out, including this device. Sign in again to continue.";
         }
       } catch (error) {
         if (version === sessionControlEpoch)

@@ -859,7 +859,11 @@ try {
     let sessionRemovalGate: ReturnType<typeof deferred> | undefined;
     let sessionRemovalStarted: ReturnType<typeof deferred> | undefined;
     await page.route("**/api/auth/sessions", (route) =>
-      route.fulfill({ json: { sessions: managedSessions, hasMore: false } }),
+      route.fulfill(
+        appSignedIn
+          ? { json: { sessions: managedSessions, hasMore: false } }
+          : { status: 401, json: { error: "authentication required" } },
+      ),
     );
     await page.route("**/api/auth/sessions/*", async (route) => {
       assert.equal(route.request().method(), "DELETE");
@@ -1334,6 +1338,100 @@ try {
       }
       checks.push(
         `${name}: delayed default, header, all-session and other-session logout replies cannot clear or relabel a replacement account or invoke provider logout`,
+      );
+      for (const response of ["missing", "other-current"] as const) {
+        managedSessions = [
+          {
+            id: "700",
+            current: true,
+            createdAt: "2026-10-20T04:00:00.000Z",
+            expiresAt: "2026-11-20T04:00:00.000Z",
+          },
+        ];
+        await page.evaluate(() =>
+          window.dispatchEvent(new Event("yap:account-changed")),
+        );
+        await page.getByText("Account ready.", { exact: true }).waitFor();
+        const changedCurrent = async (route: Route) => {
+          managedSessions = [{ ...managedSessions[0]!, id: "701" }];
+          await route.fulfill(
+            response === "missing"
+              ? { status: 404, json: { error: "session unavailable" } }
+              : { json: { current: false } },
+          );
+        };
+        await page.route("**/api/auth/sessions/700", changedCurrent);
+        await page.evaluate(() =>
+          Reflect.set(window, "__staleRemovalLogouts", 0),
+        );
+        page.once("dialog", (confirmation) => void confirmation.accept());
+        await page
+          .getByRole("region", { name: "Active YapArena sessions" })
+          .getByRole("button", { name: /^Sign out this session, started/ })
+          .click();
+        await page
+          .getByRole("region", { name: "Active YapArena sessions" })
+          .getByText("Session signed out.", { exact: true })
+          .waitFor();
+        assert.equal(await page.locator("#signed-in").isVisible(), true);
+        assert.equal(
+          await page.evaluate(() =>
+            Reflect.get(window, "__staleRemovalLogouts"),
+          ),
+          0,
+        );
+        await page.unroute("**/api/auth/sessions/700", changedCurrent);
+      }
+      checks.push(
+        `${name}: session removal trusts server current=false and refreshes a missing stale current row without ending the replacement local session`,
+      );
+      for (const control of ["all", "others", "individual"] as const) {
+        const path =
+          control === "individual"
+            ? "/api/auth/sessions/701"
+            : `/api/auth/logout-${control === "all" ? "all" : "other-sessions"}`;
+        const ended = (route: Route) => {
+          appSignedIn = false;
+          return route.fulfill({
+            status: 401,
+            json: { error: "synthetic current authorization ended" },
+          });
+        };
+        await page.route(`**${path}`, ended);
+        page.once("dialog", (confirmation) => void confirmation.accept());
+        if (control === "individual")
+          await page
+            .getByRole("region", { name: "Active YapArena sessions" })
+            .getByRole("button", { name: /^Sign out this session, started/ })
+            .click();
+        else
+          await page
+            .locator(control === "all" ? "#sign-out-all" : "#sign-out-others")
+            .click();
+        await page.locator("#signed-out").waitFor({ state: "visible" });
+        await page
+          .locator("#account-notice")
+          .getByText(
+            "This session has ended. Sign in again to sign out other devices.",
+            { exact: true },
+          )
+          .waitFor();
+        assert.equal(await page.locator("#account-name").textContent(), "");
+        assert.equal(
+          await page
+            .locator('#profile-form input[name="displayName"]')
+            .inputValue(),
+          "",
+        );
+        await page.unroute(`**${path}`, ended);
+        appSignedIn = true;
+        await page.evaluate(() =>
+          window.dispatchEvent(new Event("yap:account-changed")),
+        );
+        await page.getByText("Account ready.", { exact: true }).waitFor();
+      }
+      checks.push(
+        `${name}: advanced all/other and individual session 401 replies clear local private fields and explain that other-device sign-out is unconfirmed`,
       );
     }
     const oldAccountReads = deferred(),

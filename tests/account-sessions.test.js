@@ -32,6 +32,7 @@ function page({ confirm = true, response = { ok: true }, failure } = {}) {
   const dispatched = [];
   vm.runInNewContext(source, {
     Event,
+    CustomEvent,
     AbortSignal,
     document: {
       querySelector(selector) {
@@ -96,6 +97,22 @@ describe("account session controls", () => {
     await fixture.click("sign-out-all");
     assert.equal(fixture.calls.length, 0);
   });
+  it("ends only local UI on 401 without claiming other sessions were revoked", async () => {
+    for (const control of ["sign-out-all", "sign-out-others"]) {
+      const fixture = page({ response: { ok: false, status: 401 } });
+      await fixture.click(control);
+      assert.equal(fixture.elements["signed-in"].hidden, true);
+      assert.equal(fixture.elements["signed-out"].hidden, false);
+      assert.equal(
+        fixture.elements["account-notice"].textContent,
+        "This session has ended. Sign in again to sign out other devices.",
+      );
+      assert.deepEqual(fixture.dispatched, [
+        "yap:provider-logout",
+        "yap:account-changed",
+      ]);
+    }
+  });
   it("reports denial or network failure without falsely reporting logout", async () => {
     for (const options of [
       {
@@ -119,7 +136,7 @@ describe("account session controls", () => {
   });
   it("discards old successful or failed replies after the account changes", async () => {
     for (const control of ["sign-out-all", "sign-out-others"]) {
-      for (const failed of [false, true]) {
+      for (const outcome of ["success", "ended", "network"]) {
         let finish, fail;
         const response = new Promise((resolve, reject) => {
           finish = resolve;
@@ -131,8 +148,12 @@ describe("account session controls", () => {
         assert.ok(fixture.calls[0].options.signal instanceof AbortSignal);
         fixture.changeAccount();
         fixture.elements["account-notice"].textContent = "Replacement account";
-        if (failed) fail(new Error("old network error"));
-        else finish({ ok: true });
+        if (outcome === "network") fail(new Error("old network error"));
+        else
+          finish({
+            ok: outcome === "success",
+            status: outcome === "ended" ? 401 : 204,
+          });
         await pending;
         assert.equal(fixture.elements["signed-in"].hidden, false);
         assert.equal(

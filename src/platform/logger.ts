@@ -35,6 +35,7 @@ export function createLogger({
           "req.headers.authorization",
           "req.headers.cookie",
           'req.headers["x-yap-signature"]',
+          'req.headers["x-yaparena-expected-account"]',
           'res.headers["set-cookie"]',
         ],
         censor: "[REDACTED]",

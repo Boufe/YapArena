@@ -44,6 +44,12 @@ encrypted backup, isolated restore/migration rehearsal and exact reviewed
 additive migrations. It requires independently stopped writers and passed
 release gates; its environment assertions alone do not establish either.
 Neither command resets accounts or enables live financial activity.
+`release-account-render.ts` separately inspects or operates only the named
+staging web and replay services. Each mutation requires its matching
+`ACCOUNT_STAGING_RENDER_ACTION`; deployment additionally requires the exact
+current `ACCOUNT_STAGING_RENDER_COMMIT`. It emits only allowlisted metadata.
+The operator must verify actual stopped writers, backup/rehearsal, release gates,
+live deployment status and readiness separately.
 
 These former JavaScript files retain their names with a `.ts` extension:
 

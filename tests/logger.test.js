@@ -119,6 +119,25 @@ it("redacts sandbox webhook authentication proofs and never logs the notificatio
   assert.equal(record.req.headers["x-yap-signature"], "[REDACTED]");
 });
 
+it("redacts the browser's account comparison hint from sign-out logs", async () => {
+  const capture = captureLogger(),
+    app = express(),
+    accountHint = "synthetic-private-account-comparison";
+  app.use(createHttpLogger(capture.logger));
+  app.post("/api/auth/logout", (_r, s) => s.status(204).end());
+  await request(app)
+    .post("/api/auth/logout")
+    .set("x-request-id", "logout-account-comparison-redaction")
+    .set("x-yaparena-expected-account", accountHint);
+  const record = await capture.completion(
+    "logout-account-comparison-redaction",
+    204,
+    30,
+  );
+  capture.assertAbsent([accountHint]);
+  assert.equal(record.req.headers["x-yaparena-expected-account"], "[REDACTED]");
+});
+
 function fixture({ environment = "development", ...overrides } = {}) {
   const capture = captureLogger();
   const sessionRecords = new Map();

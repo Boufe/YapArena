@@ -41,6 +41,23 @@ must not delete a newer account's cookie. The remaining opaque cookie has no
 authority after its database session is retired; a new sign-in overwrites it.
 The interface also discards outcomes from the previous account/view generation.
 
+Supported browser flows serialize cookie-issuing requests and session revocation
+with the same origin-wide Web Lock. Native passkey/wallet dialogs run before
+acquiring it. A revocation waits at most 35 seconds for an in-flight account
+change, then allows 10 seconds for its HTTP response; a timeout reports that
+sign-out is unconfirmed. With no pending account change, revocation proceeds
+immediately. Read-only requests do not take that lock. Browsers without the
+required secure-context lock support receive an explicit upgrade message.
+
+Before waiting, the browser captures its last server-verified account as a
+comparison hint. The server compares that hint with the cookie-authenticated
+account and refuses a mismatch; it never uses the hint to select an account or
+establish ownership. This prevents an old tab's queued sign-out from revoking a
+different account that signed in first. The hint is redacted from HTTP logs.
+These ordering protections cover cooperating application browser flows;
+arbitrary API clients do not participate in the browser lock. PostgreSQL
+authorization and revocation still apply to every client.
+
 Protected requests normally verify the local session and current Privy credential
 snapshot. Provider inspection runs without a checked-out database connection or
 account lock; its result is accepted only after revalidating the original

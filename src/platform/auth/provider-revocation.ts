@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import type { Pool, PoolClient } from "pg";
 import type { IdentityVerifier, ProviderSessionControl } from "./privy.ts";
 
@@ -13,6 +14,8 @@ type RetryStage =
   | "freeze"
   | "freeze_confirmation"
   | "unfreeze"
+  | "unfreeze_confirmation"
+  | "activity_review"
   | "commit"
   | "result";
 export class ProviderResetRetryError extends Error {
@@ -74,8 +77,38 @@ export function createProviderRevocation(
   provider: ProviderSessionControl,
   {
     operatorInspector,
-  }: { operatorInspector?: Pick<IdentityVerifier, "inspect"> } = {},
+    operatorFrozenInspector,
+  }: {
+    operatorInspector?: Pick<IdentityVerifier, "inspect">;
+    operatorFrozenInspector?: Pick<IdentityVerifier, "inspect">;
+  } = {},
 ) {
+  async function confirmState(
+    subject: string,
+    frozen: boolean,
+    options: { signal: AbortSignal },
+    expectedFreeze?: number,
+  ) {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const state = await provider.state(subject, options);
+      if (
+        frozen
+          ? Number.isSafeInteger(state.frozenAt) &&
+            state.frozenAt !== null &&
+            state.frozenAt > 0
+          : state.frozenAt === null
+      )
+        return state;
+      if (
+        !frozen &&
+        expectedFreeze !== undefined &&
+        state.frozenAt !== expectedFreeze
+      )
+        throw new Error("provider freeze changed before confirmation");
+      if (attempt < 5) await delay(250, undefined, { signal: options.signal });
+    }
+    throw new Error("provider state confirmation unavailable");
+  }
   async function performClaimed(
     client: PoolClient,
     claim: Claim,
@@ -200,7 +233,7 @@ export function createProviderRevocation(
         reportStage("freeze");
         await provider.freeze(claim.subject, options);
         reportStage("freeze_confirmation");
-        const frozen = await provider.state(claim.subject, options);
+        const frozen = await confirmState(claim.subject, true, options);
         if (
           !Number.isSafeInteger(frozen.frozenAt) ||
           frozen.frozenAt === null ||
@@ -214,6 +247,8 @@ export function createProviderRevocation(
         if (latest.status === "active") {
           reportStage("unfreeze");
           await provider.unfreeze(claim.subject, options);
+          reportStage("unfreeze_confirmation");
+          await confirmState(claim.subject, false, options, frozen.frozenAt);
           await client.query(
             "UPDATE provider_identities SET auth_generation=$2,minimum_issued_at=GREATEST(minimum_issued_at,$3) WHERE user_id=$1 AND subject=$4",
             [userId, generation, frozen.frozenAt + 1, claim.subject],
@@ -359,7 +394,494 @@ export function createProviderRevocation(
       snapshot.attempts === audit.attempts,
     );
   }
+  async function reviewHistory(
+    connection: Pick<Pool | PoolClient, "query">,
+    requestId: string,
+  ) {
+    return (
+      await connection.query<{
+        userId: string;
+        eventType: string;
+        evidenceDigest: string;
+        generation: string;
+        attempts: number;
+        frozenAt: string;
+        ownerReviewed: boolean;
+      }>(
+        `SELECT user_id AS "userId",event_type AS "eventType",metadata->>'evidenceDigest' AS "evidenceDigest",
+       metadata->>'authGeneration' AS generation,(metadata->>'attempts')::integer AS attempts,
+       metadata->>'frozenAt' AS "frozenAt",
+       metadata->>'actorDatabaseRole'='yaparena_owner' AND metadata->'noIndependentFreeze'='true'::jsonb AS "ownerReviewed"
+       FROM identity_audit_events
+       WHERE event_type IN ('provider.reset.reconciliation_requested','provider.reset.reconciled')
+         AND metadata->>'requestId'=$1`,
+        [requestId],
+      )
+    ).rows;
+  }
+  async function inRetryWindow(
+    connection: Pick<Pool | PoolClient, "query">,
+    input: { userId: string; requestId: string },
+    frozenAt: number,
+  ) {
+    return (
+      (
+        await connection.query<{ allowed: boolean }>(
+          `SELECT EXISTS(SELECT 1 FROM identity_audit_events a JOIN provider_revocation_jobs j ON j.user_id=a.user_id
+       AND j.generation=(a.metadata->>'authGeneration')::bigint AND j.attempts=(a.metadata->>'attempts')::integer
+       WHERE a.user_id=$1 AND a.event_type='provider.reset.retry_requested' AND a.metadata->>'requestId'=$2
+       AND CASE WHEN isfinite(j.lease_until) THEN to_timestamp($3::double precision)>=date_trunc('second',a.occurred_at)
+         AND to_timestamp($3::double precision)<j.lease_until ELSE false END) AS allowed`,
+          [input.userId, input.requestId, frozenAt],
+        )
+      ).rows[0]?.allowed === true
+    );
+  }
   return {
+    async finalizeReviewed(input: {
+      userId: string;
+      requestId: string;
+      activityReview: { evidenceDigest: string; noIndependentFreeze: true };
+    }): Promise<{ state: "complete" }> {
+      let stage: RetryStage = "owner";
+      try {
+        if (
+          (
+            await database.query<{ owner: boolean }>(
+              "SELECT current_user='yaparena_owner' AS owner",
+            )
+          ).rows[0]?.owner !== true
+        )
+          throw new ProviderResetRetryError(stage);
+        stage = "input";
+        if (
+          !operatorFrozenInspector ||
+          !/^[1-9][0-9]{0,18}$/.test(input.userId) ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            input.requestId,
+          ) ||
+          input.activityReview?.noIndependentFreeze !== true ||
+          !/^[0-9a-f]{64}$/.test(input.activityReview.evidenceDigest)
+        )
+          throw new ProviderResetRetryError(stage);
+        stage = "snapshot";
+        const initial = await retrySnapshot(database, input.userId),
+          audit = await retryAudit(database, input.requestId),
+          history = await reviewHistory(database, input.requestId);
+        const matches = (
+          snapshot: RetrySnapshot | undefined,
+          events: typeof history,
+        ) =>
+          Boolean(
+            snapshot &&
+            audit &&
+            audit.userId === input.userId &&
+            snapshot.status === "active" &&
+            snapshot.generation === audit.authGeneration &&
+            snapshot.attempts === audit.attempts &&
+            snapshot.credentialsDigest === audit.credentialsDigest &&
+            subjectDigest(snapshot.subject) === audit.providerSubjectDigest &&
+            snapshot.confirmedFrozenAt !== null &&
+            events.every(
+              (event) =>
+                event.userId === input.userId &&
+                event.ownerReviewed &&
+                event.evidenceDigest === input.activityReview.evidenceDigest &&
+                event.generation === snapshot.generation &&
+                event.attempts === snapshot.attempts &&
+                event.frozenAt === snapshot.confirmedFrozenAt,
+            ),
+          );
+        const complete = (
+          snapshot: RetrySnapshot | undefined,
+          events: typeof history,
+        ) =>
+          matches(snapshot, events) &&
+          completedRetry(snapshot, audit, input.userId) &&
+          events.length === 2 &&
+          events.some(
+            (event) => event.eventType === "provider.reset.reconciled",
+          );
+        if (complete(initial, history)) return { state: "complete" };
+        if (
+          !initial ||
+          !matches(initial, history) ||
+          history.length !== 1 ||
+          history[0]?.eventType !== "provider.reset.reconciliation_requested" ||
+          initial.state !== "manual" ||
+          initial.failureReason !== "uncertain_provider_outcome" ||
+          initial.generation === initial.mappedGeneration ||
+          !initial.available
+        )
+          throw new ProviderResetRetryError(stage);
+        const frozenAt = Number(initial.confirmedFrozenAt);
+        if (
+          !Number.isSafeInteger(frozenAt) ||
+          frozenAt <= 0 ||
+          !(await inRetryWindow(database, input, frozenAt))
+        )
+          throw new ProviderResetRetryError(stage);
+        // Only trusted GETs are allowed here. The previous durable intent is
+        // the sole mutation attempt; finalization must never repeat it.
+        stage = "provider_inspection";
+        const currentProvider = await operatorFrozenInspector.inspect(
+          initial.subject,
+        );
+        if (
+          currentProvider.subject !== initial.subject ||
+          currentProvider.credentialsDigest !== initial.credentialsDigest ||
+          (
+            await provider.state(initial.subject, {
+              signal: AbortSignal.timeout(5000),
+            })
+          ).frozenAt !== null
+        )
+          throw new ProviderResetRetryError(stage);
+        const client = await database.connect();
+        try {
+          stage = "claim";
+          await client.query("BEGIN");
+          await client.query(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+            [`provider-reset-reconcile:${input.requestId}`],
+          );
+          await client.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [
+            input.userId,
+          ]);
+          await client.query(
+            "SELECT subject FROM provider_identities WHERE user_id=$1 FOR UPDATE",
+            [input.userId],
+          );
+          await client.query(
+            "SELECT generation FROM provider_revocation_jobs WHERE user_id=$1 AND generation=$2 FOR UPDATE",
+            [input.userId, initial.generation],
+          );
+          const locked = await retrySnapshot(client, input.userId),
+            lockedAudit = await retryAudit(client, input.requestId),
+            lockedHistory = await reviewHistory(client, input.requestId);
+          if (complete(locked, lockedHistory)) {
+            await client.query("COMMIT");
+            return { state: "complete" };
+          }
+          if (
+            JSON.stringify(locked) !== JSON.stringify(initial) ||
+            JSON.stringify(lockedAudit) !== JSON.stringify(audit) ||
+            JSON.stringify(lockedHistory) !== JSON.stringify(history)
+          )
+            throw new ProviderResetRetryError(stage);
+          if (
+            (
+              await client.query(
+                "SELECT 1 FROM provider_revocation_jobs WHERE user_id=$1 AND subject=$2 AND generation<$3 AND state<>'complete' LIMIT 1",
+                [input.userId, initial.subject, initial.generation],
+              )
+            ).rowCount
+          )
+            throw new ProviderResetRetryError(stage);
+          stage = "provider_state";
+          if (
+            (
+              await provider.state(initial.subject, {
+                signal: AbortSignal.timeout(5000),
+              })
+            ).frozenAt !== null
+          )
+            throw new ProviderResetRetryError(stage);
+          stage = "commit";
+          const changed = await client.query(
+            `UPDATE provider_identities SET auth_generation=$2,minimum_issued_at=GREATEST(minimum_issued_at,$3)
+            WHERE user_id=$1 AND provider='privy' AND subject=$4 AND credentials_digest=$5 AND auth_generation=$6 RETURNING subject`,
+            [
+              input.userId,
+              initial.generation,
+              frozenAt + 1,
+              initial.subject,
+              initial.credentialsDigest,
+              initial.mappedGeneration,
+            ],
+          );
+          if (!changed.rowCount) throw new ProviderResetRetryError("result");
+          await client.query(
+            "UPDATE provider_revocation_jobs SET state='complete' WHERE user_id=$1 AND generation=$2",
+            [input.userId, initial.generation],
+          );
+          await client.query(
+            "INSERT INTO identity_audit_events(user_id,event_type,subject_id,metadata) VALUES($1,'provider.reset.reconciled',$1::bigint::text,$2::jsonb)",
+            [
+              input.userId,
+              JSON.stringify({
+                requestId: input.requestId,
+                actorDatabaseRole: "yaparena_owner",
+                noIndependentFreeze: true,
+                evidenceDigest: input.activityReview.evidenceDigest,
+                authGeneration: initial.generation,
+                attempts: initial.attempts,
+                frozenAt: String(frozenAt),
+                outcome: "read_only_finalized",
+              }),
+            ],
+          );
+          await client.query("COMMIT");
+          return { state: "complete" };
+        } catch (error) {
+          await client.query("ROLLBACK");
+          throw error;
+        } finally {
+          client.release();
+        }
+      } catch (error) {
+        if (error instanceof ProviderResetRetryError) throw error;
+        throw new ProviderResetRetryError(stage, providerStatus(error));
+      }
+    },
+    async reconcileUncertain(input: {
+      userId: string;
+      requestId: string;
+      activityReview: { evidenceDigest: string; noIndependentFreeze: true };
+    }): Promise<{ state: "complete" }> {
+      let stage: RetryStage = "owner";
+      try {
+        if (
+          (
+            await database.query<{ owner: boolean }>(
+              "SELECT current_user='yaparena_owner' AS owner",
+            )
+          ).rows[0]?.owner !== true
+        )
+          throw new ProviderResetRetryError(stage);
+        stage = "input";
+        if (
+          !operatorFrozenInspector ||
+          !/^[1-9][0-9]{0,18}$/.test(input.userId) ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            input.requestId,
+          ) ||
+          input.activityReview?.noIndependentFreeze !== true ||
+          !/^[0-9a-f]{64}$/.test(input.activityReview.evidenceDigest)
+        )
+          throw new ProviderResetRetryError(stage);
+        stage = "snapshot";
+        const initial = await retrySnapshot(database, input.userId),
+          audit = await retryAudit(database, input.requestId),
+          history = await reviewHistory(database, input.requestId);
+        const reviewedComplete = (
+          snapshot: RetrySnapshot | undefined,
+          events: typeof history,
+        ) =>
+          completedRetry(snapshot, audit, input.userId) &&
+          events.length === 2 &&
+          events.every(
+            (event) =>
+              event.userId === input.userId &&
+              event.ownerReviewed &&
+              event.evidenceDigest === input.activityReview.evidenceDigest &&
+              event.generation === snapshot!.generation &&
+              event.attempts === snapshot!.attempts &&
+              event.frozenAt === snapshot!.confirmedFrozenAt,
+          ) &&
+          events.some(
+            (event) => event.eventType === "provider.reset.reconciled",
+          );
+        if (history.length) {
+          if (reviewedComplete(initial, history)) return { state: "complete" };
+          throw new ProviderResetRetryError(stage);
+        }
+        if (
+          !initial ||
+          !audit ||
+          audit.userId !== input.userId ||
+          initial.status !== "active" ||
+          initial.generation === initial.mappedGeneration ||
+          initial.state !== "manual" ||
+          initial.failureReason !== "uncertain_provider_outcome" ||
+          initial.confirmedFrozenAt !== null ||
+          !initial.available ||
+          initial.generation !== audit.authGeneration ||
+          initial.attempts !== audit.attempts ||
+          initial.credentialsDigest !== audit.credentialsDigest ||
+          subjectDigest(initial.subject) !== audit.providerSubjectDigest
+        )
+          throw new ProviderResetRetryError(stage);
+        stage = "provider_inspection";
+        const inspected = await operatorFrozenInspector.inspect(
+          initial.subject,
+        );
+        if (
+          inspected.subject !== initial.subject ||
+          inspected.credentialsDigest !== initial.credentialsDigest
+        )
+          throw new ProviderResetRetryError(stage);
+        const frozen = await provider.state(initial.subject, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (
+          frozen.frozenAt === null ||
+          !Number.isSafeInteger(frozen.frozenAt) ||
+          frozen.frozenAt <= 0 ||
+          !(await inRetryWindow(database, input, frozen.frozenAt))
+        )
+          throw new ProviderResetRetryError(stage);
+        stage = "claim";
+        const client = await database.connect();
+        try {
+          await client.query("BEGIN");
+          await client.query(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+            [`provider-reset-reconcile:${input.requestId}`],
+          );
+          await client.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [
+            input.userId,
+          ]);
+          await client.query(
+            "SELECT subject FROM provider_identities WHERE user_id=$1 FOR UPDATE",
+            [input.userId],
+          );
+          await client.query(
+            "SELECT generation FROM provider_revocation_jobs WHERE user_id=$1 AND generation=$2 FOR UPDATE",
+            [input.userId, initial.generation],
+          );
+          const current = await retrySnapshot(client, input.userId),
+            currentAudit = await retryAudit(client, input.requestId),
+            currentHistory = await reviewHistory(client, input.requestId);
+          if (currentHistory.length) {
+            if (!reviewedComplete(current, currentHistory))
+              throw new ProviderResetRetryError(stage);
+            await client.query("COMMIT");
+            return { state: "complete" };
+          }
+          if (
+            !current ||
+            JSON.stringify(current) !== JSON.stringify(initial) ||
+            JSON.stringify(currentAudit) !== JSON.stringify(audit)
+          )
+            throw new ProviderResetRetryError(stage);
+          const prior = await client.query(
+            "SELECT 1 FROM provider_revocation_jobs WHERE user_id=$1 AND subject=$2 AND generation<$3 AND state<>'complete' LIMIT 1",
+            [input.userId, current.subject, current.generation],
+          );
+          if (prior.rowCount) throw new ProviderResetRetryError(stage);
+          const options = { signal: AbortSignal.timeout(20000) };
+          stage = "provider_state";
+          const fresh = await provider.state(current.subject, options);
+          if (
+            fresh.frozenAt !== frozen.frozenAt ||
+            !(await inRetryWindow(client, input, frozen.frozenAt))
+          )
+            throw new ProviderResetRetryError(stage);
+          stage = "activity_review";
+          const metadata = {
+            requestId: input.requestId,
+            actorDatabaseRole: "yaparena_owner",
+            evidenceDigest: input.activityReview.evidenceDigest,
+            noIndependentFreeze: true,
+            authGeneration: current.generation,
+            attempts: current.attempts,
+            frozenAt: String(frozen.frozenAt),
+          };
+          await client.query(
+            "INSERT INTO identity_audit_events(user_id,event_type,subject_id,metadata) VALUES($1,'provider.reset.reconciliation_requested',$1::bigint::text,$2::jsonb)",
+            [input.userId, JSON.stringify(metadata)],
+          );
+          await client.query(
+            "UPDATE provider_revocation_jobs SET confirmed_frozen_at=$3 WHERE user_id=$1 AND generation=$2",
+            [input.userId, current.generation, frozen.frozenAt],
+          );
+          // Persist the reviewed mutation intent before external I/O. Neither a
+          // crash nor a later SQL rollback may erase the one-attempt marker.
+          // The job remains manual, so ordinary workers cannot claim it.
+          await client.query("COMMIT");
+          await client.query("BEGIN");
+          await client.query(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+            [`provider-reset-reconcile:${input.requestId}`],
+          );
+          await client.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [
+            input.userId,
+          ]);
+          await client.query(
+            "SELECT subject FROM provider_identities WHERE user_id=$1 FOR UPDATE",
+            [input.userId],
+          );
+          await client.query(
+            "SELECT generation FROM provider_revocation_jobs WHERE user_id=$1 AND generation=$2 FOR UPDATE",
+            [input.userId, initial.generation],
+          );
+          const admitted = await retrySnapshot(client, input.userId),
+            admittedHistory = await reviewHistory(client, input.requestId);
+          if (
+            JSON.stringify(admitted) !==
+              JSON.stringify({
+                ...current,
+                confirmedFrozenAt: String(frozen.frozenAt),
+              }) ||
+            admittedHistory.length !== 1 ||
+            admittedHistory[0]?.userId !== input.userId ||
+            !admittedHistory[0]?.ownerReviewed ||
+            admittedHistory[0]?.evidenceDigest !==
+              input.activityReview.evidenceDigest ||
+            admittedHistory[0]?.eventType !==
+              "provider.reset.reconciliation_requested"
+          )
+            throw new ProviderResetRetryError("claim");
+          try {
+            stage = "provider_state";
+            if (
+              (await provider.state(current.subject, options)).frozenAt !==
+              frozen.frozenAt
+            )
+              throw new ProviderResetRetryError(stage);
+            stage = "unfreeze";
+            await provider.unfreeze(current.subject, options);
+            stage = "unfreeze_confirmation";
+            await confirmState(
+              current.subject,
+              false,
+              options,
+              frozen.frozenAt,
+            );
+            stage = "commit";
+            const updated = await client.query(
+              `UPDATE provider_identities SET auth_generation=$2,
+              minimum_issued_at=GREATEST(minimum_issued_at,$3) WHERE user_id=$1 AND provider='privy'
+              AND subject=$4 AND credentials_digest=$5 AND auth_generation=$6 RETURNING subject`,
+              [
+                input.userId,
+                current.generation,
+                frozen.frozenAt + 1,
+                current.subject,
+                current.credentialsDigest,
+                current.mappedGeneration,
+              ],
+            );
+            if (!updated.rowCount) throw new ProviderResetRetryError("result");
+            await client.query(
+              "UPDATE provider_revocation_jobs SET state='complete' WHERE user_id=$1 AND generation=$2",
+              [input.userId, current.generation],
+            );
+            await client.query(
+              "INSERT INTO identity_audit_events(user_id,event_type,subject_id,metadata) VALUES($1,'provider.reset.reconciled',$1::bigint::text,$2::jsonb)",
+              [input.userId, JSON.stringify(metadata)],
+            );
+            stage = "commit";
+            await client.query("COMMIT");
+            return { state: "complete" };
+          } catch (error) {
+            // The durable review remains manual even if an external success
+            // cannot be confirmed. No second invocation may repeat unfreeze.
+            await client.query("ROLLBACK");
+            throw error;
+          }
+        } catch (error) {
+          await client.query("ROLLBACK");
+          throw error;
+        } finally {
+          client.release();
+        }
+      } catch (error) {
+        if (error instanceof ProviderResetRetryError) throw error;
+        throw new ProviderResetRetryError(stage, providerStatus(error));
+      }
+    },
     async retryUncertain(input: {
       userId: string;
       requestId: string;

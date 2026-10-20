@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { before, after, describe, it } from "node:test";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import pg from "pg";
 import {
   createProviderAccounts,
@@ -827,6 +827,541 @@ describe(
       assert.equal(error.message, `provider reset retry stopped at ${stage}`);
       return true;
     };
+    async function delayedFreezeFixture() {
+      const f = await uncertainResetFixture(),
+        requestId = randomUUID(),
+        frozenAt = Math.floor(Date.now() / 1000) - 45,
+        activityReview = {
+          evidenceDigest: "c".repeat(64),
+          noIndependentFreeze: true,
+        };
+      await owner.query(
+        "UPDATE provider_revocation_jobs SET attempts=2,lease_until=clock_timestamp()-interval '30 seconds' WHERE user_id=$1",
+        [f.made.user.id],
+      );
+      await owner.query(
+        `INSERT INTO identity_audit_events(user_id,event_type,subject_id,metadata,occurred_at)
+        SELECT $1,'provider.reset.retry_requested',$1::bigint::text,$2::jsonb,clock_timestamp()-interval '60 seconds'`,
+        [
+          f.made.user.id,
+          JSON.stringify({
+            requestId,
+            authGeneration: (
+              await owner.query(
+                "SELECT auth_generation::text AS generation FROM users WHERE id=$1",
+                [f.made.user.id],
+              )
+            ).rows[0].generation,
+            attempts: 2,
+            credentialsDigest: f.id.credentialsDigest,
+            providerSubjectDigest: createHash("sha256")
+              .update(f.id.subject)
+              .digest("hex"),
+          }),
+        ],
+      );
+      return { ...f, requestId, frozenAt, activityReview };
+    }
+    const reconciliationState = async (userId) =>
+      (
+        await owner.query(
+          `SELECT j.state,j.attempts,j.confirmed_frozen_at::text AS confirmed,
+      u.auth_generation<>p.auth_generation AS fenced,p.minimum_issued_at::text AS cutoff,
+      (SELECT count(*)::int FROM identity_audit_events WHERE user_id=u.id AND event_type='provider.reset.reconciliation_requested') AS requested,
+      (SELECT count(*)::int FROM identity_audit_events WHERE user_id=u.id AND event_type='provider.reset.reconciled') AS completed
+      FROM users u JOIN provider_identities p ON p.user_id=u.id JOIN provider_revocation_jobs j ON j.user_id=u.id AND j.generation=u.auth_generation WHERE u.id=$1`,
+          [userId],
+        )
+      ).rows[0];
+    it("reconciles only the exact owner-reviewed delayed freeze once, confirms unfreeze and preserves the old-token cutoff", async () => {
+      const f = await delayedFreezeFixture();
+      let reads = 0,
+        unfreezes = 0,
+        freezes = 0;
+      const service = createProviderRevocation(
+        owner,
+        {
+          async state() {
+            reads++;
+            return { frozenAt: unfreezes && reads >= 5 ? null : f.frozenAt };
+          },
+          async freeze() {
+            freezes++;
+          },
+          async unfreeze() {
+            unfreezes++;
+          },
+        },
+        { operatorFrozenInspector: { inspect: async () => f.id } },
+      );
+      const input = {
+        userId: f.made.user.id,
+        requestId: f.requestId,
+        activityReview: f.activityReview,
+      };
+      assert.deepEqual(await service.reconcileUncertain(input), {
+        state: "complete",
+      });
+      assert.equal(unfreezes, 1);
+      assert.equal(freezes, 0);
+      assert.equal(reads, 5);
+      assert.deepEqual(await reconciliationState(f.made.user.id), {
+        state: "complete",
+        attempts: 2,
+        confirmed: String(f.frozenAt),
+        fenced: false,
+        cutoff: String(f.frozenAt + 1),
+        requested: 1,
+        completed: 1,
+      });
+      assert.deepEqual(await service.reconcileUncertain(input), {
+        state: "complete",
+      });
+      assert.equal(unfreezes, 1);
+      assert.equal(reads, 5);
+      await assert.rejects(
+        exchange(createProviderAccounts(a), {
+          ...f.id,
+          sessionId: randomUUID(),
+          issuedAt: f.frozenAt,
+        }),
+        rejectedExchange("provider_session_revoked", 401),
+      );
+      await assert.rejects(
+        service.reconcileUncertain({
+          ...input,
+          activityReview: {
+            ...f.activityReview,
+            evidenceDigest: "d".repeat(64),
+          },
+        }),
+        stoppedRetry("snapshot"),
+      );
+    });
+    it("rejects runtime, missing review, mismatched audit, changed provider and out-of-window freeze without unfreezing", async () => {
+      for (const scenario of [
+        "runtime",
+        "no-review",
+        "wrong-request",
+        "changed-provider",
+        "outside-window",
+        "changed-freeze",
+        "older-unresolved",
+      ]) {
+        const f = await delayedFreezeFixture();
+        let unfreezes = 0,
+          reads = 0,
+          inspections = 0;
+        if (scenario === "older-unresolved")
+          await owner.query(
+            "INSERT INTO provider_revocation_jobs(user_id,subject,generation,state) SELECT user_id,subject,generation-1,'manual' FROM provider_revocation_jobs WHERE user_id=$1",
+            [f.made.user.id],
+          );
+        const before = await reconciliationState(f.made.user.id);
+        const service = createProviderRevocation(
+          scenario === "runtime" ? a : owner,
+          {
+            async state() {
+              reads++;
+              return {
+                frozenAt:
+                  scenario === "outside-window"
+                    ? f.frozenAt - 120
+                    : scenario === "changed-freeze" && reads > 1
+                      ? f.frozenAt + 1
+                      : f.frozenAt,
+              };
+            },
+            async freeze() {
+              throw Error("must not freeze");
+            },
+            async unfreeze() {
+              unfreezes++;
+            },
+          },
+          {
+            operatorFrozenInspector: {
+              async inspect() {
+                inspections++;
+                return scenario === "changed-provider"
+                  ? { ...f.id, credentialsDigest: "d".repeat(64) }
+                  : f.id;
+              },
+            },
+          },
+        );
+        await assert.rejects(
+          service.reconcileUncertain({
+            userId: f.made.user.id,
+            requestId:
+              scenario === "wrong-request" ? randomUUID() : f.requestId,
+            activityReview:
+              scenario === "no-review"
+                ? {
+                    evidenceDigest: f.activityReview.evidenceDigest,
+                    noIndependentFreeze: false,
+                  }
+                : f.activityReview,
+          }),
+          stoppedRetry(
+            scenario === "runtime"
+              ? "owner"
+              : scenario === "no-review"
+                ? "input"
+                : scenario === "wrong-request"
+                  ? "snapshot"
+                  : scenario === "older-unresolved"
+                    ? "claim"
+                    : scenario === "changed-freeze"
+                      ? "provider_state"
+                      : "provider_inspection",
+          ),
+        );
+        assert.equal(unfreezes, 0);
+        assert.deepEqual(await reconciliationState(f.made.user.id), before);
+        if (["runtime", "no-review", "wrong-request"].includes(scenario))
+          assert.equal(inspections, 0);
+      }
+    });
+    it("durably records the one unfreeze attempt and leaves generation fenced on an uncertain or unconfirmed result", async () => {
+      for (const scenario of [
+        "mutation-error",
+        "confirmation-stale",
+        "completion-sql-error",
+      ]) {
+        const f = await delayedFreezeFixture();
+        let unfreezes = 0;
+        const wrapped = {
+          query: owner.query.bind(owner),
+          async connect() {
+            const client = await owner.connect();
+            return {
+              release: () => client.release(),
+              async query(text, values) {
+                if (
+                  scenario === "completion-sql-error" &&
+                  text.startsWith("INSERT INTO identity_audit_events") &&
+                  text.includes("'provider.reset.reconciled'")
+                )
+                  throw Error("synthetic local completion fault");
+                return client.query(text, values);
+              },
+            };
+          },
+        };
+        const service = createProviderRevocation(
+          wrapped,
+          {
+            state: async () => ({
+              frozenAt:
+                unfreezes && scenario === "completion-sql-error"
+                  ? null
+                  : f.frozenAt,
+            }),
+            async freeze() {
+              throw Error("must not freeze");
+            },
+            async unfreeze() {
+              unfreezes++;
+              if (scenario === "mutation-error")
+                throw Object.assign(Error("private response"), { status: 503 });
+            },
+          },
+          { operatorFrozenInspector: { inspect: async () => f.id } },
+        );
+        const input = {
+          userId: f.made.user.id,
+          requestId: f.requestId,
+          activityReview: f.activityReview,
+        };
+        await assert.rejects(
+          service.reconcileUncertain(input),
+          stoppedRetry(
+            scenario === "mutation-error"
+              ? "unfreeze"
+              : scenario === "completion-sql-error"
+                ? "commit"
+                : "unfreeze_confirmation",
+            scenario === "mutation-error" ? 503 : undefined,
+          ),
+        );
+        assert.equal(unfreezes, 1);
+        const after = await reconciliationState(f.made.user.id);
+        assert.equal(after.fenced, true);
+        assert.equal(after.state, "manual");
+        assert.equal(after.requested, 1);
+        assert.equal(after.completed, 0);
+        assert.equal(after.confirmed, String(f.frozenAt));
+        await assert.rejects(
+          service.reconcileUncertain(input),
+          stoppedRetry("snapshot"),
+        );
+        assert.equal(unfreezes, 1);
+      }
+    });
+    it("polls only bounded GET confirmations while making each normal reset mutation once", async () => {
+      const f = await uncertainResetFixture();
+      let reads = 0,
+        freezes = 0,
+        unfreezes = 0;
+      const frozenAt = Math.floor(Date.now() / 1000);
+      const service = createProviderRevocation(
+        owner,
+        {
+          async state() {
+            reads++;
+            return {
+              frozenAt:
+                reads < 5 ? null : unfreezes && reads >= 8 ? null : frozenAt,
+            };
+          },
+          async freeze() {
+            freezes++;
+          },
+          async unfreeze() {
+            unfreezes++;
+          },
+        },
+        { operatorInspector: { inspect: async () => f.id } },
+      );
+      assert.deepEqual(
+        await service.retryUncertain({
+          userId: f.made.user.id,
+          requestId: randomUUID(),
+        }),
+        { state: "complete" },
+      );
+      assert.equal(freezes, 1);
+      assert.equal(unfreezes, 1);
+      assert.equal(reads, 8);
+    });
+    async function reviewedUnfreezeFixture() {
+      const f = await delayedFreezeFixture();
+      let frozenAt = f.frozenAt,
+        mutations = 0;
+      await assert.rejects(
+        createProviderRevocation(
+          owner,
+          {
+            state: async () => ({ frozenAt }),
+            async freeze() {
+              throw Error("must not freeze");
+            },
+            async unfreeze() {
+              mutations++;
+              frozenAt = null;
+              throw Object.assign(Error("uncertain unfreeze response"), {
+                status: 503,
+              });
+            },
+          },
+          { operatorFrozenInspector: { inspect: async () => f.id } },
+        ).reconcileUncertain({
+          userId: f.made.user.id,
+          requestId: f.requestId,
+          activityReview: f.activityReview,
+        }),
+        stoppedRetry("unfreeze", 503),
+      );
+      assert.equal(mutations, 1);
+      return f;
+    }
+    it("finalizes an already reviewed and actually unfrozen reset through GET-only verification, with replay and old-token protection", async () => {
+      const f = await reviewedUnfreezeFixture();
+      let reads = 0,
+        inspections = 0,
+        mutations = 0;
+      const service = createProviderRevocation(
+        owner,
+        {
+          async state() {
+            reads++;
+            return { frozenAt: null };
+          },
+          async freeze() {
+            mutations++;
+            throw Error("forbidden mutation");
+          },
+          async unfreeze() {
+            mutations++;
+            throw Error("forbidden mutation");
+          },
+        },
+        {
+          operatorFrozenInspector: {
+            async inspect() {
+              inspections++;
+              return f.id;
+            },
+          },
+        },
+      );
+      const input = {
+        userId: f.made.user.id,
+        requestId: f.requestId,
+        activityReview: f.activityReview,
+      };
+      assert.deepEqual(await service.finalizeReviewed(input), {
+        state: "complete",
+      });
+      assert.deepEqual(await reconciliationState(f.made.user.id), {
+        state: "complete",
+        attempts: 2,
+        confirmed: String(f.frozenAt),
+        fenced: false,
+        cutoff: String(f.frozenAt + 1),
+        requested: 1,
+        completed: 1,
+      });
+      assert.equal(reads, 2);
+      assert.equal(inspections, 1);
+      assert.equal(mutations, 0);
+      assert.deepEqual(await service.finalizeReviewed(input), {
+        state: "complete",
+      });
+      assert.equal(reads, 2);
+      assert.equal(mutations, 0);
+      await assert.rejects(
+        exchange(createProviderAccounts(a), {
+          ...f.id,
+          issuedAt: f.frozenAt,
+          sessionId: randomUUID(),
+        }),
+        rejectedExchange("provider_session_revoked", 401),
+      );
+    });
+    it("refuses finalization for runtime, missing reviewed intent, changed terms, frozen provider or a concurrent generation without repeating mutations", async () => {
+      for (const scenario of [
+        "runtime",
+        "no-intent",
+        "wrong-review",
+        "changed-provider",
+        "frozen",
+        "fresh-freeze",
+        "generation",
+      ]) {
+        const f =
+          scenario === "no-intent"
+            ? await delayedFreezeFixture()
+            : await reviewedUnfreezeFixture();
+        let reads = 0,
+          mutations = 0;
+        const before = await reconciliationState(f.made.user.id);
+        const service = createProviderRevocation(
+          scenario === "runtime" ? a : owner,
+          {
+            async state() {
+              reads++;
+              return {
+                frozenAt:
+                  scenario === "frozen" ||
+                  (scenario === "fresh-freeze" && reads > 1)
+                    ? f.frozenAt + 1
+                    : null,
+              };
+            },
+            async freeze() {
+              mutations++;
+            },
+            async unfreeze() {
+              mutations++;
+            },
+          },
+          {
+            operatorFrozenInspector: {
+              async inspect() {
+                if (scenario === "generation")
+                  await owner.query(
+                    "UPDATE users SET auth_generation=auth_generation+1 WHERE id=$1",
+                    [f.made.user.id],
+                  );
+                return scenario === "changed-provider"
+                  ? { ...f.id, credentialsDigest: "b".repeat(64) }
+                  : f.id;
+              },
+            },
+          },
+        );
+        await assert.rejects(
+          service.finalizeReviewed({
+            userId: f.made.user.id,
+            requestId: f.requestId,
+            activityReview:
+              scenario === "wrong-review"
+                ? { ...f.activityReview, evidenceDigest: "d".repeat(64) }
+                : f.activityReview,
+          }),
+          stoppedRetry(
+            scenario === "runtime"
+              ? "owner"
+              : ["no-intent", "wrong-review"].includes(scenario)
+                ? "snapshot"
+                : scenario === "generation"
+                  ? "claim"
+                  : scenario === "fresh-freeze"
+                    ? "provider_state"
+                    : "provider_inspection",
+          ),
+        );
+        assert.equal(mutations, 0);
+        if (scenario !== "generation")
+          assert.deepEqual(await reconciliationState(f.made.user.id), before);
+        else
+          assert.equal(
+            (
+              await owner.query(
+                  "SELECT u.auth_generation<>p.auth_generation AS fenced FROM users u JOIN provider_identities p ON p.user_id=u.id WHERE u.id=$1",
+                [f.made.user.id],
+              )
+            ).rows[0].fenced,
+            true,
+          );
+      }
+    });
+    it("rolls back finalization's provisional mapping and job updates if the completion audit fails", async () => {
+      const f = await reviewedUnfreezeFixture(),
+        before = await reconciliationState(f.made.user.id);
+      let mutations = 0;
+      const wrapped = {
+        query: owner.query.bind(owner),
+        async connect() {
+          const client = await owner.connect();
+          return {
+            release: () => client.release(),
+            async query(text, values) {
+              if (
+                text.startsWith("INSERT INTO identity_audit_events") &&
+                text.includes("'provider.reset.reconciled'")
+              )
+                throw Error("synthetic final audit fault");
+              return client.query(text, values);
+            },
+          };
+        },
+      };
+      await assert.rejects(
+        createProviderRevocation(
+          wrapped,
+          {
+            state: async () => ({ frozenAt: null }),
+            async freeze() {
+              mutations++;
+            },
+            async unfreeze() {
+              mutations++;
+            },
+          },
+          { operatorFrozenInspector: { inspect: async () => f.id } },
+        ).finalizeReviewed({
+          userId: f.made.user.id,
+          requestId: f.requestId,
+          activityReview: f.activityReview,
+        }),
+        stoppedRetry("commit"),
+      );
+      assert.equal(mutations, 0);
+      assert.deepEqual(await reconciliationState(f.made.user.id), before);
+    });
     it("atomically claims one owner-reviewed uncertain reset, excludes a competing worker and makes only the same completed retry idempotent", async () => {
       const f = await uncertainResetFixture(),
         entered = Promise.withResolvers(),
@@ -900,7 +1435,7 @@ describe(
       }
       assert.deepEqual(await retry, { state: "complete" });
       assert.equal(mutations, 2);
-      assert.equal(reads, 3);
+      assert.equal(reads, 4);
       assert.equal(inspections, 1);
       const done = (
         await owner.query(
@@ -935,7 +1470,7 @@ describe(
         { state: "complete" },
       );
       assert.equal(mutations, 2);
-      assert.equal(reads, 3);
+      assert.equal(reads, 4);
       assert.equal(inspections, 1);
       await assert.rejects(
         service.retryUncertain({

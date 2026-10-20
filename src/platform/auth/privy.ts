@@ -4,6 +4,10 @@ import {
   type ProviderCredential,
 } from "./provider-credentials.ts";
 
+export type ProviderPasskeyEvidence = {
+  credentialId: string;
+  publicKey: string | null;
+};
 export type ProviderIdentity = {
   subject: string;
   sessionId: string;
@@ -12,6 +16,7 @@ export type ProviderIdentity = {
   issuedAt: number;
   credentialsDigest: string;
   credentials?: ProviderCredential[];
+  passkeys?: ProviderPasskeyEvidence[];
 };
 export type IdentityVerifier = {
   verify(token: string): Promise<ProviderIdentity>;
@@ -20,7 +25,12 @@ export type IdentityVerifier = {
   ): Promise<
     Pick<
       ProviderIdentity,
-      "subject" | "email" | "methods" | "credentialsDigest" | "credentials"
+      | "subject"
+      | "email"
+      | "methods"
+      | "credentialsDigest"
+      | "credentials"
+      | "passkeys"
     >
   >;
   configuration(): Promise<{ google: boolean; passkeys: boolean }>;
@@ -28,12 +38,28 @@ export type IdentityVerifier = {
 export class ProviderUnavailableError extends Error {}
 export class ProviderCredentialChangedError extends Error {}
 
-export function createPrivyVerifier(config: {
+type PrivyVerifierConfiguration = {
   appId: string;
   appSecret: string;
   verificationKey?: string;
   fetch?: typeof globalThis.fetch;
-}): IdentityVerifier {
+};
+export function createPrivyVerifier(
+  config: PrivyVerifierConfiguration,
+): IdentityVerifier {
+  return privyVerifier(config, false);
+}
+// This read-only view is for a separately owner-guarded reconciliation process.
+// It is deliberately not an authentication verifier and exposes no token API.
+export function createPrivyOperatorInspector(
+  config: PrivyVerifierConfiguration,
+): Pick<IdentityVerifier, "inspect"> {
+  return { inspect: privyVerifier(config, true).inspect };
+}
+function privyVerifier(
+  config: PrivyVerifierConfiguration,
+  operatorFrozenView: boolean,
+): IdentityVerifier {
   const client = new PrivyClient({
     appId: config.appId,
     appSecret: config.appSecret,
@@ -71,7 +97,9 @@ export function createPrivyVerifier(config: {
     if (
       user.id !== subject ||
       user.is_guest ||
-      (user.frozen_at !== undefined && user.frozen_at !== null)
+      (!operatorFrozenView &&
+        user.frozen_at !== undefined &&
+        user.frozen_at !== null)
     )
       throw new ProviderCredentialChangedError("provider account unavailable");
     const email = user.linked_accounts.find((entry) => entry.type === "email");
@@ -95,6 +123,17 @@ export function createPrivyVerifier(config: {
       throw new ProviderCredentialChangedError(
         "authentication method required",
       );
+    const passkeys: ProviderPasskeyEvidence[] = user.linked_accounts.flatMap(
+      (entry) =>
+        entry.type === "passkey"
+          ? [
+              {
+                credentialId: entry.credential_id,
+                publicKey: entry.public_key ?? null,
+              },
+            ]
+          : [],
+    );
     return {
       subject,
       email: email?.type === "email" ? email.address : null,
@@ -103,6 +142,7 @@ export function createPrivyVerifier(config: {
       ].sort(),
       credentialsDigest: providerCredentialsDigest(credentials),
       credentials,
+      ...(passkeys.length ? { passkeys } : {}),
     };
   }
   return {
@@ -147,7 +187,16 @@ export function createPrivySessionControl(config: {
   return {
     async state(subject, options) {
       const user = await client.users()._get(subject, options);
-      return { frozenAt: user.frozen_at ?? null };
+      if (
+        user.id !== subject ||
+        !Object.hasOwn(user, "frozen_at") ||
+        (user.frozen_at !== null &&
+          (typeof user.frozen_at !== "number" ||
+            !Number.isSafeInteger(user.frozen_at) ||
+            user.frozen_at <= 0))
+      )
+        throw new ProviderUnavailableError("provider freeze state unavailable");
+      return { frozenAt: user.frozen_at };
     },
     async freeze(subject, options) {
       const result = await client.users().freeze(subject, {

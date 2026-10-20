@@ -5,8 +5,10 @@ import express from "express";
 import request from "../scripts/test-http-request.ts";
 import {
   createPrivyVerifier,
+  createPrivyOperatorInspector,
   createPrivySessionControl,
   ProviderCredentialChangedError,
+  ProviderUnavailableError,
 } from "../dist/platform/auth/privy.js";
 import { loadProviderConfig } from "../dist/platform/auth/provider-config.js";
 import { createSharedAbuseLimiter } from "../dist/platform/shared-abuse.js";
@@ -126,7 +128,7 @@ describe("verified provider evidence", () => {
         return new Response(
           JSON.stringify(
             outbound.method === "GET"
-              ? { frozen_at: 12345 }
+              ? { id: claims.sub, frozen_at: 12345 }
               : { success: true },
           ),
           { headers: { "Content-Type": "application/json" } },
@@ -171,6 +173,40 @@ describe("verified provider evidence", () => {
       /provider unfreeze failed/,
     );
   });
+  it("never treats absent, malformed or another identity's freeze state as confirmed unfrozen", async () => {
+    for (const value of [
+      { id: claims.sub },
+      { id: "did:privy:another-identity", frozen_at: null },
+      ...[
+        undefined,
+        "12345",
+        false,
+        0,
+        -1,
+        1.5,
+        Number.MAX_SAFE_INTEGER + 1,
+      ].map((frozen_at) => ({ id: claims.sub, frozen_at })),
+    ]) {
+      const control = createPrivySessionControl({
+        appId,
+        appSecret: "synthetic",
+        fetch: async () =>
+          new Response(JSON.stringify(value), {
+            headers: { "Content-Type": "application/json" },
+          }),
+      });
+      await assert.rejects(control.state(claims.sub), ProviderUnavailableError);
+    }
+    const knownUnfrozen = createPrivySessionControl({
+      appId,
+      appSecret: "synthetic",
+      fetch: async () =>
+        new Response(JSON.stringify({ id: claims.sub, frozen_at: null }), {
+          headers: { "Content-Type": "application/json" },
+        }),
+    });
+    assert.deepEqual(await knownUnfrozen.state(claims.sub), { frozenAt: null });
+  });
   it("inspects current server-side credentials without accepting token refresh as reauthentication", async () => {
     const state = await verifier().inspect(claims.sub);
     assert.equal(state.subject, claims.sub);
@@ -195,6 +231,47 @@ describe("verified provider evidence", () => {
         verifier(user).inspect(claims.sub),
         ProviderCredentialChangedError,
       );
+  });
+  it("allows only a read-only operator inspector to inspect a frozen identity without making it authentication evidence", async () => {
+    const user = {
+      id: claims.sub,
+      frozen_at: 12345,
+      is_guest: false,
+      linked_accounts: [{ type: "email", address: "verified@example.test" }],
+    };
+    const calls = [];
+    const inspect = createPrivyOperatorInspector({
+      appId,
+      appSecret: "synthetic",
+      fetch: async (url, init) => {
+        const outbound = new Request(url, init);
+        calls.push(outbound.method);
+        return new Response(JSON.stringify(user), {
+          headers: { "Content-Type": "application/json" },
+        });
+      },
+    });
+    assert.deepEqual(Object.keys(inspect), ["inspect"]);
+    assert.deepEqual(
+      await inspect.inspect(claims.sub),
+      await verifier({ ...user, frozen_at: null }).inspect(claims.sub),
+    );
+    assert.deepEqual(calls, ["GET"]);
+    await assert.rejects(
+      verifier(user).inspect(claims.sub),
+      ProviderCredentialChangedError,
+    );
+    user.is_guest = true;
+    await assert.rejects(
+      inspect.inspect(claims.sub),
+      ProviderCredentialChangedError,
+    );
+    user.is_guest = false;
+    user.id = "did:privy:other-identity";
+    await assert.rejects(
+      inspect.inspect(claims.sub),
+      ProviderCredentialChangedError,
+    );
   });
   it("refuses unsafe email merging and reflects configured login methods", async () => {
     assert.deepEqual(await verifier().configuration(), {

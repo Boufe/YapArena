@@ -87,6 +87,7 @@ type Metadata = {
   sequences: Sequence[];
   restoreVerified: boolean;
   migrationRehearsalVerified: boolean;
+  runtimeNonIdleSessions: number;
 };
 function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -225,6 +226,42 @@ async function availablePort() {
   );
   return port;
 }
+async function assertRuntimeQuiescent(settings: Configuration, ca: string) {
+  // The owner cannot necessarily see another role's activity state. Inspect
+  // peers as the runtime role itself, without granting administrative stats.
+  const runtime = new pg.Client({
+    host: settings.host,
+    port: settings.port,
+    database: settings.database,
+    user: settings.runtime.user,
+    password: settings.runtime.password,
+    ssl: { ca, rejectUnauthorized: true, servername: settings.host },
+    connectionTimeoutMillis: 10000,
+    query_timeout: 12000,
+    statement_timeout: 10000,
+    application_name: "yaparena-account-release-quiescence",
+  });
+  try {
+    await runtime.connect();
+    assert.equal(
+      (
+        await runtime.query<{ safe: boolean }>(
+          "SELECT current_user='yaparena_runtime' AND session_user='yaparena_runtime' AND current_database()='postgres' AS safe",
+        )
+      ).rows[0]!.safe,
+      true,
+    );
+    const count = (
+      await runtime.query<{ count: number }>(
+        "SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename=current_user AND pid<>pg_backend_pid() AND state IS DISTINCT FROM 'idle'",
+      )
+    ).rows[0]!.count;
+    assert.equal(count, 0);
+    return count;
+  } finally {
+    await runtime.end();
+  }
+}
 const ownerClients: pg.Client[] = [];
 let step = "validate private configuration and lead release gates",
   cluster: string | undefined,
@@ -294,14 +331,7 @@ try {
     [],
   );
   await verifyAccounts(client);
-  assert.equal(
-    (
-      await client.query<{ active: number }>(
-        "SELECT count(*)::int AS active FROM pg_stat_activity WHERE usename='yaparena_runtime' AND pid<>pg_backend_pid() AND (state='active' OR xact_start IS NOT NULL)",
-      )
-    ).rows[0]!.active,
-    0,
-  );
+  await assertRuntimeQuiescent(settings, ca);
   const pgEnvironment = {
     ...process.env,
     PGHOST: settings.host,
@@ -332,6 +362,7 @@ try {
     await client.query(
       `LOCK TABLE ${tables.map((table) => `${quote(table.schema)}.${quote(table.name)}`).join(",")} IN SHARE ROW EXCLUSIVE MODE`,
     );
+    const runtimeNonIdleSessions = await assertRuntimeQuiescent(settings, ca);
     const snapshot = (
         await client.query<{ snapshot: string }>(
           "SELECT pg_export_snapshot() AS snapshot",
@@ -377,6 +408,7 @@ try {
         sequences: await sequences(client),
         restoreVerified: false,
         migrationRehearsalVerified: false,
+        runtimeNonIdleSessions,
       };
     await writeFile(resolve(directory, "application.dump.enc"), ciphertext, {
       mode: 0o600,
@@ -526,7 +558,7 @@ try {
       resolve(
         "docs/evidence/account-completion-baseline/staging-release-prepare.json",
       ),
-      `${JSON.stringify({ at: new Date().toISOString(), revision, projectRef, encryptedBackup: true, ciphertextSha256: metadata.ciphertextSha256, tableCount: tables.length, sequenceCount: metadata.sequences.length, exactRestoredFingerprints: true, restoredMigrationRehearsal: true, rehearsedMigrations: pending, hostedMigrationsApplied: 0, hostedAccountMutations: 0, retainedAccounts: 3, totalAccounts: 4, liveJournals: 0, limits: ["Private application schemas only; not a full Supabase/provider/global-role disaster recovery backup.", "Local restore intentionally omits original ACLs; hosted role/catalog boundary is verified separately.", "No deletion rehearsal, provider mutation, live funds, service-state change or deployment."] }, null, 2)}\n`,
+      `${JSON.stringify({ at: new Date().toISOString(), revision, projectRef, encryptedBackup: true, ciphertextSha256: metadata.ciphertextSha256, tableCount: tables.length, sequenceCount: metadata.sequences.length, runtimeNonIdleSessions, exactRestoredFingerprints: true, restoredMigrationRehearsal: true, rehearsedMigrations: pending, hostedMigrationsApplied: 0, hostedAccountMutations: 0, retainedAccounts: 3, totalAccounts: 4, liveJournals: 0, limits: ["Private application schemas only; not a full Supabase/provider/global-role disaster recovery backup.", "Local restore intentionally omits original ACLs; hosted role/catalog boundary is verified separately.", "Runtime-role activity is a point-in-time adjunct to independently verified stopped writers; it does not prevent later connections.", "No deletion rehearsal, provider mutation, live funds, service-state change or deployment."] }, null, 2)}\n`,
     );
     console.log(
       JSON.stringify({
@@ -537,6 +569,7 @@ try {
         migrationRehearsalVerified: true,
         privateReleaseDirectory: directory,
         hostedMigrationsApplied: 0,
+        runtimeNonIdleSessions,
       }),
     );
   } else {
@@ -557,6 +590,7 @@ try {
         value.projectRef === projectRef &&
         value.restoreVerified === true &&
         value.migrationRehearsalVerified === true &&
+        value.runtimeNonIdleSessions === 0 &&
         value.revision === revision &&
         typeof value.ciphertextSha256 === "string" &&
         Array.isArray(value.tables) &&
@@ -576,10 +610,18 @@ try {
       )
     ).rows;
     assert.deepEqual(tables, value.tables);
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
+    await client.query("SET LOCAL lock_timeout='5s'");
+    await client.query(
+      `LOCK TABLE ${tables.map((table) => `${quote(table.schema)}.${quote(table.name)}`).join(",")} IN SHARE ROW EXCLUSIVE MODE`,
+    );
+    const runtimeNonIdleSessions = await assertRuntimeQuiescent(settings, ca);
     assert.deepEqual(await fingerprints(client, tables), value.fingerprints);
     assert.deepEqual(await sequences(client), value.sequences);
+    await client.query("COMMIT");
     step =
       "apply exact additive migration set with owner-only repository runner";
+    await assertRuntimeQuiescent(settings, ca);
     await runMigrations(client);
     assert.deepEqual(await migrations(client), Object.keys(migrationHashes));
     await verifyAccounts(client);
@@ -587,7 +629,7 @@ try {
       resolve(
         "docs/evidence/account-completion-baseline/staging-release-migrate.json",
       ),
-      `${JSON.stringify({ at: new Date().toISOString(), revision, projectRef, appliedMigrations: pending, ownerOnly: true, retainedAccounts: 3, totalAccounts: 4, liveJournals: 0, encryptedBackupSha256: value.ciphertextSha256, rollback: "Forward-only schema changes. Retained encrypted backup is emergency recovery evidence; do not run down migrations or reset accounts. Reassess application compatibility before code rollback." }, null, 2)}\n`,
+      `${JSON.stringify({ at: new Date().toISOString(), revision, projectRef, appliedMigrations: pending, ownerOnly: true, runtimeNonIdleSessions, retainedAccounts: 3, totalAccounts: 4, liveJournals: 0, encryptedBackupSha256: value.ciphertextSha256, rollback: "Forward-only schema changes. Retained encrypted backup is emergency recovery evidence; do not run down migrations or reset accounts. Reassess application compatibility before code rollback." }, null, 2)}\n`,
     );
     console.log(
       JSON.stringify({
@@ -597,6 +639,7 @@ try {
         retainedAccounts: 3,
         totalAccounts: 4,
         liveJournals: 0,
+        runtimeNonIdleSessions,
       }),
     );
   }

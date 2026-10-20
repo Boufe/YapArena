@@ -1,0 +1,73 @@
+{
+  "at": "2026-10-20T06:58:47.283Z",
+  "mode": "inspect",
+  "revision": "58e7b2749b644aeac4695cd2bacb2826cd61c20a",
+  "helperSha256": "92902fabdfd1cff561925a13ead37c59d0c5b380782c29ea8a1eed4c8656a0d3",
+  "mutations": [],
+  "services": [
+    {
+      "id": "srv-datv1kjncjis73a500cg",
+      "name": "yaparena-staging-web",
+      "type": "web_service",
+      "suspended": "not_suspended",
+      "autoDeploy": "no",
+      "branch": "main",
+      "plan": "free",
+      "latestDeploy": {
+        "id": "dep-dbbbgek9v7es73ekde80",
+        "status": "live",
+        "commit": "f942dc6290e5794395c380612abc826ea7952b16"
+      },
+      "database": {
+        "runtimeRole": true,
+        "expectedProject": true,
+        "sslmode": "verify-full",
+        "certificateParameterPresent": true,
+        "certificateContentParameter": false,
+        "sameAsWeb": true
+      },
+      "tlsEnvironment": {
+        "validationExplicitlyDisabled": false,
+        "extraCaPathConfigured": false,
+        "pgRootCertConfigured": false
+      },
+      "coinSandboxEnabled": false,
+      "sandboxWebhookConfigured": false
+    },
+    {
+      "id": "srv-db38jiid0e5s73ffr2cg",
+      "name": "yaparena-replay-worker",
+      "type": "background_worker",
+      "suspended": "not_suspended",
+      "autoDeploy": "no",
+      "branch": "main",
+      "plan": null,
+      "latestDeploy": {
+        "id": "dep-dbb8vro473hc73c4hc80",
+        "status": "live",
+        "commit": "fd60543b5f6d8f0b65fe1f93807252064d9317f2"
+      },
+      "database": {
+        "runtimeRole": true,
+        "expectedProject": true,
+        "sslmode": "verify-full",
+        "certificateParameterPresent": true,
+        "certificateContentParameter": false,
+        "sameAsWeb": true
+      },
+      "tlsEnvironment": {
+        "validationExplicitlyDisabled": false,
+        "extraCaPathConfigured": false,
+        "pgRootCertConfigured": false
+      },
+      "coinSandboxEnabled": false,
+      "sandboxWebhookConfigured": false
+    }
+  ],
+  "limitations": [
+    "Control-plane configuration evidence; URL sslmode/CA flags alone do not prove the running driver's TLS handshake.",
+    "No raw environment values, URLs, credentials, owner identities, deploy messages or error bodies are exported.",
+    "Deploy acceptance is not live-revision/readiness/browser acceptance; verify that separately.",
+    "No plan, provider identity, live funds, retained account, recording, egress, allowlist or SSH configuration is changed."
+  ]
+}

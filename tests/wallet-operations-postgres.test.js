@@ -286,9 +286,6 @@ describe(
         .set("Cookie", `session=${deleted.token.token}`)
         .expect(200);
       await ownerPool.query("DELETE FROM users WHERE id=$1", [deleted.userId]);
-      const afterDeletion = (
-        await ownerPool.query("SELECT count(*)::int n FROM users")
-      ).rows[0].n;
       await request(server)
         .get("/api/auth/me")
         .set("Cookie", `session=${deleted.token.token}`)
@@ -303,8 +300,13 @@ describe(
           .send({ challengeId: challenge.body.id, signature })
           .expect(410);
       assert.equal(
-        (await ownerPool.query("SELECT count(*)::int n FROM users")).rows[0].n,
-        afterDeletion,
+        (
+          await ownerPool.query(
+            "SELECT count(*)::int n FROM users WHERE id=$1 OR email=$2",
+            [deleted.userId, credential.email],
+          )
+        ).rows[0].n,
+        0,
       );
       assert.equal(
         (

@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-20T05:49:30.309Z",
+  "revision": "db7c3d1c2d413ed170ee854bc186dc2a2a55eb0c",
+  "sourceHashes": {
+    "scripts/verify-security-passkey-browser.ts": "169b91ee8913d8af83ffd09b6b5a86777d1e9f439452407348062ad993dd9ff5",
+    "public/account-security.bundle.js": "12e9f874ec5f583eb5830ce93ecf2cdd8cdc8318cb3a4a6c293247205e4d3ce1",
+    "src/platform/auth/security-passkeys.ts": "99803076c3f15f087a6fa5b54c451ae6b5d0f254ec01da376ef0deccb290c977",
+    "src/platform/auth/security-router.ts": "2e1c296029e81934aea3a76d0737fcc741040f903c8c802908dd1b074e442a0f",
+    "src/platform/auth/account-operations.ts": "72246fc6de70eeb90bec291224d3b0eb5983eec596edc82aef01af4c8b27d1d4",
+    "dist/platform/auth/security-passkeys.js": "422de1e83c7d5c1c1e37c4db2acae3ad4e06d8249e7ff7c6b253b6f7abc5cad3",
+    "dist/platform/auth/security-router.js": "011668e430f24640919242a333d90fb2010bfe3487c344f2a53c50ae1e62c9ff",
+    "dist/platform/auth/account-operations.js": "ca2f9cd30d0c7e534c0893e68c3b2b087185c3a338ad948f2e47762a72874080"
+  },
+  "postgres": "PostgreSQL 17.10 (Homebrew)",
+  "scope": "Real browser WebAuthn API, Chrome virtual CTAP2 authenticator and real runtime-role PostgreSQL application backend; synthetic provider identity/session setup; not genuine Privy authentication, hosted acceptance, screen-reader or physical-device evidence.",
+  "checks": [
+    "desktop: actual navigator.credentials registration verified by real runtime PostgreSQL backend; session rotated; replay and cross-account completion rejected",
+    "desktop: browser-generated operation authentication adds a second key and authorizes removal using a retained key; cancellation preserves credentials and restores focus",
+    "desktop: final key cannot approve its own removal; cross-origin mutation rejected; automated WCAG tags and no horizontal overflow pass",
+    "mobile: actual navigator.credentials registration verified by real runtime PostgreSQL backend; session rotated; replay and cross-account completion rejected",
+    "mobile: browser-generated operation authentication adds a second key and authorizes removal using a retained key; cancellation preserves credentials and restores focus",
+    "mobile: final key cannot approve its own removal; cross-origin mutation rejected; automated WCAG tags and no horizontal overflow pass"
+  ],
+  "errors": []
+}

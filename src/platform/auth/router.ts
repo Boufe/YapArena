@@ -406,6 +406,11 @@ export function createAuthRouter({
             "this session has ended; sign in again to sign out other devices",
         });
       }
+      const expectedAccount = request.get("X-YapArena-Expected-Account");
+      if (expectedAccount && expectedAccount !== user.id)
+        return response.status(409).json({
+          error: "the account changed before sign-out; refresh and try again",
+        });
       if (user) {
         try {
           await sessions.revoke(user.id, hash, false, String(request.id));
@@ -447,6 +452,11 @@ export function createAuthRouter({
     "/sessions/:id",
     requireLocalRevocation,
     async (request, response) => {
+      const expectedAccount = request.get("X-YapArena-Expected-Account");
+      if (expectedAccount && expectedAccount !== request.user!.id)
+        return response.status(409).json({
+          error: "the account changed before sign-out; refresh and try again",
+        });
       if (request.body && Object.keys(request.body).length)
         return response
           .status(400)
@@ -487,6 +497,11 @@ export function createAuthRouter({
       authLimiter,
       requireLocalRevocation,
       async (request, response) => {
+        const expectedAccount = request.get("X-YapArena-Expected-Account");
+        if (expectedAccount && expectedAccount !== request.user!.id)
+          return response.status(409).json({
+            error: "the account changed before sign-out; refresh and try again",
+          });
         // No account/session selector is accepted. Ownership comes from the live cookie.
         if (request.body && Object.keys(request.body).length)
           return response.status(400).json({

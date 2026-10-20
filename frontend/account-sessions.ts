@@ -18,14 +18,27 @@ for (const [id, path, retainCurrent] of [
       if (!window.confirm(message)) return;
       if (button.disabled) return;
       const version = sessionControlEpoch;
+      const expectedAccount = window.yapCurrentSessionAccount?.();
       button.disabled = true;
+      notice.textContent = "Finishing account changes and signing out…";
       try {
-        const response = await fetch(`/api/auth/${path}`, {
+        if (!window.yapSessionFetch)
+          throw new Error(
+            "Secure account controls are unavailable. Reload and try again.",
+          );
+        const response = await window.yapSessionFetch(`/api/auth/${path}`, {
           method: "POST",
           credentials: "same-origin",
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(45000),
         });
-        if (version !== sessionControlEpoch) return;
+        if (version !== sessionControlEpoch) {
+          if (
+            expectedAccount &&
+            expectedAccount === window.yapCurrentSessionAccount?.()
+          )
+            window.dispatchEvent(new Event("yap:account-changed"));
+          return;
+        }
         const expired = response.status === 401;
         if (!response.ok && !expired) {
           const body: { error?: string } = await response.json();

@@ -32,10 +32,18 @@ const gates = new Map<string, ReturnType<typeof deferred>>();
 const bodyGates = new Map<string, ReturnType<typeof deferred>>();
 const arrivals = new Map<string, ReturnType<typeof deferred>>();
 const entered = new Set<string>();
+const sessions = new Map<string, { account: string; active: boolean }>();
+const revocationCookies = new Map<string, string | undefined>();
 app.use("/api/auth", async (r, s) => {
   const body: unknown = r.body;
-  if (r.method === "GET" || r.path === "/logout")
-    return s.json({ label: "read" });
+  const cookie = r.headers.cookie?.match(
+    /(?:^|;\s*)coordination_fixture=([^;]+)/,
+  )?.[1];
+  const current = cookie ? sessions.get(cookie) : undefined;
+  if (r.method === "GET")
+    return current?.active
+      ? s.json({ account: current.account })
+      : s.sendStatus(401);
   if (
     !body ||
     typeof body !== "object" ||
@@ -44,9 +52,33 @@ app.use("/api/auth", async (r, s) => {
   )
     return s.sendStatus(400);
   const label = body.label;
+  const revocation =
+    r.path.startsWith("/logout") || r.path.startsWith("/sessions/");
+  if (!revocation) {
+    // Model the DB commit preceding delayed HTTP headers. A credential rotation
+    // invalidates the old cookie before its replacement reaches the browser.
+    if (label.startsWith("rotation-") && current) current.active = false;
+    sessions.set(label, {
+      account: label.startsWith("account-b-") ? "synthetic-b" : "synthetic-a",
+      active: true,
+    });
+  }
   entered.add(label);
   arrivals.get(label)?.release();
   await gates.get(label)?.promise;
+  if (revocation) {
+    revocationCookies.set(label, cookie);
+    if (!current?.active) return s.sendStatus(401);
+    const expected = r.get("X-YapArena-Expected-Account");
+    if (expected && expected !== current.account) return s.sendStatus(409);
+    for (const [id, session] of sessions)
+      if (
+        session.account === current.account &&
+        (r.path !== "/logout-other-sessions" || id !== cookie)
+      )
+        session.active = false;
+    return s.status(200).json({ label });
+  }
   s.cookie("coordination_fixture", label, {
     httpOnly: true,
     sameSite: "strict",
@@ -81,7 +113,8 @@ async function start(page: Page, path: string, label: string, method = "POST") {
           body: JSON.stringify({ label }),
         })
         .then(async (response) => {
-          await response.json();
+          await response.text();
+          Reflect.set(window, `${label}Status`, response.status);
           Reflect.set(window, label, "complete");
         })
         .catch((error: unknown) => {
@@ -175,21 +208,96 @@ try {
     ),
   );
   assert.equal(entered.has("after-body"), false);
-  for (const path of ["/api/auth/me", "/api/auth/logout"])
-    assert.equal(
-      await b.evaluate(async (path) => {
-        const response = await window.yapSessionFetch!(path, {
-          method: path.endsWith("logout") ? "POST" : "GET",
-        });
-        return response.status;
-      }, path),
-      200,
-    );
+  assert.equal(
+    await b.evaluate(
+      async () => (await window.yapSessionFetch!("/api/auth/me")).status,
+    ),
+    200,
+  );
+  await start(b, "/api/auth/logout", "after-body-logout");
+  assert.equal(entered.has("after-body-logout"), false);
   body.release();
   assert.equal(await result(a, "held-body"), "complete");
   assert.equal(await result(b, "after-body"), "complete");
+  assert.equal(await result(b, "after-body-logout"), "complete");
+  assert.equal(revocationCookies.get("after-body-logout"), "after-body");
   checks.push(
-    "A delayed response body retains the session lock; reads and logout remain available without that lock.",
+    "A delayed response body retains the session lock; reads remain unlocked and sign-out waits for the final replacement cookie.",
+  );
+
+  const revocations = [
+    ["POST", "/api/auth/logout"],
+    ["POST", "/api/auth/logout-all"],
+    ["POST", "/api/auth/logout-other-sessions"],
+    ["DELETE", "/api/auth/sessions/7"],
+  ] as const;
+  for (const [index, [method, path]] of revocations.entries()) {
+    await start(a, "/api/auth/login", `before-rotation-${index}`);
+    assert.equal(await result(a, `before-rotation-${index}`), "complete");
+    await b.evaluate(() => window.yapRememberSessionAccount!("synthetic-a"));
+    const label = `rotation-${index}`,
+      gate = hold(label);
+    await start(
+      a,
+      "/api/auth/security/passkeys/enrollment/" + id + "/complete",
+      label,
+    );
+    await gate.arrived;
+    await start(b, path, `rotation-logout-${index}`, method);
+    await b.waitForFunction(async () =>
+      (await navigator.locks.query()).pending?.some(
+        (lock) => lock.name === "yaparena-application-session",
+      ),
+    );
+    assert.equal(entered.has(`rotation-logout-${index}`), false);
+    gate.release();
+    assert.equal(await result(a, label), "complete");
+    assert.equal(await result(b, `rotation-logout-${index}`), "complete");
+    assert.equal(
+      await b.evaluate(
+        (label) => Reflect.get(window, label + "Status"),
+        `rotation-logout-${index}`,
+      ),
+      200,
+    );
+    assert.equal(revocationCookies.get(`rotation-logout-${index}`), label);
+    assert.equal(sessions.get(label)?.active, path.endsWith("other-sessions"));
+  }
+  checks.push(
+    "All four revocation controls wait for a committed credential rotation's delayed headers and revoke using the replacement cookie; sign-out-other-sessions preserves only that current session.",
+  );
+
+  await start(a, "/api/auth/login", "before-cross-account");
+  assert.equal(await result(a, "before-cross-account"), "complete");
+  await a.evaluate(() => window.yapRememberSessionAccount!("synthetic-a"));
+  const cross = hold("rotation-cross-account");
+  await start(a, "/api/auth/login", "rotation-cross-account");
+  await cross.arrived;
+  await start(b, "/api/auth/login", "account-b-replacement");
+  await b.waitForFunction(
+    async () => (await navigator.locks.query()).pending?.length === 1,
+  );
+  await start(a, "/api/auth/logout", "old-a-logout");
+  await a.waitForFunction(
+    async () => (await navigator.locks.query()).pending?.length === 2,
+  );
+  cross.release();
+  assert.equal(await result(a, "rotation-cross-account"), "complete");
+  assert.equal(await result(b, "account-b-replacement"), "complete");
+  assert.equal(await result(a, "old-a-logout"), "complete");
+  assert.equal(
+    await a.evaluate(() => Reflect.get(window, "old-a-logoutStatus")),
+    409,
+  );
+  assert.equal(sessions.get("account-b-replacement")?.active, true);
+  assert.equal(
+    await b.evaluate(
+      async () => (await (await fetch("/api/auth/me")).json()).account,
+    ),
+    "synthetic-b",
+  );
+  checks.push(
+    "A different account's login queued before old-account logout keeps its cookie and active session; the captured account comparison rejects the stale logout with409.",
   );
 
   const queued = hold("queue-holder");

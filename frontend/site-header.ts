@@ -60,12 +60,16 @@ if (header) {
       });
       if (current !== version) return;
       if (auth.status === 401 || auth.status === 403) {
+        window.yapRememberSessionAccount?.(null);
         clearAccount();
         session("guest");
         status.textContent = endedSessionNotice;
         return;
       }
       if (!auth.ok) throw new Error("account unavailable");
+      const identity: { user: { id: string } } = await auth.json();
+      if (current !== version) return;
+      window.yapRememberSessionAccount?.(identity.user.id);
       endedSessionNotice = "";
       session("member");
       status.textContent = "";
@@ -430,14 +434,25 @@ if (header) {
       const button = event.currentTarget as HTMLButtonElement;
       if (button.disabled) return;
       const logoutVersion = version;
+      const expectedAccount = window.yapCurrentSessionAccount?.();
       button.disabled = true;
+      status.textContent = "Finishing account changes and signing out…";
       try {
-        const response = await fetch("/api/auth/logout", {
+        if (!window.yapSessionFetch)
+          throw new Error("account controls unavailable");
+        const response = await window.yapSessionFetch("/api/auth/logout", {
           method: "POST",
           credentials: "same-origin",
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(45000),
         });
-        if (logoutVersion !== version) return;
+        if (logoutVersion !== version) {
+          if (
+            expectedAccount &&
+            expectedAccount === window.yapCurrentSessionAccount?.()
+          )
+            window.dispatchEvent(new Event("yap:account-changed"));
+          return;
+        }
         if (!response.ok && response.status !== 401)
           throw new Error("logout unavailable");
         clearAccount();

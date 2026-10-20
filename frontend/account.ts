@@ -67,10 +67,7 @@ async function api<T = void>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  const coordinated =
-    path.startsWith("/api/auth/") &&
-    method !== "GET" &&
-    path !== "/api/auth/logout";
+  const coordinated = path.startsWith("/api/auth/") && method !== "GET";
   const send = coordinated ? window.yapSessionFetch : fetch;
   if (!send)
     throw new Error(
@@ -281,6 +278,7 @@ async function loadAccount() {
   try {
     const { user } = await api<{ user: AccountUser }>("/api/auth/me");
     if (version !== accountVersion) return;
+    window.yapRememberSessionAccount?.(user.id);
     endedSessionNotice = "";
     passwordAvailable = Boolean(user.email);
     checkingSignOut.hidden = true;
@@ -337,6 +335,7 @@ async function loadAccount() {
   } catch (error) {
     if (version !== accountVersion) return;
     if ((error as AccountError).status === 401) {
+      window.yapRememberSessionAccount?.(null);
       clearAccountState();
       say(
         endedSessionNotice ||
@@ -364,7 +363,9 @@ for (const button of signOutButtons)
     if (signOutPending || button.disabled) return;
     signOutPending = true;
     const version = accountVersion;
+    const expectedAccount = window.yapCurrentSessionAccount?.();
     for (const control of signOutButtons) control.disabled = true;
+    say("Finishing account changes and signing out…");
     let expired = false;
     try {
       try {
@@ -372,13 +373,20 @@ for (const button of signOutButtons)
           "/api/auth/logout",
           "POST",
           undefined,
-          AbortSignal.timeout(10000),
+          AbortSignal.timeout(45000),
         );
       } catch (error) {
         if ((error as AccountError).status !== 401) throw error;
         expired = true;
       }
-      if (version !== accountVersion) return;
+      if (version !== accountVersion) {
+        if (
+          expectedAccount &&
+          expectedAccount === window.yapCurrentSessionAccount?.()
+        )
+          window.dispatchEvent(new Event("yap:account-changed"));
+        return;
+      }
       window.dispatchEvent(
         new CustomEvent("yap:provider-logout", { detail: expired }),
       );

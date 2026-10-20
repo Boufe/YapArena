@@ -84,6 +84,26 @@ describe("owned-session HTTP management", () => {
       .expect(400);
     assert.equal(f.calls.length, 0);
   });
+  it("compares the observed account before removing a session and still requires a cookie", async () => {
+    const f = app();
+    await request(f.server)
+      .delete(`/api/auth/sessions/${id}`)
+      .set("Cookie", "session=cookie")
+      .set("X-YapArena-Expected-Account", "73")
+      .expect(409);
+    await request(f.server)
+      .delete(`/api/auth/sessions/${id}`)
+      .set("X-YapArena-Expected-Account", "72")
+      .expect(401);
+    assert.equal(f.calls.length, 0);
+    await request(f.server)
+      .delete(`/api/auth/sessions/${id}`)
+      .set("Cookie", "session=cookie")
+      .set("X-YapArena-Expected-Account", "72")
+      .expect(200);
+    assert.equal(f.calls.length, 1);
+    assert.equal(f.calls[0].user, "72");
+  });
   it("revokes one owned session without deleting a potentially newer browser cookie", async () => {
     const f = app();
     const response = await request(f.server)

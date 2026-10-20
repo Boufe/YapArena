@@ -229,6 +229,39 @@ describe("authentication API", () => {
     assert.equal(response.headers["set-cookie"], undefined);
     assert.equal(sessions.deleteByTokenHash.mock.callCount(), 0);
   });
+  it("compares the observed account without using it to select or authorize a revocation", async () => {
+    const sessions = {
+      create: async () => ({}),
+      findUserByTokenHash: mock.fn(async () => publicUser),
+      revoke: mock.fn(async () => {}),
+    };
+    const { app } = createAuthenticationApp({ sessions });
+    for (const path of ["logout", "logout-all", "logout-other-sessions"]) {
+      await request(app)
+        .post(`/api/auth/${path}`)
+        .set("Cookie", "session=valid")
+        .set("X-YapArena-Expected-Account", "different-account")
+        .expect(409);
+      assert.equal(sessions.revoke.mock.callCount(), 0);
+      await request(app)
+        .post(`/api/auth/${path}`)
+        .set("X-YapArena-Expected-Account", publicUser.id)
+        .expect(401);
+    }
+    for (const path of ["logout", "logout-all", "logout-other-sessions"])
+      await request(app)
+        .post(`/api/auth/${path}`)
+        .set("Cookie", "session=valid")
+        .set("X-YapArena-Expected-Account", publicUser.id)
+        .expect(204);
+    // The hint is optional for direct API/initial-outage compatibility; cookie
+    // ownership is authoritative in either case.
+    await request(app)
+      .post("/api/auth/logout")
+      .set("Cookie", "session=valid")
+      .expect(204);
+    assert.equal(sessions.revoke.mock.callCount(), 4);
+  });
   it("does not claim other devices ended when the sign-out cookie is expired or loses authorization while waiting", async () => {
     for (const expiredAtLookup of [true, false]) {
       const { app } = createAuthenticationApp({

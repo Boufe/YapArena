@@ -65,19 +65,31 @@ if (sessionControls) {
     const owner = Symbol("session removal");
     removalOwner = owner;
     const removalVersion = version;
+    const expectedAccount = window.yapCurrentSessionAccount?.();
     refreshButton.disabled = true;
+    sessionNotice.textContent = "Finishing account changes and signing out…";
     for (const button of list.querySelectorAll("button"))
       button.disabled = true;
     try {
-      const response = await fetch(
+      if (!window.yapSessionFetch)
+        throw new Error("account controls unavailable");
+      const response = await window.yapSessionFetch(
         `/api/auth/sessions/${encodeURIComponent(session.id)}`,
         {
           method: "DELETE",
           credentials: "same-origin",
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(45000),
         },
       );
-      if (removalVersion !== version) return;
+      if (removalVersion !== version) {
+        if (
+          (removalOwner === undefined || removalOwner === owner) &&
+          expectedAccount &&
+          expectedAccount === window.yapCurrentSessionAccount?.()
+        )
+          window.dispatchEvent(new Event("yap:account-changed"));
+        return;
+      }
       if (response.status === 401) {
         announceSignedOut(true);
         return;

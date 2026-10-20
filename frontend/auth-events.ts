@@ -8,6 +8,8 @@ export type ProviderChange = {
 declare global {
   interface Window {
     yapSessionFetch?: (input: string, init?: RequestInit) => Promise<Response>;
+    yapRememberSessionAccount?: (accountId: string | null) => void;
+    yapCurrentSessionAccount?: () => string | null;
     yapLinkProviderIdentity?: (token: string) => Promise<void>;
     yapApproveProviderChange?: (change: ProviderChange) => Promise<void>;
   }

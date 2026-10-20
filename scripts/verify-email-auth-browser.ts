@@ -48,6 +48,7 @@ const revision = execFileSync("git", ["rev-parse", "HEAD"], {
   encoding: "utf8",
 }).trim();
 const assetFiles = [
+  "session-coordination.js",
   "account-auth.bundle.js",
   "account-security.bundle.js",
   "account-session-list.js",
@@ -1024,8 +1025,12 @@ try {
       await sessions
         .getByRole("button", { name: /^Sign out session, started/ })
         .click();
-      await sessionRemovalStarted.promise;
-      assert.deepEqual(sessionRemovals, ["101", "100", "201"]);
+      await page.waitForFunction(async () =>
+        (await navigator.locks.query()).pending?.some(
+          (lock) => lock.name === "yaparena-application-session",
+        ),
+      );
+      assert.deepEqual(sessionRemovals, ["101", "100"]);
       const staleResponse = page.waitForResponse(
         (response) =>
           response.request().method() === "DELETE" &&
@@ -1033,6 +1038,8 @@ try {
       );
       previousRemovalGate.release();
       await staleResponse;
+      await sessionRemovalStarted.promise;
+      assert.deepEqual(sessionRemovals, ["101", "100", "201"]);
       await page.evaluate(
         () =>
           new Promise<void>((done) =>
@@ -1073,7 +1080,7 @@ try {
       await capture(page, `session-race-protected-${name}.png`, true);
       sessionRemovalGate = undefined;
       checks.push(
-        `${name}: session list removes only the selected session, permits a replacement account's removal while the old DELETE is held and keeps that newer removal busy when the old response arrives, without signing out the replacement account`,
+        `${name}: session list queues a replacement account's removal behind the old DELETE and keeps that newer removal busy when the old response arrives, without signing out the replacement account`,
       );
       const passwordMethods = (route: Route) =>
         route.fulfill({
@@ -1338,6 +1345,69 @@ try {
       }
       checks.push(
         `${name}: delayed default, header, all-session and other-session logout replies cannot clear or relabel a replacement account or invoke provider logout`,
+      );
+      for (const action of ["account", "header", "all", "others"] as const) {
+        const gate = deferred(),
+          started = deferred(),
+          path =
+            action === "all"
+              ? "/api/auth/logout-all"
+              : action === "others"
+                ? "/api/auth/logout-other-sessions"
+                : "/api/auth/logout";
+        const heldLogout = async (route: Route) => {
+          started.release();
+          await gate.promise;
+          await route.fulfill({ status: 204 });
+        };
+        await page.route(`**${path}`, heldLogout);
+        if (action === "header") {
+          await page.locator("[data-header-account]").click();
+          await page
+            .getByRole("button", { name: "Log out", exact: false })
+            .click();
+        } else {
+          if (action !== "account")
+            page.once("dialog", (confirmation) => void confirmation.accept());
+          await page
+            .locator(
+              action === "all"
+                ? "#sign-out-all"
+                : action === "others"
+                  ? "#sign-out-others"
+                  : "#sign-out",
+            )
+            .click();
+        }
+        await started.promise;
+        await page.evaluate(() =>
+          window.dispatchEvent(new Event("yap:account-changed")),
+        );
+        await page.getByText("Account ready.", { exact: true }).waitFor();
+        appSignedIn = action === "others";
+        gate.release();
+        if (action === "others")
+          await page.getByText("Account ready.", { exact: true }).waitFor();
+        else await page.locator("#signed-out").waitFor({ state: "visible" });
+        assert.equal(
+          await page.locator("#signed-in").isVisible(),
+          action === "others",
+        );
+        assert.equal(
+          await page.evaluate(() =>
+            Reflect.get(window, "__staleRemovalLogouts"),
+          ),
+          0,
+        );
+        await page.unroute(`**${path}`, heldLogout);
+        appSignedIn = true;
+        await page.evaluate(() =>
+          window.dispatchEvent(new Event("yap:account-changed")),
+        );
+        await page.getByText("Account ready.", { exact: true }).waitFor();
+      }
+      checks.push(
+        `${name}: same-account changes during held logout trigger a fresh server lookup, converge to the confirmed session state and never apply stale provider logout or notices`,
       );
       for (const response of ["missing", "other-current"] as const) {
         managedSessions = [

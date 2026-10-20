@@ -29,7 +29,13 @@ function page({ confirm = true, response = { ok: true }, failure } = {}) {
   const calls = [];
   const prompts = [];
   const events = new EventTarget();
+  let accountId = "original";
   const dispatched = [];
+  const send = async (path, options) => {
+    calls.push({ path, options });
+    if (failure) throw failure;
+    return response;
+  };
   vm.runInNewContext(source, {
     Event,
     CustomEvent,
@@ -40,6 +46,8 @@ function page({ confirm = true, response = { ok: true }, failure } = {}) {
       },
     },
     window: {
+      yapSessionFetch: send,
+      yapCurrentSessionAccount: () => accountId,
       addEventListener: events.addEventListener.bind(events),
       dispatchEvent(event) {
         dispatched.push(event.type);
@@ -50,18 +58,17 @@ function page({ confirm = true, response = { ok: true }, failure } = {}) {
         return confirm;
       },
     },
-    async fetch(path, options) {
-      calls.push({ path, options });
-      if (failure) throw failure;
-      return response;
-    },
+    fetch: send,
   });
   return {
     elements,
     calls,
     prompts,
     dispatched,
-    changeAccount: () => events.dispatchEvent(new Event("yap:account-changed")),
+    changeAccount: (id = "replacement") => {
+      accountId = id;
+      events.dispatchEvent(new Event("yap:account-changed"));
+    },
     click: (id) => elements[id].click({ currentTarget: elements[id] }),
   };
 }
@@ -163,6 +170,26 @@ describe("account session controls", () => {
         assert.deepEqual(fixture.dispatched, []);
         assert.equal(fixture.elements[control].disabled, false);
       }
+    }
+  });
+  it("refreshes the current account after a same-account change without applying a stale logout notice", async () => {
+    for (const control of ["sign-out-all", "sign-out-others"]) {
+      let finish;
+      const response = new Promise((resolve) => {
+        finish = resolve;
+      });
+      const fixture = page({ response });
+      const pending = fixture.click(control);
+      fixture.changeAccount("original");
+      fixture.elements["account-notice"].textContent = "Account ready.";
+      finish({ ok: true, status: 204 });
+      await pending;
+      assert.deepEqual(fixture.dispatched, ["yap:account-changed"]);
+      assert.equal(
+        fixture.elements["account-notice"].textContent,
+        "Account ready.",
+      );
+      assert.equal(fixture.elements["signed-in"].hidden, false);
     }
   });
   it("works when session controls are absent from the current page", () => {

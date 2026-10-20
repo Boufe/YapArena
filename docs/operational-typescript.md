@@ -18,6 +18,12 @@ New email-first automation is also strict TypeScript: `reset-test-accounts` and
 `verify-email-auth-browser` is checked in browser automation. The explicit reset
 is never imported by runtime or migrations. See [scope and limits](email-first-accounts.md).
 
+`coin-sandbox-operator.ts` is also checked in the database-tools project. It is an
+explicit owner-only, sandbox-only command, with no `.env` loading, HTTP listener,
+signing or broadcasting. Its inbox drain and reconciliation run separately from
+runtime. See [the sandbox operating guide](coin-sandbox-operations.md) for command
+schemas, secret variable names, physical rail isolation and release boundaries.
+
 These former JavaScript files retain their names with a `.ts` extension:
 
 | Area                     | Sources under `scripts/`                                                                                                                                                                                    | Reason                                                                                                |

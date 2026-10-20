@@ -20,7 +20,7 @@ overflow. [Desktop](desktop.png) and [mobile](mobile.png) images visibly label t
 isolated component fixture. The matched full-account theme/layout screenshots
 remain in the parent evidence directory.
 
-The expanded run passes twelve groups. Desktop replaces a synthetic sole-email
+The expanded run passes fourteen groups. Desktop replaces a synthetic sole-email
 provider identity; mobile replaces a synthetic sole-Google identity with a
 different synthetic email identity. The provider verifier is a labelled local
 fixture, so this does not prove Privy code delivery or a genuine OAuth session.
@@ -39,6 +39,18 @@ commit through the definer's deferred constraint. An actual second account
 cannot consume the native assertion. After success, the old current cookie,
 the consumed proof and new provider SID cannot be replayed; a fresh SID of the
 retired original DID cannot provision another user or reopen the account.
+An adversarial current-generation revocation job for the old DID completes with
+the actual worker while making zero external control calls. Marking that old
+subject's job manual then leaves the replacement identity's actual protected-
+session monitor usable. This is local PostgreSQL/provider-stub acceptance;
+actual provider revocation has separate Cloud evidence.
+
+The final fourteen-group run identifies `5a7e957` and exact committed
+security/recovery/verifier source hashes. The root-owned twelfth-issuer session
+coordinator integration was not yet committed when it ran; its separate source
+and compiled-asset hashes are recorded too. The complete combined release gate
+must cover the final integrated commit. Return-to-action controllers are outside
+this isolated component fixture.
 
 Each sequential viewport instantiates its own unchanged security router and
 30-request mutation limiter. This keeps desktop's deliberate negative requests

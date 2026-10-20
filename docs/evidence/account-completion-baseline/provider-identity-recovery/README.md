@@ -76,7 +76,7 @@ fixture failure was corrected; this archive contains the final complete passing
 run and does not reclassify the earlier diagnostic as passing.
 
 The separate [native browser results](../security-passkey-browser/results.json)
-pass **12 desktop/mobile groups** using the real account-security component,
+pass **14 desktop/mobile groups** using the real account-security component,
 Chrome virtual CTAP2 and runtime PostgreSQL. This includes actual rendered
 permanent-retirement terms, native UV, unchanged funded source book/profile/key,
 no additional user or cash journal, cross-account denial, old-cookie/old-DID/SID
@@ -84,6 +84,12 @@ and proof replay rejection. Independent runtime SQL attempts also reject missing
 wrong-purpose, expired and revoked-key proofs; an otherwise valid pending proof
 cannot commit the definer mutation without consumption. Recovery dialog Axe
 checks pass, and the desktop/mobile screenshots were visually inspected.
+The extra adversarial job checks run the actual provider worker against an
+old-DID job at the replacement account's current generation: it completes as
+retired without a provider call. An old-subject manual job then cannot invalidate
+the replacement identity's actual session monitor. The native run records
+`5a7e957` plus exact source/compiled hashes; its root-owned session-coordinator
+integration was still pending commit and needs final combined acceptance.
 
 The provider verifier in those native tests is a labelled synthetic identity
 fixture. It does not establish genuine Privy OTP delivery, Google authorization,

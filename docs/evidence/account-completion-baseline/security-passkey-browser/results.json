@@ -1,8 +1,8 @@
 {
-  "at": "2026-10-20T15:48:53.883Z",
-  "revision": "4b880918934f8be0060f260392ea29f0601a01e9",
+  "at": "2026-10-20T16:02:02.994Z",
+  "revision": "5a7e957d2ee94426005254afe0b4b0d67747265c",
   "sourceHashes": {
-    "scripts/verify-security-passkey-browser.ts": "4f4d55e8d8935a6dc52a575be4a75514f43218f4b69255f3cf58a7c39efbe8d2",
+    "scripts/verify-security-passkey-browser.ts": "daf283808dbd774c718d3fc6b5d84b1eae174eaeab5098283583f4bd5ce154c4",
     "public/account-security.bundle.js": "fbd23da267408af036e9ec32f1e844f9ad2bd678fb4978a95cfd41a76d598c21",
     "public/session-coordination.js": "62fdfdbec9f5d42c20f06846e3c32758ed8e3b6bc79d165455ed758c0ea477f9",
     "public/account-auth.css": "dfa7bfe18baa0a76c45a9974aa24785f868f71ca31497794dfcaf11815c12da7",
@@ -39,12 +39,14 @@
     "desktop: final key cannot approve its own removal; cross-origin mutation rejected; automated WCAG tags and no horizontal overflow pass",
     "desktop: actual runtime SQL rejects a missing, wrong-purpose, expired or revoked-key proof; even a correctly scoped live proof cannot commit identity replacement without atomic proof consumption, leaving the original session and mapping intact",
     "desktop: a native user-verified retained app key replaces a synthetic sole email provider identity with a separately verified synthetic email DID; the same internal account, profile, retained key and funded source/ledger balances survive with no extra user or cash journal",
+    "desktop: an adversarial current-generation job for the retired DID completes without any external provider call; an old-subject manual fence cannot invalidate the replacement identity's current session monitor",
     "desktop: recovery rejects another actual account before proof consumption; consumed-proof replay and the replacement provider SID are rejected, and even a fresh session of the retired original DID cannot reprovision or reopen the account",
     "mobile: actual navigator.credentials registration verified by real runtime PostgreSQL backend; session rotated; replay and cross-account completion rejected",
     "mobile: browser-generated operation authentication adds a second key and authorizes removal using a retained key; cancellation preserves credentials and restores focus",
     "mobile: final key cannot approve its own removal; cross-origin mutation rejected; automated WCAG tags and no horizontal overflow pass",
     "mobile: actual runtime SQL rejects a missing, wrong-purpose, expired or revoked-key proof; even a correctly scoped live proof cannot commit identity replacement without atomic proof consumption, leaving the original session and mapping intact",
     "mobile: a native user-verified retained app key replaces a synthetic sole google_oauth provider identity with a separately verified synthetic email DID; the same internal account, profile, retained key and funded source/ledger balances survive with no extra user or cash journal",
+    "mobile: an adversarial current-generation job for the retired DID completes without any external provider call; an old-subject manual fence cannot invalidate the replacement identity's current session monitor",
     "mobile: recovery rejects another actual account before proof consumption; consumed-proof replay and the replacement provider SID are rejected, and even a fresh session of the retired original DID cannot reprovision or reopen the account"
   ],
   "errors": []

@@ -18,6 +18,8 @@ import {
 } from "../dist/platform/auth/session-tokens.js";
 import { hashPassword } from "../dist/platform/auth/passwords.js";
 import { createProviderAccounts } from "../dist/platform/auth/provider-accounts.js";
+import { createProviderWalletOperations } from "../dist/platform/auth/provider-wallet-operations.js";
+import { privateKeyToAccount } from "viem/accounts";
 
 const ownerUrl = process.env.WALLET_TEST_OWNER_DATABASE_URL;
 const runtimeUrl = process.env.WALLET_TEST_DATABASE_URL;
@@ -271,6 +273,220 @@ describe(
         /expired or invalid/,
       );
     });
+    it("permits first setup only before financial history and never permits bootstrap over a previous key or retained credential", async () => {
+      const f = await emailFixture(),
+        repo = createSecurityPasskeyRepository(a),
+        challenge = await repo.enrollmentOptions(f),
+        device = authenticator();
+      assert.equal(challenge.bootstrapAllowed, true);
+      const result = await repo.completeEnrollment({
+        ...f,
+        id: challenge.id,
+        response: device.registration(challenge.options),
+        sessionDurationMs: 600000,
+      });
+      const current = {
+        ...f,
+        sessionTokenHash: hashSessionToken(result.token),
+      };
+      assert.equal(
+        (await repo.enrollmentOptions(current)).bootstrapAllowed,
+        false,
+      );
+      assert.equal(
+        (await repo.enrollmentOptions(await fixture())).bootstrapAllowed,
+        false,
+      );
+      const funded = await emailFixture(),
+        pending = await repo.enrollmentOptions(funded);
+      assert.equal(pending.bootstrapAllowed, true);
+      await owner.query(
+        "INSERT INTO coin_grant_lots(id,user_id,environment,asset,kind,reference,target) VALUES($1::uuid,$2,'sandbox','USDC','welcome',$1::text,25000000)",
+        [randomUUID(), funded.userId],
+      );
+      assert.equal(
+        (await repo.enrollmentOptions(funded)).bootstrapAllowed,
+        false,
+      );
+      await assert.rejects(
+        repo.completeEnrollment({
+          ...funded,
+          id: pending.id,
+          response: authenticator().registration(pending.options),
+          sessionDurationMs: 600000,
+        }),
+        /existing trusted credential/,
+      );
+      await owner.query(
+        "UPDATE account_security_keys SET revoked_at=clock_timestamp() WHERE id=$1",
+        [result.keyId],
+      );
+      const user = (
+          await owner.query(
+            `SELECT auth_generation AS "authGeneration" FROM users WHERE id=$1`,
+            [f.userId],
+          )
+        ).rows[0],
+        fresh = createSessionToken();
+      await createSessionRepository(a).create(
+        f.userId,
+        fresh.tokenHash,
+        new Date(Date.now() + 600000),
+        user,
+      );
+      assert.equal(
+        (
+          await repo.enrollmentOptions({
+            ...f,
+            sessionTokenHash: fresh.tokenHash,
+          })
+        ).bootstrapAllowed,
+        false,
+      );
+    });
+    it("rolls back authenticator counters when the authorized mutation fails", async () => {
+      const { f, result, authenticatorDevice } = await enroll(await fixture());
+      const ops = createAccountOperationRepository(a),
+        terms = { purpose: "synthetic rollback" };
+      const operation = await ops.create({
+        ...f,
+        purpose: "withdrawal.request",
+        terms,
+        credential: { type: "passkey", keyId: result.keyId },
+      });
+      const prepared = await ops.prepare({
+        ...f,
+        id: operation.id,
+        purpose: operation.purpose,
+        terms,
+        rpcUrls: {},
+        authentication: authenticatorDevice.authentication(
+          operation.authenticationOptions,
+        ),
+      });
+      const c = await a.connect();
+      try {
+        await c.query("BEGIN");
+        await assert.rejects(
+          prepared.consume(c, async () => {
+            throw Error("synthetic mutation failure");
+          }),
+          /synthetic mutation failure/,
+        );
+        await c.query("ROLLBACK");
+      } finally {
+        c.release();
+      }
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT counter::text FROM account_security_keys WHERE id=$1",
+            [result.keyId],
+          )
+        ).rows[0].counter,
+        "0",
+      );
+      assert.equal(await consume(prepared), "authorized");
+    });
+    it("links the first wallet to an email-only account with its security passkey and permits deliberate unlink while email remains", async () => {
+      const initial = await emailFixture(),
+        repo = createSecurityPasskeyRepository(a),
+        challenge = await repo.enrollmentOptions(initial),
+        device = authenticator();
+      const enrolled = await repo.completeEnrollment({
+        ...initial,
+        id: challenge.id,
+        response: device.registration(challenge.options),
+        sessionDurationMs: 600000,
+      });
+      let f = {
+        ...initial,
+        sessionTokenHash: hashSessionToken(enrolled.token),
+      };
+      const wallet = privateKeyToAccount(
+          `0x${randomBytes(32).toString("hex")}`,
+        ),
+        target = {
+          purpose: "link",
+          address: wallet.address.toLowerCase(),
+          chainId: 875421,
+        };
+      const operations = createProviderWalletOperations(a);
+      const operation = await operations.create({
+        ...f,
+        ...target,
+        credential: { type: "passkey", keyId: enrolled.keyId },
+      });
+      const proof = {
+        ...f,
+        ...target,
+        id: operation.id,
+        rpcUrls: {},
+        sessionDurationMs: 600000,
+        authentication: device.authentication(operation.authenticationOptions),
+        proposedSignature: await wallet.signMessage({
+          message: operation.proposedMessage,
+        }),
+      };
+      await assert.rejects(
+        operations.complete({ ...proof, proposedSignature: "0x1234" }),
+        /new wallet signature is invalid/,
+      );
+      const linked = await operations.complete(proof);
+      assert.equal(linked.wallet.address, target.address);
+      assert.equal(
+        await createSessionRepository(b).findUserByTokenHash(
+          f.sessionTokenHash,
+        ),
+        null,
+      );
+      await assert.rejects(operations.complete(proof), /expired or invalid/);
+      f = { ...f, sessionTokenHash: hashSessionToken(linked.token) };
+      const unlink = {
+        purpose: "unlink",
+        address: target.address,
+        chainId: target.chainId,
+        targetWalletId: linked.wallet.id,
+      };
+      await assert.rejects(
+        operations.create({
+          ...f,
+          ...unlink,
+          credential: { type: "wallet", walletId: linked.wallet.id },
+        }),
+        /will remain linked/,
+      );
+      const removal = await operations.create({
+        ...f,
+        ...unlink,
+        credential: { type: "passkey", keyId: enrolled.keyId },
+      });
+      const removed = await createProviderWalletOperations(b).complete({
+        ...f,
+        ...unlink,
+        id: removal.id,
+        rpcUrls: {},
+        sessionDurationMs: 600000,
+        authentication: device.authentication(removal.authenticationOptions, {
+          counter: 2,
+        }),
+      });
+      assert.equal(removed.wallet.id, linked.wallet.id);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM wallet_identities WHERE user_id=$1",
+            [f.userId],
+          )
+        ).rows[0].n,
+        0,
+      );
+      assert.ok(
+        await createSessionRepository(a).findUserByTokenHash(
+          hashSessionToken(removed.token),
+        ),
+      );
+    });
     it("requires an exact fresh passkey assertion for every operation and consumes it atomically across pools", async () => {
       const { f, result, authenticatorDevice } = await enroll(await fixture());
       const terms = {
@@ -287,123 +503,6 @@ describe(
           terms,
           credential: { type: "passkey", keyId: result.keyId },
         });
-      it("permits first setup only before financial history and never permits bootstrap over a previous key or retained credential", async () => {
-        const f = await emailFixture(),
-          repo = createSecurityPasskeyRepository(a),
-          challenge = await repo.enrollmentOptions(f),
-          device = authenticator();
-        assert.equal(challenge.bootstrapAllowed, true);
-        const result = await repo.completeEnrollment({
-          ...f,
-          id: challenge.id,
-          response: device.registration(challenge.options),
-          sessionDurationMs: 600000,
-        });
-        const current = {
-          ...f,
-          sessionTokenHash: hashSessionToken(result.token),
-        };
-        assert.equal(
-          (await repo.enrollmentOptions(current)).bootstrapAllowed,
-          false,
-        );
-        assert.equal(
-          (await repo.enrollmentOptions(await fixture())).bootstrapAllowed,
-          false,
-        );
-        const funded = await emailFixture(),
-          pending = await repo.enrollmentOptions(funded);
-        assert.equal(pending.bootstrapAllowed, true);
-        await owner.query(
-          "INSERT INTO coin_grant_lots(id,user_id,environment,asset,kind,reference,target) VALUES($1,$2,'sandbox','USDC','welcome',$1::text,25000000)",
-          [randomUUID(), funded.userId],
-        );
-        assert.equal(
-          (await repo.enrollmentOptions(funded)).bootstrapAllowed,
-          false,
-        );
-        await assert.rejects(
-          repo.completeEnrollment({
-            ...funded,
-            id: pending.id,
-            response: authenticator().registration(pending.options),
-            sessionDurationMs: 600000,
-          }),
-          /existing trusted credential/,
-        );
-        await owner.query(
-          "UPDATE account_security_keys SET revoked_at=clock_timestamp() WHERE id=$1",
-          [result.keyId],
-        );
-        const user = (
-            await owner.query(
-              `SELECT auth_generation AS "authGeneration" FROM users WHERE id=$1`,
-              [f.userId],
-            )
-          ).rows[0],
-          fresh = createSessionToken();
-        await createSessionRepository(a).create(
-          f.userId,
-          fresh.tokenHash,
-          new Date(Date.now() + 600000),
-          user,
-        );
-        assert.equal(
-          (
-            await repo.enrollmentOptions({
-              ...f,
-              sessionTokenHash: fresh.tokenHash,
-            })
-          ).bootstrapAllowed,
-          false,
-        );
-      });
-      it("rolls back authenticator counters when the authorized mutation fails", async () => {
-        const { f, result, authenticatorDevice } = await enroll(
-          await fixture(),
-        );
-        const ops = createAccountOperationRepository(a),
-          terms = { purpose: "synthetic rollback" };
-        const operation = await ops.create({
-          ...f,
-          purpose: "withdrawal.request",
-          terms,
-          credential: { type: "passkey", keyId: result.keyId },
-        });
-        const prepared = await ops.prepare({
-          ...f,
-          id: operation.id,
-          purpose: operation.purpose,
-          terms,
-          rpcUrls: {},
-          authentication: authenticatorDevice.authentication(
-            operation.authenticationOptions,
-          ),
-        });
-        const c = await a.connect();
-        try {
-          await c.query("BEGIN");
-          await assert.rejects(
-            prepared.consume(c, async () => {
-              throw Error("synthetic mutation failure");
-            }),
-            /synthetic mutation failure/,
-          );
-          await c.query("ROLLBACK");
-        } finally {
-          c.release();
-        }
-        assert.equal(
-          (
-            await owner.query(
-              "SELECT counter::text FROM account_security_keys WHERE id=$1",
-              [result.keyId],
-            )
-          ).rows[0].counter,
-          "0",
-        );
-        assert.equal(await consume(prepared), "authorized");
-      });
       assert.equal(
         operation.authenticationOptions.userVerification,
         "required",

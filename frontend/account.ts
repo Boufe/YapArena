@@ -401,6 +401,10 @@ function resetWalletChange() {
 }
 
 function openWalletChange(target: WalletChangeTarget) {
+  if (window.yapSecurityWalletChange) {
+    void window.yapSecurityWalletChange(target);
+    return;
+  }
   resetWalletChange();
   pendingChange = { target: target! };
   changeNotice.textContent =

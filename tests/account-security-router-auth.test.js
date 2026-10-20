@@ -232,4 +232,133 @@ describe("security passkey HTTP boundaries", () => {
     assert.equal(response.status, 410);
     assert.equal(response.headers["set-cookie"], undefined);
   });
+  it("binds the security-key wallet path to the authenticated account and exact stored operation", async () => {
+    const seen = [];
+    const { call } = fixture({
+      walletOperations: {
+        async create(input) {
+          seen.push(input);
+          return { id, proposedMessage: "synthetic target proof" };
+        },
+        async complete(input) {
+          seen.push(input);
+          return {
+            wallet: {
+              id: keyId,
+              address: input.address,
+              chainId: String(input.chainId),
+            },
+            token: "synthetic-rotated-cookie",
+          };
+        },
+      },
+    });
+    const target = {
+      purpose: "link",
+      address: `0x${"11".repeat(20)}`,
+      chainId: 1,
+    };
+    const created = await call("post", "/wallet/operations").send({
+      ...target,
+      credential: { type: "passkey", keyId },
+    });
+    assert.equal(created.status, 200);
+    assert.equal(seen[0].userId, userId);
+    assert.equal(
+      seen[0].sessionTokenHash,
+      hashSessionToken("synthetic-cookie"),
+    );
+    const completed = await call(
+      "post",
+      `/wallet/operations/${id}/complete`,
+    ).send({
+      ...target,
+      approval: { id, password: "synthetic" },
+      proposedSignature: "0x1234",
+    });
+    assert.equal(completed.status, 200);
+    assert.equal(seen.at(-1).purpose, "link");
+    assert.equal(completed.body.wallet.address, target.address);
+    assert.match(
+      completed.headers["set-cookie"][0],
+      /^__Host-session=synthetic-rotated-cookie/,
+    );
+    for (const body of [
+      { ...target, chainId: "1", credential: { type: "password" } },
+      { ...target, purpose: "other", credential: { type: "password" } },
+      { ...target, accountId: "another", credential: { type: "password" } },
+    ])
+      assert.equal(
+        (await call("post", "/wallet/operations").send(body)).status,
+        400,
+      );
+    assert.equal(
+      (
+        await call("post", `/wallet/operations/${id}/complete`).send({
+          ...target,
+          approval: { id: randomUUID(), password: "synthetic" },
+          proposedSignature: "0x1234",
+        })
+      ).status,
+      400,
+    );
+  });
+  it("requires provider evidence in a redacted authorization header and binds legacy linking to the live account", async () => {
+    const seen = [];
+    const { call } = fixture({
+      legacyProviderLink: {
+        async candidate(userId, token) {
+          seen.push({ userId, token });
+          return { email: "verified@example.test", methods: ["email"] };
+        },
+        async create(input) {
+          seen.push(input);
+          return { id, email: "verified@example.test", methods: ["email"] };
+        },
+        async complete(input) {
+          seen.push(input);
+          return { token: "synthetic-rotated-cookie" };
+        },
+      },
+    });
+    assert.equal(
+      (await call("post", "/provider/candidate").send({})).status,
+      401,
+    );
+    const candidate = await call("post", "/provider/candidate")
+      .set("Authorization", "Bearer synthetic-provider-token")
+      .send({});
+    assert.equal(candidate.status, 200);
+    assert.equal(seen[0].userId, userId);
+    assert.equal(seen[0].token, "synthetic-provider-token");
+    assert.doesNotMatch(
+      JSON.stringify(candidate.body),
+      /token|subject|credentialsDigest/,
+    );
+    assert.equal(
+      (
+        await call("post", "/provider/link")
+          .set("Authorization", "Bearer synthetic-provider-token")
+          .send({ credential: { type: "password" }, userId: "other" })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call("post", "/provider/link")
+          .set("Authorization", "Bearer synthetic-provider-token")
+          .send({ credential: { type: "password" } })
+      ).status,
+      200,
+    );
+    const done = await call("post", `/provider/link/${id}/complete`)
+      .set("Authorization", "Bearer synthetic-provider-token")
+      .send({ approval: { id, password: "synthetic" } });
+    assert.equal(done.status, 204);
+    assert.equal(seen.at(-1).userId, userId);
+    assert.match(
+      done.headers["set-cookie"][0],
+      /^__Host-session=synthetic-rotated-cookie/,
+    );
+  });
 });

@@ -7,6 +7,13 @@ import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
+import type { WalletChangeTarget } from "./account-types.js";
+declare global {
+  interface Window {
+    yapSecurityWalletChange?: (target: WalletChangeTarget) => Promise<void>;
+    yapLinkProviderIdentity?: (token: string) => Promise<void>;
+  }
+}
 
 type SecurityKey = {
   id: string;
@@ -26,6 +33,11 @@ type Operation = {
   authorizationMessage: string | null;
   authenticationOptions?: PublicKeyCredentialRequestOptionsJSON;
 };
+type SecurityCredential =
+  | { type: "password" }
+  | { type: "wallet"; walletId: string }
+  | { type: "passkey"; keyId: string };
+class SecurityResponseError extends Error {}
 
 const mount = document.querySelector<HTMLElement>("#account-security-passkeys");
 if (mount) {
@@ -53,18 +65,22 @@ if (mount) {
     path: string,
     method = "GET",
     body?: unknown,
+    providerToken?: string,
   ): Promise<Response> {
     const response = await fetch(`/api/auth${path}`, {
       method,
       credentials: "same-origin",
       cache: "no-store",
-      headers: body === undefined ? {} : { "Content-Type": "application/json" },
+      headers: {
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...(providerToken ? { Authorization: `Bearer ${providerToken}` } : {}),
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(30000),
     });
     if (!response.ok) {
       const data: { error?: string } = await response.json().catch(() => ({}));
-      throw new Error(
+      throw new SecurityResponseError(
         data.error ||
           (response.status === 401
             ? "Sign in again to continue."
@@ -77,14 +93,22 @@ if (mount) {
     path: string,
     method = "GET",
     body?: unknown,
+    providerToken?: string,
   ): Promise<T> {
-    const response = await request(path, method, body);
+    const response = await request(path, method, body, providerToken);
     return response.json();
   }
   function setBusy(value: boolean) {
     busy = value;
     add.disabled = value;
     for (const button of list.querySelectorAll("button"))
+      button.disabled = value;
+    const walletLink =
+      document.querySelector<HTMLButtonElement>("#wallet-link");
+    if (walletLink) walletLink.disabled = value;
+    for (const button of document.querySelectorAll<HTMLButtonElement>(
+      "#wallet-list button",
+    ))
       button.disabled = value;
   }
   function changed() {
@@ -100,6 +124,8 @@ if (mount) {
     try {
       const data = await api<{ passkeys: SecurityKey[] }>("/security/passkeys");
       if (current !== version) return;
+      window.yapSecurityWalletChange = changeWallet;
+      window.yapLinkProviderIdentity = linkProviderIdentity;
       keys = data.passkeys;
       list.replaceChildren();
       for (const key of keys) {
@@ -133,7 +159,10 @@ if (mount) {
             : "Security settings are unavailable.";
     }
   }
-  async function walletSignature(message: string, wallet: Wallet) {
+  async function walletSignature(
+    message: string,
+    wallet: Pick<Wallet, "address" | "chainId">,
+  ) {
     const provider = window.ethereum;
     if (!provider?.request)
       throw new Error(
@@ -162,10 +191,13 @@ if (mount) {
     purpose: string,
     terms: Record<string, string>,
     excludedKey?: string,
+    issue?: (credential: SecurityCredential) => Promise<Operation>,
+    excludedWallet?: string,
   ): Promise<Approval> {
-    const [methods, walletData] = await Promise.all([
+    const [methods, walletData, securityData] = await Promise.all([
       api<{ legacyPassword: boolean }>("/methods"),
       api<{ wallets: Wallet[] }>("/wallets"),
+      api<{ passkeys: SecurityKey[] }>("/security/passkeys"),
     ]);
     const dialog = document.createElement("dialog");
     dialog.className = "information-card account-operation-dialog";
@@ -185,17 +217,29 @@ if (mount) {
     title.textContent =
       purpose === "security.passkey.remove"
         ? "Remove security passkey"
-        : "Add security passkey";
+        : purpose === "wallet.link"
+          ? "Link wallet"
+          : purpose === "wallet.unlink"
+            ? "Unlink wallet"
+            : purpose === "provider.identity.link"
+              ? "Link sign-in method"
+              : "Add security passkey";
     dialog.setAttribute("aria-labelledby", titleId);
     description.textContent =
       "Approve this change with a trusted method that stays on your account. Approval expires in five minutes.";
+    if (purpose.startsWith("wallet."))
+      description.textContent = `${title.textContent} ${terms.address} on chain ${terms.chainId}. Approve with a trusted method that stays on your account. This does not authorize a transaction.`;
+    if (purpose === "provider.identity.link")
+      description.textContent = `Add sign-in for ${terms.email}. Your existing account and credentials stay with you. Approve this change with a trusted method.`;
     label.textContent = "Approve with ";
     label.append(select);
     passwordLabel.textContent = "Current password ";
     password.type = "password";
     password.autocomplete = "current-password";
     passwordLabel.append(password);
-    for (const key of keys.filter((key) => key.id !== excludedKey)) {
+    for (const key of securityData.passkeys.filter(
+      (key) => key.id !== excludedKey,
+    )) {
       const option = document.createElement("option");
       option.value = `passkey:${key.id}`;
       option.textContent = `Security passkey added ${new Date(key.createdAt).toLocaleString()}`;
@@ -207,7 +251,9 @@ if (mount) {
       option.textContent = "Current password";
       select.append(option);
     }
-    for (const wallet of walletData.wallets) {
+    for (const wallet of walletData.wallets.filter(
+      (wallet) => wallet.id !== excludedWallet,
+    )) {
       const option = document.createElement("option");
       option.value = `wallet:${wallet.id}`;
       option.textContent = `Linked wallet ${wallet.address} · chain ${wallet.chainId}`;
@@ -280,17 +326,19 @@ if (mount) {
         message.textContent = "Waiting for your approval…";
         try {
           const selected = select.value,
-            credential =
+            credential: SecurityCredential =
               selected === "password"
                 ? { type: "password" }
                 : selected.startsWith("passkey:")
                   ? { type: "passkey", keyId: selected.slice(8) }
                   : { type: "wallet", walletId: selected.slice(7) };
-          const operation = await api<Operation>(
-            "/security/operations",
-            "POST",
-            { purpose, terms, credential },
-          );
+          const operation = issue
+            ? await issue(credential)
+            : await api<Operation>("/security/operations", "POST", {
+                purpose,
+                terms,
+                credential,
+              });
           const proof: Approval = { id: operation.id };
           if (selected === "password") proof.password = password.value;
           else if (selected.startsWith("passkey:")) {
@@ -365,13 +413,14 @@ if (mount) {
       notice.textContent =
         "Security passkey added. Other sessions were signed out.";
     } catch (error) {
-      notice.textContent = completionSent
-        ? "The setup result could not be confirmed. Refresh your passkey list before trying again."
-        : error instanceof Error && error.name === "NotAllowedError"
-          ? "Security passkey setup cancelled."
-          : error instanceof Error
-            ? error.message
-            : "Security passkey setup is unavailable.";
+      notice.textContent =
+        completionSent && !(error instanceof SecurityResponseError)
+          ? "The setup result could not be confirmed. Refresh your passkey list before trying again."
+          : error instanceof Error && error.name === "NotAllowedError"
+            ? "Security passkey setup cancelled."
+            : error instanceof Error
+              ? error.message
+              : "Security passkey setup is unavailable.";
     } finally {
       setBusy(false);
       add.focus();
@@ -400,21 +449,147 @@ if (mount) {
       notice.textContent =
         "Security passkey removed. Other sessions were signed out.";
     } catch (error) {
-      notice.textContent = completionSent
-        ? "Removal could not be confirmed. Refresh your passkey list before trying again."
-        : error instanceof Error && error.name === "NotAllowedError"
-          ? "Passkey removal cancelled."
-          : error instanceof Error
-            ? error.message
-            : "Passkey removal is unavailable.";
+      notice.textContent =
+        completionSent && !(error instanceof SecurityResponseError)
+          ? "Removal could not be confirmed. Refresh your passkey list before trying again."
+          : error instanceof Error && error.name === "NotAllowedError"
+            ? "Passkey removal cancelled."
+            : error instanceof Error
+              ? error.message
+              : "Passkey removal is unavailable.";
     } finally {
       setBusy(false);
       add.focus();
     }
   }
   add.addEventListener("click", () => void enroll());
+  async function changeWallet(target: WalletChangeTarget) {
+    if (busy) return;
+    setBusy(true);
+    const prior =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    let completionSent = false;
+    try {
+      const issued: {
+        operation?: Operation & { proposedMessage: string | null };
+      } = {};
+      const terms = {
+        address: target.address,
+        chainId: String(target.chainId),
+        ...(target.targetWalletId
+          ? { targetWalletId: target.targetWalletId }
+          : {}),
+      };
+      const proof = await approval(
+        `wallet.${target.purpose}`,
+        terms,
+        undefined,
+        async (credential) => {
+          const operation = await api<
+            Operation & { proposedMessage: string | null }
+          >("/security/wallet/operations", "POST", { ...target, credential });
+          issued.operation = operation;
+          return operation;
+        },
+        target.purpose === "unlink" ? target.targetWalletId : undefined,
+      );
+      let proposedSignature: string | undefined;
+      if (target.purpose === "link") {
+        if (!issued.operation?.proposedMessage)
+          throw new Error("New wallet proof is unavailable. Start again.");
+        notice.textContent =
+          "Prove control of the new wallet in your wallet’s prompt.";
+        proposedSignature = await walletSignature(
+          issued.operation.proposedMessage,
+          { address: target.address, chainId: String(target.chainId) },
+        );
+      }
+      completionSent = true;
+      await api(
+        `/security/wallet/operations/${encodeURIComponent(proof.id)}/complete`,
+        "POST",
+        { ...target, approval: proof, proposedSignature },
+      );
+      changed();
+      await load();
+      notice.textContent =
+        target.purpose === "link"
+          ? "Wallet linked. Your session was renewed."
+          : "Wallet unlinked. Other sessions were signed out.";
+    } catch (error) {
+      notice.textContent =
+        completionSent && !(error instanceof SecurityResponseError)
+          ? "The wallet change could not be confirmed. Refresh linked wallets before trying again."
+          : error instanceof Error && error.name === "NotAllowedError"
+            ? "Wallet change cancelled."
+            : error instanceof Error
+              ? error.message
+              : "Wallet change is unavailable.";
+    } finally {
+      setBusy(false);
+      (prior?.isConnected ? prior : add).focus();
+    }
+  }
+  async function linkProviderIdentity(token: string) {
+    if (busy) throw new Error("Finish the current security change first.");
+    setBusy(true);
+    let completionSent = false;
+    try {
+      const candidate = await api<{ email: string | null; methods: string[] }>(
+        "/security/provider/candidate",
+        "POST",
+        {},
+        token,
+      );
+      const proof = await approval(
+        "provider.identity.link",
+        { email: candidate.email ?? "the verified account" },
+        undefined,
+        async (credential) => {
+          const operation = await api<
+            Operation & { email: string | null; methods: string[] }
+          >("/security/provider/link", "POST", { credential }, token);
+          if (
+            operation.email !== candidate.email ||
+            JSON.stringify(operation.methods) !==
+              JSON.stringify(candidate.methods)
+          )
+            throw new Error("Sign-in details changed. Start again.");
+          return operation;
+        },
+      );
+      completionSent = true;
+      await request(
+        `/security/provider/link/${encodeURIComponent(proof.id)}/complete`,
+        "POST",
+        { approval: proof },
+        token,
+      );
+      changed();
+      await load();
+      notice.textContent =
+        "Sign-in method linked to your existing account. Other sessions were signed out.";
+    } catch (error) {
+      notice.textContent =
+        completionSent && !(error instanceof SecurityResponseError)
+          ? "The link result could not be confirmed. Refresh account settings before trying again."
+          : error instanceof Error && error.name === "NotAllowedError"
+            ? "Linking cancelled."
+            : error instanceof Error
+              ? error.message
+              : "Sign-in linking is unavailable.";
+      throw error;
+    } finally {
+      setBusy(false);
+      add.focus();
+    }
+  }
   window.addEventListener("yap:account-changed", () => void load());
   window.addEventListener("yap:provider-logout", () => {
+    delete window.yapSecurityWalletChange;
+    delete window.yapLinkProviderIdentity;
     ++version;
     keys = [];
     list.replaceChildren();

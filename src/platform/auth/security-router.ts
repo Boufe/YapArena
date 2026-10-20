@@ -15,6 +15,12 @@ import { SessionUnavailableError } from "./sessions.ts";
 import { createRequireAuthentication, getCookieSettings } from "./router.ts";
 import { hashSessionToken } from "./session-tokens.ts";
 import { createApiRateLimiter } from "../security.ts";
+import type {
+  createProviderWalletOperations,
+  ProviderWalletTarget,
+} from "./provider-wallet-operations.ts";
+import { normalizeWalletAddress, validChainId } from "./siwe.ts";
+import type { createLegacyProviderLink } from "./legacy-provider-link.ts";
 
 function object(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -140,11 +146,42 @@ function proof(value: unknown) {
       : {}),
   };
 }
+function walletTarget(body: Record<string, unknown>): ProviderWalletTarget {
+  const address = normalizeWalletAddress(body.address);
+  if (
+    !address ||
+    !validChainId(body.chainId) ||
+    (body.purpose !== "link" && body.purpose !== "unlink") ||
+    (body.purpose === "unlink" && !uuid(body.targetWalletId)) ||
+    (body.purpose === "link" && body.targetWalletId !== undefined)
+  )
+    invalid();
+  return {
+    purpose: body.purpose,
+    address,
+    chainId: body.chainId,
+    ...(typeof body.targetWalletId === "string"
+      ? { targetWalletId: body.targetWalletId }
+      : {}),
+  };
+}
+function providerToken(request: Request) {
+  const header = request.get("authorization");
+  if (
+    !header?.startsWith("Bearer ") ||
+    header.length <= 7 ||
+    header.length > 12000
+  )
+    throw new AccountOperationError(401, "provider authentication required");
+  return header.slice(7);
+}
 
 export type SecurityRouterOptions = {
   sessions: ReturnType<typeof createSessionRepository>;
   operations: ReturnType<typeof createAccountOperationRepository>;
   passkeys: ReturnType<typeof createSecurityPasskeyRepository>;
+  walletOperations?: ReturnType<typeof createProviderWalletOperations>;
+  legacyProviderLink?: ReturnType<typeof createLegacyProviderLink>;
   environment: string;
   applicationOrigin: string;
   sessionDurationMs?: number;
@@ -156,6 +193,8 @@ export function createAccountSecurityRouter({
   sessions,
   operations,
   passkeys,
+  walletOperations,
+  legacyProviderLink,
   environment,
   applicationOrigin,
   sessionDurationMs = 604800000,
@@ -283,6 +322,119 @@ export function createAccountSecurityRouter({
     });
     return response.status(204).end();
   });
+  if (walletOperations) {
+    mutations.post("/security/wallet/operations", async (request, response) => {
+      const body = object(request.body);
+      if (
+        !body ||
+        !exact(body, [
+          "purpose",
+          "address",
+          "chainId",
+          "targetWalletId",
+          "credential",
+        ])
+      )
+        invalid();
+      return response.json(
+        await walletOperations.create({
+          ...session(request),
+          ...walletTarget(body),
+          credential: credential(body.credential),
+        }),
+      );
+    });
+    mutations.post(
+      "/security/wallet/operations/:id/complete",
+      async (request, response) => {
+        const body = object(request.body),
+          id = request.params.id;
+        if (
+          !body ||
+          !uuid(id) ||
+          !exact(body, [
+            "purpose",
+            "address",
+            "chainId",
+            "targetWalletId",
+            "approval",
+            "proposedSignature",
+          ]) ||
+          (body.proposedSignature !== undefined &&
+            (typeof body.proposedSignature !== "string" ||
+              body.proposedSignature.length > 8194))
+        )
+          invalid();
+        const approval = proof(body.approval);
+        if (approval.id !== id) invalid();
+        const result = await walletOperations.complete({
+          ...session(request),
+          ...walletTarget(body),
+          ...approval,
+          ...(typeof body.proposedSignature === "string"
+            ? { proposedSignature: body.proposedSignature }
+            : {}),
+          rpcUrls: siweRpcUrls,
+          sessionDurationMs,
+          requestId: String(request.id),
+        });
+        response.cookie(cookie.name, result.token, {
+          ...cookie.options,
+          maxAge: sessionDurationMs,
+        });
+        return response.json({ wallet: result.wallet });
+      },
+    );
+  }
+  if (legacyProviderLink) {
+    mutations.post(
+      "/security/provider/candidate",
+      async (request, response) => {
+        const body = object(request.body);
+        if (!body || Object.keys(body).length) invalid();
+        return response.json(
+          await legacyProviderLink.candidate(
+            session(request).userId,
+            providerToken(request),
+          ),
+        );
+      },
+    );
+    mutations.post("/security/provider/link", async (request, response) => {
+      const body = object(request.body);
+      if (!body || !exact(body, ["credential"])) invalid();
+      return response.json(
+        await legacyProviderLink.create({
+          ...session(request),
+          token: providerToken(request),
+          credential: credential(body.credential),
+        }),
+      );
+    });
+    mutations.post(
+      "/security/provider/link/:id/complete",
+      async (request, response) => {
+        const body = object(request.body),
+          id = request.params.id;
+        if (!body || !uuid(id) || !exact(body, ["approval"])) invalid();
+        const approval = proof(body.approval);
+        if (approval.id !== id) invalid();
+        const result = await legacyProviderLink.complete({
+          ...session(request),
+          ...approval,
+          token: providerToken(request),
+          rpcUrls: siweRpcUrls,
+          sessionDurationMs,
+          requestId: String(request.id),
+        });
+        response.cookie(cookie.name, result.token, {
+          ...cookie.options,
+          maxAge: sessionDurationMs,
+        });
+        return response.status(204).end();
+      },
+    );
+  }
   router.use(mutations);
   router.use(
     (

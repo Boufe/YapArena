@@ -12,6 +12,8 @@ import {
   ProviderUnavailableError,
   ProviderCredentialChangedError,
 } from "../dist/platform/auth/privy.js";
+import { createLegacyProviderLink } from "../dist/platform/auth/legacy-provider-link.js";
+import { hashPassword } from "../dist/platform/auth/passwords.js";
 const ownerUrl = process.env.A4_TEST_OWNER_URL;
 const runtimeUrl = process.env.A4_TEST_DATABASE_URL;
 describe(
@@ -112,6 +114,220 @@ describe(
           )
         ).rows[0].n,
         1,
+      );
+    });
+    async function legacyFixture() {
+      const password = "synthetic legacy linking passphrase",
+        token = randomUUID();
+      const user = (
+        await owner.query(
+          `INSERT INTO users(email,password_hash) VALUES($1,$2)
+        RETURNING id,email,password_hash AS "passwordHash",auth_generation AS "authGeneration"`,
+          [`${randomUUID()}@example.test`, await hashPassword(password)],
+        )
+      ).rows[0];
+      await createSessionRepository(a).create(
+        user.id,
+        hashSessionToken(token),
+        new Date(Date.now() + 600000),
+        user,
+      );
+      return {
+        user,
+        password,
+        token,
+        context: {
+          userId: user.id,
+          sessionTokenHash: hashSessionToken(token),
+          origin: "http://localhost:53024",
+        },
+      };
+    }
+    it("links a never-provisioned verified provider identity to the retained legacy ID using fresh retained proof", async () => {
+      const f = await legacyFixture(),
+        id = identity(),
+        link = createLegacyProviderLink(a, {
+          async verify() {
+            return id;
+          },
+        });
+      const operation = await link.create({
+        ...f.context,
+        token: "synthetic-provider",
+        credential: { type: "password" },
+      });
+      await assert.rejects(
+        link.complete({
+          ...f.context,
+          id: operation.id,
+          token: "synthetic-provider",
+          password: "wrong",
+          rpcUrls: {},
+          sessionDurationMs: 600000,
+        }),
+        /password is incorrect/,
+      );
+      const made = await link.complete({
+        ...f.context,
+        id: operation.id,
+        token: "synthetic-provider",
+        password: f.password,
+        rpcUrls: {},
+        sessionDurationMs: 600000,
+      });
+      assert.equal(
+        (await createProviderAccounts(b).details(f.user.id)).email,
+        id.email,
+      );
+      assert.equal(
+        await createSessionRepository(b).findUserByTokenHash(
+          f.context.sessionTokenHash,
+        ),
+        null,
+      );
+      assert.equal(
+        (
+          await createSessionRepository(b).findUserByTokenHash(
+            hashSessionToken(made.token),
+          )
+        ).id,
+        f.user.id,
+      );
+      const retained = (
+        await owner.query("SELECT email,password_hash FROM users WHERE id=$1", [
+          f.user.id,
+        ])
+      ).rows[0];
+      assert.equal(retained.email, f.user.email);
+      assert.equal(retained.password_hash, f.user.passwordHash);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT user_id::text FROM provider_identities WHERE subject=$1",
+            [id.subject],
+          )
+        ).rows[0].user_id,
+        f.user.id,
+      );
+      await assert.rejects(
+        link.create({
+          ...f.context,
+          token: "synthetic-provider",
+          credential: { type: "password" },
+        }),
+        /no accounts were merged/,
+      );
+    });
+    it("never moves a previously provisioned manual identity or accepts a changed candidate credential digest", async () => {
+      const f = await legacyFixture(),
+        id = identity(),
+        manual = await exchange(createProviderAccounts(a), id);
+      const link = createLegacyProviderLink(a, {
+        async verify() {
+          return id;
+        },
+      });
+      await assert.rejects(
+        link.candidate(f.user.id, "synthetic-provider"),
+        /no accounts were merged/,
+      );
+      await assert.rejects(
+        link.create({
+          ...f.context,
+          token: "synthetic-provider",
+          credential: { type: "password" },
+        }),
+        /no accounts were merged/,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT user_id::text FROM provider_identities WHERE subject=$1",
+            [id.subject],
+          )
+        ).rows[0].user_id,
+        manual.user.id,
+      );
+      assert.ok(
+        await createSessionRepository(b).findUserByTokenHash(
+          f.context.sessionTokenHash,
+        ),
+      );
+      let candidate = identity();
+      const changed = createLegacyProviderLink(b, {
+          async verify() {
+            return candidate;
+          },
+        }),
+        operation = await changed.create({
+          ...f.context,
+          token: "synthetic-provider",
+          credential: { type: "password" },
+        });
+      candidate = { ...candidate, credentialsDigest: "c".repeat(64) };
+      await assert.rejects(
+        changed.complete({
+          ...f.context,
+          id: operation.id,
+          token: "synthetic-provider",
+          password: f.password,
+          rpcUrls: {},
+          sessionDurationMs: 600000,
+        }),
+        /expired or invalid/,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM provider_identities WHERE user_id=$1",
+            [f.user.id],
+          )
+        ).rows[0].n,
+        0,
+      );
+    });
+    it("serializes legacy linking against a simultaneous ordinary provisioning callback without merging IDs", async () => {
+      const f = await legacyFixture(),
+        id = identity(),
+        link = createLegacyProviderLink(a, {
+          async verify() {
+            return id;
+          },
+        });
+      const operation = await link.create({
+        ...f.context,
+        token: "synthetic-provider",
+        credential: { type: "password" },
+      });
+      const results = await Promise.allSettled([
+        link.complete({
+          ...f.context,
+          id: operation.id,
+          token: "synthetic-provider",
+          password: f.password,
+          rpcUrls: {},
+          sessionDurationMs: 600000,
+        }),
+        exchange(createProviderAccounts(b), id),
+      ]);
+      assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+      assert.equal(results.filter((r) => r.status === "rejected").length, 1);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM provider_identities WHERE subject=$1",
+            [id.subject],
+          )
+        ).rows[0].n,
+        1,
+      );
+      assert.equal(
+        (
+          await owner.query("SELECT password_hash FROM users WHERE id=$1", [
+            f.user.id,
+          ])
+        ).rows[0].password_hash,
+        f.user.passwordHash,
       );
     });
     it("inspects every protected cookie lookup, fails closed on outages and leaves local revocation available", async () => {

@@ -350,7 +350,7 @@ describe(
       });
       await assert.rejects(
         f.repo.issueSpeakerGrant(first),
-        MediaRevocationPendingError,
+        /active on another device/,
       );
       await assert.rejects(
         f.repo.issueSpeakerGrant(next),
@@ -360,7 +360,17 @@ describe(
       broken = false;
       await due(old.id);
       await f.repo.flush();
-      await f.repo.issueSpeakerGrant(next);
+      assert.equal(
+        (await grants(first))[0].intended_session_id,
+        next.sessionId,
+      );
+      const contenders = await Promise.allSettled([
+        f.repo.issueSpeakerGrant(first),
+        fixture(b).repo.issueSpeakerGrant(next),
+      ]);
+      assert.equal(contenders[0].status, "rejected");
+      assert.match(contenders[0].reason.message, /another device/);
+      assert.equal(contenders[1].status, "fulfilled");
       const active = (await grants(first)).filter(
         (grant) => grant.state === "active",
       );
@@ -381,6 +391,136 @@ describe(
         ),
       );
       assert.ok(!JSON.stringify(f.observed).includes("secret"));
+    });
+    it("binds a pending replacement to its owned current session and requires manual Join after intent expiry", async () => {
+      const first = await debate(await actor()),
+        next = { ...(await session(first.userId)), debateId: first.debateId },
+        stranger = await actor(),
+        f = fixture();
+      await f.repo.issueSpeakerGrant(first);
+      await assert.rejects(
+        f.repo.issueSpeakerGrant({ ...next, allowReplacement: true }),
+        MediaRevocationPendingError,
+      );
+      const [old] = await grants(first);
+      await assert.rejects(
+        a.query(
+          "UPDATE media_account_grants SET intended_session_id=$2 WHERE id=$1",
+          [old.id, stranger.sessionId],
+        ),
+        /replacement session/,
+      );
+      await owner.query(
+        "UPDATE media_account_grants SET intent_expires_at=clock_timestamp()+INTERVAL '100 milliseconds' WHERE id=$1",
+        [old.id],
+      );
+      await owner.query("SELECT pg_sleep(0.11)");
+      await f.repo.flush();
+      await assert.rejects(f.repo.issueSpeakerGrant(next), /use Join/);
+      await assert.rejects(f.repo.issueSpeakerGrant(first), /use Join/);
+      await f.repo.issueSpeakerGrant({ ...next, allowReplacement: true });
+      const active = (await grants(first)).find(
+        (grant) => grant.state === "active",
+      );
+      assert.equal(active.session_id, next.sessionId);
+      assert.notEqual(active.identity, old.identity);
+    });
+    it("ignores delayed departures for replaced UUID and legacy identities while pausing current or unknown departures", async () => {
+      const first = await debate(await actor()),
+        next = { ...(await session(first.userId)), debateId: first.debateId },
+        f = fixture();
+      await f.repo.issueSpeakerGrant(first);
+      const [old] = await grants(first);
+      await assert.rejects(
+        f.repo.issueSpeakerGrant({ ...next, allowReplacement: true }),
+        MediaRevocationPendingError,
+      );
+      await f.repo.flush();
+      await f.repo.issueSpeakerGrant(next);
+      const active = (await grants(first)).find(
+        (grant) => grant.state === "active",
+      );
+      let pauses = 0;
+      const pause = async (client) => {
+        await client.query("SELECT 1");
+        pauses++;
+      };
+      for (const identity of [old.identity, `speaker-${first.userId}`])
+        assert.equal(
+          await f.repo.withSpeakerDeparture(first.debateId, identity, pause),
+          false,
+        );
+      assert.equal(pauses, 0);
+      for (const identity of [
+        active.identity,
+        "speaker-untracked",
+        "speaker-9223372036854775808",
+      ])
+        assert.equal(
+          await f.repo.withSpeakerDeparture(first.debateId, identity, pause),
+          true,
+        );
+      assert.equal(pauses, 3);
+    });
+    it("fences the departure relevance check and database pause against replacement issuance", async () => {
+      const first = await debate(await actor()),
+        next = { ...(await session(first.userId)), debateId: first.debateId },
+        f = fixture(),
+        other = fixture(b);
+      await f.repo.issueSpeakerGrant(first);
+      const [old] = await grants(first);
+      let began, finish;
+      const started = new Promise((resolve) => {
+        began = resolve;
+      });
+      const gate = new Promise((resolve) => {
+        finish = resolve;
+      });
+      const departure = f.repo.withSpeakerDeparture(
+        first.debateId,
+        old.identity,
+        async (client) => {
+          const { pid } = (await client.query("SELECT pg_backend_pid() AS pid"))
+            .rows[0];
+          began(pid);
+          await gate;
+          await client.query("SELECT 1");
+        },
+      );
+      const pausePid = await started;
+      const replacement = assert.rejects(
+        other.repo.issueSpeakerGrant({ ...next, allowReplacement: true }),
+        MediaRevocationPendingError,
+      );
+      let blocked = false;
+      try {
+        for (let attempt = 0; attempt < 40; attempt++) {
+          blocked = Boolean(
+            (
+              await owner.query(
+                "SELECT 1 FROM pg_stat_activity WHERE $1::int=ANY(pg_blocking_pids(pid))",
+                [pausePid],
+              )
+            ).rowCount,
+          );
+          if (blocked) break;
+          await owner.query("SELECT pg_sleep(0.01)");
+        }
+        assert.equal(
+          blocked,
+          true,
+          "replacement must wait until the fenced pause commits",
+        );
+        assert.equal((await grants(first))[0].state, "active");
+      } finally {
+        finish();
+      }
+      assert.equal(await departure, true);
+      await replacement;
+      assert.equal(
+        (await grants(first))[0].intended_session_id,
+        next.sessionId,
+      );
     });
     it("contains suspension, credential changes and a raw generation advance while keeping logout independent of provider calls", async () => {
       for (const action of ["suspend", "credential", "generation"]) {
@@ -431,14 +571,21 @@ describe(
       );
     });
     it("rolls back an in-flight minted token when its application session expires before commit", async () => {
-      const context = await debate(await actor(new Date(Date.now() + 500))),
+      let minted = false;
+      const context = await debate(await actor(new Date(Date.now() + 2000))),
         f = fixture(a, {
           mintSpeakerToken: async () => {
-            await owner.query("SELECT pg_sleep(0.6)");
+            minted = true;
+            await owner.query("SELECT pg_sleep(2.1)");
             return "synthetic-unpublished-token";
           },
         });
       await assert.rejects(f.repo.issueSpeakerGrant(context), /session/);
+      assert.equal(
+        minted,
+        true,
+        "session must expire after local signing begins",
+      );
       assert.equal((await grants(context)).length, 0);
     });
     it("claims a removal across workers without holding the account lock during the provider request", async () => {
@@ -495,6 +642,65 @@ describe(
       assert.equal(f.removed.length, 1);
       assert.equal(duplicate.removed.length, 0);
       assert.equal((await grants(context))[0].state, "revoked");
+    });
+    it("recovers an expired worker lease and ignores its delayed acknowledgement without kicking a new identity", async () => {
+      const context = await debate(await actor()),
+        initial = fixture();
+      await initial.repo.issueSpeakerGrant(context);
+      const [old] = await grants(context);
+      await createSessionRepository(b).revoke(
+        context.userId,
+        context.sessionTokenHash,
+        false,
+      );
+      let began, finish;
+      const started = new Promise((resolve) => {
+        began = resolve;
+      });
+      const gate = new Promise((resolve) => {
+        finish = resolve;
+      });
+      const slow = fixture(a, {
+        removeSpeaker: async (debateId, identity) => {
+          began();
+          await gate;
+          slow.removed.push({ debateId, identity });
+        },
+      });
+      const pending = slow.repo.flush();
+      await started;
+      try {
+        await owner.query(
+          "UPDATE media_account_revocations SET lease_until=clock_timestamp()-INTERVAL '1 second',available_at=clock_timestamp()-INTERVAL '1 second' WHERE grant_id=$1",
+          [old.id],
+        );
+        const recovery = fixture(b);
+        await recovery.repo.flush();
+        assert.equal((await grants(context))[0].state, "revoked");
+        const next = {
+          ...(await session(context.userId)),
+          debateId: context.debateId,
+        };
+        await recovery.repo.issueSpeakerGrant(next);
+        const active = (await grants(context)).find(
+          (grant) => grant.state === "active",
+        );
+        assert.notEqual(active.identity, old.identity);
+        finish();
+        await pending;
+        assert.equal(
+          await recovery.repo.isCurrentGrant(context.debateId, active.identity),
+          true,
+        );
+        assert.equal(
+          slow.observed.length,
+          0,
+          "a superseded acknowledgement is not reported as successful",
+        );
+      } finally {
+        finish();
+        await pending;
+      }
     });
     it("times out failed removal, retains the publishing fence, and never calls self-hosted token invalidation complete", async () => {
       const context = await debate(await actor()),

@@ -42,7 +42,21 @@ The replacement receives no publishing token until old-token revocation succeeds
 A pending response occurs **after** that retirement commits. New identities are
 UUIDs, so delayed removal jobs and Cloud cutoffs cannot remove a replacement's
 identity. Automatic recovery must not silently replace a different active SID;
-only an explicit manual Join carries takeover intent.
+only an explicit manual Join carries takeover intent. Retirement records the
+intended replacement SID for five minutes. During removal and after its
+completion, only that SID may automatically claim the freed slot; the displaced
+SID cannot win a retry race. An expired intent requires another manual Join.
+The old identity retains its displacement record, so a later departure does not
+silently restore the old device. Replacement intent must reference a current
+session belonging to the same account.
+
+Signed departure callbacks use `withSpeakerDeparture` to check relevance and
+pause media in the same database transaction. Its account lock fences replacement
+issuance while remaining compatible with event-history foreign-key checks. A
+delayed departure from an old UUID or mapped legacy account identity is ignored
+when that account has a newer valid active grant. Unknown legacy identities
+retain the existing conservative pause behavior. Provider turn synchronization
+runs after the database transaction and reads the current media state.
 
 Deferred database triggers inspect the final transaction state after account
 generation/status changes or session deletion/update. They retire invalid SIDs,
@@ -73,7 +87,9 @@ Use `createMediaAccountRevocation` with the runtime pool, a verified Cloud
 capability, local speaker-token signer, exact-identity removal callback, and
 privacy-safe observation hook. Route speaker issuance through
 `issueSpeakerGrant`; check `isCurrentGrant` for signed participant-joined
-webhooks before restoring publishing permissions. Run `flush` in the existing
+webhooks before restoring publishing permissions. Use `withSpeakerDeparture`
+with a same-client database pause callback for signed departure webhooks; do not
+separate its relevance check from the pause. Run `flush` in the existing
 background worker loop and expose pending/retry failures operationally.
 
 Pre-deployment identities such as `speaker-<account>` are not in the new grant
@@ -94,7 +110,8 @@ Required hosted evidence must identify the revision/project and include:
 - Old initial and freshly refreshed tokens cannot rejoin after Cloud removal;
   already-left identities are also revoked without an endless error loop.
 - Device replacement waits for old revocation. An offline old tab cannot
-  automatically take the slot back, and delayed jobs do not kick a new identity.
+  automatically take the slot back, and delayed jobs or departure callbacks do
+  not kick, pause or mute a new identity.
 - Provider failure leaves a durable retry, while application logout still
   succeeds. Retrying after recovery completes containment.
 - An anonymous viewer stays connected throughout, and new anonymous watching

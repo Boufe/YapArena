@@ -25,6 +25,11 @@ interface Grant {
   debate_id: string;
   identity: string;
   state: "active" | "revoking" | "revoked";
+  intended_session_id: string | null;
+}
+interface SlotGrant extends Grant {
+  intent_active: boolean;
+  session_valid: boolean;
 }
 type Observation = {
   result: "complete" | "retry" | "unsupported";
@@ -68,8 +73,18 @@ export function createMediaAccountRevocation(
       client.release();
     }
   }
-  async function retire(client: PoolClient, grant: Grant) {
-    if (grant.state === "active")
+  async function retire(
+    client: PoolClient,
+    grant: Grant,
+    intendedSessionId?: string,
+  ) {
+    if (intendedSessionId)
+      await client.query(
+        `UPDATE media_account_grants SET state='revoking',intended_session_id=$2,
+      intent_expires_at=clock_timestamp()+INTERVAL '5 minutes' WHERE id=$1`,
+        [grant.id, intendedSessionId],
+      );
+    else if (grant.state === "active")
       await client.query(
         "UPDATE media_account_grants SET state='revoking' WHERE id=$1",
         [grant.id],
@@ -250,8 +265,9 @@ export function createMediaAccountRevocation(
             "an assigned speaker seat and camera/microphone check are required",
           );
         const previous = (
-          await client.query<Grant>(
-            "SELECT * FROM media_account_grants WHERE user_id=$1 AND debate_id=$2 AND state IN ('active','revoking') FOR UPDATE",
+          await client.query<SlotGrant>(
+            `SELECT g.*,COALESCE(intent_expires_at>clock_timestamp(),false) AS intent_active,${validSession} AS session_valid
+            FROM media_account_grants g WHERE user_id=$1 AND debate_id=$2 AND state IN ('active','revoking') FOR UPDATE`,
             [context.userId, context.debateId],
           )
         ).rows[0];
@@ -259,17 +275,57 @@ export function createMediaAccountRevocation(
           previous &&
           (previous.session_id !== session.id || previous.state === "revoking")
         ) {
-          if (previous.state === "active" && context.allowReplacement !== true)
+          if (
+            context.allowReplacement !== true &&
+            (previous.state === "active" ||
+              (previous.intended_session_id !== null
+                ? previous.intended_session_id !== session.id ||
+                  !previous.intent_active
+                : previous.session_valid))
+          )
             throw new MediaConflictError(
               "speaker access is active on another device; use Join to move it here",
             );
-          await retire(client, previous);
+          await retire(
+            client,
+            previous,
+            context.allowReplacement === true ||
+              previous.intended_session_id === null
+              ? session.id
+              : undefined,
+          );
           await assertActiveSession(
             client,
             context.userId,
             context.sessionTokenHash,
           );
           return null;
+        }
+        if (!previous && context.allowReplacement !== true) {
+          const displaced = (
+            await client.query<{ intended_session_id: string | null }>(
+              `SELECT intended_session_id FROM media_account_grants
+            WHERE user_id=$1 AND debate_id=$2 AND session_id=$3 ORDER BY created_at DESC,id DESC LIMIT 1`,
+              [context.userId, context.debateId, session.id],
+            )
+          ).rows[0];
+          const latest = (
+            await client.query<SlotGrant>(
+              `SELECT g.*,COALESCE(intent_expires_at>clock_timestamp(),false) AS intent_active,${validSession} AS session_valid
+            FROM media_account_grants g WHERE user_id=$1 AND debate_id=$2 ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`,
+              [context.userId, context.debateId],
+            )
+          ).rows[0];
+          if (
+            (displaced?.intended_session_id &&
+              displaced.intended_session_id !== session.id) ||
+            (latest?.intended_session_id &&
+              (latest.intended_session_id !== session.id ||
+                !latest.intent_active))
+          )
+            throw new MediaConflictError(
+              "speaker access was moved to another device; use Join to move it here",
+            );
         }
         const id = previous?.id ?? randomUUID();
         if (!previous)
@@ -328,6 +384,46 @@ export function createMediaAccountRevocation(
           )
         ).rowCount,
       );
+    },
+    async withSpeakerDeparture(
+      debateId: string,
+      identity: string,
+      pause: (client: PoolClient) => Promise<unknown>,
+    ) {
+      return transaction(async (client) => {
+        const tracked = (
+          await client.query<{ user_id: string }>(
+            "SELECT user_id FROM media_account_grants WHERE debate_id=$1 AND identity=$2",
+            [debateId, identity],
+          )
+        ).rows[0];
+        const legacy = /^speaker-([1-9][0-9]{0,18})$/.exec(identity)?.[1];
+        const userId =
+          tracked?.user_id ??
+          (legacy && BigInt(legacy) <= 9223372036854775807n ? legacy : null);
+        if (userId) {
+          // Conflicts with issuance's account lock while remaining compatible
+          // with event_history's actor FK. No provider call belongs in pause.
+          await client.query(
+            "SELECT id FROM users WHERE id=$1 FOR NO KEY UPDATE",
+            [userId],
+          );
+          if (
+            (
+              await client.query(
+                `SELECT 1 FROM media_account_grants g WHERE g.user_id=$1 AND g.debate_id=$2
+            AND g.identity<>$3 AND g.state='active' AND ${validSession}`,
+                [userId, debateId, identity],
+              )
+            ).rowCount
+          )
+            return false;
+        }
+        // Unknown legacy identities retain the existing conservative pause.
+        // A mapped identity's relevance check and DB pause share this fence.
+        await pause(client);
+        return true;
+      });
     },
     async flush(limit = 10) {
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)

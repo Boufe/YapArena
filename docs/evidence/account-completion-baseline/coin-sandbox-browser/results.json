@@ -1,0 +1,63 @@
+{
+  "at": "2026-10-20T05:11:48.895Z",
+  "revision": "a651e8afef10abfea1612df5cbb4539ef1486207",
+  "revisionAtEnd": "a651e8afef10abfea1612df5cbb4539ef1486207",
+  "sourceHashes": {
+    "scripts/verify-coin-sandbox-browser.ts": "e91f5ebe596618343158ffe684da19be863c2bc5ae8fdaf3adac3797330f38b5",
+    "public/account-coins.js": "abd0c0a1cfb1a26a317b377efb80d79369cbc5d6cd1ae000999e4c651ea4b065",
+    "public/account-security.bundle.js": "747113b8dd9afdf8b72c030af14d00ee222075f6032a03265af72a05a14ce64b",
+    "public/account-auth.css": "787254d7a54f903f7e83b5201b875b1635590092d6cf89e3be3791e88935ab66",
+    "frontend/account-coins.ts": "915b7170b2668c7a18c92296155b49c5ad96fcb14c359947809000c0077ac961",
+    "frontend/account-security.ts": "d0ea040853596fb9b8def5fbfbbf745a2c1c85cecc6bc586200f24714468864d",
+    "src/features/account-wallet/sandbox-repository.ts": "ed949d0afd42e69f398f886c7680fc6012de7b401fdc57621154fe4162c3adf8",
+    "dist/features/account-wallet/sandbox-repository.js": "3c20a194b7bbb50ec235980b55a9eeb0fbaa87d07778c514f96d7740a18d6ac2",
+    "src/features/account-wallet/sandbox-router.ts": "64eb3305a4cde20f42517d40a4bbf3ba4556e20e09ec464eb563679d3e84b278",
+    "dist/features/account-wallet/sandbox-router.js": "c65c515fadc77885366768695833937d0685c92e7a7fc4de1a1dd18659d60359",
+    "src/features/account-wallet/debate-sandbox.ts": "b56a4ea4d4509675059af168217a81bac94e1f815600e80ba3544b2ccb109560",
+    "dist/features/account-wallet/debate-sandbox.js": "adcb5f01149243146ef5081f606a38c46d18e96bedaaaf5c903a32532e1cadb1",
+    "src/features/account-wallet/grant-accounting.ts": "8dd7f24eac635835502afb746eb31a03135020eb9ce2e646378078c9cb0b7eb3",
+    "dist/features/account-wallet/grant-accounting.js": "44d0b80a5fd1881350c20a4aeb628ba5d11e7ae61112546d6905a1ff64362c70",
+    "src/features/account-wallet/ledger.ts": "0086f6107ea50bdaa64a187d2d49a27ce4785009efbc55dcd5c91b713658e862",
+    "dist/features/account-wallet/ledger.js": "65843c1acb496fea64c9abd3b02f1a98278dc688e6b40afe23d17efd1d3c3df7",
+    "src/features/account-wallet/external-operations.ts": "a421fb42de5f673e4ac50dd994f107434526a2e3f0c80da68025ebf74c4524f2",
+    "dist/features/account-wallet/external-operations.js": "705b091d3d0c90b127ecfadbe2af105396d5f10bd75906d3b61ac74d44442ec8",
+    "src/platform/auth/security-passkeys.ts": "99803076c3f15f087a6fa5b54c451ae6b5d0f254ec01da376ef0deccb290c977",
+    "dist/platform/auth/security-passkeys.js": "422de1e83c7d5c1c1e37c4db2acae3ad4e06d8249e7ff7c6b253b6f7abc5cad3",
+    "src/platform/auth/security-router.ts": "2e1c296029e81934aea3a76d0737fcc741040f903c8c802908dd1b074e442a0f",
+    "dist/platform/auth/security-router.js": "011668e430f24640919242a333d90fb2010bfe3487c344f2a53c50ae1e62c9ff",
+    "src/platform/auth/account-operations.ts": "72246fc6de70eeb90bec291224d3b0eb5983eec596edc82aef01af4c8b27d1d4",
+    "dist/platform/auth/account-operations.js": "ca2f9cd30d0c7e534c0893e68c3b2b087185c3a338ad948f2e47762a72874080",
+    "src/platform/auth/sessions.ts": "9622e4a3b57ed5d0c992cb9d592ba7bfc81e4e1bdee385aa9d8b49f688666e5c",
+    "dist/platform/auth/sessions.js": "be340ddbc411bbe298c669225e3cabca1d265a718b2dfede53f15dc2fa16038a"
+  },
+  "postgres": "PostgreSQL 17.10 (Homebrew)",
+  "browser": "155.0.8059.85",
+  "scope": "Real application browser assets and runtime-role PostgreSQL API in a new disposable native cluster; synthetic identities and deterministic financial simulation; Chrome virtual WebAuthn, no genuine Privy/hosted/provider-chain/physical-device/screen-reader acceptance; CSS200% zoom is layout emulation.",
+  "checks": [
+    "desktop: actual runtime-role API issues one welcome/daily grant, preserves spend-only principal, and confirms a 10 simulated USDC purchase as 1000 withdrawal-eligible YC without any grant target",
+    "desktop: native WebAuthn proof approves exactly 5 gross / 0.1 fee / 4.9 net USDC to the displayed destination; transactionally reserved funds await manual review with a receipt",
+    "desktop: owner-process simulated center/promotional treasury funds a real existing YES/NO round; first commitment and its source reservation are recorded without changing historical A4 tables",
+    "desktop: real cookie switch while the native confirmation blocks browser events is rejected by comparison-only session context; replacement account receives no stake or funds and controls recover",
+    "desktop: delayed actual daily-claim response from the old account cannot repopulate its balances in the replacement account or leave replacement controls disabled",
+    "desktop: keyboard activation of retained proof and enrollment, native-dialog focus, automated WCAG2.2AA tags and no horizontal overflow at normal and CSS200% layout zoom; not screen-reader/physical-device evidence",
+    "mobile: actual runtime-role API issues one welcome/daily grant, preserves spend-only principal, and confirms a 10 simulated USDC purchase as 1000 withdrawal-eligible YC without any grant target",
+    "mobile: retained-password proof approves exactly 5 gross / 0.1 fee / 4.9 net USDC to the displayed destination; transactionally reserved funds await manual review with a receipt",
+    "mobile: owner-process simulated center/promotional treasury funds a real existing YES/NO round; first commitment and its source reservation are recorded without changing historical A4 tables",
+    "mobile: real cookie switch while the native confirmation blocks browser events is rejected by comparison-only session context; replacement account receives no stake or funds and controls recover",
+    "mobile: delayed actual daily-claim response from the old account cannot repopulate its balances in the replacement account or leave replacement controls disabled",
+    "mobile: keyboard activation of retained proof and enrollment, native-dialog focus, automated WCAG2.2AA tags and no horizontal overflow at normal and CSS200% layout zoom; not screen-reader/physical-device evidence"
+  ],
+  "errors": [],
+  "expectedRejections": [
+    {
+      "route": "/api/coin-sandbox/rounds/:id/submit",
+      "status": 409
+    },
+    {
+      "route": "/api/coin-sandbox/rounds/:id/submit",
+      "status": 409
+    }
+  ],
+  "accessibilityFailures": [],
+  "layoutFailures": []
+}

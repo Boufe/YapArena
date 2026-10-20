@@ -259,6 +259,83 @@ describe(
       await ownerPool.end();
     });
 
+    it("locally reproduces rejection of pre-deletion cookies, passwords and a delayed known-wallet callback without recreating the retired account", async () => {
+      const deleted = await fixture(),
+        retained = await fixture(),
+        server = app(),
+        walletRepository = createWalletRepository(pool);
+      const credential = (
+        await ownerPool.query("SELECT email FROM users WHERE id=$1", [
+          deleted.userId,
+        ])
+      ).rows[0];
+      const challenge = await request(server)
+        .post("/api/auth/wallet/login/challenge")
+        .send({ address: ownerWallet.address, chainId: deleted.chainId })
+        .expect(201);
+      assert.equal(
+        (await walletRepository.getChallenge(challenge.body.id)).accountId,
+        deleted.userId,
+        "the callback must have been bound to a known account before deletion",
+      );
+      const signature = await ownerWallet.signMessage({
+        message: challenge.body.message,
+      });
+      await request(server)
+        .get("/api/auth/me")
+        .set("Cookie", `session=${deleted.token.token}`)
+        .expect(200);
+      await ownerPool.query("DELETE FROM users WHERE id=$1", [deleted.userId]);
+      const afterDeletion = (
+        await ownerPool.query("SELECT count(*)::int n FROM users")
+      ).rows[0].n;
+      await request(server)
+        .get("/api/auth/me")
+        .set("Cookie", `session=${deleted.token.token}`)
+        .expect(401);
+      await request(server)
+        .post("/api/auth/login")
+        .send({ email: credential.email, password })
+        .expect(401);
+      for (let replay = 0; replay < 2; replay++)
+        await request(server)
+          .post("/api/auth/wallet/login/verify")
+          .send({ challengeId: challenge.body.id, signature })
+          .expect(410);
+      assert.equal(
+        (await ownerPool.query("SELECT count(*)::int n FROM users")).rows[0].n,
+        afterDeletion,
+      );
+      assert.equal(
+        (
+          await ownerPool.query(
+            "SELECT count(*)::int n FROM wallet_identities WHERE address=$1 AND chain_id=$2",
+            [ownerWallet.address.toLowerCase(), deleted.chainId],
+          )
+        ).rows[0].n,
+        0,
+      );
+      assert.equal(
+        (
+          await ownerPool.query(
+            "SELECT count(*)::int n FROM users WHERE id=$1",
+            [deleted.userId],
+          )
+        ).rows[0].n,
+        0,
+      );
+      assert.ok(
+        (
+          await ownerPool.query("SELECT id FROM account_subjects WHERE id=$1", [
+            deleted.userId,
+          ])
+        ).rows[0],
+      );
+      assert.equal(
+        (await sessions.findUserByTokenHash(retained.token.tokenHash)).id,
+        retained.userId,
+      );
+    });
     it("a stolen cookie and attacker-wallet signature cannot link or unlink", async () => {
       const f = await fixture();
       const http = app();

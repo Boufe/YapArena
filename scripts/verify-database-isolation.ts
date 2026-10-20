@@ -74,6 +74,8 @@ import { verifyDatabaseState } from "../dist/platform/migrations.js";
 import { createRuntime } from "../dist/platform/runtime.js";
 import { createUserRepository } from "../dist/platform/auth/users.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
+import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
+import { createCoinSandboxRepository } from "../dist/features/account-wallet/sandbox-repository.js";
 import { createWalletRepository } from "../dist/platform/auth/wallets.js";
 import { createMessageRepository } from "../dist/features/messages/repository.js";
 import { createDiscoveryRepository } from "../dist/features/discovery/repository.js";
@@ -89,6 +91,13 @@ const exec = promisify(execFile);
 const applicationTables = [
   ...Object.keys(runtimeGrants),
   "wallet_operations",
+  "account_operations",
+  "account_security_users",
+  "account_security_keys",
+  "account_security_challenges",
+  "account_access_challenges",
+  "media_account_grants",
+  "media_account_revocations",
   "provider_identities",
   "provider_session_exchanges",
   "provider_revocation_jobs",
@@ -99,6 +108,17 @@ const applicationTables = [
   "coin_grant_profit_events",
   "coin_journals",
   "coin_postings",
+  "coin_sandbox_books",
+  "coin_debate_rounds",
+  "coin_debate_orders",
+  "coin_sandbox_controls",
+  "coin_sandbox_requests",
+  "coin_sandbox_events",
+  "coin_sandbox_system_accounts",
+  "coin_external_receipts",
+  "coin_nonce_reservations",
+  "coin_sandbox_webhook_inbox",
+  "coin_sandbox_webhook_outcomes",
   ...deliveryTables,
   ...receiptTables,
   ...replayJobTables,
@@ -159,6 +179,92 @@ async function migrate(
     log() {},
     ...options,
   });
+}
+async function treasuryScenario(database: string, upgrade: boolean) {
+  const admin = await connect(database);
+  let owner: pg.Client | undefined;
+  const pool = new pg.Pool({
+    connectionString: url(database, "yaparena_runtime"),
+    options: "-c search_path=pg_catalog,yaparena,pg_temp",
+  });
+  try {
+    await provisionDatabase(admin, passwords);
+    owner = await connect(database, "yaparena_owner");
+    let preservedRequest: string | undefined;
+    if (upgrade) {
+      const prefix = (
+        await readdir(new URL("../migrations", import.meta.url))
+      ).filter(
+        (name) =>
+          /^\d+_.+\.js$/.test(name) &&
+          BigInt(name.split("_")[0]!) < 1792426006500n,
+      ).length;
+      await migrate(owner, { count: prefix });
+      await owner.query(
+        "UPDATE yaparena.coin_sandbox_controls SET rail='base-sepolia' WHERE singleton",
+      );
+      const account = (
+        await owner.query<{ id: string; generation: string }>(
+          "INSERT INTO yaparena.users(email,password_hash) VALUES('treasury-upgrade@isolation.test','synthetic-preserved-credential') RETURNING id,auth_generation AS generation",
+        )
+      ).rows[0]!;
+      const token = createSessionToken();
+      await createSessionRepository(pool).create(
+        account.id,
+        token.tokenHash,
+        new Date(Date.now() + 600_000),
+        { authGeneration: account.generation },
+      );
+      const quote = await createCoinSandboxRepository(pool, {
+        rail: "base-sepolia",
+        depositDestination: `0x${"11".repeat(20)}`,
+      }).quoteFunding(
+        { userId: account.id, sessionTokenHash: token.tokenHash },
+        { amount: "1", idempotencyKey: "pre-treasury-migration" },
+      );
+      preservedRequest = quote.id;
+    }
+    await migrate(owner);
+    if (preservedRequest)
+      assert.equal(
+        (
+          await owner.query<{ kind: string }>(
+            "SELECT kind FROM yaparena.coin_sandbox_requests WHERE id=$1",
+            [preservedRequest],
+          )
+        ).rows[0]?.kind,
+        "funding",
+      );
+    const result = await exec(
+      process.execPath,
+      ["--test", "tests/coin-treasury-postgres.test.js"],
+      {
+        env: {
+          ...process.env,
+          COIN_TREASURY_TEST_DATABASE_URL: url(database, "yaparena_runtime"),
+          COIN_TREASURY_TEST_OWNER_DATABASE_URL: url(
+            database,
+            "yaparena_owner",
+          ),
+        },
+        maxBuffer: 4 * 1024 * 1024,
+      },
+    ).catch((error: ExecFileException & { stdout: string; stderr: string }) => {
+      console.log(error.stdout);
+      console.log(error.stderr);
+      throw new Error("Isolated testnet treasury PostgreSQL checks failed");
+    });
+    await mkdir(evidenceDirectory, { recursive: true });
+    await writeFile(
+      `${evidenceDirectory}/treasury-${upgrade ? "upgrade" : "fresh"}.log`,
+      result.stdout,
+    );
+    console.log(result.stdout);
+  } finally {
+    await pool.end();
+    await owner?.end();
+    await admin.end();
+  }
 }
 async function denied(client: pg.Client, sql: string, values?: unknown[]) {
   await assert.rejects(
@@ -1172,6 +1278,51 @@ async function scenario(database: string, upgrade: boolean) {
     );
     await browserChecks(admin);
     await runtimeChecks(database, owner, admin);
+    if (process.env.ACCOUNT_SECURITY_VERIFY === "true") {
+      const result = await exec(
+        process.execPath,
+        [
+          "--test",
+          "tests/account-operation-auth.test.js",
+          "tests/account-security-passkeys-postgres.test.js",
+          "tests/account-security-router-auth.test.js",
+          "tests/account-session-management.test.js",
+          "tests/provider-accounts-postgres.test.js",
+          "tests/wallet-operations-postgres.test.js",
+          "tests/coin-ledger-postgres.test.js",
+          "tests/coin-external-operations.test.js",
+          "tests/coin-sandbox-postgres.test.js",
+          "tests/coin-debate-postgres.test.js",
+          "tests/media-account-revocation-postgres.test.js",
+        ],
+        {
+          env: {
+            ...process.env,
+            A4_TEST_DATABASE_URL: url(database, "yaparena_runtime"),
+            A4_TEST_OWNER_URL: url(database, "yaparena_owner"),
+            WALLET_TEST_DATABASE_URL: url(database, "yaparena_runtime"),
+            WALLET_TEST_OWNER_DATABASE_URL: url(database, "yaparena_owner"),
+            REVOCATION_TEST_DATABASE_URL: url(database, "yaparena_owner"),
+            REVOCATION_TEST_RUNTIME_URL: url(database, "yaparena_runtime"),
+          },
+          maxBuffer: 8 * 1024 * 1024,
+        },
+      ).catch(
+        (error: ExecFileException & { stdout: string; stderr: string }) => {
+          console.log(error.stdout);
+          console.log(error.stderr);
+          throw new Error(
+            "Focused account security/ledger PostgreSQL checks failed",
+          );
+        },
+      );
+      await mkdir(evidenceDirectory, { recursive: true });
+      await writeFile(
+        `${evidenceDirectory}/${upgrade ? "upgrade" : "fresh"}-account-security.log`,
+        result.stdout,
+      );
+      console.log(result.stdout);
+    }
     if (process.env.A4_VERIFY === "true") {
       const result = await exec(
         process.execPath,
@@ -1202,6 +1353,14 @@ async function scenario(database: string, upgrade: boolean) {
           WALLET_TEST_OWNER_DATABASE_URL: url(database, "yaparena_owner"),
           REVOCATION_TEST_DATABASE_URL: url(database, "yaparena_owner"),
           REVOCATION_TEST_RUNTIME_URL: url(database, "yaparena_runtime"),
+          COIN_TREASURY_TEST_DATABASE_URL: url(
+            "revocation_test_coin_treasury_fresh",
+            "yaparena_runtime",
+          ),
+          COIN_TREASURY_TEST_OWNER_DATABASE_URL: url(
+            "revocation_test_coin_treasury_fresh",
+            "yaparena_owner",
+          ),
         },
         maxBuffer: 8 * 1024 * 1024,
       }).catch(
@@ -1342,10 +1501,19 @@ try {
     for (const database of [
       "revocation_test_a4_fresh",
       "revocation_test_a4_upgrade",
+      "revocation_test_coin_treasury_fresh",
+      "revocation_test_coin_treasury_upgrade",
     ])
       await admin.query(`CREATE DATABASE ${database} OWNER postgres`);
   } finally {
     await admin.end();
+  }
+  if (
+    process.env.ACCOUNT_SECURITY_VERIFY === "true" ||
+    process.env.A4_QUALITY === "true"
+  ) {
+    await treasuryScenario("revocation_test_coin_treasury_fresh", false);
+    await treasuryScenario("revocation_test_coin_treasury_upgrade", true);
   }
   await scenario("revocation_test_a4_fresh", false);
   await scenario("revocation_test_a4_upgrade", true);

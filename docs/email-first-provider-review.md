@@ -320,12 +320,53 @@ remain an owner/provider-UI step, not a reason to buy a Privy plan now.
 [Provider passkey login](https://docs.privy.io/authentication/user-authentication/login-methods/passkey)
 has a separate dashboard enablement from signup. Preserve email-first signup;
 the approved availability configuration enables returning passkey login, while
-explicit linking/enrollment still needs integration acceptance. This is separate
-from YapArena's own operation-authorization
-security passkey. Neither grants fresh financial authorization merely through
-login. The authentication owner confirmed that toggling available methods does
+explicit linking/enrollment still needs integration acceptance. The founder
+subsequently required a **single Privy passkey** for sign-in and sensitive
+actions; that instruction supersedes the earlier separate YapArena enrollment
+design. Login alone supplies no fresh operation authorization. The authentication owner confirmed that toggling available methods does
 not itself change retained users' credential snapshots; actually linking one
 does and requires the new retained-proof reconciliation flow.
+
+### One Privy credential, independently verified operation challenges
+
+Rechecked on 2026-10-20: the official [GET-user response](https://docs.privy.io/api-reference/users/get)
+includes a linked passkey's `credential_id` and `public_key`. The installed
+Node SDK makes `public_key` optional. The documented example decodes to a
+base64-encoded COSE EC2/ES256 public key; this was checked offline with the
+installed WebAuthn library. The installed React SDK performs its registration
+ceremony in the application's browser context using the provider's returned RP
+configuration. These findings support reusing that credential for a standard
+assertion; they do not establish that every selected-app credential supplies a
+usable key or that its actual RP matches staging.
+
+The approved bridge uses Privy's actual enrollment once, followed by an
+authentication assertion from that **same credential** over a YapArena-issued
+challenge. It also supports activating an already linked Privy credential with
+an unchanged accepted provider snapshot. It never creates a second credential.
+Following the [WebAuthn verification requirements](https://www.w3.org/TR/webauthn-3/#sctn-verifying-assertion),
+the server checks the selected credential, signature, challenge, configured
+origin/RP, user presence and user verification, then stores signed counter and
+device/backup flags. Browser success callbacks, token refresh and token issuance
+time remain insufficient proof.
+
+The five-minute intent binds the original application session and generation,
+provider DID, old credential snapshot, selected activation mode, candidate
+public-key fingerprint and provider SID. Missing, malformed or unsupported
+provider public keys fail closed. First activation is allowed only before any
+financial history and before any local retained strong credential ever existed.
+Adding a new key cannot use bootstrap when a provider passkey already exists;
+activate the existing key first. Later setup needs a fresh retained-credential
+approval for the exact intent. Activation atomically consumes its challenge,
+accepts the exact provider snapshot, revokes other local sessions and rotates
+one cookie. It preserves provider SID fences and waits for confirmed provider
+session reset before ordinary provider tokens can cross the new generation.
+
+Every protected request and sensitive proof must recheck that each accepted
+provider key is still linked to the same DID with the same trusted public-key
+bytes. There is no positive authorization cache or embedded-wallet dependency.
+Actual provider enrollment, exported-key availability, RP compatibility and
+returning login remain genuine-provider acceptance gates; synthetic protocol
+or SDK fixture tests cannot close them.
 
 ### Lost sole provider method and local identity replacement
 
@@ -338,7 +379,7 @@ email, and Privy has no recovery backdoor. Its
 requires an authenticated provider user. Enterprise MFA resets are a separate
 capability and do not establish sole-email recovery. No paid feature is approved.
 
-The founder approved a separate YapArena policy for loss of a sole provider
+The founder previously approved a separate YapArena policy for loss of a sole provider
 email or sole Google login: a person who retains a YapArena **security passkey**
 may verify a different email using Privy and explicitly replace the old local
 provider mapping. Other multi-method or embedded-wallet identities are outside
@@ -350,7 +391,12 @@ profile, keys and balances stay with the original account. The old DID remains
 permanently retired; an already mapped or retired new DID must not be merged or
 reassigned. This is local identity replacement authorized by the retained app
 key, not recovery or mutation of the original Privy account. Implementation and
-its separate acceptance are tracked in the completion matrix.
+its separate acceptance are tracked in the completion matrix. After the
+Privy-only instruction, this replacement path remains restricted to **retained
+legacy independent keys**. Newly activated Privy-origin keys cannot authorize
+new-DID replacement, including through the database's narrow replacement
+function. A Privy backup passkey instead signs into the original DID so the
+provider's normal authenticated email-update flow can preserve its mapping.
 
 Fresh sensitive authorization comes from a server-verified, operation-bound
 retained application-key assertion. The new provider token and server-fetched
@@ -360,9 +406,11 @@ nonce-bound fresh-authentication attestation. Privy still issues and verifies
 all email codes. No duplicate OTP service, provider account deletion, email-only
 financial recovery or automatic email-based merging is authorized.
 
-The separate all-strong-methods-lost policy remains unchanged: ordinary email
-access may continue, but financial activity stays locked pending an approved
-recovery procedure. Linking a backup provider Google account or provider passkey
+The separate all-strong-methods-lost policy remains unchanged: the app cannot
+detect physical loss or automatically place a hold. Ordinary email access may
+continue, but retained-proof operations remain inaccessible; email cannot reset
+the keys. A selected identity-review recovery service is still unapproved.
+Linking a backup provider Google account or provider passkey
 while still authenticated helps prevent loss of the sole provider route; genuine
 enrollment and returning-user acceptance remain separate from configuration.
 

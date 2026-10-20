@@ -19,6 +19,23 @@ export type AbuseStore = {
   ): Promise<{ count: number; ttl: number }>;
 };
 
+async function withinDeadline<T>(operation: Promise<T>): Promise<T> {
+  let deadline: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        deadline = setTimeout(
+          () => reject(new Error("abuse store unavailable")),
+          1_000,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(deadline);
+  }
+}
+
 export function createRedisAbuseStore({
   url,
   observe = () => {},
@@ -29,6 +46,7 @@ export function createRedisAbuseStore({
   const client = createClient({
     url,
     disableOfflineQueue: true,
+    commandsQueueMaxLength: 256,
     socket: { connectTimeout: 1_000, reconnectStrategy: false },
   });
   // Never log Redis errors: URLs or authentication details may be included.
@@ -36,11 +54,16 @@ export function createRedisAbuseStore({
   let connecting: Promise<void> | undefined;
   let retryAfter = 0;
   async function connect() {
+    if (connecting) return connecting;
     if (client.isReady) return;
     if (Date.now() < retryAfter) throw new Error("abuse store unavailable");
-    connecting ??= client
-      .connect()
-      .then(() => {})
+    connecting = withinDeadline(
+      client.connect().then(async () => {
+        const memory = await client.info("memory");
+        if (!/^maxmemory_policy:noeviction\r?$/m.test(memory))
+          throw new Error("unsafe abuse store policy");
+      }),
+    )
       .catch(() => {
         retryAfter = Date.now() + 5_000;
         throw new Error("abuse store unavailable");
@@ -55,21 +78,31 @@ export function createRedisAbuseStore({
       const start = performance.now();
       try {
         await connect();
-        const result = await client
-          .withCommandOptions({ abortSignal: AbortSignal.timeout(1_000) })
-          .eval(abuseScript, {
+        const result = await withinDeadline(
+          client.eval(abuseScript, {
             keys: [key],
             arguments: [String(windowMs)],
-          });
+          }),
+        );
         if (
           !Array.isArray(result) ||
           typeof result[0] !== "number" ||
-          typeof result[1] !== "number"
+          typeof result[1] !== "number" ||
+          !Number.isSafeInteger(result[0]) ||
+          !Number.isSafeInteger(result[1]) ||
+          result[0] < 1 ||
+          result[1] < 1 ||
+          result[1] > windowMs
         )
           throw new Error("invalid abuse store result");
         observe("ok", (performance.now() - start) / 1_000);
         return { count: result[0], ttl: result[1] };
       } catch {
+        // A timed-out command may have executed. Never queue or replay it; close
+        // the connection and make later attempts wait before reconnecting.
+        if (client.isOpen || retryAfter <= Date.now())
+          retryAfter = Date.now() + 5_000;
+        if (client.isOpen) client.destroy();
         observe("error", (performance.now() - start) / 1_000);
         throw new Error("abuse store unavailable");
       }
@@ -104,6 +137,7 @@ export function createSharedAbuseLimiter({
     secret.length < 32 ||
     !Number.isSafeInteger(limit) ||
     limit < 1 ||
+    !Number.isSafeInteger(windowMs) ||
     windowMs < 1_000
   )
     throw new Error("invalid shared abuse configuration");

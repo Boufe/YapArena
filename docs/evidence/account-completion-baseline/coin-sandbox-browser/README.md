@@ -19,6 +19,9 @@ PostgreSQL version and assertions. Desktop uses 1440 × 1100; mobile uses
 390 × 844. Matching `before-*` and `after-*` images show the same widgets and
 viewport before and after the workflows. `withdrawal-approval-*` captures the
 exact displayed gross deduction, included fee, net delivery and destination.
+`recovery-consent-*` captures the exact cost-consent terms and retained-proof
+dialog. `financial-hold-*` shows reports and the current quote remaining
+accessible while new financial operations are held for correction review.
 
 The workflows cover exactly-once welcome/daily claims, a 10 simulated USDC
 purchase issuing 1000 YC, purchased funds without grant qualification, native
@@ -32,6 +35,24 @@ old-account response must preserve the replacement account's private state and
 usable controls. The actual logout event must also remove an unfinished
 security approval, erase the detached password input and leave reserves
 unchanged; refreshing the account restores usable controls.
+
+The final run passed 22 desktop/mobile groups at the revision and hashes in
+`results.json`. A real receipt opens the report form; literal markup remains
+text, private operator evidence is absent from the public projection, and a
+different account cannot retrieve the report or quote. Native WebAuthn or
+retained-password proof binds consent to the exact quote and current session.
+The append-only consent authorizes neither a charge nor an external recovery;
+balances, receipts, requests and cash journals remain unchanged. A quote that
+actually expires while the dialog is open fails with 410 and creates no second
+consent. Focus returns to the named report notice after success.
+
+A held replacement-account summary proves old balances, receipts, rounds,
+reports and the withdrawal destination leave even hidden DOM immediately. A
+real uncertain funding correction then holds financial mutations; Refresh
+still loads the current report and quote after settlement returns 403. This
+also exercises the numeric report-event ordering fix across the second
+account's larger sequence IDs. Its deterministic digit-boundary database
+regression is a separate gate.
 
 Automated axe checks use WCAG 2.0/2.1/2.2 A/AA tags. The verifier checks keyboard
 activation, dialog focus and horizontal reflow at normal and CSS 200% layout
@@ -49,3 +70,9 @@ debate selector and balance grid. Scoped layout fixes were applied; the same
 overflow assertions then passed. The initial password/section locator failures
 were corrected in the verifier without changing product behavior or weakening
 acceptance assertions.
+
+Two final executions overlapped after coordinator messages crossed. They used
+separate disposable databases and unchanged application assets. The later
+coordinator execution completed successfully and wrote the final, complete
+artifact set at 2026-10-20 07:09 UTC; its `results.json` and source hashes are
+authoritative. No shared database or hosted identity was mutated.

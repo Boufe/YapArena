@@ -1,22 +1,27 @@
 {
-  "at": "2026-10-20T05:24:22.010Z",
-  "revision": "f7aa3764b1d13374d884573f1cfe72ef12ed6401",
-  "revisionAtEnd": "f7aa3764b1d13374d884573f1cfe72ef12ed6401",
+  "at": "2026-10-20T07:09:18.967Z",
+  "revision": "2c944d7465c03f348999740dbede2228428be58d",
+  "revisionAtEnd": "2c944d7465c03f348999740dbede2228428be58d",
   "sourceHashes": {
-    "scripts/verify-coin-sandbox-browser.ts": "fb6d2b4645e19898806cf80bebe2507e39e5c66def664367a0d478c60e49f186",
-    "public/account-coins.js": "abd0c0a1cfb1a26a317b377efb80d79369cbc5d6cd1ae000999e4c651ea4b065",
-    "public/account-security.bundle.js": "12e9f874ec5f583eb5830ce93ecf2cdd8cdc8318cb3a4a6c293247205e4d3ce1",
-    "public/account-auth.css": "787254d7a54f903f7e83b5201b875b1635590092d6cf89e3be3791e88935ab66",
-    "frontend/account-coins.ts": "915b7170b2668c7a18c92296155b49c5ad96fcb14c359947809000c0077ac961",
-    "frontend/account-security.ts": "f992f4c44b662bbb883cc0a4993a4b2383aa83afab54f40b63fc47b01f2be000",
-    "src/features/account-wallet/sandbox-repository.ts": "0ef22d0ecfb18dba91e7c95510267c6b3fe890305670daa6bd2d3a12ed4ec3a0",
-    "dist/features/account-wallet/sandbox-repository.js": "6777d122ec7aee77307f5ae797b994c2b17f7b78c51eb8f20f3a2fdbe8f94234",
-    "src/features/account-wallet/sandbox-router.ts": "64eb3305a4cde20f42517d40a4bbf3ba4556e20e09ec464eb563679d3e84b278",
-    "dist/features/account-wallet/sandbox-router.js": "c65c515fadc77885366768695833937d0685c92e7a7fc4de1a1dd18659d60359",
-    "src/features/account-wallet/debate-sandbox.ts": "b56a4ea4d4509675059af168217a81bac94e1f815600e80ba3544b2ccb109560",
-    "dist/features/account-wallet/debate-sandbox.js": "adcb5f01149243146ef5081f606a38c46d18e96bedaaaf5c903a32532e1cadb1",
-    "src/features/account-wallet/grant-accounting.ts": "8dd7f24eac635835502afb746eb31a03135020eb9ce2e646378078c9cb0b7eb3",
-    "dist/features/account-wallet/grant-accounting.js": "44d0b80a5fd1881350c20a4aeb628ba5d11e7ae61112546d6905a1ff64362c70",
+    "scripts/verify-coin-sandbox-browser.ts": "05e0ed0f18250a656dbc8e34c11e6a952e654e8db8338f4a110b91d70ebd70d4",
+    "public/account-coins.js": "18f9676e53a859a75a35531736b469675e3e680a0bd8931dd1d106880f18341d",
+    "public/session-coordination.js": "a5f58223505ad21ccdc23b979f1d0036381082beefd52b8cdda190415e57b310",
+    "public/account-security.bundle.js": "fd7763378f3c6d6229a02809f314ebf1eff3f2dcbbc18cedc750582a63f91016",
+    "public/account-auth.css": "dfa7bfe18baa0a76c45a9974aa24785f868f71ca31497794dfcaf11815c12da7",
+    "frontend/account-coins.ts": "81be0dc95359e5bda452d0ce24da49ebd055eb16c910c5492106820978f28613",
+    "frontend/account-security.ts": "9a33913aa83f9d9b0a6d3abc1342621cf0ea5eedb77342b1b2154a5a9c172584",
+    "frontend/session-coordination.ts": "dd1eafbf5c6c0af2d972bad5fcb8f7c2f80beb678161ae57d5001f07f21f49f4",
+    "frontend/auth-events.ts": "7b9a30557915acc33d400d53c5168d567983e5aa69e6fea6da1370e8c6bd1312",
+    "src/features/account-wallet/sandbox-repository.ts": "1531dc00ae2f40885fe39e91e4346eb583f643beb4073522b30f9eb936ea1416",
+    "dist/features/account-wallet/sandbox-repository.js": "7e4d040317e1365825a99c7917a9a8b6223282cca7a99b1017ec03d2168b01c4",
+    "src/features/account-wallet/sandbox-router.ts": "e801ef3a5a05a4a70b52f279c83b3f1e4fb308dd3caaa7cedb939a59d4c70e89",
+    "dist/features/account-wallet/sandbox-router.js": "5451d053cbb7c63e4d202ff96660dc7af4e0418579fb17d261342d38ccfbb151",
+    "src/features/account-wallet/sandbox-reports.ts": "25add5d8508bec3a921fd2fc606b43847cf6ec41d43c7cf0855966c0abbdd20f",
+    "dist/features/account-wallet/sandbox-reports.js": "f19bce0bca1d3caf5ae7ad97f07f43986029b0e5fc24a463212918368dc2367a",
+    "src/features/account-wallet/debate-sandbox.ts": "5d7c1099b052168db47f424e254f0b1ef3c1a4880a9bb4abc91bd9c8edf27eed",
+    "dist/features/account-wallet/debate-sandbox.js": "1b0f4b277f361e43eb445d4bb5b75c230191e693609f040df1c095f58ba34fd5",
+    "src/features/account-wallet/grant-accounting.ts": "9b965bafb4012a9286cfc75f44943bab1788987b1a404c2cee923e4d1f18b0b5",
+    "dist/features/account-wallet/grant-accounting.js": "fa4ebed7af12e18c079d8ba66db16c877b98bd0d029da7c267e14b21da85972f",
     "src/features/account-wallet/ledger.ts": "0086f6107ea50bdaa64a187d2d49a27ce4785009efbc55dcd5c91b713658e862",
     "dist/features/account-wallet/ledger.js": "65843c1acb496fea64c9abd3b02f1a98278dc688e6b40afe23d17efd1d3c3df7",
     "src/features/account-wallet/external-operations.ts": "a421fb42de5f673e4ac50dd994f107434526a2e3f0c80da68025ebf74c4524f2",
@@ -36,28 +41,52 @@
   "checks": [
     "desktop: actual runtime-role API issues one welcome/daily grant, preserves spend-only principal, and confirms a 10 simulated USDC purchase as 1000 withdrawal-eligible YC without any grant target",
     "desktop: native WebAuthn proof approves exactly 5 gross / 0.1 fee / 4.9 net USDC to the displayed destination; transactionally reserved funds await manual review with a receipt",
+    "desktop: a receipt opens an accessible real error-report form; literal markup stays text, owner evidence stays private, and another actual account receives no report or cost quote; reporting/review changes no funds or external records",
+    "desktop: real virtual-authenticator WebAuthn authorization binds the displayed 0.1 USDC recovery quote to the current account/session; one append-only consent authorizes neither a charge nor recovery, leaves all balances/journals/receipts/requests unchanged, and restores keyboard focus to the report notice",
+    "desktop: a quote that genuinely expires while its dialog is open is rejected by the real server with 410, announces the error, permits keyboard cancellation, disappears after refresh and creates no second consent or financial change",
     "desktop: owner-process simulated center/promotional treasury funds a real existing YES/NO round; first commitment and its source reservation are recorded without changing historical A4 tables",
-    "desktop: real cookie switch while the native confirmation blocks browser events is rejected by comparison-only session context; replacement account receives no stake or funds and controls recover",
+    "desktop: real cookie switch while the native confirmation blocks browser events is rejected by comparison-only session context; a held replacement summary leaves no old balances, receipts, round, report or destination in hidden DOM, and the new account receives no stake or funds",
     "desktop: delayed actual daily-claim response from the old account cannot repopulate its balances in the replacement account or leave replacement controls disabled",
     "desktop: the actual logout event removes unfinished security approval, erases its detached password input and does not create another reserve; a subsequent account refresh restores working controls",
+    "desktop: an actual evidence-reviewed uncertain funding correction holds financial mutations; Refresh sandbox still loads both reports and the owner's current recovery quote after settlement403, while new withdrawals remain403 and reserves/journals/receipts stay unchanged",
     "desktop: keyboard activation of retained proof and enrollment, native-dialog focus, automated WCAG2.2AA tags and no horizontal overflow at normal and CSS200% layout zoom; not screen-reader/physical-device evidence",
     "mobile: actual runtime-role API issues one welcome/daily grant, preserves spend-only principal, and confirms a 10 simulated USDC purchase as 1000 withdrawal-eligible YC without any grant target",
     "mobile: retained-password proof approves exactly 5 gross / 0.1 fee / 4.9 net USDC to the displayed destination; transactionally reserved funds await manual review with a receipt",
+    "mobile: a receipt opens an accessible real error-report form; literal markup stays text, owner evidence stays private, and another actual account receives no report or cost quote; reporting/review changes no funds or external records",
+    "mobile: retained-password authorization binds the displayed 0.1 USDC recovery quote to the current account/session; one append-only consent authorizes neither a charge nor recovery, leaves all balances/journals/receipts/requests unchanged, and restores keyboard focus to the report notice",
+    "mobile: a quote that genuinely expires while its dialog is open is rejected by the real server with 410, announces the error, permits keyboard cancellation, disappears after refresh and creates no second consent or financial change",
     "mobile: owner-process simulated center/promotional treasury funds a real existing YES/NO round; first commitment and its source reservation are recorded without changing historical A4 tables",
-    "mobile: real cookie switch while the native confirmation blocks browser events is rejected by comparison-only session context; replacement account receives no stake or funds and controls recover",
+    "mobile: real cookie switch while the native confirmation blocks browser events is rejected by comparison-only session context; a held replacement summary leaves no old balances, receipts, round, report or destination in hidden DOM, and the new account receives no stake or funds",
     "mobile: delayed actual daily-claim response from the old account cannot repopulate its balances in the replacement account or leave replacement controls disabled",
     "mobile: the actual logout event removes unfinished security approval, erases its detached password input and does not create another reserve; a subsequent account refresh restores working controls",
+    "mobile: an actual evidence-reviewed uncertain funding correction holds financial mutations; Refresh sandbox still loads both reports and the owner's current recovery quote after settlement403, while new withdrawals remain403 and reserves/journals/receipts stay unchanged",
     "mobile: keyboard activation of retained proof and enrollment, native-dialog focus, automated WCAG2.2AA tags and no horizontal overflow at normal and CSS200% layout zoom; not screen-reader/physical-device evidence"
   ],
   "errors": [],
   "expectedRejections": [
     {
-      "route": "/api/coin-sandbox/rounds/:id/submit",
-      "status": 409
+      "route": "/api/coin-sandbox/reports/:id/recovery-consents/authorization",
+      "status": 410
     },
     {
       "route": "/api/coin-sandbox/rounds/:id/submit",
       "status": 409
+    },
+    {
+      "route": "/api/coin-sandbox/settlements",
+      "status": 403
+    },
+    {
+      "route": "/api/coin-sandbox/reports/:id/recovery-consents/authorization",
+      "status": 410
+    },
+    {
+      "route": "/api/coin-sandbox/rounds/:id/submit",
+      "status": 409
+    },
+    {
+      "route": "/api/coin-sandbox/settlements",
+      "status": 403
     }
   ],
   "accessibilityFailures": [],

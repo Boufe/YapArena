@@ -1,9 +1,14 @@
 {
-  "at": "2026-10-20T05:49:30.309Z",
-  "revision": "db7c3d1c2d413ed170ee854bc186dc2a2a55eb0c",
+  "at": "2026-10-20T07:08:59.956Z",
+  "revision": "2c944d7465c03f348999740dbede2228428be58d",
   "sourceHashes": {
-    "scripts/verify-security-passkey-browser.ts": "169b91ee8913d8af83ffd09b6b5a86777d1e9f439452407348062ad993dd9ff5",
-    "public/account-security.bundle.js": "12e9f874ec5f583eb5830ce93ecf2cdd8cdc8318cb3a4a6c293247205e4d3ce1",
+    "scripts/verify-security-passkey-browser.ts": "e1544454ea7fca1dd15a7f59298c256cc0b201c03b01659a4fde50061897b23a",
+    "public/account-security.bundle.js": "fd7763378f3c6d6229a02809f314ebf1eff3f2dcbbc18cedc750582a63f91016",
+    "public/session-coordination.js": "a5f58223505ad21ccdc23b979f1d0036381082beefd52b8cdda190415e57b310",
+    "public/account-auth.css": "dfa7bfe18baa0a76c45a9974aa24785f868f71ca31497794dfcaf11815c12da7",
+    "frontend/account-security.ts": "9a33913aa83f9d9b0a6d3abc1342621cf0ea5eedb77342b1b2154a5a9c172584",
+    "frontend/session-coordination.ts": "dd1eafbf5c6c0af2d972bad5fcb8f7c2f80beb678161ae57d5001f07f21f49f4",
+    "frontend/auth-events.ts": "7b9a30557915acc33d400d53c5168d567983e5aa69e6fea6da1370e8c6bd1312",
     "src/platform/auth/security-passkeys.ts": "99803076c3f15f087a6fa5b54c451ae6b5d0f254ec01da376ef0deccb290c977",
     "src/platform/auth/security-router.ts": "2e1c296029e81934aea3a76d0737fcc741040f903c8c802908dd1b074e442a0f",
     "src/platform/auth/account-operations.ts": "72246fc6de70eeb90bec291224d3b0eb5983eec596edc82aef01af4c8b27d1d4",

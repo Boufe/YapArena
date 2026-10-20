@@ -22,6 +22,21 @@ rules below remain provenance, not the A4 implementation contract. A4 neither ch
 winner nor implements the ongoing market or sponsor/creator payouts. Other product decisions
 and real-fund release dependencies remain unchanged. See [current financial work](financial-implementation-plan.md).
 
+**Later account and currency decisions (October 20, 2026):** the
+[email-first account contract](email-first-accounts.md) and
+[approved execution decisions](email-first-completion.md#decisions-received-during-this-execution)
+govern current authentication and the separate internal YC sandbox. They supersede
+the historical wallet-first preference, initial Canada/US targeting and withdrawal-fee
+wording below for this flow: signup is email-first without wallet provisioning,
+Canada is the initial target subject to eligibility review, and 100 YC = 1 USDC.
+Withdrawals have a 5 USDC minimum gross debit, with the displayed network fee
+deducted from that debit and no daily withdrawal cap. Completed purchases leave
+through USDC withdrawals only. Purchased funds have no grant-profit target;
+grant principal remains spend-only with independent, permanent qualification of
+each grant's remaining profit. These decisions do not convert historical play
+balances, change unrelated market economics or enable live funds. The broader
+instrument and combined paid-release dependencies remain open.
+
 ## 1. Product vision and the user problem
 
 **Make debate a continuing public competition where people can argue, financially support positions, and follow the history and market value of ideas.**

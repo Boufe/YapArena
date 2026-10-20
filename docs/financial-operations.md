@@ -1,5 +1,14 @@
 # Yap Coins operations
 
+This guide governs the historical nonredeemable A4/YAP play ledger. The later
+[email-first account contract](email-first-accounts.md) and
+[coin sandbox runbook](coin-sandbox-operations.md) govern the separate YC source
+books, simulated funding/withdrawals, append-only error corrections and isolated
+Base Sepolia adapter. They do not convert historical play balances or enable live
+funding/redemption. Use those current guides for the approved grant, withdrawal,
+fee and recovery policies; the play grants and modes below retain their original
+rules.
+
 The founder-authorized October 15 [staging trial](https://github.com/Boufe/YapArena/pull/31)
 applied the three A4 migrations separately as owner, then deployed `fcb162d` with
 runtime-only credentials and `A4_MODE=bots`. This is a recorded play-mode trial,
@@ -7,7 +16,9 @@ not a change to the default-off configuration. The [live/replay workspace](debat
 extends that UI without schema changes; its dated evidence records its own checks.
 
 The [mechanism](a4-mechanism.md) and [implementation plan](financial-implementation-plan.md)
-govern play rounds. No deposits, cash-out, minting, conversion or real payment adapters exist.
+govern these play rounds. This historical module has no deposits, cash-out,
+conversion or external payment adapter; the separate sandbox integration above
+does not add those capabilities to the play ledger.
 
 ## Local activation and exercise
 
@@ -37,8 +48,12 @@ Configure the same A4 mode on every web and maintenance-worker instance. Start t
 A4 transitions. Do not launch the replay encoder for financial work. Each tick processes at most
 ten sessions; PostgreSQL run locks and unique journal references serialize competing workers.
 The default cap is three active runs per creator. Per-account API reads are bounded at 120/minute
-and writes at 30/minute, in addition to existing application controls. These limits are process-local;
-shared multi-instance abuse controls and production capacity acceptance remain open.
+and writes at 30/minute, in addition to existing application controls. These
+historical A4 route ceilings remain process-local. The later
+[shared Redis controls](email-first-accounts.md#redis-configuration-and-measurements)
+protect account-authentication mutations across instances; they do not make these
+A4 route ceilings distributed or secure financial limits. PostgreSQL remains
+authoritative for financial state. Wider hosted A4 capacity acceptance remains open.
 
 ## Reconciliation, pause and recovery
 
@@ -73,13 +88,16 @@ rolls back projections and journal together. Retry requests with the original ke
 funding or reconciliation failures require pausing admission and inspecting the failed run with
 a controlled operator connection; never delete a journal, alter the seed, recalculate a locked
 population, disable constraints or silently mint repair balances. Record any approved correction
-with a separately reviewed reversal policy. Post-finality correction is not implemented.
+with a separately reviewed reversal policy. Post-finality correction is not
+implemented for this historical play ledger; the separate coin sandbox's funded
+original-source corrections follow its own runbook.
 
 A4 tables are private-schema, owner-migrated, RLS-enabled and backend-only. The runtime identity
 has no asset/control update or journal update/delete grants. Authenticated account/session validity
 is rechecked inside financial transactions under the account lock; linked-wallet changes and
-account-wide revocation retain the existing ordering contract. Suspension, deletion/export and
-recovery features remain absent where already documented. Future deletion must preserve retained
+account-wide revocation retain the existing ordering contract. Current account
+suspension, recovery and revocation behavior follows the email-first account
+contract rather than this play-mode guide. Future deletion must preserve retained
 financial records and eligibility snapshots and explicitly handle open obligations.
 
 ## Verification and future money rails

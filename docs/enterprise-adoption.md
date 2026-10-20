@@ -55,9 +55,17 @@ The ongoing market needs a defined instrument,
 holder rights, issuance, liquidity, and exit rules. Both markets must pass the companion evidence
 checklist together before paid access.
 
+The later [email-first account contract](email-first-accounts.md) and
+[approved currency decisions](email-first-completion.md#decisions-received-during-this-execution)
+govern the current account/YC flow: email-first access, no wallet provisioning at
+signup and Canada as the initial eligibility-review target. They supersede the
+historical wallet-first and initial US-market wording below for that flow.
+Broader jurisdiction/instrument review remains a future paid-release dependency,
+not permission to accept funds in either country.
+
 - [ ] Obtain written, structure-specific specialist review for the intended Québec, Canadian, and
       US jurisdictions; implement the required permissions and eligibility controls before accepting
-      funds. Wallet-first preference does not decide whether identity checks are required.
+      funds. Authentication preferences do not decide whether identity checks are required.
 - [ ] Approve the financial specifications, demonstrate full backing and independent reconciliation,
       and verify that event collateral, refundable fees, ongoing-market assets, sponsor funds, and
       operating revenue remain distinguishable.

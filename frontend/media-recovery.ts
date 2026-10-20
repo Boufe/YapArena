@@ -1,5 +1,16 @@
 import type { MediaError, MediaRole } from "./media-types.js";
 
+export function isMovingSpeakerAccess(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "status" in error &&
+    error.status === 409 &&
+    "code" in error &&
+    error.code === "speaking_access_moving"
+  );
+}
+
 // SDK transport recovery owns the connected/reconnecting phase. The application
 // requests a fresh grant only after a recoverable terminal disconnect.
 export function createMediaRecovery({
@@ -58,9 +69,10 @@ export function createMediaRecovery({
         await join(role, () => epoch === generation && intent === role);
       } catch (error) {
         if (
-          ([401, 403, 404, 409] as readonly (number | undefined)[]).includes(
-            (error as MediaError).status,
-          ) ||
+          (!isMovingSpeakerAccess(error) &&
+            ([401, 403, 404, 409] as readonly (number | undefined)[]).includes(
+              (error as MediaError).status,
+            )) ||
           ["NotAllowedError", "SecurityError"].includes(
             (error as MediaError).name,
           )

@@ -52,6 +52,7 @@ export interface MediaRequest {
 }
 export interface MediaError extends Error {
   status?: number;
+  code?: string;
 }
 export type DeviceChoices = Partial<
   Record<"audioinput" | "videoinput", string>

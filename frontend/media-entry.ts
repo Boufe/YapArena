@@ -16,7 +16,11 @@ import {
   createPlaybackReporter,
   playbackDimensions,
 } from "./media-telemetry.js";
-import { createMediaRecovery, mayRecoverDisconnect } from "./media-recovery.js";
+import {
+  createMediaRecovery,
+  mayRecoverDisconnect,
+  isMovingSpeakerAccess,
+} from "./media-recovery.js";
 import {
   createMediaDiagnostics,
   observePlayback,
@@ -200,6 +204,12 @@ if (root) {
         ),
         {
           status: response.status,
+          ...(result !== null &&
+          typeof result === "object" &&
+          "code" in result &&
+          typeof result.code === "string"
+            ? { code: result.code }
+            : {}),
         },
       );
     return result as MediaResponse<Path>;
@@ -480,6 +490,7 @@ if (root) {
         isCurrent: current,
         devices: deviceChoices,
         microphoneWanted,
+        replaceExisting: !automatic,
         rememberDevices(choices) {
           for (const [kind, value] of Object.entries(choices))
             if (value) deviceChoices[kind as keyof DeviceChoices] = value;
@@ -528,9 +539,10 @@ if (root) {
       await disconnectRoom();
       say((error as MediaError).message);
       if (
-        ([401, 403, 404, 409] as readonly (number | undefined)[]).includes(
-          (error as MediaError).status,
-        ) ||
+        (!isMovingSpeakerAccess(error) &&
+          ([401, 403, 404, 409] as readonly (number | undefined)[]).includes(
+            (error as MediaError).status,
+          )) ||
         ["NotAllowedError", "SecurityError"].includes(
           (error as MediaError).name,
         )

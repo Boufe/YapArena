@@ -5,6 +5,7 @@ import { joinSpeaker } from "../public/media-speaker.js";
 
 it("keeps deliberately muted rejoining from capturing the microphone", async () => {
   const paths = [];
+  let tokenOptions;
   let options;
   await joinSpeaker({
     button: {},
@@ -19,8 +20,9 @@ it("keeps deliberately muted rejoining from capturing the microphone", async () 
         };
       },
     },
-    async request(path) {
+    async request(path, requestOptions) {
       paths.push(path);
+      if (path === "/speaker-token") tokenOptions = requestOptions;
       return path === "/speaker-token"
         ? { token: "synthetic", url: "wss://synthetic.example", side: "A" }
         : { eventStatus: "live", state: { state: "running" } };
@@ -40,6 +42,7 @@ it("keeps deliberately muted rejoining from capturing the microphone", async () 
   });
   assert.equal(options.audio, false);
   assert.equal(paths.includes("/device-check"), false);
+  assert.deepEqual(JSON.parse(tokenOptions.body), { replaceExisting: false });
 });
 
 it("shows the first speaker's camera and permits reconnect after a pause", async () => {

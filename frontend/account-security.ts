@@ -19,6 +19,12 @@ declare global {
       terms: Record<string, string>,
       sessionId: string,
     ) => Promise<Approval>;
+    yapApproveRecoveryCost?: (
+      reportId: string,
+      quoteId: string,
+      terms: Record<string, string>,
+      sessionId: string,
+    ) => Promise<Approval>;
   }
 }
 
@@ -58,7 +64,7 @@ function displayUsdc(atomic: string | undefined) {
 const mount = document.querySelector<HTMLElement>("#account-security-passkeys");
 if (mount) {
   const root = mount;
-  const heading = document.createElement("h2");
+  const heading = document.createElement("h3");
   heading.textContent = "Security passkeys";
   const help = document.createElement("p");
   help.textContent =
@@ -150,6 +156,7 @@ if (mount) {
       window.yapLinkProviderIdentity = linkProviderIdentity;
       window.yapApproveProviderChange = approveProviderChange;
       window.yapApproveCoinWithdrawal = approveCoinWithdrawal;
+      window.yapApproveRecoveryCost = approveRecoveryCost;
       keys = data.passkeys;
       list.replaceChildren();
       for (const key of keys) {
@@ -253,7 +260,9 @@ if (mount) {
                 ? "Change sign-in methods"
                 : purpose === "withdrawal.request"
                   ? "Approve sandbox withdrawal"
-                  : "Add security passkey";
+                  : purpose === "recovery.cost.consent"
+                    ? "Approve recovery cost consent"
+                    : "Add security passkey";
     dialog.setAttribute("aria-labelledby", titleId);
     description.textContent =
       "Approve this change with a trusted method that stays on your account. Approval expires in five minutes.";
@@ -265,6 +274,18 @@ if (mount) {
       description.textContent = `Approve ${terms.action} for ${terms.method}: ${terms.target}. Privy will verify the new method. You will then review the exact changes and verify again before YapArena accepts them.`;
     if (purpose === "withdrawal.request")
       description.textContent = `Sandbox only — ${terms.rail === "simulation" ? "deterministic simulation" : "Base Sepolia test USDC"}. Deduct ${displayUsdc(terms.gross)} from your sandbox balance, including a ${displayUsdc(terms.fee)} network fee. The destination receives ${displayUsdc(terms.net)}. Destination: ${terms.destination}. Network: ${terms.network}. This approves this exact request and does not sign a live transaction.`;
+    if (purpose === "recovery.cost.consent") {
+      const expiry = new Date(terms.expiresAt ?? "");
+      if (
+        terms.environment !== "sandbox" ||
+        terms.asset !== "USDC" ||
+        terms.precision !== "6" ||
+        terms.authorization !== "consent_only_no_charge" ||
+        !Number.isFinite(expiry.getTime())
+      )
+        throw new Error("Recovery quote is invalid. Refresh the quote.");
+      description.textContent = `Sandbox only — ${terms.rail === "simulation" ? "deterministic simulation" : "Base Sepolia test USDC"}. Record consent to the exact quoted recovery cost of ${displayUsdc(terms.amount)} on network ${terms.network}. Quote expires ${expiry.toLocaleString(undefined, { timeZoneName: "short" })}. This records consent only. No charge is taken and no recovery transaction is executed.`;
+    }
     label.textContent = "Approve with ";
     label.append(select);
     passwordLabel.textContent = "Current password ";
@@ -305,7 +326,8 @@ if (mount) {
     message.setAttribute("aria-atomic", "true");
     submit.type = "submit";
     submit.className = "button";
-    submit.textContent = "Approve change";
+    submit.textContent =
+      purpose === "recovery.cost.consent" ? "Record consent" : "Approve change";
     cancel.type = "button";
     cancel.className = "button-secondary";
     cancel.textContent = "Cancel";
@@ -460,11 +482,13 @@ if (mount) {
         { response, approval: proof },
       );
       assertGeneration(generation);
-      changed();
       await load();
       assertGeneration(generation);
       notice.textContent =
         "Security passkey added. Other sessions were signed out.";
+      setBusy(false);
+      add.focus();
+      changed();
     } catch (error) {
       if (generation !== logoutGeneration) return;
       notice.textContent =
@@ -503,11 +527,13 @@ if (mount) {
         },
       );
       assertGeneration(generation);
-      changed();
       await load();
       assertGeneration(generation);
       notice.textContent =
         "Security passkey removed. Other sessions were signed out.";
+      setBusy(false);
+      add.focus();
+      changed();
     } catch (error) {
       if (generation !== logoutGeneration) return;
       notice.textContent =
@@ -579,13 +605,15 @@ if (mount) {
         { ...target, approval: proof, proposedSignature },
       );
       assertGeneration(generation);
-      changed();
       await load();
       assertGeneration(generation);
       notice.textContent =
         target.purpose === "link"
           ? "Wallet linked. Your session was renewed."
           : "Wallet unlinked. Other sessions were signed out.";
+      setBusy(false);
+      (prior?.isConnected ? prior : add).focus();
+      changed();
     } catch (error) {
       if (generation !== logoutGeneration) return;
       notice.textContent =
@@ -642,11 +670,13 @@ if (mount) {
         token,
       );
       assertGeneration(generation);
-      changed();
       await load();
       assertGeneration(generation);
       notice.textContent =
         "Sign-in method linked to your existing account. Other sessions were signed out.";
+      setBusy(false);
+      add.focus();
+      changed();
     } catch (error) {
       if (generation !== logoutGeneration) throw error;
       notice.textContent =
@@ -686,64 +716,92 @@ if (mount) {
     terms: Record<string, string>,
     sessionId: string,
   ) {
+    return approveSandboxOperation(
+      "withdrawal.request",
+      terms,
+      sessionId,
+      `/withdrawals/${encodeURIComponent(requestId)}/operations`,
+      {},
+    );
+  }
+  async function approveRecoveryCost(
+    reportId: string,
+    quoteId: string,
+    terms: Record<string, string>,
+    sessionId: string,
+  ) {
+    return approveSandboxOperation(
+      "recovery.cost.consent",
+      terms,
+      sessionId,
+      `/reports/${encodeURIComponent(reportId)}/recovery-consents/authorization`,
+      { quoteId },
+    );
+  }
+  async function approveSandboxOperation(
+    purpose: "withdrawal.request" | "recovery.cost.consent",
+    terms: Record<string, string>,
+    sessionId: string,
+    path: string,
+    additionalBody: Readonly<Record<string, string>>,
+  ) {
     if (busy) throw new Error("Finish the current security change first.");
     const generation = logoutGeneration;
     setBusy(true);
     try {
-      return await approval(
-        "withdrawal.request",
-        terms,
-        undefined,
-        async (credential) => {
-          const response = await fetch(
-            `/api/coin-sandbox/withdrawals/${encodeURIComponent(requestId)}/operations`,
-            {
-              method: "POST",
-              credentials: "same-origin",
-              cache: "no-store",
-              headers: {
-                "Content-Type": "application/json",
-                "X-YapArena-Session": sessionId,
-              },
-              body: JSON.stringify({ credential }),
-              signal: AbortSignal.timeout(30000),
-            },
+      return await approval(purpose, terms, undefined, async (credential) => {
+        const response = await fetch(`/api/coin-sandbox${path}`, {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            "X-YapArena-Session": sessionId,
+          },
+          body: JSON.stringify({ ...additionalBody, credential }),
+          signal: AbortSignal.timeout(30000),
+        });
+        if (!response.ok) {
+          const value: { error?: string } = await response
+            .json()
+            .catch(() => ({}));
+          throw new SecurityResponseError(
+            value.error ?? "Sandbox approval unavailable.",
           );
-          if (!response.ok) {
-            const value: { error?: string } = await response
-              .json()
-              .catch(() => ({}));
-            throw new SecurityResponseError(
-              value.error ?? "Sandbox withdrawal approval unavailable.",
-            );
-          }
-          const operation: Operation & { terms: Record<string, string> } =
-            await response.json();
-          const normalize = (record: Record<string, string>) =>
-            JSON.stringify(
-              Object.entries(record).sort(([a], [b]) => a.localeCompare(b)),
-            );
-          if (normalize(operation.terms) !== normalize(terms))
-            throw new Error(
-              "Sandbox withdrawal terms changed. Refresh the quote and review it again.",
-            );
-          return operation;
-        },
-      );
+        }
+        const operation: Operation & { terms: Record<string, string> } =
+          await response.json();
+        const normalize = (record: Record<string, string>) =>
+          JSON.stringify(
+            Object.entries(record).sort(([a], [b]) => a.localeCompare(b)),
+          );
+        if (normalize(operation.terms) !== normalize(terms))
+          throw new Error(
+            "Sandbox terms changed. Refresh the quote and review it again.",
+          );
+        return operation;
+      });
     } finally {
       if (generation === logoutGeneration) setBusy(false);
     }
   }
-  window.addEventListener("yap:account-changed", () => void load());
-  window.addEventListener("yap:provider-logout", () => {
+  function cancelSecurityChange() {
     ++logoutGeneration;
     cancelApproval?.();
     WebAuthnAbortService.cancelCeremony();
     setBusy(false);
+  }
+  window.addEventListener("yap:account-changed", () => {
+    cancelSecurityChange();
+    void load();
+  });
+  window.addEventListener("yap:provider-logout", () => {
+    cancelSecurityChange();
     delete window.yapSecurityWalletChange;
     delete window.yapLinkProviderIdentity;
     delete window.yapApproveProviderChange;
     delete window.yapApproveCoinWithdrawal;
+    delete window.yapApproveRecoveryCost;
     ++version;
     keys = [];
     list.replaceChildren();

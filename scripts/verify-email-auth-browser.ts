@@ -1071,6 +1071,92 @@ try {
       checks.push(
         `${name}: session list removes only the selected session, permits a replacement account's removal while the old DELETE is held and keeps that newer removal busy when the old response arrives, without signing out the replacement account`,
       );
+      const passwordMethods = (route: Route) =>
+        route.fulfill({
+          json: {
+            provider: {
+              email: "synthetic@example.invalid",
+              methods: ["email"],
+            },
+            legacyPassword: true,
+          },
+        });
+      await page.route("**/api/auth/methods", passwordMethods);
+      await page.route("**/api/auth/security/passkeys/enrollment", (route) =>
+        route.fulfill({
+          json: {
+            id: "fixture-enrollment",
+            bootstrapAllowed: false,
+            // The cancelled fixture never invokes native registration.
+            options: {},
+          },
+        }),
+      );
+      let staleSecurityWrites = 0;
+      const rejectStaleSecurityWrite = (route: Route) => {
+        staleSecurityWrites++;
+        return route.fulfill({
+          status: 409,
+          json: { error: "unexpected stale security submission" },
+        });
+      };
+      await page.route(
+        "**/api/auth/security/operations",
+        rejectStaleSecurityWrite,
+      );
+      await page.route(
+        "**/api/auth/security/passkeys/enrollment/*/complete",
+        rejectStaleSecurityWrite,
+      );
+      const addSecurityKey = page.getByRole("button", {
+          name: "Add security passkey",
+          exact: true,
+        }),
+        securityApproval = page.getByRole("dialog", {
+          name: "Add security passkey",
+          exact: true,
+        });
+      await addSecurityKey.click();
+      await securityApproval.waitFor();
+      await securityApproval
+        .getByLabel("Current password", { exact: true })
+        .fill("same-synthetic-fixture-password");
+      await securityApproval
+        .getByLabel("Current password", { exact: true })
+        .evaluate((element) =>
+          Reflect.set(window, "__detachedSecurityPassword", element),
+        );
+      fixtureAccountId = "security-replacement-fixture";
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("yap:account-changed")),
+      );
+      await securityApproval.waitFor({ state: "detached" });
+      assert.equal(
+        await page.evaluate(() => {
+          const input: unknown = Reflect.get(
+            window,
+            "__detachedSecurityPassword",
+          );
+          return input instanceof HTMLInputElement ? input.value : null;
+        }),
+        "",
+        "changing accounts must erase the detached trusted-credential input",
+      );
+      assert.equal(staleSecurityWrites, 0);
+      await addSecurityKey.click();
+      await securityApproval.waitFor();
+      await securityApproval
+        .getByLabel("Current password", { exact: true })
+        .fill("same-synthetic-fixture-password");
+      await securityApproval
+        .getByRole("button", { name: "Cancel", exact: true })
+        .click();
+      await securityApproval.waitFor({ state: "detached" });
+      assert.equal(staleSecurityWrites, 0);
+      await page.unroute("**/api/auth/methods", passwordMethods);
+      checks.push(
+        `${name}: switching accounts cancels the old trusted-credential dialog, erases its detached password and issues no follow-on operation; replacement-account controls still open and cancel a fresh approval with the same synthetic password`,
+      );
     }
     await page.route("**/api/auth/logout-other-sessions", (route) =>
       route.fulfill({ status: 204 }),
@@ -1083,6 +1169,93 @@ try {
       })
       .waitFor();
     assert.equal(await page.locator("#signed-in").isVisible(), true);
+    if (phase === "after") {
+      const unavailableReads = deferred(),
+        unavailableReadsArrived = deferred(),
+        unavailableReplies: Promise<void>[] = [];
+      const unavailableAccount = async (route: Route) => {
+        if (!appSignedIn) return route.fallback();
+        const replied = deferred();
+        unavailableReplies.push(replied.promise);
+        if (unavailableReplies.length >= 2) unavailableReadsArrived.release();
+        await unavailableReads.promise;
+        try {
+          await route.fulfill({
+            status: 503,
+            json: { error: "Synthetic account inspection is unavailable." },
+          });
+        } finally {
+          replied.release();
+        }
+      };
+      await page.route("**/api/auth/me", unavailableAccount);
+      fixtureAccountId = "unavailable-replacement-fixture";
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("yap:account-changed")),
+      );
+      await unavailableReadsArrived.promise;
+      assert.equal(await page.locator("#signed-in").isVisible(), false);
+      assert.equal(await page.locator("#signed-out").isVisible(), false);
+      assert.equal(await page.locator("#account-name").textContent(), "");
+      assert.equal(
+        await page
+          .locator('#profile-form input[name="displayName"]')
+          .inputValue(),
+        "",
+      );
+      assert.equal(await page.locator("#wallet-list li").count(), 0);
+      const checkingSignOut = page.locator("#account-checking-sign-out");
+      assert.equal(await checkingSignOut.isVisible(), true);
+      assert.equal(await checkingSignOut.isEnabled(), true);
+      unavailableReads.release();
+      await Promise.all(unavailableReplies);
+      await page
+        .locator("#account-notice")
+        .getByText("Synthetic account inspection is unavailable.", {
+          exact: true,
+        })
+        .waitFor();
+      assert.equal(await page.locator("#signed-in").isVisible(), false);
+      assert.equal(await page.locator("#signed-out").isVisible(), false);
+      await page.reload();
+      await page
+        .locator("#account-notice")
+        .getByText("Synthetic account inspection is unavailable.", {
+          exact: true,
+        })
+        .waitFor();
+      assert.equal(await checkingSignOut.isVisible(), true);
+      assert.equal(await checkingSignOut.isEnabled(), true);
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+        true,
+      );
+      await checkJourneyZoom("account-checking", ".account-status-row");
+      await capture(page, `account-inspection-outage-${name}.png`, true);
+      let outageLogoutRequests = 0;
+      const outageLogout = (route: Route) => {
+        outageLogoutRequests++;
+        appSignedIn = false;
+        return route.fulfill({ status: 204 });
+      };
+      await page.route("**/api/auth/logout", outageLogout);
+      await checkingSignOut.click();
+      await page.locator("#signed-out").waitFor({ state: "visible" });
+      assert.equal(outageLogoutRequests, 1);
+      assert.equal(await checkingSignOut.isVisible(), false);
+      await page.unroute("**/api/auth/me", unavailableAccount);
+      await page.unroute("**/api/auth/logout", outageLogout);
+      appSignedIn = true;
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("yap:account-changed")),
+      );
+      await page.getByText("Account ready.", { exact: true }).waitFor();
+      checks.push(
+        `${name}: held account inspection clears prior private fields without guest flashes; initial and continuing inspection outages retain a usable local sign-out action, which sends one logout request and hides after confirmed guest state`,
+      );
+    }
     const oldAccountReads = deferred(),
       oldAccountReadsArrived = deferred(),
       oldAccountResponses: Promise<void>[] = [];
@@ -1117,7 +1290,9 @@ try {
         },
       });
     });
-    await page.locator("#sign-out").click();
+    await page
+      .locator(phase === "after" ? "#account-checking-sign-out" : "#sign-out")
+      .click();
     await page.locator("#signed-out").waitFor({ state: "visible" });
     assert.equal(await page.locator("#signed-in").isVisible(), false);
     await page

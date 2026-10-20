@@ -30,11 +30,20 @@ interface WalletChangeForm extends HTMLFormElement {
 const notice = document.querySelector<HTMLElement>("#account-notice")!;
 const signedOut = document.querySelector<HTMLElement>("#signed-out")!;
 const signedIn = document.querySelector<HTMLElement>("#signed-in")!;
+const checkingSignOut = document.createElement("button");
+checkingSignOut.id = "account-checking-sign-out";
+checkingSignOut.type = "button";
+checkingSignOut.className = "button-secondary account-checking-signout";
+checkingSignOut.textContent = "Sign out";
+checkingSignOut.setAttribute("aria-label", "Sign out all sessions");
+checkingSignOut.hidden = true;
+notice.parentElement!.append(checkingSignOut);
 const profileForm = document.querySelector<ProfileForm>("#profile-form")!;
 let currentProfile: Profile | null = null;
 let linkedWallets: LinkedWallet[] = [];
 let passwordAvailable = false;
 let accountVersion = 0;
+let signOutPending = false;
 let endedSessionNotice = "";
 let pendingChange: PendingWalletChange | null = null;
 let expiryTimer: number | undefined;
@@ -254,12 +263,15 @@ async function loadCollection<T>(
 }
 
 async function loadAccount() {
-  const version = ++accountVersion;
+  clearAccountState(true);
+  say("Checking your account…");
+  const version = accountVersion;
   try {
     const { user } = await api<{ user: AccountUser }>("/api/auth/me");
     if (version !== accountVersion) return;
     endedSessionNotice = "";
     passwordAvailable = Boolean(user.email);
+    checkingSignOut.hidden = true;
     signedOut.hidden = true;
     signedIn.hidden = false;
     document.querySelector<HTMLElement>("#account-name")!.textContent =
@@ -330,12 +342,16 @@ document
 document
   .querySelector<HTMLElement>("#wallet-link")!
   .addEventListener("click", () => walletAction("link"));
-document
-  .querySelector<HTMLElement>("#sign-out")!
-  .addEventListener("click", async (event) => {
+const signOutButtons = [
+  document.querySelector<HTMLButtonElement>("#sign-out")!,
+  checkingSignOut,
+];
+for (const button of signOutButtons)
+  button.addEventListener("click", async (event) => {
     const button = event.currentTarget as HTMLButtonElement;
-    if (button.disabled) return;
-    button.disabled = true;
+    if (signOutPending || button.disabled) return;
+    signOutPending = true;
+    for (const control of signOutButtons) control.disabled = true;
     let expired = false;
     try {
       try {
@@ -357,7 +373,8 @@ document
     } catch (error) {
       say((error as AccountError).message);
     } finally {
-      button.disabled = false;
+      signOutPending = false;
+      for (const control of signOutButtons) control.disabled = false;
     }
   });
 
@@ -430,13 +447,14 @@ function resetWalletChange() {
   document.querySelector<HTMLElement>("#new-wallet-proof")!.hidden = true;
 }
 
-function clearAccountState() {
+function clearAccountState(checking = false) {
   ++accountVersion;
   currentProfile = null;
   linkedWallets = [];
   passwordAvailable = false;
   signedIn.hidden = true;
-  signedOut.hidden = false;
+  signedOut.hidden = checking;
+  checkingSignOut.hidden = !checking;
   document.querySelector<HTMLElement>("#account-name")!.textContent = "";
   profileForm.reset();
   profileForm.elements.handle.disabled = false;

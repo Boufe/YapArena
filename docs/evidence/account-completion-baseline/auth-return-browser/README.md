@@ -8,7 +8,8 @@ The native browser fixture uses the real server-rendered header, matching and in
 
 - `initial-results.json` and `initial-run.txt`: 62 browser check groups at launch HEAD `4b880918934f8be0060f260392ea29f0601a01e9`, with the then-uncommitted return work identified in `initial-source-state.json`. PASS, before the later settings-focus, marker-storage and account-switch follow-ups.
 - `intermediate-results.json` and `intermediate-run.txt`: 66 groups at `9080a93471ca430be61cf6c3d9b03d63335297fc`. PASS, including settings completion without a return URL and denied recovery-marker reads/writes across refresh. This precedes the matching/inline corrections in `c98294c`.
-- `browser-results.json` and `final-run.txt`: final **70/70 groups PASS**, exit 0, at launch HEAD `97be514d568169d5bd3f1acc569bb5494642a42a`. Zero page errors and zero requirement failures. `final-source-state.json` records source and built-asset fingerprints. The final verifier received only Prettier line wrapping after execution; the reversible `verifier-format-only.patch` preserves its exact tested source hash.
+- `pre-fallback-results.json`, `pre-fallback-run.txt` and `pre-fallback-source-state.json`: 70/70 groups PASS before the independently identified loading/error paragraph spacing issue was fixed. The preceding verifier received only Prettier line wrapping after execution; the historical reversible `verifier-format-only.patch` reconstructs that exact tested source hash.
+- `browser-results.json` and `final-run.txt`: final **70/70 groups PASS**, exit 0, at launch HEAD `63eada6b47ef94017fd9bcda52e1f890f67f860c` plus the scoped CSS/verifier delta. Zero page errors and zero requirement failures. `final-source-state.json` records the exact tested verifier, source and built-asset fingerprints. All compiled browser JavaScript and server renderers match the preceding acceptance; only `site-header.css` changed among the served assets.
 
 The final command is:
 
@@ -33,3 +34,9 @@ All maintained migration, UTF-8/Unicode, PostgreSQL durability, media-controller
 No retained or manually created hosted account was changed. No real funds or financial provider transaction was used.
 
 The first final attempt hit a fixture synchronization race: the old ready notice was still present while a held logout-others response triggered a new identity lookup. `fixture-barrier-failure.txt` records it. The fixture now waits for the actual follow-up `/api/auth/me` response and restored signed-in visibility, retaining the original state assertion. The following 70-group PASS is preserved in `pre-visual-refinement-results.json`; the final repeat centers the inline argument screenshot so the fixed fixture badge does not cover it. No application change was made for either fixture refinement.
+
+## Loading/error spacing correction
+
+Independent visual review found the fallback paragraph began against the dialog edge and approached the absolute close control. The fix adds margin/padding only to `.site-auth-dialog .auth-mount > p`; the normal nested auth card is outside that selector. The download fixture now holds the actual bundle request, checks the loading paragraph, aborts the download, and checks the error paragraph before proving close/reopen still loads the installed SDK.
+
+Both desktop and mobile checks require nonempty text rectangles at least 24px inside either dialog edge, at least 8px below the entire 44px close target, no text/control intersection, zero paragraph margins and sufficient padding. `provider-download-failure-before-desktop.png` and `provider-download-failure-before-mobile.png` preserve the historical problem. Their matching `provider-download-failure-*.png` counterparts and the new `provider-download-loading-*.png` frames show the corrected state. The mobile loading/failure pair was visually inspected after the passing run. This is a CSS-only application delta; it does not require repeating unrelated financial/provider acceptance.

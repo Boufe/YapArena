@@ -721,6 +721,10 @@
   background: transparent;
   min-height: 270px;
 }
+.site-auth-dialog .auth-mount > p {
+  margin: 0;
+  padding: 68px 32px 32px;
+}
 .site-auth-dialog .auth-card {
   padding: 32px;
 }

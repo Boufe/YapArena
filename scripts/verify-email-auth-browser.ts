@@ -2020,12 +2020,90 @@ try {
       await capture(page, `refresh-back-failure-${name}.png`, false);
     }
     await page.goto(`${base}/test/entry?download-failure=1`);
+    const downloadGate = deferred(),
+      downloadStarted = deferred();
     await page.route(
       "**/assets/account-auth.bundle.js*",
-      (route) => route.abort("failed"),
+      async (route) => {
+        downloadStarted.release();
+        await downloadGate.promise;
+        await route.abort("failed");
+      },
       { times: 1 },
     );
+    const assertFallbackSpacing = async () => {
+      const spacing = await authModal
+        .locator(".auth-mount > p")
+        .evaluate((text) => {
+          const dialog = text.closest("dialog")!,
+            close = dialog.querySelector<HTMLElement>(".site-auth-close")!,
+            bounds = dialog.getBoundingClientRect(),
+            closeBounds = close.getBoundingClientRect(),
+            style = getComputedStyle(text),
+            range = document.createRange();
+          range.selectNodeContents(text);
+          const lines = [...range.getClientRects()].filter(
+            (line) => line.width > 0 && line.height > 0,
+          );
+          return {
+            hasText: lines.length > 0,
+            belowClose: lines.every(
+              (line) => line.top >= closeBounds.bottom + 8,
+            ),
+            inset: lines.every(
+              (line) =>
+                line.left >= bounds.left + 24 &&
+                line.right <= bounds.right - 24,
+            ),
+            noIntersection: lines.every(
+              (line) =>
+                line.right <= closeBounds.left ||
+                line.left >= closeBounds.right ||
+                line.bottom <= closeBounds.top ||
+                line.top >= closeBounds.bottom,
+            ),
+            padding: [
+              style.paddingTop,
+              style.paddingRight,
+              style.paddingBottom,
+              style.paddingLeft,
+            ].map(Number.parseFloat),
+            margin: [style.marginTop, style.marginBottom].map(
+              Number.parseFloat,
+            ),
+            closeWidth: closeBounds.width,
+            closeHeight: closeBounds.height,
+          };
+        });
+      assert.equal(spacing.hasText, true);
+      assert.equal(
+        spacing.belowClose,
+        true,
+        "fallback text clears the entire close target with an extra gap",
+      );
+      assert.equal(
+        spacing.inset,
+        true,
+        "fallback text stays inset from both dialog edges",
+      );
+      assert.equal(
+        spacing.noIntersection,
+        true,
+        "fallback text and the close target never intersect",
+      );
+      assert.ok(spacing.padding[0]! >= 68);
+      assert.ok(spacing.padding.slice(1).every((padding) => padding >= 24));
+      assert.deepEqual(spacing.margin, [0, 0]);
+      assert.ok(spacing.closeWidth >= 44 && spacing.closeHeight >= 44);
+    };
     await page.getByRole("link", { name: "Log in", exact: true }).click();
+    await downloadStarted.promise;
+    await authModal
+      .getByText("Preparing secure sign-in…", { exact: true })
+      .waitFor();
+    await assertFallbackSpacing();
+    await capture(page, `provider-download-loading-${name}.png`, false);
+    downloadGate.release();
     await authModal
       .getByText(
         "Sign-in could not load. Check your connection, then close and reopen this window to retry.",
@@ -2035,6 +2113,7 @@ try {
       )
       .waitFor();
     assert.equal(await authModal.getByRole("status").count(), 1);
+    await assertFallbackSpacing();
     await capture(page, `provider-download-failure-${name}.png`, false);
     await page.keyboard.press("Escape");
     await authModal.waitFor({ state: "hidden" });
@@ -2047,7 +2126,7 @@ try {
         )?.disabled,
     );
     checks.push(
-      `${name}: interrupted provider-bundle download is announced and close/reopen retries the real installed SDK successfully`,
+      `${name}: loading and download-failure text stays inset below the 44px close target without intersection; failure is announced and close/reopen retries the real installed SDK successfully`,
     );
     if (phase === "after") {
       let followWrites = 0;

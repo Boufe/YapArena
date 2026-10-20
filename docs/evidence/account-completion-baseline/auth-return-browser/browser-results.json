@@ -1,6 +1,6 @@
 {
-  "at": "2026-10-20T16:15:27.677Z",
-  "revision": "97be514d568169d5bd3f1acc569bb5494642a42a",
+  "at": "2026-10-20T16:24:58.092Z",
+  "revision": "63eada6b47ef94017fd9bcda52e1f890f67f860c",
   "phase": "after",
   "assetHashes": {
     "session-coordination.js": "62fdfdbec9f5d42c20f06846e3c32758ed8e3b6bc79d165455ed758c0ea477f9",
@@ -17,12 +17,12 @@
     "arena-chart.js": "224103157fb3998d1183189bbf900d2396db2cc6d2fdb75533628f516548e126",
     "arena-price.js": "8d9bf7e9a7ead29652c66a73931238c4af15fa222e06fc74b028b3471fd38b90",
     "account-auth.css": "dfa7bfe18baa0a76c45a9974aa24785f868f71ca31497794dfcaf11815c12da7",
-    "site-header.css": "512f5ca5985b881f9f7c20fa15a5168c30a06734ec1eb0b6ed85f7fbc069751d",
+    "site-header.css": "e55326946fef05d5f21a7954ec6fa9d6895a620d3491de52a0c3fdcc42ec6518",
     "site.css": "c2481b6017fb564fdaff0bf437a18f64f56e6dbb2492f2047199a93f06514bd7",
     "arena.css": "087928e12c8be4a87d006b22b91f1534a647b44425d1129b1d54c2d3d4dc3cb1"
   },
   "sourceHashes": {
-    "scripts/verify-email-auth-browser.ts": "cd77f11bc8275ee23aac0234f9548f5257bd97b489ec0a82d3b6f45365f6659d",
+    "scripts/verify-email-auth-browser.ts": "c24120ab790eb5234214f9cd3acedddb8a9aad4d864c548844c618941e4ecd3c",
     "dist/features/discovery/web.js": "1a4130fd43e222d154a5e894a7ca5ae128fcdb96e2ca8a98f3681afd1239c9d0",
     "dist/features/discovery/account-web.js": "f1c287a85d3929d75e18d8ef8bfd7b4f6ee2be76d48e5d74abe8df35d5753f8a",
     "dist/features/discovery/debate-web.js": "88bf0e55a53e3b89f48c769dd02fbc0bdb3cd74bf09f987f5b8cac778764992d"
@@ -54,7 +54,7 @@
     "desktop: anonymous controls only, lazy SDK, unified login/signup/protected-action popup, exact return path, cancellation clears credentials, Back/Escape/focus restoration, server-session-only member balance/deposit/user menu, honest funding gate, cross-tab logout, outage recovery, stale balance rejection and modal WCAG tags",
     "desktop: initial and refreshed application-session requests retain a checking state without showing guest controls before the server responds",
     "desktop: refresh/reopen retains single-step Back dismissal",
-    "desktop: interrupted provider-bundle download is announced and close/reopen retries the real installed SDK successfully",
+    "desktop: loading and download-failure text stays inset below the 44px close target without intersection; failure is announced and close/reopen retries the real installed SDK successfully",
     "desktop: same-page confirmed-session completion preserves the exact document, URL and private draft, restores the initiating form, and does not submit again",
     "desktop: OAuth-style document replacement resumes only the expiring public action locator, clears callback parameters, focuses Follow for confirmation and performs no automatic PUT",
     "desktop: full-page account return navigates to the exact safe URL and restores the original public action for a new explicit confirmation without copying draft values",
@@ -86,7 +86,7 @@
     "mobile: anonymous controls only, lazy SDK, unified login/signup/protected-action popup, exact return path, cancellation clears credentials, Back/Escape/focus restoration, server-session-only member balance/deposit/user menu, honest funding gate, cross-tab logout, outage recovery, stale balance rejection and modal WCAG tags",
     "mobile: initial and refreshed application-session requests retain a checking state without showing guest controls before the server responds",
     "mobile: refresh/reopen retains single-step Back dismissal",
-    "mobile: interrupted provider-bundle download is announced and close/reopen retries the real installed SDK successfully",
+    "mobile: loading and download-failure text stays inset below the 44px close target without intersection; failure is announced and close/reopen retries the real installed SDK successfully",
     "mobile: same-page confirmed-session completion preserves the exact document, URL and private draft, restores the initiating form, and does not submit again",
     "mobile: OAuth-style document replacement resumes only the expiring public action locator, clears callback parameters, focuses Follow for confirmation and performs no automatic PUT",
     "mobile: full-page account return navigates to the exact safe URL and restores the original public action for a new explicit confirmation without copying draft values",

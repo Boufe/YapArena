@@ -84,7 +84,7 @@ describe("owned-session HTTP management", () => {
       .expect(400);
     assert.equal(f.calls.length, 0);
   });
-  it("revokes one owned session and clears a cookie only when revoking itself", async () => {
+  it("revokes one owned session without deleting a potentially newer browser cookie", async () => {
     const f = app();
     const response = await request(f.server)
       .delete(`/api/auth/sessions/${id}`)
@@ -97,7 +97,7 @@ describe("owned-session HTTP management", () => {
       .delete(`/api/auth/sessions/${id}`)
       .set("Cookie", "session=cookie")
       .expect(200);
-    assert.match(current.headers["set-cookie"][0], /session=;/);
+    assert.equal(current.headers["set-cookie"], undefined);
     await request(app({ removed: null }).server)
       .delete(`/api/auth/sessions/${id}`)
       .set("Cookie", "session=cookie")
@@ -169,7 +169,7 @@ describe(
         .post("/api/auth/logout")
         .set("Cookie", `session=${value.token}`);
       assert.equal(response.status, 204);
-      assert.match(response.headers["set-cookie"][0], /^session=;/);
+      assert.equal(response.headers["set-cookie"], undefined);
       const otherRepo = createSessionRepository(b);
       assert.equal(
         await otherRepo.findUserByTokenHash(hashSessionToken(value.token)),

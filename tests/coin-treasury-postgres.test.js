@@ -7,6 +7,7 @@ import {
   createCoinSandboxRepository,
 } from "../dist/features/account-wallet/sandbox-repository.js";
 import { hashPassword } from "../dist/platform/auth/passwords.js";
+import { runCoinSandboxOperator } from "../scripts/coin-sandbox-operator.ts";
 
 const ownerUrl = process.env.COIN_TREASURY_TEST_OWNER_DATABASE_URL,
   runtimeUrl = process.env.COIN_TREASURY_TEST_DATABASE_URL;
@@ -53,8 +54,8 @@ describe(
     async function actor() {
       return (
         await owner.query(
-          "INSERT INTO users(password_hash) VALUES($1) RETURNING id",
-          [passwordHash],
+          "INSERT INTO users(email,password_hash) VALUES($1,$2) RETURNING id",
+          [`treasury-${randomUUID()}@isolation.test`, passwordHash],
         )
       ).rows[0].id;
     }
@@ -296,6 +297,17 @@ describe(
           rail: "simulation",
         }).confirmTreasuryFunding(input),
         /isolated testnet ledger/,
+      );
+      await assert.rejects(
+        runCoinSandboxOperator({
+          command: "confirm-treasury",
+          body: {},
+          environment: {
+            COIN_SANDBOX_OWNER_DATABASE_URL: ownerUrl,
+            COIN_SANDBOX_RAIL: "simulation",
+          },
+        }),
+        /sandbox rail does not match this isolated database/,
       );
       for (const wrong of [
         { ...receipt, network: "simulation:usdc" },

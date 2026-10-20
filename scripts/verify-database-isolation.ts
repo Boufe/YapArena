@@ -117,6 +117,8 @@ const applicationTables = [
   "coin_sandbox_system_accounts",
   "coin_external_receipts",
   "coin_nonce_reservations",
+  "coin_sandbox_reports",
+  "coin_sandbox_report_events",
   "coin_sandbox_webhook_inbox",
   "coin_sandbox_webhook_outcomes",
   ...deliveryTables,
@@ -1293,6 +1295,7 @@ async function scenario(database: string, upgrade: boolean) {
           "tests/coin-external-operations.test.js",
           "tests/coin-sandbox-postgres.test.js",
           "tests/coin-debate-postgres.test.js",
+          "tests/coin-reports-postgres.test.js",
           "tests/media-account-revocation-postgres.test.js",
         ],
         {

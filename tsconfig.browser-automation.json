@@ -20,6 +20,8 @@
     "scripts/verify-email-auth-browser.ts",
     "scripts/verify-security-passkey-browser.ts",
     "scripts/verify-media-cloud-revocation.ts",
+    "scripts/verify-coin-sandbox-browser.ts",
+    "scripts/migration-exports.d.ts",
     "scripts/verify-a4-browser.ts",
     "scripts/verify-arena-browser.ts",
     "scripts/verify-public-bots-browser.ts",

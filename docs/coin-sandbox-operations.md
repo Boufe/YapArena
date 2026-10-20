@@ -94,6 +94,24 @@ displayed network fee is deducted from gross, so gross 5.00 and fee 0.10 pays 4.
 There is no daily withdrawal cap. Gross, fee, net, rail, network, asset,
 destination and quote identity are bound to the fresh, one-use operation proof.
 
+### Manual review calendar
+
+The approved review target is two business days in `America/Toronto`: weekdays
+excluding Canadian federal holidays. Network confirmation time is additional.
+The owner process must check the request receipt time, current Toronto calendar
+and the [Government of Canada general-holiday reference](https://www.canada.ca/en/services/jobs/workplace/federal-labour-standards/vacations-holidays.html#h2.2)
+when scheduling review, and record any observed substitute holiday in the private
+operator review record. This is a manual service target. The application does
+not implement a holiday calendar, computed review deadline or automatic payout
+approval. Missing the target never releases a reserve, retries a payment or
+changes a customer's financial eligibility; reconcile the original operation.
+
+If every retained strong credential is lost, email sign-in can still provide
+ordinary account access. Financial operations remain locked while recovery
+approval with the selected identity provider is unresolved. The implemented
+retained-credential and discoverable-passkey journeys do not establish a complete
+manual all-strong-methods-lost recovery service.
+
 ## Error reports, reviewed corrections and original-source restoration
 
 An authenticated account can report an owned deposit or payout request without

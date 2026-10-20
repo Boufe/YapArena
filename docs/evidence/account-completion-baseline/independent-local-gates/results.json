@@ -1,0 +1,88 @@
+{
+  "at": "2026-10-20T06:35:03.488Z",
+  "capturedRevision": "ebf57805124650572c8b2df7202d464f833a55af",
+  "finalDocumentationRevision": "582ccfc99cb51178cce5930636548954ac7684aa",
+  "sourceCapturedAt": "2026-10-20T06:30:17.734Z",
+  "scope": "Independent direct-node native PostgreSQL acceptance using the existing shared compiled build. No build invoked by this verifier.",
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "postgres": "initdb (PostgreSQL) 17.10 (Homebrew)",
+    "ffmpeg": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+    "LC_ALL": "C",
+    "LANG": "C",
+    "COMMUNITY_POSTGRES_MODE": "host",
+    "COMMUNITY_DURABLE_TRIAL": "1",
+    "COMMUNITY_SOAK_SECONDS": "30",
+    "REPLAY_POSTGRES_MODE": "host"
+  },
+  "commands": [
+    "LC_ALL=C LANG=C COMMUNITY_POSTGRES_MODE=host COMMUNITY_DURABLE_TRIAL=1 COMMUNITY_SOAK_SECONDS=30 node scripts/verify-community-local.ts",
+    "LC_ALL=C LANG=C REPLAY_POSTGRES_MODE=host node scripts/verify-replay-pipeline.ts"
+  ],
+  "results": {
+    "community": {
+      "exitCode": 0,
+      "viewers": 500,
+      "rooms": 50,
+      "seconds": 30,
+      "writes": 300,
+      "deliverySamples": 3000,
+      "deliveryP50Ms": 34,
+      "deliveryP95Ms": 91,
+      "stormRecoveryMs": 422,
+      "restartRecoveryMs": 1406,
+      "rssGrowthMiB": 85.92,
+      "finalStreams": 0,
+      "maxRuntimeConnections": 8,
+      "secondProcessMutations": 60
+    },
+    "replay": {
+      "exitCode": 0,
+      "sourceSeconds": 6,
+      "packageFiles": 13,
+      "packageBytes": 3059629,
+      "thumbnailBytes": 36946,
+      "encodeSeconds": 0.786,
+      "peakEncoderRssMiB": 98.38,
+      "workerPeakRssMiB": 132.77,
+      "stalledHeartbeatShutdownMs": 1515.86
+    }
+  },
+  "sourceIntegrity": {
+    "comparedFiles": 451,
+    "changes": [
+      {
+        "path": "frontend/account-sessions.ts",
+        "before": "078c2bf7114a2fe15bd48a348b77f670c7cc0eafc9634fbdafb0a2f83ef99f5d",
+        "after": "c6e90548469cbb95397d5b967d62ddda8356a8fd92707b3bb0860aeddce1af01"
+      },
+      {
+        "path": "public/account-auth.css",
+        "before": "b6c17830218ebbdd126977d2864ed680cd6df6e0bf5f7bd939b6928349b79cfc",
+        "after": "5bd6f831d557150cf1983f1fd0e94da52ec55a8361004fb41894d8fcd937b5e7"
+      },
+      {
+        "path": "public/account-sessions.js",
+        "before": "38c6995535ede3dbb7a83deb9c42589eaab0d1e051bfd5c0c8c0dd265f6c3a78",
+        "after": "5293f6df9120f9be9f9b78d78a7458b704807df82096976fa97ba4bd4d5ef397"
+      }
+    ],
+    "unchangedServerCompiledMigrationsAndHarness": true,
+    "workingSourceDiffSha256": "93d0e3885e32dd8b900527e5060d2ead7a2290676b07cf804fd6ef87f3428c92",
+    "beforeManifestSha256": "2ca8bbb7062cbe7ef6439da6f54dbf3df48df2530425744c685d279651734abb",
+    "afterManifestSha256": "344ec1dfac3d10b9427f67a89ecc054a918add8746eeb571e4598d5d676bd174"
+  },
+  "logs": {
+    "communitySha256": "ad2f4b3381faac9ec6f8c2227341e2f392de34498daa5042886352cb6099f1ef",
+    "replaySha256": "9fb20f978aa49f8da26bbac49e1d575da3817e0816a08b334c4f5e634bc83dc9"
+  },
+  "limitations": [
+    "First restricted-sandbox community attempt failed before database startup because native shared memory was denied; the recorded successful run used approved escalation.",
+    "Both harnesses create and remove their own SCRAM-authenticated loopback PostgreSQL clusters, use synthetic identities, and load no .env or hosted database URL.",
+    "30-second local synthetic load is smoke acceptance, not long-duration hosted audience capacity approval.",
+    "Replay uses real local FFmpeg and PostgreSQL with a synthetic in-memory object adapter; no hosted S3/R2/edge/provider media or physical-device acceptance.",
+    "Three unrelated account-session/UI files changed during the trial, so this is not a claim of one fully frozen browser asset revision. The exact before/after hashes are retained. Server source, compiled server, migrations and harness dependencies stayed unchanged; the lead reviewed that these account controls do not alter community or replay behavior."
+  ]
+}

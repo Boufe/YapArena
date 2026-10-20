@@ -75,6 +75,18 @@ export function createProviderRevocation(
         await client.query("COMMIT");
         return;
       }
+      const mapping = await client.query<{ subject: string }>(
+        "SELECT subject FROM provider_identities WHERE user_id=$1 AND provider='privy'",
+        [userId],
+      );
+      if (mapping.rows[0]?.subject !== job.subject) {
+        await client.query(
+          "UPDATE provider_revocation_jobs SET state='complete',failure_reason='retired_identity' WHERE user_id=$1 AND generation=$2",
+          [userId, generation],
+        );
+        await client.query("COMMIT");
+        return;
+      }
       const claimed = (
         await client.query<{ attempts: number; state: string }>(
           "SELECT attempts,state FROM provider_revocation_jobs WHERE user_id=$1 AND generation=$2 FOR UPDATE",
@@ -90,8 +102,8 @@ export function createProviderRevocation(
         return;
       }
       const inherited = await client.query(
-        "SELECT 1 FROM provider_revocation_jobs WHERE user_id=$1 AND generation<$2 AND state IN ('manual','running') LIMIT 1",
-        [userId, generation],
+        "SELECT 1 FROM provider_revocation_jobs WHERE user_id=$1 AND generation<$2 AND subject=$3 AND state IN ('manual','running') LIMIT 1",
+        [userId, generation, job.subject],
       );
       if (inherited.rowCount) {
         await client.query(
@@ -144,8 +156,8 @@ export function createProviderRevocation(
         if (latest.status === "active") {
           await provider.unfreeze(job.subject, options);
           await client.query(
-            "UPDATE provider_identities SET auth_generation=$2,minimum_issued_at=GREATEST(minimum_issued_at,$3) WHERE user_id=$1",
-            [userId, generation, frozen.frozenAt + 1],
+            "UPDATE provider_identities SET auth_generation=$2,minimum_issued_at=GREATEST(minimum_issued_at,$3) WHERE user_id=$1 AND subject=$4",
+            [userId, generation, frozen.frozenAt + 1, job.subject],
           );
         }
         await client.query(

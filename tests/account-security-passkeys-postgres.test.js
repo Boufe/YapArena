@@ -22,6 +22,8 @@ import { createProviderWalletOperations } from "../dist/platform/auth/provider-w
 import { privateKeyToAccount } from "viem/accounts";
 import { createAccountAccessRepository } from "../dist/platform/auth/account-access.js";
 import { providerCredentialsDigest } from "../dist/platform/auth/provider-credentials.js";
+import { createProviderIdentityRecovery } from "../dist/platform/auth/provider-identity-recovery.js";
+import { createCoinSandboxRepository } from "../dist/features/account-wallet/sandbox-repository.js";
 import { ProviderUnavailableError } from "../dist/platform/auth/privy.js";
 
 const ownerUrl = process.env.WALLET_TEST_OWNER_DATABASE_URL;
@@ -715,6 +717,498 @@ describe(
         userHandle: enrolled.challenge.options.user.id,
       };
     }
+    async function recoveryFixture(oldMethod = "email") {
+      const f = await accessFixture();
+      if (oldMethod === "google_oauth") {
+        const credentials = [
+          { type: "google_oauth", id: `google-${randomUUID()}` },
+        ];
+        Object.assign(f.identity, {
+          email: null,
+          methods: [oldMethod],
+          credentials,
+          credentialsDigest: providerCredentialsDigest(credentials),
+        });
+        await owner.query(
+          "UPDATE provider_identities SET email=NULL,methods=$2::jsonb,credentials_snapshot=$3::jsonb,credentials_digest=$4 WHERE subject=$1",
+          [
+            f.identity.subject,
+            JSON.stringify(f.identity.methods),
+            JSON.stringify(credentials),
+            f.identity.credentialsDigest,
+          ],
+        );
+      }
+      const credentials = [
+        { type: "email", id: `${randomUUID()}@example.test` },
+      ];
+      const next = {
+        subject: `did:privy:${randomUUID()}`,
+        sessionId: randomUUID(),
+        email: credentials[0].id,
+        methods: ["email"],
+        credentials,
+        credentialsDigest: providerCredentialsDigest(credentials),
+        issuedAt: Math.floor(Date.now() / 1000),
+      };
+      const verifier = {
+        async verify() {
+          return next;
+        },
+        async inspect(subject) {
+          assert.equal(subject, f.identity.subject);
+          return f.identity;
+        },
+      };
+      const service = createProviderIdentityRecovery(a, verifier);
+      return { ...f, next, verifier, service };
+    }
+    async function recoveryOperation(f, overrides = {}) {
+      return f.service.create({
+        ...f.f,
+        token: "synthetic-provider-token",
+        credential: { type: "passkey", keyId: f.result.keyId },
+        ...overrides,
+      });
+    }
+    async function finishRecovery(f, operation, overrides = {}) {
+      return f.service.complete({
+        ...f.f,
+        token: "synthetic-provider-token",
+        id: operation.id,
+        authentication: f.authenticatorDevice.authentication(
+          operation.authenticationOptions,
+        ),
+        rpcUrls: {},
+        sessionDurationMs: 600000,
+        ...overrides,
+      });
+    }
+    for (const oldMethod of ["email", "google_oauth"])
+      it(`replaces a lost sole ${oldMethod} sign-in with a verified email using its retained key, preserving account/profile/funds and permanently retiring the old identity`, async () => {
+        const f = await recoveryFixture(oldMethod),
+          coins = createCoinSandboxRepository(a, {
+            rail: "simulation",
+            withdrawalFee: "100000",
+          });
+        const quote = await coins.quoteFunding(f.f, {
+          amount: "10000000",
+          idempotencyKey: randomUUID(),
+        });
+        await coins.confirmSimulatedFunding(f.f, { requestId: quote.id });
+        const before = await coins.summary(f.f);
+        const profile = (
+          await owner.query(
+            "INSERT INTO public_profiles(user_id,handle,display_name,bio) VALUES($1,$2,'Synthetic recovery profile','Preserve exactly') RETURNING *",
+            [f.f.userId, `recovery-${randomUUID().slice(0, 20)}`],
+          )
+        ).rows[0];
+        const extra = createSessionToken();
+        await createSessionRepository(a).create(
+          f.f.userId,
+          extra.tokenHash,
+          new Date(Date.now() + 600000),
+          (
+            await owner.query(
+              'SELECT auth_generation AS "authGeneration" FROM users WHERE id=$1',
+              [f.f.userId],
+            )
+          ).rows[0],
+        );
+        const operation = await recoveryOperation(f);
+        assert.equal(operation.terms.oldMethod, oldMethod);
+        assert.equal(operation.terms.newEmail, f.next.email);
+        const result = await finishRecovery(f, operation),
+          context = {
+            ...f.f,
+            sessionTokenHash: hashSessionToken(result.token),
+          };
+        const after = await coins.summary(context);
+        assert.deepEqual(after.balances, before.balances);
+        assert.deepEqual(after.book, before.book);
+        assert.deepEqual(after.requests, before.requests);
+        assert.deepEqual(after.projection, before.projection);
+        assert.deepEqual(
+          (
+            await owner.query("SELECT * FROM public_profiles WHERE id=$1", [
+              profile.id,
+            ])
+          ).rows[0],
+          profile,
+        );
+        assert.equal(
+          (
+            await createSessionRepository(b).findUserByTokenHash(
+              context.sessionTokenHash,
+            )
+          ).id,
+          f.f.userId,
+        );
+        assert.equal(
+          await createSessionRepository(b).findUserByTokenHash(
+            f.f.sessionTokenHash,
+          ),
+          null,
+        );
+        assert.equal(
+          await createSessionRepository(b).findUserByTokenHash(extra.tokenHash),
+          null,
+        );
+        const mappings = (
+          await owner.query(
+            "SELECT subject,user_id,email,methods,credentials_snapshot FROM provider_identities WHERE subject=ANY($1::text[]) ORDER BY subject",
+            [[f.identity.subject, f.next.subject]],
+          )
+        ).rows;
+        assert.equal(
+          mappings.find((p) => p.subject === f.identity.subject).user_id,
+          null,
+        );
+        assert.deepEqual(
+          mappings.find((p) => p.subject === f.identity.subject).methods,
+          [],
+        );
+        assert.equal(
+          mappings.find((p) => p.subject === f.next.subject).user_id,
+          f.f.userId,
+        );
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT count(*)::int AS count FROM provider_identities WHERE user_id=$1",
+              [f.f.userId],
+            )
+          ).rows[0].count,
+          1,
+        );
+        const exchange = createProviderAccounts(b),
+          token = createSessionToken();
+        await assert.rejects(
+          exchange.exchange(
+            {
+              ...f.identity,
+              sessionId: randomUUID(),
+              issuedAt: Math.floor(Date.now() / 1000),
+            },
+            token.tokenHash,
+            new Date(Date.now() + 600000),
+          ),
+          { status: 403 },
+        );
+        await assert.rejects(
+          exchange.exchange(
+            f.next,
+            token.tokenHash,
+            new Date(Date.now() + 600000),
+          ),
+          { status: 401 },
+        );
+        await assert.rejects(
+          finishRecovery(f, operation),
+          /review|invalid|changed/,
+        );
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT count(*)::int AS count FROM provider_identity_recoveries WHERE id=$1",
+              [operation.id],
+            )
+          ).rows[0].count,
+          1,
+        );
+        // Operation cleanup must never remove permanent retired-identity history.
+        await owner.query("DELETE FROM account_operations WHERE id=$1", [
+          operation.id,
+        ]);
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT old_subject FROM provider_identity_recoveries WHERE id=$1",
+              [operation.id],
+            )
+          ).rows[0].old_subject,
+          f.identity.subject,
+        );
+        await assert.rejects(
+          owner.query(
+            "UPDATE provider_identities SET user_id=$2 WHERE subject=$1",
+            [f.identity.subject, f.f.userId],
+          ),
+          { code: "23514" },
+        );
+        await assert.rejects(
+          owner.query("DELETE FROM provider_identities WHERE subject=$1", [
+            f.identity.subject,
+          ]),
+          { code: "23503" },
+        );
+        await assert.rejects(
+          owner.query("DELETE FROM provider_identity_recoveries WHERE id=$1", [
+            operation.id,
+          ]),
+          { code: "23514" },
+        );
+      });
+    it("requires the retained security key and exact new server-verified email/SID, without consuming a changed or cross-account proof", async () => {
+      const f = await recoveryFixture(),
+        intruder = await enroll(await fixture());
+      await assert.rejects(
+        recoveryOperation(f, { credential: { type: "password" } }),
+        { status: 403 },
+      );
+      await assert.rejects(
+        recoveryOperation(f, {
+          credential: { type: "passkey", keyId: intruder.result.keyId },
+        }),
+        { status: 403, message: "security passkey required" },
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int AS count FROM account_operations WHERE user_id=$1 AND purpose='provider.identity.recover'",
+            [f.f.userId],
+          )
+        ).rows[0].count,
+        0,
+      );
+      const operation = await recoveryOperation(f),
+        savedSid = f.next.sessionId;
+      f.next.sessionId = randomUUID();
+      await assert.rejects(
+        finishRecovery(f, operation),
+        /invalid|expired|changed/,
+      );
+      f.next.sessionId = savedSid;
+      const savedIdentity = { ...f.next },
+        changedCredentials = [
+          { type: "email", id: `${randomUUID()}@example.test` },
+        ];
+      Object.assign(f.next, {
+        email: changedCredentials[0].id,
+        credentials: changedCredentials,
+        credentialsDigest: providerCredentialsDigest(changedCredentials),
+      });
+      await assert.rejects(finishRecovery(f, operation), { status: 410 });
+      Object.assign(f.next, savedIdentity);
+      await assert.rejects(
+        finishRecovery(f, operation, { authentication: undefined, password }),
+        { status: 403 },
+      );
+      await assert.rejects(
+        finishRecovery(f, operation, {
+          userId: intruder.f.userId,
+          sessionTokenHash: intruder.f.sessionTokenHash,
+        }),
+        /review|changed|invalid/,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT counter FROM account_security_keys WHERE id=$1",
+            [f.result.keyId],
+          )
+        ).rows[0].counter,
+        "0",
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT consumed_at FROM account_operations WHERE id=$1",
+            [operation.id],
+          )
+        ).rows[0].consumed_at,
+        null,
+      );
+      await finishRecovery(f, operation);
+    });
+    it("refuses already bound or tombstoned new identities and unsupported multi-method old/new provider states without moving either account", async () => {
+      const f = await recoveryFixture(),
+        other = await accessFixture(),
+        original = { ...f.next };
+      Object.assign(f.next, other.identity);
+      await assert.rejects(recoveryOperation(f), { status: 409 });
+      await owner.query("DELETE FROM users WHERE id=$1", [other.f.userId]);
+      await assert.rejects(recoveryOperation(f), { status: 409 });
+      Object.assign(f.next, original);
+      f.next.methods = ["email", "google_oauth"];
+      await assert.rejects(recoveryOperation(f), { status: 409 });
+      f.next.methods = ["email"];
+      f.identity.methods = ["email", "passkey"];
+      await assert.rejects(recoveryOperation(f), { status: 409 });
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT user_id FROM provider_identities WHERE subject=$1",
+            [f.identity.subject],
+          )
+        ).rows[0].user_id,
+        f.f.userId,
+      );
+    });
+    it("rolls a fresh-key counter and replacement back when a competing provider claim wins, and permits only one concurrent recovery", async () => {
+      const f = await recoveryFixture(),
+        operation = await recoveryOperation(f);
+      const result = await Promise.allSettled([
+        finishRecovery(f, operation),
+        finishRecovery(f, operation),
+      ]);
+      assert.equal(result.filter((r) => r.status === "fulfilled").length, 1);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int AS count FROM provider_identity_recoveries WHERE user_id=$1",
+            [f.f.userId],
+          )
+        ).rows[0].count,
+        1,
+      );
+      const g = await recoveryFixture(),
+        pending = await recoveryOperation(g),
+        claimed = createSessionToken();
+      const other = await createProviderAccounts(b).exchange(
+        g.next,
+        claimed.tokenHash,
+        new Date(Date.now() + 600000),
+      );
+      accounts.push(other.user.id);
+      await assert.rejects(finishRecovery(g, pending), { status: 409 });
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT counter FROM account_security_keys WHERE id=$1",
+            [g.result.keyId],
+          )
+        ).rows[0].counter,
+        "0",
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT user_id FROM provider_identities WHERE subject=$1",
+            [g.next.subject],
+          )
+        ).rows[0].user_id,
+        other.user.id,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT user_id FROM provider_identities WHERE subject=$1",
+            [g.identity.subject],
+          )
+        ).rows[0].user_id,
+        g.f.userId,
+      );
+    });
+    it("does not hold a pool connection or account lock while inspecting providers; local revocation wins the held recovery", async () => {
+      const f = await recoveryFixture(),
+        operation = await recoveryOperation(f);
+      let release, entered;
+      const seen = new Promise((resolve) => {
+          entered = resolve;
+        }),
+        wait = new Promise((resolve) => {
+          release = resolve;
+        });
+      const pool = new pg.Pool({ connectionString: runtimeUrl, max: 1 });
+      const service = createProviderIdentityRecovery(pool, {
+        ...f.verifier,
+        async inspect() {
+          entered();
+          await wait;
+          return f.identity;
+        },
+      });
+      const held = service.complete({
+        ...f.f,
+        token: "synthetic-provider-token",
+        id: operation.id,
+        authentication: f.authenticatorDevice.authentication(
+          operation.authenticationOptions,
+        ),
+        rpcUrls: {},
+        sessionDurationMs: 600000,
+      });
+      try {
+        await seen;
+        await pool.query("SELECT 1");
+        await createSessionRepository(b).revoke(
+          f.f.userId,
+          f.f.sessionTokenHash,
+          false,
+        );
+        release();
+        await assert.rejects(held, /session|invalid|expired|changed/);
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT counter FROM account_security_keys WHERE id=$1",
+              [f.result.keyId],
+            )
+          ).rows[0].counter,
+          "0",
+        );
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT user_id FROM provider_identities WHERE subject=$1",
+              [f.identity.subject],
+            )
+          ).rows[0].user_id,
+          f.f.userId,
+        );
+      } finally {
+        release();
+        await pool.end();
+      }
+    });
+    it("restricts SQL ownership/history privileges and rolls back a direct unconsumed-proof recovery at commit", async () => {
+      const f = await recoveryFixture(),
+        operation = await recoveryOperation(f);
+      await assert.rejects(
+        a.query(
+          "UPDATE provider_identities SET user_id=NULL WHERE subject=$1",
+          [f.identity.subject],
+        ),
+        { code: "42501" },
+      );
+      await assert.rejects(
+        a.query("INSERT INTO provider_identity_recoveries(id) VALUES($1)", [
+          randomUUID(),
+        ]),
+        { code: "42501" },
+      );
+      const client = await a.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query("SELECT apply_provider_identity_recovery($1)", [
+          operation.id,
+        ]);
+        await assert.rejects(client.query("COMMIT"), { code: "23514" });
+      } finally {
+        await client.query("ROLLBACK");
+        client.release();
+      }
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT user_id FROM provider_identities WHERE subject=$1",
+            [f.identity.subject],
+          )
+        ).rows[0].user_id,
+        f.f.userId,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int AS count FROM provider_identity_recoveries WHERE id=$1",
+            [operation.id],
+          )
+        ).rows[0].count,
+        0,
+      );
+      await finishRecovery(f, operation);
+    });
     it("signs in with a discoverable retained security key, checks provider state every time, and rejects wrong user handles and replay", async () => {
       const f = await accessFixture();
       let inspections = 0;

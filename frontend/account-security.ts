@@ -159,6 +159,7 @@ if (mount) {
       if (current !== version) return;
       window.yapSecurityWalletChange = changeWallet;
       window.yapLinkProviderIdentity = linkProviderIdentity;
+      window.yapRecoverProviderIdentity = recoverProviderIdentity;
       window.yapApproveProviderChange = approveProviderChange;
       window.yapApproveCoinWithdrawal = approveCoinWithdrawal;
       window.yapApproveRecoveryCost = approveRecoveryCost;
@@ -259,20 +260,24 @@ if (mount) {
           ? "Link wallet"
           : purpose === "wallet.unlink"
             ? "Unlink wallet"
-            : purpose === "provider.identity.link"
-              ? "Link sign-in method"
-              : purpose === "provider.credentials.change"
-                ? "Change sign-in methods"
-                : purpose === "withdrawal.request"
-                  ? "Approve sandbox withdrawal"
-                  : purpose === "recovery.cost.consent"
-                    ? "Approve recovery cost consent"
-                    : "Add security passkey";
+            : purpose === "provider.identity.recover"
+              ? "Replace lost sign-in"
+              : purpose === "provider.identity.link"
+                ? "Link sign-in method"
+                : purpose === "provider.credentials.change"
+                  ? "Change sign-in methods"
+                  : purpose === "withdrawal.request"
+                    ? "Approve sandbox withdrawal"
+                    : purpose === "recovery.cost.consent"
+                      ? "Approve recovery cost consent"
+                      : "Add security passkey";
     dialog.setAttribute("aria-labelledby", titleId);
     description.textContent =
       "Approve this change with a trusted method that stays on your account. Approval expires in five minutes.";
     if (purpose.startsWith("wallet."))
       description.textContent = `${title.textContent} ${terms.address} on chain ${terms.chainId}. Approve with a trusted method that stays on your account. This does not authorize a transaction.`;
+    if (purpose === "provider.identity.recover")
+      description.textContent = `Permanently retire ${terms.oldMethod === "google_oauth" ? "your previous Google sign-in" : `the old email sign-in ${terms.oldIdentifier}`} and replace it with the Privy-verified email ${terms.newEmail}. Your YapArena account, profile and balances stay with you. All other YapArena sessions will end. Only your retained YapArena security passkey can approve this exact replacement. This does not authorize a payment.`;
     if (purpose === "provider.identity.link")
       description.textContent = `Add sign-in for ${terms.email}. Your existing account and credentials stay with you. Approve this change with a trusted method.`;
     if (purpose === "provider.credentials.change")
@@ -305,14 +310,15 @@ if (mount) {
       option.textContent = `Security passkey added ${new Date(key.createdAt).toLocaleString()}`;
       select.append(option);
     }
-    if (methods.legacyPassword) {
+    if (methods.legacyPassword && purpose !== "provider.identity.recover") {
       const option = document.createElement("option");
       option.value = "password";
       option.textContent = "Current password";
       select.append(option);
     }
     for (const wallet of walletData.wallets.filter(
-      (wallet) => wallet.id !== excludedWallet,
+      (wallet) =>
+        wallet.id !== excludedWallet && purpose !== "provider.identity.recover",
     )) {
       const option = document.createElement("option");
       option.value = `wallet:${wallet.id}`;
@@ -700,6 +706,70 @@ if (mount) {
       }
     }
   }
+  async function recoverProviderIdentity(token: string) {
+    if (busy) throw new Error("Finish the current security change first.");
+    const generation = logoutGeneration;
+    setBusy(true);
+    let completionSent = false;
+    try {
+      const candidate = await api<{
+        oldMethod: string;
+        oldIdentifier: string;
+        newEmail: string;
+        terms: Record<string, string>;
+      }>("/security/provider/recovery/candidate", "POST", {}, token);
+      assertGeneration(generation);
+      const proof = await approval(
+        "provider.identity.recover",
+        candidate.terms,
+        undefined,
+        async (credential) => {
+          if (credential.type !== "passkey")
+            throw new Error("Use your retained YapArena security passkey.");
+          const operation = await api<Operation & typeof candidate>(
+            "/security/provider/recovery",
+            "POST",
+            { credential },
+            token,
+          );
+          const canonical = (terms: Record<string, string>) =>
+            JSON.stringify(
+              Object.entries(terms).sort(([a], [b]) => a.localeCompare(b)),
+            );
+          if (
+            operation.oldMethod !== candidate.oldMethod ||
+            operation.oldIdentifier !== candidate.oldIdentifier ||
+            operation.newEmail !== candidate.newEmail ||
+            canonical(operation.terms) !== canonical(candidate.terms)
+          )
+            throw new Error("Recovery details changed. Start again.");
+          return operation;
+        },
+      );
+      assertGeneration(generation);
+      completionSent = true;
+      await request(
+        `/security/provider/recovery/${encodeURIComponent(proof.id)}/complete`,
+        "POST",
+        { approval: proof },
+        token,
+      );
+      assertGeneration(generation);
+      notice.textContent =
+        "Lost sign-in replaced. Your account and balances were preserved; the old sign-in is permanently retired.";
+    } catch (error) {
+      if (generation === logoutGeneration)
+        notice.textContent =
+          completionSent && !(error instanceof SecurityResponseError)
+            ? "The recovery result could not be confirmed. Refresh your account before retrying; no accounts will be merged."
+            : error instanceof Error
+              ? error.message
+              : "Sign-in recovery is unavailable.";
+      throw error;
+    } finally {
+      if (generation === logoutGeneration) setBusy(false);
+    }
+  }
   async function approveProviderChange(change: ProviderChange) {
     if (busy) throw new Error("Finish the current security change first.");
     const generation = logoutGeneration;
@@ -804,6 +874,7 @@ if (mount) {
     cancelSecurityChange();
     delete window.yapSecurityWalletChange;
     delete window.yapLinkProviderIdentity;
+    delete window.yapRecoverProviderIdentity;
     delete window.yapApproveProviderChange;
     delete window.yapApproveCoinWithdrawal;
     delete window.yapApproveRecoveryCost;

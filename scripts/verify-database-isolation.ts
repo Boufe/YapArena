@@ -99,6 +99,7 @@ const applicationTables = [
   "media_account_grants",
   "media_account_revocations",
   "provider_identities",
+  "provider_identity_recoveries",
   "provider_session_exchanges",
   "provider_revocation_jobs",
   "account_subjects",

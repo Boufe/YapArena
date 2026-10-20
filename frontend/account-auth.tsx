@@ -20,7 +20,12 @@ import {
   type AuthenticationResponseJSON,
   type PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
-import { safeAuthReturn } from "./auth-return.js";
+import {
+  safeAuthReturn,
+  completeAuthReturn,
+  rememberAuthReturn,
+  clearAuthReturn,
+} from "./auth-return.js";
 import type { AuthMode, ProviderChange } from "./auth-events.js";
 
 type Config = {
@@ -107,6 +112,73 @@ function hasLinkIntent() {
   }
 }
 
+class RecoveryStateError extends Error {}
+const recoveryStorageKey = "yaparena-provider-recovery";
+type RecoveryIntent = {
+  id: string;
+  accountId: string;
+  expiresAt: number;
+  status: "pending" | "cancelled";
+};
+function recoveryIntent(): RecoveryIntent | "blocked" | null {
+  try {
+    const raw = localStorage.getItem(recoveryStorageKey);
+    if (!raw) return null;
+    const value: unknown = JSON.parse(raw);
+    if (
+      !value ||
+      typeof value !== "object" ||
+      !("id" in value) ||
+      typeof value.id !== "string" ||
+      !("accountId" in value) ||
+      typeof value.accountId !== "string" ||
+      !("expiresAt" in value) ||
+      typeof value.expiresAt !== "number" ||
+      !("status" in value) ||
+      (value.status !== "pending" && value.status !== "cancelled")
+    )
+      return "blocked";
+    return {
+      id: value.id,
+      accountId: value.accountId,
+      expiresAt: value.expiresAt,
+      status: value.status,
+    };
+  } catch {
+    return "blocked";
+  }
+}
+function requireRecoveryStorage() {
+  const key = `${recoveryStorageKey}-probe-${crypto.randomUUID()}`;
+  try {
+    localStorage.setItem(key, "1");
+    if (localStorage.getItem(key) !== "1")
+      throw new Error("storage write was not retained");
+    localStorage.removeItem(key);
+  } catch {
+    throw new RecoveryStateError(
+      "Browser storage is required to safely finish sign-in. Allow storage, then restart sign-in. Sign-in is paused and no new YapArena account was created.",
+    );
+  }
+}
+function storeRecoveryIntent(value: RecoveryIntent) {
+  try {
+    const raw = JSON.stringify(value);
+    localStorage.setItem(recoveryStorageKey, raw);
+    if (localStorage.getItem(recoveryStorageKey) !== raw)
+      throw new Error("storage write was not retained");
+  } catch {
+    throw new RecoveryStateError(
+      "Browser storage is required to safely recover sign-in. Allow storage, then try again. No account was changed.",
+    );
+  }
+}
+function authReturn() {
+  return (
+    root?.dataset.authReturn ?? new URLSearchParams(location.search).get("next")
+  );
+}
+
 function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
   const [intent, setIntent] = useState<AuthMode | null>(
     root?.dataset.authMode === "signup"
@@ -120,6 +192,14 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
     null,
   );
   const linkIntent = useRef(hasLinkIntent());
+  const failedRecoveryStart = useRef(false);
+  const [recovering, setRecovering] = useState(Boolean(recoveryIntent()));
+  const [recoveryCancelled, setRecoveryCancelled] = useState(() => {
+    const value = recoveryIntent();
+    return (
+      value !== null && value !== "blocked" && value.status === "cancelled"
+    );
+  });
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
@@ -128,6 +208,21 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
   const [exchanging, setExchanging] = useState(false);
   const busy = requestBusy || exchanging;
   const journeyStart = useRef<number | null>(null);
+  const replacementStart = useRef<number | null>(null);
+  function replacementOutcome(event: string) {
+    measure(
+      event,
+      Math.min(
+        600,
+        Math.max(
+          0,
+          (performance.now() -
+            (replacementStart.current ?? performance.now())) /
+            1000,
+        ),
+      ),
+    );
+  }
   const [resendAt, setResendAt] = useState(0);
   const [clock, setClock] = useState(Date.now());
   const pending = useRef(false);
@@ -177,6 +272,56 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
       rememberLink(true);
       setMessage("Verify the sign-in method to link to your existing account.");
     };
+    const recover = () => {
+      failedRecoveryStart.current = true;
+      setRecovering(true);
+      setRecoveryCancelled(false);
+      // Show an actionable notice even when the storage preflight fails.
+      window.dispatchEvent(
+        new CustomEvent("yap:request-auth", { detail: { mode: "login" } }),
+      );
+      try {
+        const accountId = window.yapCurrentSessionAccount?.();
+        if (!accountId)
+          throw new Error(
+            "Use your retained YapArena security passkey to sign in first, then reopen account settings.",
+          );
+        storeRecoveryIntent({
+          id: crypto.randomUUID(),
+          accountId,
+          expiresAt: Date.now() + 30 * 60_000,
+          status: "pending",
+        });
+        failedRecoveryStart.current = false;
+        linkIntent.current = false;
+        rememberLink(false);
+        replacementStart.current = performance.now();
+        measure("recovery_started");
+        setRecovering(true);
+        setRecoveryCancelled(false);
+        setCode("");
+        setEmail("");
+        setStep("email");
+        setMessage(
+          "Verify a new email with Privy, then approve permanently replacing the lost sign-in with your retained YapArena security passkey.",
+        );
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Recovery could not start. Allow browser storage and retry.",
+        );
+      }
+    };
+    const storage = (event: StorageEvent) => {
+      if (event.key === recoveryStorageKey) {
+        const value = recoveryIntent();
+        setRecovering(Boolean(value));
+        setRecoveryCancelled(
+          value !== null && value !== "blocked" && value.status === "cancelled",
+        );
+      }
+    };
     const mode = (event: CustomEvent<AuthMode | null>) =>
       setIntent(event.detail);
     const dismiss = () => {
@@ -192,10 +337,14 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         "One account for the ideas you follow. No password to remember.",
       );
     };
+    window.addEventListener("yap:recover-provider", recover);
+    window.addEventListener("storage", storage);
     window.addEventListener("yap:auth-mode", mode);
     window.addEventListener("yap:link-provider", link);
     window.addEventListener("yap:auth-dismissed", dismiss);
     return () => {
+      window.removeEventListener("yap:recover-provider", recover);
+      window.removeEventListener("storage", storage);
       window.removeEventListener("yap:auth-mode", mode);
       window.removeEventListener("yap:link-provider", link);
       window.removeEventListener("yap:auth-dismissed", dismiss);
@@ -223,9 +372,12 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
       await action();
     } catch (error) {
       measure("provider_error");
+      if (failedRecoveryStart.current || recoveryIntent())
+        replacementOutcome("recovery_failed");
       setMessage(
         navigator.onLine
-          ? detail && error instanceof Error
+          ? (detail || error instanceof RecoveryStateError) &&
+            error instanceof Error
             ? error.message
             : failure
           : "You’re offline. Reconnect, then try again.",
@@ -250,10 +402,54 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
     setExchanging(true);
     setMessage("Verified. Opening your YapArena account…");
     try {
+      requireRecoveryStorage();
+      if (failedRecoveryStart.current)
+        throw new RecoveryStateError(
+          "Recovery could not be started safely. Allow browser storage, then retry recovery from account settings or cancel it successfully. No new YapArena account was created.",
+        );
       const current = await fetch("/api/auth/me", {
         credentials: "same-origin",
         cache: "no-store",
       });
+      const recovery = recoveryIntent();
+      if (recovery) {
+        if (recovery === "blocked")
+          throw new RecoveryStateError(
+            "Browser storage could not be checked safely. Allow storage and restart sign-in. No new YapArena account was created.",
+          );
+        if (recovery.status !== "pending" || recovery.expiresAt <= Date.now())
+          throw new Error(
+            "Recovery is paused or expired. Cancel recovery before starting an ordinary sign-in, or restart recovery in account settings.",
+          );
+        if (!current.ok)
+          throw new Error(
+            "Use your retained YapArena security passkey to restore app access, then retry this recovery. The new email will not create another YapArena account.",
+          );
+        const account: { user?: { id?: string } } = await current.json();
+        if (account.user?.id !== recovery.accountId)
+          throw new Error(
+            "The active account changed. Cancel and restart recovery from the correct account settings.",
+          );
+        if (!window.yapRecoverProviderIdentity)
+          throw new Error("Open account settings and retry recovery.");
+        const token = await getAccessToken();
+        if (!token || cancelled.current) return;
+        await window.yapRecoverProviderIdentity(token);
+        replacementOutcome("recovery_completed");
+        replacementStart.current = null;
+        // Clear only our completed intent. A newer tab's recovery must remain fenced.
+        const latest = recoveryIntent();
+        if (latest && latest !== "blocked" && latest.id === recovery.id)
+          localStorage.removeItem(recoveryStorageKey);
+        setRecovering(Boolean(recoveryIntent()));
+        finishJourney();
+        announceSession();
+        if (!completeAuthReturn(authReturn()))
+          setMessage(
+            "Sign-in replaced. Your account and balances are preserved; the old sign-in is permanently retired.",
+          );
+        return;
+      }
       if (linkIntent.current || hasLinkIntent()) {
         if (!current.ok)
           throw new Error(
@@ -315,20 +511,11 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
       announceSession();
       if (cancelled.current) return;
       finishJourney();
-      const target = safeAuthReturn(
-        root?.dataset.authReturn ??
-          new URLSearchParams(location.search).get("next"),
-        location.origin,
-      );
-      try {
-        sessionStorage.removeItem("yaparena-auth-return");
-      } catch {
-        /* Optional navigation state only. */
-      }
-      window.dispatchEvent(new Event("yap:auth-complete"));
-      if (target) location.assign(target);
-      else setMessage("You’re signed in. Your profile is optional.");
+      if (!completeAuthReturn(authReturn()))
+        setMessage("You’re signed in. Your profile is optional.");
     } catch (error) {
+      if (failedRecoveryStart.current || recoveryIntent())
+        replacementOutcome("recovery_failed");
       setMessage(
         error instanceof Error
           ? error.message
@@ -341,7 +528,30 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
   }
   async function send() {
     await run(async () => {
-      if (authenticated) await logout();
+      requireRecoveryStorage();
+      if (failedRecoveryStart.current)
+        throw new RecoveryStateError(
+          "Recovery could not be started safely. Allow browser storage, then retry recovery from account settings or cancel it successfully before requesting a code. No code was sent.",
+        );
+      const recovery = recoveryIntent();
+      if (recovery === "blocked")
+        throw new RecoveryStateError(
+          "Browser storage could not be checked safely. Allow storage and restart sign-in before requesting a code. No code was sent and no YapArena account was created.",
+        );
+      if (
+        recovery &&
+        recovery.status === "pending" &&
+        recovery.expiresAt <= Date.now()
+      )
+        throw new RecoveryStateError(
+          "Recovery expired or its browser state is unavailable. Cancel recovery first, or restart it from the correct account settings. No new account was created.",
+        );
+      if (authenticated || recovery) await logout();
+      if (recovery?.status === "cancelled") {
+        localStorage.removeItem(recoveryStorageKey);
+        setRecovering(false);
+        setRecoveryCancelled(false);
+      }
       await sendCode({ email: email.trim() });
       if (cancelled.current) return;
       measure(step === "code" ? "code_resent" : "code_sent");
@@ -371,14 +581,12 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         );
         finishJourney();
         announceSession();
-        window.dispatchEvent(new Event("yap:auth-complete"));
-        const target = safeAuthReturn(
-          root?.dataset.authReturn ??
-            new URLSearchParams(location.search).get("next"),
-          location.origin,
-        );
-        if (target) location.assign(target);
-        else setMessage("You’re signed in with your security passkey.");
+        if (failedRecoveryStart.current || recoveryIntent())
+          setMessage(
+            "App access restored. Return to account settings to restart or finish lost sign-in recovery.",
+          );
+        else if (!completeAuthReturn(authReturn()))
+          setMessage("You’re signed in with your security passkey.");
       },
       "Security passkey sign-in was cancelled or no matching key was found.",
       true,
@@ -415,17 +623,25 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
       </div>
       <span className="eyebrow accent">WELCOME TO YAPARENA</span>
       <h2>
-        {step === "email"
-          ? intent === "login"
-            ? "Welcome back."
-            : intent === "signup"
-              ? "Join YapArena."
-              : "Make yourself heard."
-          : "Check your inbox."}
+        {recoveryCancelled
+          ? "Recovery cancelled."
+          : recovering
+            ? "Recover your sign-in."
+            : step === "email"
+              ? intent === "login"
+                ? "Welcome back."
+                : intent === "signup"
+                  ? "Join YapArena."
+                  : "Make yourself heard."
+              : "Check your inbox."}
       </h2>
       <p className="auth-description">
         {step === "email" ? (
-          "Your email is all you need to get started."
+          recovering ? (
+            "Verify a new email, then approve with your retained YapArena security passkey. Your account stays with you."
+          ) : (
+            "Your email is all you need to get started."
+          )
         ) : (
           <>
             We sent a verification code to <strong>{email}</strong>.
@@ -466,7 +682,11 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
             disabled={busy}
           />
           <button className="button" disabled={!ready || busy} type="submit">
-            {busy ? "Sending code…" : "Continue with email →"}
+            {busy
+              ? "Sending code…"
+              : recoveryCancelled
+                ? "Start ordinary email sign-in →"
+                : "Continue with email →"}
           </button>
         </form>
       ) : (
@@ -532,7 +752,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
           </div>
         </form>
       )}
-      {(google || passkeys) && (
+      {!recovering && (google || passkeys) && (
         <div className="auth-divider">
           <span>or</span>
         </div>
@@ -548,7 +768,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         >
           Use a YapArena security passkey
         </button>
-        {google && (
+        {google && !recovering && (
           <button
             className="button-secondary"
             type="button"
@@ -557,28 +777,12 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
               void run(async () => {
                 if (authenticated) await logout();
                 if (root?.dataset.authSurface === "modal") {
-                  const next = safeAuthReturn(
-                    root.dataset.authReturn ?? null,
-                    location.origin,
-                  );
-                  if (next)
-                    try {
-                      sessionStorage.setItem(
-                        "yaparena-auth-return",
-                        JSON.stringify({ next }),
-                      );
-                    } catch {
-                      /* Email does not need navigation storage. */
-                    }
+                  rememberAuthReturn(root.dataset.authReturn ?? null);
                 }
                 try {
                   await initOAuth({ provider: "google" });
                 } catch (error) {
-                  try {
-                    sessionStorage.removeItem("yaparena-auth-return");
-                  } catch {
-                    /* Optional navigation state only. */
-                  }
+                  clearAuthReturn();
                   throw error;
                 }
               }, "Google sign-in was cancelled or unavailable. You can try email instead.")
@@ -590,7 +794,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
             Continue with Google
           </button>
         )}
-        {passkeys && (
+        {passkeys && !recovering && (
           <button
             className="button-secondary"
             type="button"
@@ -625,6 +829,46 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
           onClick={() => void run(complete, "Unable to finish sign-in.")}
         >
           Retry account sign-in
+        </button>
+      )}
+      {recovering && (
+        <button
+          type="button"
+          className="button-secondary"
+          disabled={busy}
+          onClick={() => {
+            cancelled.current = true;
+            void run(
+              async () => {
+                cancelled.current = true;
+                await logout();
+                const active = recoveryIntent();
+                if (active && active !== "blocked")
+                  storeRecoveryIntent({ ...active, status: "cancelled" });
+                else
+                  storeRecoveryIntent({
+                    id: crypto.randomUUID(),
+                    accountId: "",
+                    expiresAt: Date.now(),
+                    status: "cancelled",
+                  });
+                failedRecoveryStart.current = false;
+                setRecoveryCancelled(true);
+                replacementOutcome("recovery_cancelled");
+                replacementStart.current = null;
+                setCode("");
+                setEmail("");
+                setStep("email");
+                setMessage(
+                  "Recovery cancelled. Continue with email to deliberately start a new ordinary sign-in. Your existing YapArena account was not changed.",
+                );
+              },
+              "The candidate sign-in could not be signed out. Recovery remains paused; retry cancellation.",
+              true,
+            );
+          }}
+        >
+          Cancel recovery
         </button>
       )}
       <p className="auth-intent-switch">
@@ -678,16 +922,10 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
           onComplete={() => {
             setReconciliationToken(null);
             announceSession();
-            window.dispatchEvent(new Event("yap:auth-complete"));
-            setMessage(
-              "Account access restored. Other sessions were signed out.",
-            );
-            const target = safeAuthReturn(
-              root?.dataset.authReturn ??
-                new URLSearchParams(location.search).get("next"),
-              location.origin,
-            );
-            if (target) location.assign(target);
+            if (!completeAuthReturn(authReturn()))
+              setMessage(
+                "Account access restored. Other sessions were signed out.",
+              );
           }}
         />
       )}
@@ -1185,6 +1423,22 @@ function Settings({
                   restores app access and does not create a Privy session.
                 </p>
               )}
+              {provider.methods.length === 1 &&
+                ["email", "google_oauth"].includes(
+                  provider.methods[0] ?? "",
+                ) && (
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      window.dispatchEvent(new Event("yap:recover-provider"))
+                    }
+                  >
+                    Lost this sign-in? Replace it using your YapArena security
+                    passkey
+                  </button>
+                )}
               <form
                 className="stack-form"
                 onSubmit={(event) => {

@@ -33,6 +33,7 @@ import { AccountOperationError } from "./platform/auth/account-operations.ts";
 import { createSecurityPasskeyRepository } from "./platform/auth/security-passkeys.ts";
 import { createProviderWalletOperations } from "./platform/auth/provider-wallet-operations.ts";
 import { createLegacyProviderLink } from "./platform/auth/legacy-provider-link.ts";
+import { createProviderIdentityRecovery } from "./platform/auth/provider-identity-recovery.ts";
 import { createAccountAccessRepository } from "./platform/auth/account-access.ts";
 import {
   createRedisAbuseStore,
@@ -159,6 +160,9 @@ const accountSecurity = {
   walletOperations: createProviderWalletOperations(database),
   legacyProviderLink: authProvider
     ? createLegacyProviderLink(database, authProvider.verifier)
+    : undefined,
+  providerIdentityRecovery: authProvider
+    ? createProviderIdentityRecovery(database, authProvider.verifier)
     : undefined,
   access: authProvider
     ? createAccountAccessRepository(database, authProvider.verifier, {

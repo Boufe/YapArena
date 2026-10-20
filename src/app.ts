@@ -190,6 +190,7 @@ export function createApp({
     | "passkeys"
     | "walletOperations"
     | "legacyProviderLink"
+    | "providerIdentityRecovery"
     | "access"
   >;
   sharedAuthLimiter?: RequestHandler;

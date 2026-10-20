@@ -29,7 +29,7 @@ async function snapshot(
       `SELECT s.id::text AS "sessionId",u.auth_generation::text AS "authGeneration",
       p.subject,p.credentials_digest AS "credentialsDigest",
       (SELECT jsonb_build_array(j.generation::text,j.state,j.attempts)::text
-        FROM provider_revocation_jobs j WHERE j.user_id=u.id ORDER BY j.generation DESC LIMIT 1) AS "providerControl"
+        FROM provider_revocation_jobs j WHERE j.user_id=u.id AND j.subject=p.subject ORDER BY j.generation DESC LIMIT 1) AS "providerControl"
       FROM sessions s JOIN users u ON u.id=s.user_id
       LEFT JOIN provider_identities p ON p.user_id=u.id AND p.provider='privy'
       WHERE u.id=$1 AND s.token_hash=$2 AND u.account_status='active'

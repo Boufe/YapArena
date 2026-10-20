@@ -22,6 +22,7 @@ import type {
 import { normalizeWalletAddress, validChainId } from "./siwe.ts";
 import type { createLegacyProviderLink } from "./legacy-provider-link.ts";
 import type { createAccountAccessRepository } from "./account-access.ts";
+import type { createProviderIdentityRecovery } from "./provider-identity-recovery.ts";
 
 function object(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -206,6 +207,7 @@ export type SecurityRouterOptions = {
   passkeys: ReturnType<typeof createSecurityPasskeyRepository>;
   walletOperations?: ReturnType<typeof createProviderWalletOperations>;
   legacyProviderLink?: ReturnType<typeof createLegacyProviderLink>;
+  providerIdentityRecovery?: ReturnType<typeof createProviderIdentityRecovery>;
   access?: ReturnType<typeof createAccountAccessRepository>;
   environment: string;
   applicationOrigin: string;
@@ -221,6 +223,7 @@ export function createAccountSecurityRouter({
   passkeys,
   walletOperations,
   legacyProviderLink,
+  providerIdentityRecovery,
   access,
   environment,
   applicationOrigin,
@@ -549,6 +552,63 @@ export function createAccountSecurityRouter({
         const approval = proof(body.approval);
         if (approval.id !== id) invalid();
         const result = await legacyProviderLink.complete({
+          ...session(request),
+          ...approval,
+          token: providerToken(request),
+          rpcUrls: siweRpcUrls,
+          sessionDurationMs,
+          requestId: String(request.id),
+        });
+        response.cookie(cookie.name, result.token, {
+          ...cookie.options,
+          maxAge: sessionDurationMs,
+        });
+        return response.status(204).end();
+      },
+    );
+  }
+  if (providerIdentityRecovery) {
+    mutations.post(
+      "/security/provider/recovery/candidate",
+      async (request, response) => {
+        const body = object(request.body);
+        if (!body || Object.keys(body).length) invalid();
+        return response.json(
+          await providerIdentityRecovery.candidate(
+            session(request).userId,
+            providerToken(request),
+          ),
+        );
+      },
+    );
+    mutations.post("/security/provider/recovery", async (request, response) => {
+      const body = object(request.body);
+      if (!body || !exact(body, ["credential"])) invalid();
+      const selected = credential(body.credential);
+      if (selected.type !== "passkey") invalid();
+      return response.json(
+        await providerIdentityRecovery.create({
+          ...session(request),
+          token: providerToken(request),
+          credential: selected,
+        }),
+      );
+    });
+    mutations.post(
+      "/security/provider/recovery/:id/complete",
+      async (request, response) => {
+        const body = object(request.body),
+          id = request.params.id;
+        if (!body || !uuid(id) || !exact(body, ["approval"])) invalid();
+        const approval = proof(body.approval);
+        if (
+          approval.id !== id ||
+          !approval.authentication ||
+          approval.password !== undefined ||
+          approval.signature !== undefined
+        )
+          invalid();
+        const result = await providerIdentityRecovery.complete({
           ...session(request),
           ...approval,
           token: providerToken(request),

@@ -1,0 +1,24 @@
+--- a/scripts/verify-email-auth-browser.ts
++++ b/scripts/verify-email-auth-browser.ts
+@@ -2472,7 +2472,9 @@
+         .waitFor();
+       const argument = page.locator("[data-inline-argument]");
+       await argument.fill("Keep only for its verified original account.");
+-      await argument.evaluate((node) => node.scrollIntoView({ block: "center" }));
++      await argument.evaluate((node) =>
++        node.scrollIntoView({ block: "center" }),
++      );
+       await capture(page, `inline-draft-original-${name}.png`, false);
+       let inlineIdentityGate = deferred(),
+         inlineIdentityStarted = deferred(),
+@@ -2521,7 +2523,9 @@
+         "",
+         "another verified account never receives the previous actor's argument",
+       );
+-      await argument.evaluate((node) => node.scrollIntoView({ block: "center" }));
++      await argument.evaluate((node) =>
++        node.scrollIntoView({ block: "center" }),
++      );
+       await capture(page, `inline-draft-replacement-${name}.png`, false);
+       await argument.fill("Replacement actor's independent draft.");
+       await refreshInlineIdentity("inline-replacement-account");

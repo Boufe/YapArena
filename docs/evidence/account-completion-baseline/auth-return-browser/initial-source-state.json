@@ -1,0 +1,51 @@
+{
+  "at": "2026-10-20T15:52:01.424Z",
+  "head": "4b880918934f8be0060f260392ea29f0601a01e9",
+  "scope": "Initial working-source PASS before reported header focus/community own-submission followups; not final acceptance.",
+  "files": [
+    {
+      "path": "frontend/auth-return.ts",
+      "sha256": "8d07380c992ea926f11e5202d33a923df565c7f0c4268baf69304a624a796d2b"
+    },
+    {
+      "path": "frontend/site-header.ts",
+      "sha256": "abdafd35b8a9e90db49dcb547ebea4a0dd868a35408c1d9eec82c23099388d88"
+    },
+    {
+      "path": "frontend/site.ts",
+      "sha256": "194a4f30c21ffa3cb11e90313fe0fb0017a9e22f2741b38da7cb0a06ee7969c8"
+    },
+    {
+      "path": "frontend/community.ts",
+      "sha256": "2dac5d0e3ed837070de044b0c6f8fec8edc11f8e5a3f45b182691b636806d10f"
+    },
+    {
+      "path": "frontend/matching.ts",
+      "sha256": "2ada49d8d08e2d8c5bb68cf6e3d00cee65fa841cbcb9f80f3574970e4f4e52f2"
+    },
+    {
+      "path": "frontend/a4.ts",
+      "sha256": "d1a3c2b75223aeaf01a8c243af44589cfe68c56639e5804e7d69a606331bc06a"
+    },
+    {
+      "path": "frontend/a4-inline.ts",
+      "sha256": "c7b2a6bcbbd5a796d04eb8e581ab099000795339b0a0cb71507cc93ab6dd0321"
+    },
+    {
+      "path": "frontend/account-auth.tsx",
+      "sha256": "1d180c4ecf7183a0e75e8db9a52fdd9d6ef81a8ccdbe35d508a47a3d6ec7d941"
+    },
+    {
+      "path": "frontend/auth-events.ts",
+      "sha256": "e2902e293101e5723806e154073598564fa7fdb082012494f88afb129d662e9d"
+    },
+    {
+      "path": "scripts/verify-email-auth-browser.ts",
+      "sha256": "a0327f7030fbafdb1e91199280667e84d3f39b78db2086125b28e84ca5b554f3"
+    },
+    {
+      "path": "tests/email-first-auth.test.js",
+      "sha256": "db607d180c55a0c956e2555531586171da7e0c41243e3e08807b2f77f58dc183"
+    }
+  ]
+}

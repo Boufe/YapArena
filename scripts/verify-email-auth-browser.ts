@@ -1452,10 +1452,14 @@ try {
         );
         await page.getByText("Account ready.", { exact: true }).waitFor();
         appSignedIn = action === "others";
+        const retainedInspection =
+          action === "others" ? page.waitForResponse("**/api/auth/me") : null;
         gate.release();
-        if (action === "others")
+        if (retainedInspection) {
+          await (await retainedInspection).finished();
+          await page.locator("#signed-in").waitFor({ state: "visible" });
           await page.getByText("Account ready.", { exact: true }).waitFor();
-        else await page.locator("#signed-out").waitFor({ state: "visible" });
+        } else await page.locator("#signed-out").waitFor({ state: "visible" });
         assert.equal(
           await page.locator("#signed-in").isVisible(),
           action === "others",
@@ -2468,6 +2472,10 @@ try {
         .waitFor();
       const argument = page.locator("[data-inline-argument]");
       await argument.fill("Keep only for its verified original account.");
+      await argument.evaluate((node) =>
+        node.scrollIntoView({ block: "center" }),
+      );
+      await capture(page, `inline-draft-original-${name}.png`, false);
       let inlineIdentityGate = deferred(),
         inlineIdentityStarted = deferred(),
         holdInlineIdentity = false;
@@ -2515,6 +2523,10 @@ try {
         "",
         "another verified account never receives the previous actor's argument",
       );
+      await argument.evaluate((node) =>
+        node.scrollIntoView({ block: "center" }),
+      );
+      await capture(page, `inline-draft-replacement-${name}.png`, false);
       await argument.fill("Replacement actor's independent draft.");
       await refreshInlineIdentity("inline-replacement-account");
       assert.equal(

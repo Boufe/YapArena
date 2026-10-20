@@ -76,8 +76,9 @@ async function rotateSession(
   return token.token;
 }
 
-// These passkeys authorize YapArena operations directly. Privy login passkeys
-// and wallet MFA remain separate provider credentials.
+// Privy credentials reuse their verified public key for operation proofs.
+// Previously enrolled application credentials remain available for retained
+// ownership approvals; the configured provider owns new enrollment.
 export function createSecurityPasskeyRepository(database: Pool) {
   return Object.freeze({
     async list(userId: string) {
@@ -87,8 +88,11 @@ export function createSecurityPasskeyRepository(database: Pool) {
           createdAt: Date;
           deviceType: "singleDevice" | "multiDevice";
           backedUp: boolean;
+          credentialId: string;
+          provenance: "yaparena" | "privy";
         }>(
-          `SELECT id,created_at AS "createdAt",device_type AS "deviceType",backed_up AS "backedUp"
+          `SELECT id,created_at AS "createdAt",device_type AS "deviceType",backed_up AS "backedUp",
+           credential_id AS "credentialId",provenance
            FROM account_security_keys WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at,id`,
           [userId],
         )

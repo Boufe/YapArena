@@ -105,7 +105,9 @@ export function createProviderRevocation(
         state.frozenAt !== expectedFreeze
       )
         throw new Error("provider freeze changed before confirmation");
-      if (attempt < 5) await delay(250, undefined, { signal: options.signal });
+      // Real provider reads can lag a successful control response. Keep the
+      // same read count and cumulative deadline while allowing propagation.
+      if (attempt < 5) await delay(1500, undefined, { signal: options.signal });
     }
     throw new Error("provider state confirmation unavailable");
   }

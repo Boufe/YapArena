@@ -16,6 +16,8 @@
     "scripts/verify-coin-testnet.ts",
     "scripts/verify-coin-testnet-ledger.ts",
     "scripts/verify-account-staging.ts",
+    "scripts/inspect-account-provider-reset.ts",
+    "scripts/retry-account-provider-reset.ts",
     "scripts/release-account-staging.ts",
     "scripts/release-account-render.ts",
     "scripts/coin-sandbox-operator.ts",

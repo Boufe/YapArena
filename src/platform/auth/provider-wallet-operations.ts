@@ -16,6 +16,7 @@ import {
 import { insertSession, lockAccount } from "./sessions.ts";
 import { createSessionToken } from "./session-tokens.ts";
 import type { LinkedWallet } from "./wallets.ts";
+import type { IdentityVerifier } from "./privy.ts";
 
 export type ProviderWalletTarget = {
   purpose: "link" | "unlink";
@@ -66,8 +67,11 @@ function proposedMessage(
 
 // The existing F02 endpoints remain compatible. This path adds server-verified
 // security-passkey approval without making the proposed wallet its own authorizer.
-export function createProviderWalletOperations(database: Pool) {
-  const operations = createAccountOperationRepository(database);
+export function createProviderWalletOperations(
+  database: Pool,
+  inspector?: Pick<IdentityVerifier, "inspect">,
+) {
+  const operations = createAccountOperationRepository(database, inspector);
   return Object.freeze({
     async create(
       input: ProviderWalletTarget & {

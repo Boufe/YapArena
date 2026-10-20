@@ -31,6 +31,8 @@ import { createProviderSessionMonitor } from "./platform/auth/provider-session-m
 import { createAccountOperationRepository } from "./platform/auth/account-operations.ts";
 import { AccountOperationError } from "./platform/auth/account-operations.ts";
 import { createSecurityPasskeyRepository } from "./platform/auth/security-passkeys.ts";
+import { createProviderPasskeys } from "./platform/auth/provider-passkeys.ts";
+import { createProviderPasskeyBootstrap } from "./platform/auth/provider-passkey-bootstrap.ts";
 import { createProviderWalletOperations } from "./platform/auth/provider-wallet-operations.ts";
 import { createLegacyProviderLink } from "./platform/auth/legacy-provider-link.ts";
 import { createProviderIdentityRecovery } from "./platform/auth/provider-identity-recovery.ts";
@@ -154,10 +156,48 @@ const accountAttempt =
         observe: (outcome) => metrics.redisOutcome.inc({ outcome }),
       })
     : undefined;
+async function authorizeAccountAttempt(
+  userId: string,
+  purpose:
+    | "security.login"
+    | "provider.credentials.reconcile"
+    | "provider.passkey.link"
+    | "provider.passkey.restart",
+) {
+  if (!accountAttempt)
+    throw new AccountOperationError(
+      503,
+      "sign-in protection is temporarily unavailable",
+    );
+  const outcome = await accountAttempt(userId, purpose);
+  if (outcome !== "allowed")
+    throw new AccountOperationError(
+      outcome === "throttled" ? 429 : 503,
+      outcome === "throttled"
+        ? "too many attempts; try again shortly"
+        : "sign-in protection is temporarily unavailable",
+    );
+}
 const accountSecurity = {
-  operations: createAccountOperationRepository(database),
+  operations: createAccountOperationRepository(
+    database,
+    authProvider?.verifier,
+  ),
   passkeys: createSecurityPasskeyRepository(database),
-  walletOperations: createProviderWalletOperations(database),
+  providerPasskeys: authProvider
+    ? createProviderPasskeys(database, authProvider.verifier)
+    : undefined,
+  providerPasskeyBootstrap: authProvider
+    ? createProviderPasskeyBootstrap(database, authProvider.verifier, {
+        authorizeAttempt: authorizeAccountAttempt,
+      })
+    : undefined,
+  authorizeProviderPasskeyAttempt: (userId: string) =>
+    authorizeAccountAttempt(userId, "provider.passkey.link"),
+  walletOperations: createProviderWalletOperations(
+    database,
+    authProvider?.verifier,
+  ),
   legacyProviderLink: authProvider
     ? createLegacyProviderLink(database, authProvider.verifier)
     : undefined,
@@ -166,21 +206,7 @@ const accountSecurity = {
     : undefined,
   access: authProvider
     ? createAccountAccessRepository(database, authProvider.verifier, {
-        authorizeAttempt: async (userId, purpose) => {
-          if (!accountAttempt)
-            throw new AccountOperationError(
-              503,
-              "sign-in protection is temporarily unavailable",
-            );
-          const outcome = await accountAttempt(userId, purpose);
-          if (outcome !== "allowed")
-            throw new AccountOperationError(
-              outcome === "throttled" ? 429 : 503,
-              outcome === "throttled"
-                ? "too many attempts; try again shortly"
-                : "sign-in protection is temporarily unavailable",
-            );
-        },
+        authorizeAttempt: authorizeAccountAttempt,
       })
     : undefined,
 };

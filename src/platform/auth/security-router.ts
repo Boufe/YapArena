@@ -23,6 +23,12 @@ import { normalizeWalletAddress, validChainId } from "./siwe.ts";
 import type { createLegacyProviderLink } from "./legacy-provider-link.ts";
 import type { createAccountAccessRepository } from "./account-access.ts";
 import type { createProviderIdentityRecovery } from "./provider-identity-recovery.ts";
+import type { createProviderPasskeys } from "./provider-passkeys.ts";
+import {
+  FirstPasskeyRestartError,
+  type createProviderPasskeyBootstrap,
+} from "./provider-passkey-bootstrap.ts";
+import { ProviderAccountError } from "./provider-accounts.ts";
 
 function object(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -205,6 +211,9 @@ export type SecurityRouterOptions = {
   sessions: ReturnType<typeof createSessionRepository>;
   operations: ReturnType<typeof createAccountOperationRepository>;
   passkeys: ReturnType<typeof createSecurityPasskeyRepository>;
+  providerPasskeys?: ReturnType<typeof createProviderPasskeys>;
+  providerPasskeyBootstrap?: ReturnType<typeof createProviderPasskeyBootstrap>;
+  authorizeProviderPasskeyAttempt?: (userId: string) => Promise<void>;
   walletOperations?: ReturnType<typeof createProviderWalletOperations>;
   legacyProviderLink?: ReturnType<typeof createLegacyProviderLink>;
   providerIdentityRecovery?: ReturnType<typeof createProviderIdentityRecovery>;
@@ -221,6 +230,9 @@ export function createAccountSecurityRouter({
   sessions,
   operations,
   passkeys,
+  providerPasskeys,
+  providerPasskeyBootstrap,
+  authorizeProviderPasskeyAttempt,
   walletOperations,
   legacyProviderLink,
   providerIdentityRecovery,
@@ -340,6 +352,147 @@ export function createAccountSecurityRouter({
     );
     router.use(publicAccess);
   }
+  if (providerPasskeyBootstrap) {
+    const bootstrap = express.Router();
+    bootstrap.use(createApiRateLimiter({ windowMs: 900000, limit: 30 }));
+    if (sharedAccessLimiter) bootstrap.use(sharedAccessLimiter);
+    for (const action of ["candidate", "restart"] as const)
+      bootstrap.post(`/${action}`, async (request, response) => {
+        const body = object(request.body);
+        if (!body || Object.keys(body).length) invalid();
+        return response.json(
+          await providerPasskeyBootstrap[action]({
+            token: providerToken(request),
+            origin: applicationOrigin,
+          }),
+        );
+      });
+    bootstrap.post("/:id/complete", async (request, response) => {
+      const body = object(request.body),
+        id = request.params.id;
+      if (!body || !uuid(id) || !exact(body, ["authentication"])) invalid();
+      const result = await providerPasskeyBootstrap.complete({
+        id,
+        token: providerToken(request),
+        origin: applicationOrigin,
+        authentication: authentication(body.authentication),
+        sessionDurationMs,
+      });
+      response.cookie(cookie.name, result.token, {
+        ...cookie.options,
+        maxAge: sessionDurationMs,
+      });
+      return response.json({ keyId: result.keyId });
+    });
+    router.use("/security/provider/passkeys/bootstrap", bootstrap);
+  }
+  if (providerPasskeys) {
+    const ceremony = express.Router();
+    ceremony.use(createApiRateLimiter({ windowMs: 900000, limit: 30 }));
+    if (sharedAccessLimiter) ceremony.use(sharedAccessLimiter);
+    const authorizeAttempt = async (userId: string) => {
+      if (!authorizeProviderPasskeyAttempt)
+        throw new AccountOperationError(
+          503,
+          "account verification protection is unavailable",
+        );
+      await authorizeProviderPasskeyAttempt(userId);
+    };
+    const context = (request: Request) => {
+      const token: unknown = request.cookies[cookie.name];
+      if (typeof token !== "string")
+        throw new AccountOperationError(401, "authentication required");
+      return {
+        sessionTokenHash: hashSessionToken(token),
+        origin: applicationOrigin,
+        token: providerToken(request),
+      };
+    };
+    ceremony.post("/:id/activation", async (request, response) => {
+      const body = object(request.body),
+        id = request.params.id;
+      if (!body || Object.keys(body).length || !uuid(id)) invalid();
+      const result = await providerPasskeys.activationOptions({
+        ...context(request),
+        id,
+      });
+      return response.json({
+        id: result.id,
+        expiresAt: result.expiresAt,
+        bootstrapAllowed: result.bootstrapAllowed,
+        terms: result.terms,
+        before: result.before,
+        after: result.after,
+        authenticationOptions: result.authenticationOptions,
+      });
+    });
+    ceremony.post("/:id/complete", async (request, response) => {
+      const body = object(request.body),
+        id = request.params.id;
+      if (!body || !uuid(id) || !exact(body, ["authentication", "approval"]))
+        invalid();
+      const ceremonyContext = context(request);
+      // The intent resolves the owner and original session internally. The
+      // browser cannot supply an account ID or replace its original cookie.
+      const prepared = await providerPasskeys.activationOptions({
+        ...ceremonyContext,
+        id,
+      });
+      await authorizeAttempt(prepared.userId);
+      const approval =
+        body.approval === undefined
+          ? undefined
+          : await operations.prepare({
+              userId: prepared.userId,
+              sessionTokenHash: ceremonyContext.sessionTokenHash,
+              origin: applicationOrigin,
+              ...proof(body.approval),
+              purpose: "provider.passkey.link",
+              terms: prepared.terms,
+              rpcUrls: siweRpcUrls,
+              requestId: String(request.id),
+            });
+      const result = await providerPasskeys.complete({
+        ...ceremonyContext,
+        id,
+        authentication: authentication(body.authentication),
+        sessionDurationMs,
+        approval,
+      });
+      response.cookie(cookie.name, result.token, {
+        ...cookie.options,
+        maxAge: sessionDurationMs,
+      });
+      return response.json({ keyId: result.keyId });
+    });
+    ceremony.post("/:id/operations", async (request, response) => {
+      const body = object(request.body),
+        id = request.params.id;
+      if (!body || !uuid(id) || !exact(body, ["credential"])) invalid();
+      const ceremonyContext = context(request);
+      const prepared = await providerPasskeys.activationOptions({
+        ...ceremonyContext,
+        id,
+      });
+      await authorizeAttempt(prepared.userId);
+      const operation = await operations.create({
+        userId: prepared.userId,
+        sessionTokenHash: ceremonyContext.sessionTokenHash,
+        origin: applicationOrigin,
+        credential: credential(body.credential),
+        purpose: "provider.passkey.link",
+        terms: prepared.terms,
+      });
+      return response.json({
+        id: operation.id,
+        expiresAt: operation.expiresAt,
+        authorizationMessage: operation.authorizationMessage,
+        authenticationOptions: operation.authenticationOptions,
+        terms: prepared.terms,
+      });
+    });
+    router.use("/security/provider/passkeys", ceremony);
+  }
   router.use(createRequireAuthentication({ sessions, environment }));
   const mutations = express.Router();
   mutations.use(createApiRateLimiter({ windowMs: 900000, limit: 30 }));
@@ -348,10 +501,35 @@ export function createAccountSecurityRouter({
     response.json({ passkeys: await passkeys.list(session(request).userId) }),
   );
   mutations.post("/security/passkeys/enrollment", async (request, response) => {
+    if (providerPasskeys)
+      throw new AccountOperationError(
+        409,
+        "Add your passkey through Privy in Account settings.",
+      );
     const body = object(request.body);
     if (!body || Object.keys(body).length) invalid();
     return response.json(await passkeys.enrollmentOptions(session(request)));
   });
+  if (providerPasskeys)
+    mutations.post("/security/provider/passkeys", async (request, response) => {
+      const body = object(request.body);
+      if (
+        !body ||
+        !exact(body, ["credentialId"]) ||
+        (body.credentialId !== undefined &&
+          (typeof body.credentialId !== "string" ||
+            !encoded(body.credentialId)))
+      )
+        invalid();
+      return response.json(
+        await providerPasskeys.begin({
+          ...session(request),
+          ...(typeof body.credentialId === "string"
+            ? { credentialId: body.credentialId }
+            : {}),
+        }),
+      );
+    });
   mutations.post("/security/operations", async (request, response) => {
     const body = object(request.body),
       terms = object(body?.terms);
@@ -364,11 +542,23 @@ export function createAccountSecurityRouter({
           ? "keyId"
           : null;
     const exactTerms =
-      body.purpose === "provider.credentials.change"
-        ? providerChange(terms)
-        : key && uuid(terms[key]) && exact(terms, [key])
-          ? { [key]: terms[key] }
-          : null;
+      body.purpose === "provider.passkey.link" &&
+      uuid(terms.intentId) &&
+      typeof terms.subject === "string" &&
+      /^did:privy:[A-Za-z0-9_-]{1,200}$/.test(terms.subject) &&
+      typeof terms.beforeDigest === "string" &&
+      /^[0-9a-f]{64}$/.test(terms.beforeDigest) &&
+      exact(terms, ["intentId", "subject", "beforeDigest"])
+        ? {
+            intentId: terms.intentId,
+            subject: terms.subject,
+            beforeDigest: terms.beforeDigest,
+          }
+        : body.purpose === "provider.credentials.change"
+          ? providerChange(terms)
+          : key && uuid(terms[key]) && exact(terms, [key])
+            ? { [key]: terms[key] }
+            : null;
     if (!exactTerms) invalid();
     const operation = await operations.create({
       ...session(request),
@@ -399,6 +589,11 @@ export function createAccountSecurityRouter({
   mutations.post(
     "/security/passkeys/enrollment/:id/complete",
     async (request, response) => {
+      if (providerPasskeys)
+        throw new AccountOperationError(
+          409,
+          "Add your passkey through Privy in Account settings.",
+        );
       const body = object(request.body),
         id = request.params.id;
       if (!body || !uuid(id) || !exact(body, ["response", "approval"]))
@@ -632,6 +827,13 @@ export function createAccountSecurityRouter({
       response: express.Response,
       next: express.NextFunction,
     ) => {
+      if (
+        error instanceof FirstPasskeyRestartError ||
+        error instanceof ProviderAccountError
+      )
+        return response
+          .status(error.status)
+          .json({ error: error.message, code: error.code });
       if (error instanceof AccountOperationError)
         return response.status(error.status).json({ error: error.message });
       if (error instanceof SessionUnavailableError)

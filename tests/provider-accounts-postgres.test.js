@@ -1310,7 +1310,7 @@ describe(
           assert.equal(
             (
               await owner.query(
-                  "SELECT u.auth_generation<>p.auth_generation AS fenced FROM users u JOIN provider_identities p ON p.user_id=u.id WHERE u.id=$1",
+                "SELECT u.auth_generation<>p.auth_generation AS fenced FROM users u JOIN provider_identities p ON p.user_id=u.id WHERE u.id=$1",
                 [f.made.user.id],
               )
             ).rows[0].fenced,

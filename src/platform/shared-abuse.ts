@@ -41,11 +41,20 @@ export function createSharedAccountAttemptLimiter(options: {
     throw new Error("invalid shared abuse configuration");
   return async (
     userId: string,
-    purpose: "security.login" | "provider.credentials.reconcile",
+    purpose:
+      | "security.login"
+      | "provider.credentials.reconcile"
+      | "provider.passkey.link"
+      | "provider.passkey.restart",
   ) => {
     if (
       !/^[1-9][0-9]*$/.test(userId) ||
-      !["security.login", "provider.credentials.reconcile"].includes(purpose)
+      ![
+        "security.login",
+        "provider.credentials.reconcile",
+        "provider.passkey.link",
+        "provider.passkey.restart",
+      ].includes(purpose)
     )
       throw new Error("verified recovery account and operation required");
     const digest = createHmac("sha256", options.secret)

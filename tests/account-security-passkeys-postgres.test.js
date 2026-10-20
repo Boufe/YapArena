@@ -272,10 +272,20 @@ describe(
       assert.equal(keys.length, 1);
       assert.equal(keys[0].id, result.keyId);
       assert.equal(keys[0].deviceType, "singleDevice");
-      assert.doesNotMatch(
-        JSON.stringify(keys),
-        /credentialId|publicKey|userHandle|counter/,
+      assert.equal(keys[0].provenance, "yaparena");
+      assert.match(keys[0].credentialId, /^[A-Za-z0-9_-]+$/);
+      assert.deepEqual(
+        Object.keys(keys[0]).sort(),
+        [
+          "id",
+          "createdAt",
+          "deviceType",
+          "backedUp",
+          "credentialId",
+          "provenance",
+        ].sort(),
       );
+      assert.doesNotMatch(JSON.stringify(keys), /publicKey|userHandle|counter/);
       await assert.rejects(
         createSecurityPasskeyRepository(a).completeEnrollment({
           ...original,
@@ -1534,6 +1544,122 @@ describe(
           )
         ).id,
         f.f.userId,
+      );
+    });
+    it("releases its only runtime connection during reconciliation inspection so local revocation wins without accepting the delta", async () => {
+      const f = await accessFixture(),
+        credentials = [{ type: "email", id: `${randomUUID()}@example.test` }],
+        current = {
+          ...f.identity,
+          credentials,
+          email: credentials[0].id,
+          credentialsDigest: providerCredentialsDigest(credentials),
+        },
+        entered = Promise.withResolvers(),
+        release = Promise.withResolvers(),
+        single = new pg.Pool({
+          connectionString: runtimeUrl,
+          max: 1,
+          options: "-c search_path=pg_catalog,yaparena,pg_temp",
+        });
+      const service = createAccountAccessRepository(single, {
+        verify: async () => current,
+        async inspect() {
+          entered.resolve();
+          await release.promise;
+          return current;
+        },
+      });
+      const operation = await service.reconciliationOptions({
+        token: "synthetic-provider-token",
+        origin,
+        credential: { type: "passkey", keyId: f.result.keyId },
+      });
+      const rejected = assert.rejects(
+        service.reconcile({
+          id: operation.id,
+          token: "synthetic-provider-token",
+          origin,
+          rpcUrls: {},
+          sessionDurationMs: 600000,
+          authentication: f.authenticatorDevice.authentication(
+            operation.authenticationOptions,
+            { counter: 1, userHandle: f.userHandle },
+          ),
+        }),
+        /expired/,
+      );
+      let timeout;
+      try {
+        await entered.promise;
+        await Promise.race([
+          createSessionRepository(single).revoke(
+            f.f.userId,
+            f.f.sessionTokenHash,
+            false,
+          ),
+          new Promise((_, reject) => {
+            timeout = setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    "reconciliation inspection held the runtime pool or account lock",
+                  ),
+                ),
+              2000,
+            );
+          }),
+        ]);
+      } finally {
+        clearTimeout(timeout);
+        release.resolve();
+        await rejected;
+        await single.end();
+      }
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT credentials_digest FROM provider_identities WHERE user_id=$1",
+            [f.f.userId],
+          )
+        ).rows[0].credentials_digest,
+        f.identity.credentialsDigest,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT counter FROM account_security_keys WHERE id=$1",
+            [f.result.keyId],
+          )
+        ).rows[0].counter,
+        "0",
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM sessions WHERE user_id=$1",
+            [f.f.userId],
+          )
+        ).rows[0].n,
+        0,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT consumed_at FROM account_access_challenges WHERE id=$1",
+            [operation.id],
+          )
+        ).rows[0].consumed_at,
+        null,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM identity_audit_events WHERE user_id=$1 AND event_type='provider.credentials.reconciled'",
+            [f.f.userId],
+          )
+        ).rows[0].n,
+        0,
       );
     });
     it("requires a retained wallet signature for the exact displayed method changes and rejects another wallet", async () => {

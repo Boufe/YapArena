@@ -11,6 +11,8 @@ import {
 import { verifyPassword } from "./passwords.ts";
 import { verifyChallengeSignature } from "./siwe.ts";
 import { assertActiveSession, lockAccount } from "./sessions.ts";
+import type { IdentityVerifier } from "./privy.ts";
+import { parseProviderPasskeyPublicKey } from "./provider-passkeys.ts";
 
 export class AccountOperationError extends Error {
   constructor(
@@ -86,9 +88,95 @@ function unavailable(): never {
   );
 }
 
+type PasskeyRecord = {
+  credentialId: string;
+  publicKey: Buffer;
+  counter: string;
+  deviceType: "singleDevice" | "multiDevice";
+  userHandle: string;
+  provenance: "yaparena" | "privy";
+  providerSubject: string | null;
+  publicKeyDigest: string | null;
+  rpId: string | null;
+  mappedSubject: string | null;
+  credentialsDigest: string | null;
+};
+const passkeyColumns = `k.credential_id AS "credentialId",k.public_key AS "publicKey",
+  k.counter,k.device_type AS "deviceType",u.user_handle AS "userHandle",
+  k.provenance,k.provider_subject AS "providerSubject",
+  k.provider_public_key_digest AS "publicKeyDigest",k.rp_id AS "rpId",
+  p.subject AS "mappedSubject",p.credentials_digest AS "credentialsDigest"`;
+function samePasskey(left: PasskeyRecord, right: PasskeyRecord) {
+  return (
+    left.credentialId === right.credentialId &&
+    left.publicKey.equals(right.publicKey) &&
+    left.provenance === right.provenance &&
+    left.providerSubject === right.providerSubject &&
+    left.publicKeyDigest === right.publicKeyDigest &&
+    left.rpId === right.rpId &&
+    left.mappedSubject === right.mappedSubject &&
+    left.credentialsDigest === right.credentialsDigest
+  );
+}
+
 // This is retained-credential authorization, not a general recent-auth flag.
 // No access-token issuance time or browser/provider MFA callback is accepted.
-export function createAccountOperationRepository(database: Pool) {
+export function createAccountOperationRepository(
+  database: Pool,
+  inspector?: Pick<IdentityVerifier, "inspect">,
+) {
+  async function inspectPasskey(
+    userId: string,
+    keyId: string,
+    purpose: string,
+  ) {
+    const key = (
+      await database.query<PasskeyRecord>(
+        `SELECT ${passkeyColumns} FROM account_security_keys k
+         JOIN account_security_users u ON u.user_id=k.user_id
+         LEFT JOIN provider_identities p ON p.user_id=k.user_id AND p.provider='privy'
+         WHERE k.id=$1 AND k.user_id=$2 AND k.revoked_at IS NULL`,
+        [keyId, userId],
+      )
+    ).rows[0];
+    if (!key) unavailable();
+    if (key.provenance === "privy") {
+      if (
+        !inspector ||
+        !key.providerSubject ||
+        key.providerSubject !== key.mappedSubject
+      )
+        unavailable();
+      // Release the pool before provider I/O; the accepted key and mapping are
+      // compared again under the account lock before issuing/consuming proof.
+      const current = await inspector.inspect(key.providerSubject);
+      const linked = current.passkeys?.find(
+        (entry) => entry.credentialId === key.credentialId,
+      );
+      if (
+        current.subject !== key.providerSubject ||
+        !current.credentials?.some(
+          (entry) => entry.type === "passkey" && entry.id === key.credentialId,
+        ) ||
+        !linked
+      )
+        unavailable();
+      if (!linked.publicKey)
+        throw new AccountOperationError(
+          503,
+          "Passkey verification is temporarily unavailable.",
+        );
+      const parsed = parseProviderPasskeyPublicKey(linked.publicKey);
+      if (
+        parsed.publicKeyDigest !== key.publicKeyDigest ||
+        !parsed.publicKey.equals(key.publicKey) ||
+        (purpose !== "provider.passkey.link" &&
+          current.credentialsDigest !== key.credentialsDigest)
+      )
+        unavailable();
+    }
+    return key;
+  }
   const repository = {
     async create(input: {
       userId: string;
@@ -101,6 +189,14 @@ export function createAccountOperationRepository(database: Pool) {
       if (!/^[a-z][a-z0-9_.]{0,79}$/.test(input.purpose))
         throw new AccountOperationError(400, "invalid operation purpose");
       const termsDigest = accountOperationTermsDigest(input.terms);
+      const inspectedKey =
+        input.credential.type === "passkey"
+          ? await inspectPasskey(
+              input.userId,
+              input.credential.keyId,
+              input.purpose,
+            )
+          : undefined;
       const client = await database.connect();
       try {
         await client.query("BEGIN");
@@ -109,7 +205,7 @@ export function createAccountOperationRepository(database: Pool) {
           throw new AccountOperationError(401, "authentication required");
         await assertActiveSession(client, input.userId, input.sessionTokenHash);
         let wallet: { address: string; chainId: string } | undefined;
-        let passkey: { credentialId: string } | undefined;
+        let passkey: PasskeyRecord | undefined;
         if (input.credential.type === "wallet") {
           wallet = (
             await client.query<{ address: string; chainId: string }>(
@@ -122,17 +218,27 @@ export function createAccountOperationRepository(database: Pool) {
             throw new AccountOperationError(403, "linked wallet required");
         } else if (input.credential.type === "passkey") {
           passkey = (
-            await client.query<{ credentialId: string }>(
-              `SELECT credential_id AS "credentialId" FROM account_security_keys
-               WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL`,
+            await client.query<PasskeyRecord>(
+              `SELECT ${passkeyColumns} FROM account_security_keys k
+               JOIN account_security_users u ON u.user_id=k.user_id
+               LEFT JOIN provider_identities p ON p.user_id=k.user_id AND p.provider='privy'
+               WHERE k.id=$1 AND k.user_id=$2 AND k.revoked_at IS NULL`,
               [input.credential.keyId, input.userId],
             )
           ).rows[0];
-          if (!passkey)
+          if (!passkey || !inspectedKey || !samePasskey(passkey, inspectedKey))
             throw new AccountOperationError(403, "security passkey required");
           if (
             input.purpose === "security.passkey.remove" &&
             input.terms.keyId === input.credential.keyId
+          )
+            throw new AccountOperationError(403, "use a retained credential");
+          if (
+            input.purpose === "provider.credentials.change" &&
+            input.terms.action === "remove" &&
+            input.terms.method === "passkey" &&
+            passkey.provenance === "privy" &&
+            input.terms.target === passkey.credentialId
           )
             throw new AccountOperationError(403, "use a retained credential");
         } else if (!account.passwordHash) {
@@ -195,7 +301,7 @@ export function createAccountOperationRepository(database: Pool) {
         if (passkey)
           operation.authenticationOptions = await generateAuthenticationOptions(
             {
-              rpID: site.hostname,
+              rpID: passkey.rpId ?? site.hostname,
               challenge: Buffer.from(nonce, "hex"),
               allowCredentials: [{ id: passkey.credentialId }],
               userVerification: "required",
@@ -240,6 +346,14 @@ export function createAccountOperationRepository(database: Pool) {
         )
       ).rows[0];
       if (!operation) unavailable();
+      const inspectedKey =
+        operation.credentialType === "passkey" && operation.authorizingPasskeyId
+          ? await inspectPasskey(
+              input.userId,
+              operation.authorizingPasskeyId,
+              input.purpose,
+            )
+          : undefined;
       // Verify potentially slow wallet RPC outside the mutation transaction.
       if (
         operation.credentialType === "wallet" &&
@@ -322,23 +436,24 @@ export function createAccountOperationRepository(database: Pool) {
             if (!credential.rows[0]) unavailable();
           } else {
             const key = (
-              await client.query<{
-                credentialId: string;
-                publicKey: Buffer;
-                counter: string;
-                deviceType: "singleDevice" | "multiDevice";
-                userHandle: string;
-              }>(
-                `SELECT k.credential_id AS "credentialId",k.public_key AS "publicKey",
-                   k.counter,k.device_type AS "deviceType",u.user_handle AS "userHandle"
+              await client.query<PasskeyRecord>(
+                `SELECT ${passkeyColumns}
                  FROM account_security_keys k JOIN account_security_users u ON u.user_id=k.user_id
+                 LEFT JOIN provider_identities p ON p.user_id=k.user_id AND p.provider='privy'
                  WHERE k.id=$1 AND k.user_id=$2 AND k.revoked_at IS NULL FOR UPDATE OF k`,
                 [operation.authorizingPasskeyId, input.userId],
               )
             ).rows[0];
-            if (!key || !input.authentication) unavailable();
+            if (
+              !key ||
+              !inspectedKey ||
+              !samePasskey(key, inspectedKey) ||
+              !input.authentication
+            )
+              unavailable();
             try {
               if (
+                key.provenance === "yaparena" &&
                 input.authentication.response.userHandle &&
                 input.authentication.response.userHandle !== key.userHandle
               )
@@ -349,7 +464,7 @@ export function createAccountOperationRepository(database: Pool) {
                   "base64url",
                 ),
                 expectedOrigin: new URL(input.origin).origin,
-                expectedRPID: new URL(input.origin).hostname,
+                expectedRPID: key.rpId ?? new URL(input.origin).hostname,
                 requireUserVerification: true,
                 credential: {
                   id: key.credentialId,

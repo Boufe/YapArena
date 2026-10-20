@@ -11,13 +11,24 @@ import {
   revokeAccountSessions,
   SessionUnavailableError,
 } from "./sessions.ts";
+import {
+  parseProviderPasskeyPublicKey,
+  pendingProviderPasskeyAddition,
+} from "./provider-passkeys.ts";
 
+type AcceptedProviderKey = {
+  credentialId: string;
+  subject: string;
+  digest: string;
+};
 type MonitorSnapshot = {
   sessionId: string;
   authGeneration: string;
   subject: string | null;
   credentialsDigest: string | null;
   providerControl: string | null;
+  providerResetActive: boolean;
+  acceptedProviderKeys: AcceptedProviderKey[];
 };
 async function snapshot(
   database: Pick<Pool | PoolClient, "query">,
@@ -29,7 +40,14 @@ async function snapshot(
       `SELECT s.id::text AS "sessionId",u.auth_generation::text AS "authGeneration",
       p.subject,p.credentials_digest AS "credentialsDigest",
       (SELECT jsonb_build_array(j.generation::text,j.state,j.attempts)::text
-        FROM provider_revocation_jobs j WHERE j.user_id=u.id AND j.subject=p.subject ORDER BY j.generation DESC LIMIT 1) AS "providerControl"
+        FROM provider_revocation_jobs j WHERE j.user_id=u.id AND j.subject=p.subject ORDER BY j.generation DESC LIMIT 1) AS "providerControl",
+      EXISTS(SELECT 1 FROM provider_revocation_jobs j WHERE j.user_id=u.id AND j.subject=p.subject
+        AND j.generation=u.auth_generation AND (j.state IN ('pending','running')
+          OR (j.state='manual' AND j.failure_reason='uncertain_provider_outcome'))) AS "providerResetActive",
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('credentialId',k.credential_id,
+        'subject',k.provider_subject,'digest',k.provider_public_key_digest) ORDER BY k.id)
+        FROM account_security_keys k WHERE k.user_id=u.id AND k.provenance='privy'
+        AND k.revoked_at IS NULL),'[]'::jsonb) AS "acceptedProviderKeys"
       FROM sessions s JOIN users u ON u.id=s.user_id
       LEFT JOIN provider_identities p ON p.user_id=u.id AND p.provider='privy'
       WHERE u.id=$1 AND s.token_hash=$2 AND u.account_status='active'
@@ -69,7 +87,10 @@ export function createProviderSessionMonitor(
         current.authGeneration !== initial.authGeneration ||
         current.subject !== initial.subject ||
         current.credentialsDigest !== initial.credentialsDigest ||
-        current.providerControl !== initial.providerControl
+        current.providerControl !== initial.providerControl ||
+        current.providerResetActive !== initial.providerResetActive ||
+        JSON.stringify(current.acceptedProviderKeys) !==
+          JSON.stringify(initial.acceptedProviderKeys)
       )
         throw new ProviderUnavailableError(
           "account verification changed; retry with a fresh provider inspection",
@@ -77,12 +98,88 @@ export function createProviderSessionMonitor(
       // A provider-control job can temporarily freeze the DID while revoking
       // old provider sessions. Its fingerprint is part of the snapshot, so an
       // overlapping observation cannot revoke the deliberately retained SID.
-      const changed =
+      let changed =
         "failure" in inspection
           ? inspection.failure instanceof ProviderCredentialChangedError
           : inspection.state.subject !== initial.subject ||
             inspection.state.credentialsDigest !== initial.credentialsDigest;
+      if (
+        "failure" in inspection &&
+        inspection.failure instanceof ProviderCredentialChangedError &&
+        current.providerResetActive
+      )
+        throw new ProviderUnavailableError(
+          "provider session reset is awaiting confirmation; retry shortly",
+        );
       if ("failure" in inspection && !changed) throw inspection.failure;
+      let keyChanged = false;
+      if ("state" in inspection) {
+        for (const key of initial.acceptedProviderKeys) {
+          const linked = inspection.state.passkeys?.filter(
+            (entry) => entry.credentialId === key.credentialId,
+          );
+          if (
+            key.subject !== inspection.state.subject ||
+            !inspection.state.credentials?.some(
+              (entry) =>
+                entry.type === "passkey" && entry.id === key.credentialId,
+            )
+          ) {
+            changed = true;
+            keyChanged = true;
+            continue;
+          }
+          if (linked?.length !== 1 || !linked[0]?.publicKey)
+            throw new ProviderUnavailableError(
+              "provider passkey verification unavailable",
+            );
+          let publicKeyDigest: string;
+          try {
+            publicKeyDigest = parseProviderPasskeyPublicKey(
+              linked[0].publicKey,
+            ).publicKeyDigest;
+          } catch {
+            throw new ProviderUnavailableError(
+              "provider passkey verification unavailable",
+            );
+          }
+          if (publicKeyDigest !== key.digest) {
+            changed = true;
+            keyChanged = true;
+          }
+        }
+      }
+      if (
+        changed &&
+        !keyChanged &&
+        "state" in inspection &&
+        initial.subject &&
+        initial.credentialsDigest &&
+        inspection.state.credentialsDigest !== initial.credentialsDigest
+      ) {
+        let pending = false;
+        try {
+          pending = await pendingProviderPasskeyAddition(client, {
+            userId,
+            sessionTokenHash: tokenHash,
+            authGeneration: initial.authGeneration,
+            subject: initial.subject,
+            beforeDigest: initial.credentialsDigest,
+            current: inspection.state,
+          });
+        } catch {
+          throw new ProviderUnavailableError(
+            "provider passkey setup verification unavailable",
+          );
+        }
+        if (pending) {
+          // Only the intent's original session can finish this exact addition.
+          // Ordinary protected requests remain denied while setup is pending.
+          throw new ProviderUnavailableError(
+            "finish passkey setup to continue",
+          );
+        }
+      }
       if (changed) {
         await revokeAccountSessions(client, userId, {
           action: "sessions.incident",

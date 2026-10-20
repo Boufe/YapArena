@@ -19,7 +19,12 @@ import {
 } from "./sessions.ts";
 import { verifyPassword } from "./passwords.ts";
 import { verifyChallengeSignature } from "./siwe.ts";
-import { ProviderUnavailableError, type IdentityVerifier } from "./privy.ts";
+import {
+  ProviderUnavailableError,
+  type IdentityVerifier,
+  type ProviderIdentity,
+} from "./privy.ts";
+import { parseProviderPasskeyPublicKey } from "./provider-passkeys.ts";
 import {
   verifiedStoredCredentials,
   type ProviderCredential,
@@ -45,6 +50,45 @@ type AccessChallenge = {
   createdAt: Date;
   expiresAt: Date;
 };
+type RetainedPasskey = {
+  id: string;
+  credentialId: string;
+  createdAt: Date;
+  provenance: "yaparena" | "privy";
+  providerSubject: string | null;
+  providerPublicKeyDigest: string | null;
+  rpId: string | null;
+  publicKey: Buffer;
+};
+type ProviderState = Pick<
+  ProviderIdentity,
+  "subject" | "credentials" | "credentialsDigest" | "passkeys"
+>;
+function retainedProviderKey(key: RetainedPasskey, provider: ProviderState) {
+  if (key.provenance === "yaparena") return true;
+  const current = provider.passkeys?.find(
+    (candidate) => candidate.credentialId === key.credentialId,
+  );
+  if (
+    key.providerSubject !== provider.subject ||
+    !key.rpId ||
+    !current ||
+    !provider.credentials?.some(
+      (credential) =>
+        credential.type === "passkey" && credential.id === key.credentialId,
+    )
+  )
+    return false;
+  try {
+    const parsed = parseProviderPasskeyPublicKey(current.publicKey);
+    return (
+      parsed.publicKeyDigest === key.providerPublicKeyDigest &&
+      parsed.publicKey.equals(key.publicKey)
+    );
+  } catch {
+    return false;
+  }
+}
 const columns = `id,user_id AS "userId",auth_generation AS "authGeneration",purpose,nonce,
   provider_subject AS "providerSubject",provider_session_digest AS "providerSessionDigest",
   old_credentials_digest AS "oldCredentialsDigest",new_credentials_digest AS "newCredentialsDigest",
@@ -133,8 +177,10 @@ export function createAccountAccessRepository(
   }
   async function choices(client: PoolClient, userId: string) {
     const passkeys = (
-      await client.query<{ id: string; credentialId: string; createdAt: Date }>(
-        `SELECT id,credential_id AS "credentialId",created_at AS "createdAt" FROM account_security_keys
+      await client.query<RetainedPasskey>(
+        `SELECT id,credential_id AS "credentialId",created_at AS "createdAt",provenance,
+         provider_subject AS "providerSubject",provider_public_key_digest AS "providerPublicKeyDigest",
+         rp_id AS "rpId",public_key AS "publicKey" FROM account_security_keys
         WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at,id`,
         [userId],
       )
@@ -183,6 +229,7 @@ export function createAccountAccessRepository(
     challenge: AccessChallenge,
     authentication: AuthenticationResponseJSON | undefined,
     origin: string,
+    provider?: ProviderState,
   ) {
     if (!authentication)
       throw new AccountOperationError(
@@ -190,23 +237,28 @@ export function createAccountAccessRepository(
         "Security passkey verification is required.",
       );
     const key = (
-      await client.query<{
-        id: string;
-        credentialId: string;
-        publicKey: Buffer;
-        counter: string;
-        deviceType: "singleDevice" | "multiDevice";
-        userHandle: string;
-      }>(
+      await client.query<
+        RetainedPasskey & {
+          counter: string;
+          deviceType: "singleDevice" | "multiDevice";
+          userHandle: string | null;
+        }
+      >(
         `SELECT k.id,k.credential_id AS "credentialId",k.public_key AS "publicKey",k.counter,
+      k.created_at AS "createdAt",k.provenance,k.provider_subject AS "providerSubject",
+      k.provider_public_key_digest AS "providerPublicKeyDigest",k.rp_id AS "rpId",
       k.device_type AS "deviceType",u.user_handle AS "userHandle" FROM account_security_keys k
-      JOIN account_security_users u ON u.user_id=k.user_id
+      LEFT JOIN account_security_users u ON u.user_id=k.user_id
       WHERE k.user_id=$1 AND k.credential_id=$2 AND k.revoked_at IS NULL FOR UPDATE OF k`,
         [userId, authentication.id],
       )
     ).rows[0];
     if (
       !key ||
+      (challenge.purpose === "security.login" &&
+        key.provenance !== "yaparena") ||
+      (key.provenance === "privy" &&
+        (!provider || !retainedProviderKey(key, provider))) ||
       (challenge.purpose !== "security.login" &&
         !challenge.authorizingPasskeyIds.includes(key.id))
     )
@@ -216,10 +268,12 @@ export function createAccountAccessRepository(
       );
     try {
       if (
-        (challenge.purpose === "security.login" &&
-          authentication.response.userHandle !== key.userHandle) ||
-        (authentication.response.userHandle &&
-          authentication.response.userHandle !== key.userHandle)
+        key.provenance === "yaparena" &&
+        (!key.userHandle ||
+          (challenge.purpose === "security.login" &&
+            authentication.response.userHandle !== key.userHandle) ||
+          (authentication.response.userHandle &&
+            authentication.response.userHandle !== key.userHandle))
       )
         throw new Error("user handle mismatch");
       const result = await verifyAuthenticationResponse({
@@ -228,7 +282,8 @@ export function createAccountAccessRepository(
           "base64url",
         ),
         expectedOrigin: new URL(origin).origin,
-        expectedRPID: new URL(origin).hostname,
+        expectedRPID:
+          key.provenance === "privy" ? key.rpId! : new URL(origin).hostname,
         requireUserVerification: true,
         credential: {
           id: key.credentialId,
@@ -314,7 +369,8 @@ export function createAccountAccessRepository(
       const found = (
         await database.query<{ userId: string }>(
           `SELECT k.user_id AS "userId" FROM account_security_keys k
-        JOIN account_security_users s ON s.user_id=k.user_id WHERE k.credential_id=$1 AND s.user_handle=$2 AND k.revoked_at IS NULL`,
+        JOIN account_security_users s ON s.user_id=k.user_id WHERE k.credential_id=$1 AND s.user_handle=$2
+          AND k.provenance='yaparena' AND k.revoked_at IS NULL`,
           [
             input.authentication.id,
             input.authentication.response.userHandle ?? "",
@@ -405,10 +461,12 @@ export function createAccountAccessRepository(
           before: mapped.oldCredentials,
           after: identity.credentials,
           legacyPassword: account.legacyPassword,
-          passkeys: retained.passkeys.map(({ id, createdAt }) => ({
-            id,
-            createdAt,
-          })),
+          passkeys: retained.passkeys
+            .filter((key) => retainedProviderKey(key, identity))
+            .map(({ id, createdAt }) => ({
+              id,
+              createdAt,
+            })),
           wallets: retained.wallets,
         };
       } finally {
@@ -434,7 +492,10 @@ export function createAccountAccessRepository(
         const selected = input.credential;
         const key =
           selected.type === "passkey"
-            ? retained.passkeys.find((k) => k.id === selected.keyId)
+            ? retained.passkeys.find(
+                (k) =>
+                  k.id === selected.keyId && retainedProviderKey(k, identity),
+              )
             : undefined;
         const wallet =
           selected.type === "wallet"
@@ -502,7 +563,7 @@ export function createAccountAccessRepository(
           authorizationMessage: message,
           authenticationOptions: key
             ? await generateAuthenticationOptions({
-                rpID: site.hostname,
+                rpID: key.provenance === "privy" ? key.rpId! : site.hostname,
                 challenge: Buffer.from(nonce, "hex"),
                 allowCredentials: [{ id: key.credentialId }],
                 userVerification: "required",
@@ -562,6 +623,15 @@ export function createAccountAccessRepository(
           401,
           "Linked wallet verification failed.",
         );
+      // Provider work completes before checking out a connection or taking an
+      // account lock. Local snapshot/generation checks below order the commit;
+      // the provider itself offers no cross-system transaction lock.
+      const current = await verifier.inspect(identity.subject);
+      if (
+        current.subject !== identity.subject ||
+        current.credentialsDigest !== challenge.newCredentialsDigest
+      )
+        unavailable();
       const client = await database.connect();
       try {
         await client.query("BEGIN");
@@ -586,6 +656,7 @@ export function createAccountAccessRepository(
             challenge,
             input.authentication,
             input.origin,
+            current,
           );
         else if (challenge.credentialType === "password") {
           if (
@@ -609,12 +680,45 @@ export function createAccountAccessRepository(
           );
           if (!retained.rowCount) unavailable();
         }
-        const current = await verifier.inspect(identity.subject);
+        const securityKeys = (await choices(client, mapped.userId)).passkeys;
         if (
-          current.subject !== identity.subject ||
-          current.credentialsDigest !== challenge.newCredentialsDigest
+          !current.credentials &&
+          securityKeys.some(
+            (key) =>
+              key.provenance === "privy" &&
+              key.providerSubject === identity.subject,
+          )
         )
           unavailable();
+        for (const key of securityKeys) {
+          if (
+            key.provenance !== "privy" ||
+            key.providerSubject !== identity.subject
+          )
+            continue;
+          const linked = current.credentials?.some(
+            (credential) =>
+              credential.type === "passkey" &&
+              credential.id === key.credentialId,
+          );
+          const evidence = current.passkeys?.find(
+            (candidate) => candidate.credentialId === key.credentialId,
+          );
+          // Omitted optional key material cannot prove a replacement. It also
+          // cannot authorize an operation: retainedProviderKey fails closed.
+          const parsed = evidence?.publicKey
+            ? parseProviderPasskeyPublicKey(evidence.publicKey)
+            : null;
+          const changed = parsed
+            ? parsed.publicKeyDigest !== key.providerPublicKeyDigest ||
+              !parsed.publicKey.equals(key.publicKey)
+            : false;
+          if (!linked || changed)
+            await client.query(
+              "UPDATE account_security_keys SET revoked_at=clock_timestamp() WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL",
+              [key.id, mapped.userId],
+            );
+        }
         await client.query(
           `UPDATE provider_identities SET credentials_digest=$2,credentials_snapshot=$3::jsonb,email=$4,methods=$5::jsonb WHERE provider='privy' AND subject=$1`,
           [

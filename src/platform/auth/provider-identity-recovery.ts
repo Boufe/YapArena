@@ -37,7 +37,7 @@ export function createProviderIdentityRecovery(
   database: Pool,
   verifier: Pick<IdentityVerifier, "verify" | "inspect">,
 ) {
-  const operations = createAccountOperationRepository(database);
+  const operations = createAccountOperationRepository(database, verifier);
   async function mapped(
     source: Pick<Pool | PoolClient, "query">,
     userId: string,
@@ -154,6 +154,13 @@ export function createProviderIdentityRecovery(
           403,
           "A retained YapArena security passkey is required for this recovery.",
         );
+      const legacyKey = await database.query(
+        `SELECT id FROM account_security_keys WHERE id=$1 AND user_id=$2
+         AND provenance='yaparena' AND revoked_at IS NULL`,
+        [input.credential.keyId, input.userId],
+      );
+      if (!legacyKey.rowCount)
+        throw new AccountOperationError(403, "security passkey required");
       const value = await candidate(input.userId, input.token);
       const operation = await operations.create({
         ...input,
@@ -189,7 +196,10 @@ export function createProviderIdentityRecovery(
       const value = await candidate(input.userId, input.token);
       const kind = (
         await database.query<{ credentialType: string }>(
-          `SELECT credential_type AS "credentialType" FROM account_operations WHERE id=$1 AND user_id=$2 AND purpose=$3`,
+          `SELECT o.credential_type AS "credentialType" FROM account_operations o
+           JOIN account_security_keys k ON k.id=o.authorizing_passkey_id
+           WHERE o.id=$1 AND o.user_id=$2 AND o.purpose=$3 AND k.user_id=o.user_id
+             AND k.provenance='yaparena' AND k.revoked_at IS NULL`,
           [input.id, input.userId, purpose],
         )
       ).rows[0];

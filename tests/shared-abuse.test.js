@@ -37,6 +37,26 @@ it("scopes resolved-account recovery attempts independently, without storing acc
   );
   assert.equal(await second("12345678901235", "security.login"), "allowed");
   assert.equal(
+    await first("12345678901234", "provider.passkey.link"),
+    "allowed",
+  );
+  assert.equal(
+    await second("12345678901234", "provider.passkey.link"),
+    "throttled",
+  );
+  assert.equal(
+    await second("12345678901235", "provider.passkey.link"),
+    "allowed",
+  );
+  assert.equal(
+    await first("12345678901234", "provider.passkey.restart"),
+    "allowed",
+  );
+  assert.equal(
+    await second("12345678901234", "provider.passkey.restart"),
+    "throttled",
+  );
+  assert.equal(
     [...counters.keys()].some((key) => key.includes("12345678901234")),
     false,
   );
@@ -82,6 +102,11 @@ it("scopes resolved-account recovery attempts independently, without storing acc
     "throttled",
     "allowed",
     "allowed",
+    "allowed",
+    "throttled",
+    "allowed",
+    "allowed",
+    "throttled",
     "unavailable",
   ]);
 });

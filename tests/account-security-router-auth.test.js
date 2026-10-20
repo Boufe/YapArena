@@ -82,6 +82,325 @@ function fixture(overrides = {}) {
   return { app, seen, call };
 }
 describe("security passkey HTTP boundaries", () => {
+  it("restarts a first provider passkey only through server-verified bearer context and a native proof", async () => {
+    const calls = [];
+    const { app } = fixture({
+      sessions: {
+        async findUserByTokenHash() {
+          throw new Error("restart is sessionless");
+        },
+      },
+      providerPasskeyBootstrap: {
+        async candidate(input) {
+          calls.push(input);
+          return { code: "first_passkey_restart_available" };
+        },
+        async restart(input) {
+          calls.push(input);
+          return { id, authenticationOptions: { challenge: "AQID" } };
+        },
+        async complete(input) {
+          calls.push(input);
+          return { keyId, token: "synthetic-first-key-cookie" };
+        },
+      },
+    });
+    const invoke = (path) =>
+      request(app)
+        .post(`/api/auth/security/provider/passkeys/bootstrap${path}`)
+        .set("Origin", origin)
+        .set("Authorization", "Bearer synthetic-provider-evidence");
+    assert.equal((await invoke("/candidate").send({ userId })).status, 400);
+    assert.equal(
+      (await invoke("/restart").send({ credentialsVerified: true })).status,
+      400,
+    );
+    assert.equal(
+      (await invoke("/candidate").set("Authorization", "").send({})).status,
+      401,
+    );
+    assert.equal(
+      (
+        await invoke("/restart")
+          .set("Origin", "https://attacker.example")
+          .send({})
+      ).status,
+      403,
+    );
+    assert.equal(calls.length, 0);
+    assert.equal(
+      (await invoke("/candidate").send({})).body.code,
+      "first_passkey_restart_available",
+    );
+    assert.equal((await invoke("/restart").send({})).body.id, id);
+    const authentication = {
+      id: "AQID",
+      rawId: "AQID",
+      type: "public-key",
+      clientExtensionResults: {},
+      response: {
+        clientDataJSON: "AQID",
+        authenticatorData: "AQID",
+        signature: "AQID",
+      },
+    };
+    assert.equal(
+      (
+        await invoke(`/${id}/complete`).send({
+          authentication,
+          mfaCompleted: true,
+        })
+      ).status,
+      400,
+    );
+    const completed = await invoke(`/${id}/complete`).send({ authentication });
+    assert.equal(completed.status, 200);
+    assert.match(
+      completed.headers["set-cookie"][0],
+      /^__Host-session=synthetic-first-key-cookie;/,
+    );
+    for (const input of calls) {
+      assert.equal(input.userId, undefined);
+      assert.equal(input.token, "synthetic-provider-evidence");
+      assert.equal(input.origin, origin);
+    }
+    assert.deepEqual(calls.at(-1).authentication, authentication);
+  });
+
+  it("scopes interrupted Privy setup to its original cookie and provider evidence without reopening ordinary protected actions", async () => {
+    const terms = {
+      intentId: id,
+      subject: "did:privy:synthetic",
+      beforeDigest: "a".repeat(64),
+    };
+    const calls = [];
+    const { app, seen, call } = fixture({
+      async authorizeProviderPasskeyAttempt(value) {
+        assert.equal(value, "917");
+        calls.push({ kind: "accountAttempt" });
+      },
+      sessions: {
+        async findUserByTokenHash() {
+          throw new Error(
+            "ordinary protected access is unavailable during pending setup",
+          );
+        },
+      },
+      providerPasskeys: {
+        async activationOptions(input) {
+          assert.equal(input.id, id);
+          assert.equal(
+            input.sessionTokenHash,
+            hashSessionToken("synthetic-cookie"),
+          );
+          assert.equal(input.token, "synthetic-provider-evidence");
+          assert.equal(input.origin, origin);
+          calls.push({ kind: "activation", input });
+          return {
+            id,
+            userId: "917",
+            terms,
+            bootstrapAllowed: false,
+            expiresAt: new Date(),
+            before: [],
+            after: [],
+            authenticationOptions: { challenge: "AQID" },
+          };
+        },
+        async complete(input) {
+          calls.push({ kind: "complete", input });
+          assert.equal(input.approval.purpose, "provider.passkey.link");
+          return { keyId, token: "synthetic-privy-key-cookie" };
+        },
+      },
+    });
+    const scoped = (suffix) =>
+      call("post", `/provider/passkeys/${id}/${suffix}`).set(
+        "Authorization",
+        "Bearer synthetic-provider-evidence",
+      );
+    const activation = await scoped("activation").send({});
+    assert.equal(activation.status, 200);
+    assert.equal(
+      activation.body.userId,
+      undefined,
+      "internal validated owner is not exposed",
+    );
+    assert.deepEqual(activation.body.terms, terms);
+    assert.equal(
+      (await scoped("activation").send({ userId: "917" })).status,
+      400,
+    );
+    assert.equal(
+      (
+        await scoped("operations").send({
+          credential: { type: "password" },
+          purpose: "withdrawal",
+        })
+      ).status,
+      400,
+    );
+    const issued = await scoped("operations").send({
+      credential: { type: "password" },
+    });
+    assert.equal(issued.status, 200);
+    assert.deepEqual(issued.body.terms, terms);
+    assert.equal(seen.at(-1).input.userId, "917");
+    assert.equal(seen.at(-1).input.purpose, "provider.passkey.link");
+    assert.deepEqual(seen.at(-1).input.terms, terms);
+    const authentication = {
+      id: "AQID",
+      rawId: "AQID",
+      type: "public-key",
+      clientExtensionResults: {},
+      response: {
+        clientDataJSON: "AQID",
+        authenticatorData: "AQID",
+        signature: "AQID",
+      },
+    };
+    const completed = await scoped("complete").send({
+      authentication,
+      approval: { id, password: "synthetic-retained-proof" },
+    });
+    assert.equal(completed.status, 200);
+    assert.match(
+      completed.headers["set-cookie"][0],
+      /^__Host-session=synthetic-privy-key-cookie;/,
+    );
+    assert.equal(seen.at(-1).input.userId, "917");
+    assert.deepEqual(seen.at(-1).input.terms, terms);
+    assert.equal(calls.filter((entry) => entry.kind === "complete").length, 1);
+    assert.equal(
+      calls.filter((entry) => entry.kind === "accountAttempt").length,
+      2,
+    );
+    const before = calls.length;
+    assert.equal(
+      (
+        await request(app)
+          .post(`/api/auth/security/provider/passkeys/${id}/activation`)
+          .set("Origin", origin)
+          .set("Authorization", "Bearer synthetic-provider-evidence")
+          .send({})
+      ).status,
+      401,
+    );
+    assert.equal(
+      (await call("post", `/provider/passkeys/${id}/activation`).send({}))
+        .status,
+      401,
+    );
+    assert.equal(
+      (
+        await scoped("activation")
+          .set("Origin", "https://attacker.example")
+          .send({})
+      ).status,
+      403,
+    );
+    assert.equal(
+      calls.length,
+      before,
+      "invalid context is rejected before trusted intent inspection",
+    );
+  });
+
+  it("uses authenticated Privy enrollment intents and disables the second registration API when the provider owns enrollment", async () => {
+    const calls = [];
+    const { call } = fixture({
+      providerPasskeys: {
+        async begin(input) {
+          calls.push(input);
+          return { id, bootstrapAllowed: true, terms: { intentId: id } };
+        },
+      },
+    });
+    assert.equal(
+      (await call("post", "/provider/passkeys").send({ userId })).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call("post", "/provider/passkeys").send({
+          credentialId: "invalid value",
+        })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (await call("post", "/provider/passkeys").send({})).status,
+      200,
+    );
+    assert.equal(calls[0].userId, userId);
+    assert.equal(
+      calls[0].sessionTokenHash,
+      hashSessionToken("synthetic-cookie"),
+    );
+    assert.equal(
+      (await call("post", "/provider/passkeys").send({ credentialId: "AQID" }))
+        .status,
+      200,
+    );
+    assert.equal(calls[1].credentialId, "AQID");
+    assert.equal(
+      (await call("post", "/passkeys/enrollment").send({})).status,
+      409,
+    );
+    assert.equal(
+      (
+        await call("post", `/passkeys/enrollment/${id}/complete`).send({
+          response: registration,
+        })
+      ).status,
+      409,
+    );
+  });
+
+  it("fails closed on a missing or exhausted server-derived account budget before checking resumed proofs", async () => {
+    for (const status of [503, 429]) {
+      const { seen, call } = fixture({
+        ...(status === 429
+          ? {
+              async authorizeProviderPasskeyAttempt(value) {
+                assert.equal(value, userId);
+                throw new AccountOperationError(429, "too many attempts");
+              },
+            }
+          : {}),
+        providerPasskeys: {
+          async activationOptions() {
+            return { userId, terms: { intentId: id } };
+          },
+          async complete() {
+            throw new Error("must not complete without the account budget");
+          },
+        },
+      });
+      for (const [suffix, body] of [
+        ["operations", { credential: { type: "password" } }],
+        [
+          "complete",
+          { approval: { id, password: "synthetic" }, authentication: {} },
+        ],
+      ]) {
+        const response = await call(
+          "post",
+          `/provider/passkeys/${id}/${suffix}`,
+        )
+          .set("Authorization", "Bearer synthetic-provider-evidence")
+          .send(body);
+        assert.equal(response.status, status);
+        assert.equal(response.headers["set-cookie"], undefined);
+      }
+      assert.equal(
+        seen.length,
+        0,
+        "no credential check or operation creation before the shared budget",
+      );
+    }
+  });
+
   it("provides sessionless key login without trusting an app cookie, account selector or browser credential flags", async () => {
     const seen = [];
     const { app } = fixture({

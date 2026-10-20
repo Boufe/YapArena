@@ -85,3 +85,13 @@ claim that a replay encoder runs the account worker or that configuration alone
 proves successful job execution. The actual outbox/Cloud trial has separate
 evidence. No source blocker was found in these changes, and no release mutation
 was performed by this reviewer.
+
+The later Privy-only release received another read-only review. Its helper
+deliberately starts from the verified **41-applied** staging baseline and accepts
+only `1792426012000_add-provider-passkey-provenance` and
+`1792426013000_add-provider-passkey-bootstrap` as pending. New preparation and
+migration reports use `privy-passkey-release/`, preserving the original
+13-migration release evidence. The earlier TLS, owner/runtime, fixed-target,
+snapshot/fingerprint, rehearsal and stopped-writer guards remain. No new source
+blocker was identified; this review performs no release mutation and does not
+establish that the new migrations or application are deployed.

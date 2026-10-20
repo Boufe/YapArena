@@ -761,6 +761,15 @@ try {
         { exact: true },
       )
       .waitFor();
+    await page
+      .getByText("Passkey · Ready for sign-in and account approvals", {
+        exact: true,
+      })
+      .waitFor();
+    assert.equal(
+      await page.locator("#account-security-passkeys").isHidden(),
+      true,
+    );
     assert.equal(registrationCount, 1);
     assert.equal(providerInitCalls, name === "desktop" ? 1 : 0);
     assert.equal(providerLinkCalls, name === "desktop" ? 1 : 0);
@@ -980,12 +989,10 @@ try {
     await page.goto(origin);
     phase = `${name}: load security passkey controls`;
     const root = page.locator("#account-security-passkeys");
-    await root
-      .getByText(
-        "No passkey is available for account approvals. Add a passkey through Privy in Account settings.",
-        { exact: true },
-      )
-      .waitFor();
+    await page.waitForFunction(
+      () => typeof window.yapApproveProviderChange === "function",
+    );
+    assert.equal(await root.isHidden(), true);
     assert.equal(
       await root
         .getByRole("button", { name: "Add security passkey", exact: true })
@@ -1046,6 +1053,7 @@ try {
     await root
       .getByRole("button", { name: /^Remove existing security key added/ })
       .waitFor();
+    assert.equal(await root.isVisible(), true);
     assert.equal((await passkeys.list(identity.userId)).length, 1);
     phase = `${name}: replay, old-session and cross-account rejection`;
     assert.equal(completions.length, 1);

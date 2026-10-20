@@ -4,6 +4,9 @@ The actual maintained verifier exited **0 with all 18 groups passing and no
 page/backend errors**. See [terminal output](output.txt),
 [the acceptance boundary](acceptance.json) and
 [source, generated-asset and executed-runtime hashes](results.json).
+The latest run completed at **2026-10-20 19:12:17.153 UTC**, with checkout
+`14bc559` and the exact saved source/asset/dist hashes. It ran after the final
+focus/copy rebuild without rebuilding assets during the test.
 
 The desktop journey uses the installed Privy SDK's dedicated linking hook to
 register exactly one Chrome virtual credential. The intercepted synthetic
@@ -49,10 +52,17 @@ acceptance gates. Virtual CTAP2 is not physical-device or screen-reader evidence
 Public app metadata is the only real provider read. No hosted database, live
 fund, external transaction or native OS setting was changed.
 
-The screenshots revealed a stale initial load-error notice after successful
-authentication. That finding was reported and a separate fix was prepared; its
-rebuilt-asset acceptance remains required. The executed asset/dist hashes are
-the runtime boundary. Source hashes were observed when the report was written;
-parallel source-only follow-ups are not thereby claimed as executed. First-key
-restart and the new own-reset-monitor failure cases require their own final
-integrated runs.
+An earlier 18-group run revealed a stale initial load-error notice after
+authentication. The final rebuilt run verifies its correction, the Settings
+status “Ready for sign-in and account approvals”, and absence of the empty or
+provider-only legacy key section. Explicit fixture-created legacy keys still
+expose their retained management controls. Current desktop/mobile after images
+were visually inspected and show the readable single-key status without the
+stale notice. Earlier results remain in commit `ac59dc0`.
+
+The executed asset/dist hashes govern runtime scope; source hashes were observed
+when this report was written. This native verifier does not exercise the new
+expired-first-setup restart endpoint. Its ten real-PG cases, and the own-reset
+monitor failure cases, passed separately in the complete R2 gate (198 account
+cases on each fresh/upgrade path). None of these results is genuine provider,
+hosted, physical-device or screen-reader acceptance.

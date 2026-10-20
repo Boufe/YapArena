@@ -35,6 +35,36 @@
           "sha256": "996ecd6f34f5db1ce93b3d8875e84607548e1d6974ab6fb7b41d3fd448d141be"
         }
       ]
+    },
+    {
+      "reviewedAt": "2026-10-20T19:04:37.369079+00:00",
+      "repositoryHead": "ac59dc0674e367d5afca3dea0992f52a7b926d41",
+      "scope": "Read-only second-release follow-up: exact41-applied baseline, pending12000/13000 only, separate privy-passkey-release artifact path; existing release safeguards unchanged. No hosted mutation or new release acceptance.",
+      "files": [
+        {
+          "path": "scripts/release-account-staging.ts",
+          "sha256": "27aae0c92d41d590987787d0fd4a6cab191e384fbfcb6553f7228c372dc09156"
+        },
+        {
+          "path": "scripts/release-account-render.ts",
+          "sha256": "66a2f11b1ec2520f7d588ca5a407ce622406a510d52e1b680ef4ad84b9f8634b"
+        }
+      ]
+    },
+    {
+      "reviewedAt": "2026-10-20T19:10:07.890144+00:00",
+      "repositoryHead": "f58e99adb1ff1d8e252770d4051a4e5f067ab604",
+      "scope": "Read-only second-release output follow-up: Render/staging inspection artifact paths preserve first release; aggregate provider job/generation counts contain no identifiers or mutations. No new release execution.",
+      "files": [
+        {
+          "path": "scripts/release-account-render.ts",
+          "sha256": "92189db587279f683a13c51e4965610339017f071af2da7bf2c90fa07615695e"
+        },
+        {
+          "path": "scripts/verify-account-staging.ts",
+          "sha256": "d19be9930350726bf01aae151069d2dc4bbbea3287180438891bea148298de72"
+        }
+      ]
     }
   ]
 }

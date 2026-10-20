@@ -228,7 +228,7 @@ for a written eligibility/custody/routes answer; no message has been sent.
 | Review target            | Approved: review within two business days, using Toronto weekdays excluding Canadian federal holidays; show network processing/finality separately.                | Live operation still requires staffing, provider capability and release approval; a review target does not guarantee chain arrival.                                                                                          |
 | Completed purchases      | Approved: completed purchases leave through USDC withdrawals only. The earlier unused-purchase original-route refund proposal was removed by the founder.          | Failed, incorrect or reversed deposits still need support, external reconciliation and append-only corrections under the approved error policy.                                                                              |
 | Errors and disputes      | Approved: accept reports whenever submitted, review evidence and append linked corrections; operator-caused shortfalls/costs use separate operator funds.          | Quote recoverable external costs and obtain consent before attempting recovery. Ordinary trading losses remain final. External reversibility/provider capabilities still need verification.                                  |
-| All-strong-lost recovery | Approved: ordinary email access may continue, but financial activity stays locked pending selected identity-provider recovery approval.                            | No weaker-email path may bypass stronger financial authorization; no identity-review service is assumed.                                                                                                                     |
+| All-strong-lost recovery | Approved: ordinary email access may continue; operations requiring retained strong proof remain inaccessible when every strong credential is lost.                 | Physical loss is not detected and does not automatically create an account-wide hold. Email cannot reset keys; provider-approved recovery remains unresolved.                                                                |
 | Instrument integration   | Approved: keep historical A4 unchanged; connect separately identified sandbox funds to existing YES/NO debate participation.                                       | Future longer-lived idea trading remains gated; live instrument funding, provider eligibility and combined release gates remain open.                                                                                        |
 | Financial eligibility    | Empty live jurisdiction allowlist until written activity-specific assessment and provider approval.                                                                | Founder supplies any existing review or obtains it; no secrets needed. Public discovery and email signup remain independent.                                                                                                 |
 
@@ -360,6 +360,16 @@ approval for the exact intent. Activation atomically consumes its challenge,
 accepts the exact provider snapshot, revokes other local sessions and rotates
 one cookie. It preserves provider SID fences and waits for confirmed provider
 session reset before ordinary provider tokens can cross the new generation.
+
+The founder also approved a narrowly scoped restart of interrupted first setup,
+only for an account with no financial history and no prior trusted security
+method. A new one-use challenge requires native user verification, the same
+server-verified provider DID, an unconsumed provider SID and the existing reset/
+generation fences. A recorded original candidate must match its exact credential
+ID and COSE bytes. When the original intent never recorded a candidate, the
+approved fallback may select the current sole added provider key and must prove
+possession of that key. This does not extend an expired challenge, reset an
+existing strong method or authorize a funded account through email alone.
 
 Every protected request and sensitive proof must recheck that each accepted
 provider key is still linked to the same DID with the same trusted public-key

@@ -48,6 +48,25 @@ interface CoinRound {
     executed: boolean;
   };
 }
+interface CoinErrorReport {
+  id: string;
+  requestId: string;
+  description: string;
+  events: {
+    id: string;
+    kind: "review" | "recovery_consent" | "compensated";
+    outcome?: string;
+    publicNote?: string;
+    quoteId?: string;
+    quote?: {
+      amount: string;
+      network: string;
+      expiresAt: string;
+      description: string;
+    };
+    amount?: string;
+  }[];
+}
 const container = document.querySelector<HTMLElement>("#account-wallet");
 const usdc = (value: string) => {
   const n = BigInt(value),
@@ -86,18 +105,23 @@ if (container) {
     <details class="account-details"><summary>Simulate a purchase</summary><form class="stack-form" data-coin-funding><label>Test USDC amount<input name="amount" inputmode="decimal" value="10" required autocomplete="off"></label><p>Fixed simulation: 1 test USDC buys 100 YC. No crypto is sent and no provider conversion is performed.</p><button class="button" type="submit">Get simulated quote</button></form></details>
     <details class="account-details"><summary>Request a simulated withdrawal</summary><form class="stack-form" data-coin-withdraw><label>Total to deduct (USDC)<input name="gross" inputmode="decimal" value="5" required autocomplete="off"></label><label>External wallet destination<input name="destination" maxlength="200" required autocomplete="off" spellcheck="false"></label><p>Minimum deduction: 5 USDC. The displayed fee comes out of that amount. No daily cap. Purchased funds need no profit target; only grant profits have qualification rules.</p><p>Manual review target: two business days (Toronto weekdays, excluding Canadian federal holidays). Network confirmation time is additional. Pending funds stay reserved.</p><button class="button" type="submit">Review amount and network fee</button></form></details>
     <details class="account-details"><summary>Join a YES/NO debate with sandbox coins</summary><label>Existing debate<select data-coin-debate></select></label><button type="button" class="button-secondary" data-coin-open>Open or join a 5-minute round</button><div data-coin-rounds></div><form class="stack-form" data-coin-participate hidden><label>Position<select name="side"><option value="YES">YES</option><option value="NO">NO</option></select></label><label>Maximum purchase price per YC (0–1)<input name="ceiling" inputmode="decimal" value="0.5" required></label><label>Quantity (1–100)<input name="quantity" type="number" min="1" max="100" value="1" required></label><p>The first commitment is final. Oldest grants are used first. A4 uses the existing YES/NO mechanism; participation is not a bet on an externally judged winner.</p><button class="button" type="submit">Review and commit participation</button></form></details>
-    <h4>Sandbox receipts</h4><ul class="account-list" data-coin-receipts></ul>`;
+    <h4>Sandbox receipts</h4><ul class="account-list" data-coin-receipts></ul>
+    <details class="account-details"><summary>Report a deposit or payout error</summary><p>Reports have no submission deadline. Include the receipt ID and explain what went wrong. Do not include passwords, verification codes or private keys. Ordinary trading losses are final.</p><form class="stack-form" data-coin-report><label>Receipt ID<input name="requestId" required maxlength="36" autocomplete="off" spellcheck="false"></label><label>What happened?<textarea name="description" required maxlength="2000" rows="4"></textarea></label><button class="button-secondary" type="submit">Submit error report</button></form><p data-coin-report-notice role="status" aria-live="polite" aria-atomic="true"></p><ul class="account-list" data-coin-reports></ul></details>`;
   container.append(root);
   const select = <T extends Element>(selector: string) =>
     root.querySelector<T>(selector)!;
   const notice = select<HTMLElement>("[data-coin-notice]"),
     balanceList = select<HTMLElement>("[data-coin-balances]"),
     grants = select<HTMLElement>("[data-coin-grants]"),
-    receipts = select<HTMLElement>("[data-coin-receipts]");
+    receipts = select<HTMLElement>("[data-coin-receipts]"),
+    reportList = select<HTMLElement>("[data-coin-reports]"),
+    reportNotice = select<HTMLElement>("[data-coin-report-notice]"),
+    reportForm = select<HTMLFormElement>("[data-coin-report]");
   const funding = select<HTMLFormElement>("[data-coin-funding]"),
     withdraw = select<HTMLFormElement>("[data-coin-withdraw]"),
     participation = select<HTMLFormElement>("[data-coin-participate]"),
     debate = select<HTMLSelectElement>("[data-coin-debate]");
+  reportNotice.tabIndex = -1;
   let version = 0,
     busy = false,
     roundId: string | null = null,
@@ -171,6 +195,7 @@ if (container) {
         setBusy(false);
         if (
           initiatingControl?.isConnected &&
+          document.activeElement !== reportNotice &&
           !root.hidden &&
           initiatingControl.getClientRects().length &&
           !document.querySelector("dialog[open]")
@@ -218,6 +243,21 @@ if (container) {
     for (const request of summary.requests) {
       const item = document.createElement("li");
       item.textContent = `${request.kind} · ${request.status} · ${request.terms.gross ? `deduct ${usdc(request.terms.gross)}, fee ${usdc(request.terms.fee!)}, receive ${usdc(request.terms.net!)}` : request.terms.amount ? usdc(request.terms.amount) : `${request.terms.side ?? ""} ${request.terms.quantity ?? ""} YC`} · ${request.id}`;
+      if (["funding", "withdrawal"].includes(request.kind)) {
+        const report = document.createElement("button");
+        report.type = "button";
+        report.className = "button-secondary";
+        report.textContent = "Report a problem";
+        report.disabled = busy;
+        report.onclick = () => {
+          const input = reportForm.elements.namedItem("requestId");
+          if (!(input instanceof HTMLInputElement)) return;
+          input.value = request.id;
+          reportForm.closest("details")!.open = true;
+          reportForm.querySelector("textarea")!.focus();
+        };
+        item.append(report);
+      }
       receipts.append(item);
     }
     select<HTMLButtonElement>("[data-coin-initialize]").hidden =
@@ -225,7 +265,108 @@ if (container) {
     notice.textContent = summary.financialReviewRequired
       ? "Financial activity is paused for correction review. Ordinary account access remains available."
       : "Sandbox balances refreshed. Simulated withdrawals require manual operator review.";
+    await loadReports(generation);
   }
+  async function loadReports(generation = version) {
+    try {
+      const reports = await api<CoinErrorReport[]>("/reports");
+      if (generation !== version) return;
+      reportList.replaceChildren();
+      for (const report of reports) {
+        const item = document.createElement("li"),
+          description = document.createElement("p");
+        description.textContent = `${report.requestId}: ${report.description}`;
+        item.append(description);
+        const latest = report.events.at(-1);
+        for (const event of report.events) {
+          const detail = document.createElement("p");
+          detail.textContent =
+            event.kind === "recovery_consent"
+              ? "Recovery cost consent recorded. No charge or recovery started."
+              : event.kind === "compensated"
+                ? `${usdc(event.amount!)} restored to its original balance sources.`
+                : event.publicNote || "Operator review recorded.";
+          item.append(detail);
+          if (
+            event.id === latest?.id &&
+            event.quote &&
+            event.quoteId &&
+            new Date(event.quote.expiresAt).getTime() > Date.now()
+          ) {
+            const quoteId = event.quoteId,
+              cost = document.createElement("p"),
+              consent = document.createElement("button");
+            cost.textContent = `${event.quote.description}: ${usdc(event.quote.amount)} on ${event.quote.network}. Expires ${new Date(event.quote.expiresAt).toLocaleString()}. Consent records your agreement only; no charge or recovery starts.`;
+            consent.type = "button";
+            consent.className = "button-secondary";
+            consent.textContent = "Review recovery cost";
+            consent.disabled = busy;
+            consent.onclick = () =>
+              void action(async (g) => {
+                if (!window.yapApproveRecoveryCost || !sessionId)
+                  throw new Error(
+                    "Security approval is still loading. Try again shortly.",
+                  );
+                const current = await api<{ terms: Record<string, string> }>(
+                  `/reports/${report.id}/recovery-quotes/${quoteId}`,
+                );
+                if (g !== version) return;
+                const approval = await window.yapApproveRecoveryCost(
+                  report.id,
+                  quoteId,
+                  current.terms,
+                  sessionId,
+                );
+                if (g !== version) return;
+                await api(
+                  `/reports/${report.id}/recovery-consents`,
+                  "POST",
+                  { quoteId, approval },
+                  key(`recovery-consent:${report.id}:${quoteId}`),
+                );
+                if (g !== version) return;
+                await loadReports(g);
+                if (g !== version) return;
+                reportNotice.textContent =
+                  "Recovery cost consent recorded. No charge or recovery started.";
+                reportNotice.focus();
+                notice.textContent =
+                  "Recovery cost consent recorded. No charge or recovery started.";
+              });
+            item.append(cost, consent);
+          }
+        }
+        reportList.append(item);
+      }
+      reportNotice.textContent = reports.length
+        ? "Showing the latest 50 reports. Every submitted report is retained."
+        : "No deposit or payout errors reported.";
+    } catch {
+      if (generation === version)
+        reportNotice.textContent =
+          "Error reports could not be loaded. Refresh the sandbox to try again.";
+    }
+  }
+  reportForm.onsubmit = (event) => {
+    event.preventDefault();
+    void action(async (g) => {
+      const data = new FormData(reportForm),
+        requestId = String(data.get("requestId")).trim(),
+        description = String(data.get("description")).trim(),
+        scope = JSON.stringify(["report", requestId, description]);
+      await api("/reports", "POST", { requestId, description }, key(scope));
+      if (g !== version) return;
+      keys.delete(scope);
+      reportForm.reset();
+      await loadReports(g);
+      if (g !== version) return;
+      reportNotice.textContent =
+        "Error report recorded for evidence review. No funds were changed.";
+      reportNotice.focus();
+      notice.textContent =
+        "Error report recorded for evidence review. No funds were changed.";
+    });
+  };
   async function loadRounds(generation = version) {
     if (!debate.value) return;
     const rows = await api<CoinRound[]>(
@@ -385,6 +526,18 @@ if (container) {
     setBusy(false);
     sessionId = null;
     root.hidden = true;
+    receipts.replaceChildren();
+    grants.replaceChildren();
+    balanceList.replaceChildren();
+    select<HTMLElement>("[data-coin-rounds]").replaceChildren();
+    funding.reset();
+    withdraw.reset();
+    participation.reset();
+    participation.hidden = true;
+    notice.textContent = "";
+    reportList.replaceChildren();
+    reportForm.reset();
+    reportNotice.textContent = "";
     keys.clear();
     roundId = null;
     debate.replaceChildren();
@@ -413,11 +566,24 @@ if (container) {
   window.addEventListener("yap:account-changed", () => void start());
   window.addEventListener("yap:provider-logout", () => {
     ++version;
+    sessionId = null;
+    roundId = null;
+    setBusy(false);
     root.hidden = true;
     keys.clear();
     receipts.replaceChildren();
+    reportList.replaceChildren();
+    reportForm.reset();
+    reportNotice.textContent = "";
     grants.replaceChildren();
     balanceList.replaceChildren();
+    select<HTMLElement>("[data-coin-rounds]").replaceChildren();
+    debate.replaceChildren();
+    funding.reset();
+    withdraw.reset();
+    participation.reset();
+    participation.hidden = true;
+    notice.textContent = "";
   });
   void start();
 }

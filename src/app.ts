@@ -197,7 +197,7 @@ export function createApp({
   accountWallet?: ReturnType<typeof createAccountWallet>;
   coinSandbox?: Pick<
     Parameters<typeof createCoinSandboxRouter>[0],
-    "sandbox" | "debates" | "operations"
+    "sandbox" | "debates" | "operations" | "reports"
   >;
   coinWebhook?: RequestHandler;
   synchronizeProvider?: (userId: string) => Promise<void>;

@@ -16,6 +16,13 @@
   min-height: 28px;
   margin-bottom: 32px;
 }
+.account-status-row:has(.account-checking-signout:not([hidden])) {
+  flex-wrap: wrap;
+}
+.account-checking-signout {
+  margin-left: auto;
+  max-width: 100%;
+}
 .account-back {
   color: #a3b4c5;
   font-size: 0.8rem;
@@ -612,6 +619,7 @@
   font-size: 1.75rem;
 }
 .account-page .account-auth-methods h3,
+.account-page #account-security-passkeys h3,
 .account-page .account-session-controls h3 {
   font-size: 0.85rem;
   letter-spacing: -0.015em;

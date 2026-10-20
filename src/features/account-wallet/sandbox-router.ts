@@ -2,6 +2,7 @@ import { Router, type Request, type RequestHandler } from "express";
 import { rateLimit } from "express-rate-limit";
 import type { createCoinSandboxRepository } from "./sandbox-repository.ts";
 import type { createCoinDebateSandbox } from "./debate-sandbox.ts";
+import type { createSandboxErrorReports } from "./sandbox-reports.ts";
 import { CoinOperationError } from "./external-operations.ts";
 import type { createAccountOperationRepository } from "../../platform/auth/account-operations.ts";
 import { AccountOperationError } from "../../platform/auth/account-operations.ts";
@@ -45,6 +46,7 @@ export function createCoinSandboxRouter(options: {
   sandbox: ReturnType<typeof createCoinSandboxRepository>;
   debates: ReturnType<typeof createCoinDebateSandbox>;
   operations: ReturnType<typeof createAccountOperationRepository>;
+  reports?: ReturnType<typeof createSandboxErrorReports>;
   environment: string;
   applicationOrigin: string;
   rpcUrls?: Readonly<Record<string, string>>;
@@ -207,6 +209,82 @@ export function createCoinSandboxRouter(options: {
     body(r.body, []);
     s.json(await debates.advance(20, context(r)));
   });
+  if (options.reports) {
+    const reports = options.reports;
+    router.get("/reports", async (r, s) =>
+      s.json(await reports.list(context(r))),
+    );
+    router.post("/reports", async (r, s) => {
+      const b = body(r.body, ["requestId", "description"]);
+      s.status(201).json(
+        await reports.submit(context(r), {
+          requestId: id(b.requestId),
+          message: text(b.description),
+          idempotencyKey: key(r),
+        }),
+      );
+    });
+    router.get("/reports/:id", async (r, s) =>
+      s.json(await reports.get(context(r), id(r.params.id))),
+    );
+    router.get("/reports/:id/recovery-quotes/:quoteId", async (r, s) =>
+      s.json(
+        await reports.getConsentTerms(context(r), {
+          reportId: id(r.params.id),
+          quoteId: id(r.params.quoteId),
+        }),
+      ),
+    );
+    router.post(
+      "/reports/:id/recovery-consents/authorization",
+      async (r, s) => {
+        const b = body(r.body, ["quoteId", "credential"]),
+          actor = context(r),
+          quoted = await reports.getConsentTerms(actor, {
+            reportId: id(r.params.id),
+            quoteId: id(b.quoteId),
+          }),
+          operation = await operations.create({
+            ...actor,
+            purpose: "recovery.cost.consent",
+            terms: quoted.terms,
+            credential: parseAccountOperationCredential(b.credential),
+            origin: options.applicationOrigin,
+          });
+        s.status(201).json({
+          id: operation.id,
+          expiresAt: operation.expiresAt,
+          authorizationMessage: operation.authorizationMessage,
+          authenticationOptions: operation.authenticationOptions,
+          terms: quoted.terms,
+        });
+      },
+    );
+    router.post("/reports/:id/recovery-consents", async (r, s) => {
+      const b = body(r.body, ["quoteId", "approval"]),
+        actor = context(r),
+        reportId = id(r.params.id),
+        quoteId = id(b.quoteId),
+        proof = parseAccountOperationApproval(b.approval),
+        quoted = await reports.getConsentTerms(actor, { reportId, quoteId }),
+        approval = await operations.prepare({
+          ...actor,
+          ...proof,
+          purpose: "recovery.cost.consent",
+          terms: quoted.terms,
+          origin: options.applicationOrigin,
+          rpcUrls: options.rpcUrls ?? {},
+        });
+      s.json(
+        await reports.consent(actor, {
+          reportId,
+          quoteId,
+          approval,
+          idempotencyKey: key(r),
+        }),
+      );
+    });
+  }
   router.use(
     (
       error: unknown,

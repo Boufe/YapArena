@@ -3,6 +3,7 @@ import { createAccountWallet } from "./features/account-wallet/repository.ts";
 import { createCoinSandboxRepository } from "./features/account-wallet/sandbox-repository.ts";
 import { createCoinDebateSandbox } from "./features/account-wallet/debate-sandbox.ts";
 import { createSandboxWebhookRouter } from "./features/account-wallet/sandbox-webhooks.ts";
+import { createSandboxErrorReports } from "./features/account-wallet/sandbox-reports.ts";
 import { createPublicBotRepository } from "./features/a4/public-bots.ts";
 import { createApp } from "./app.ts";
 import { createMessageRepository } from "./features/messages/repository.ts";
@@ -195,6 +196,7 @@ const app = createApp({
         sandbox: createCoinSandboxRepository(database, { rail: "simulation" }),
         debates: coinDebates,
         operations: accountSecurity.operations,
+        reports: createSandboxErrorReports(database, "simulation"),
       }
     : undefined,
   messages,

@@ -8,7 +8,9 @@ of fetched `origin/main` (`fd60543`), with no incoming main changes.
 The shared server header now covers discovery, Live, debates, topics, profiles,
 matching, coins, account, moderation and measurement pages. The broadcast overlay
 remains a clean broadcast asset. Homepage All ideas / Following filters and idea
-search remain in a toolbar below navigation. Links to the account page and
+search remain in a toolbar below navigation. The [native search fallback](search-fallback-results.json)
+retains Enter-to-search on `/topics` when JavaScript is disabled; the full
+homepage browser trial and seven focused unit tests pass after this correction. Links to the account page and
 protected actions use the same login/signup popup for visitors. Modified/new-tab
 links and the deliberate legacy-account fallback retain normal navigation.
 

@@ -1010,6 +1010,13 @@ try {
   assert.ok(plain.url().endsWith("/debates/published-debate"));
   assert.equal(await plain.locator("[data-media-event]").count(), 1);
   await plain.goto(base);
+  await plain.getByRole("searchbox", { name: "Search ideas" }).fill("idea");
+  await Promise.all([
+    plain.waitForURL((url) => url.pathname === "/topics"),
+    plain.getByRole("searchbox", { name: "Search ideas" }).press("Enter"),
+  ]);
+  assert.equal(new URL(plain.url()).searchParams.get("q"), "idea");
+  await plain.goto(base);
   await plain.getByRole("link", { name: "Log in", exact: true }).click();
   assert.equal(await plain.locator("#wallet-login").count(), 1);
   await nojs.close();

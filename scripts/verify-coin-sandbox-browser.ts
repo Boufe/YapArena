@@ -800,6 +800,63 @@ try {
     checks.push(
       `${name}: delayed actual daily-claim response from the old account cannot repopulate its balances in the replacement account or leave replacement controls disabled`,
     );
+    phase = `${name}: logout clears an unfinished retained-proof dialog`;
+    page.once("dialog", (dialog) => void dialog.accept());
+    await root
+      .locator("[data-coin-withdraw]")
+      .getByRole("button", {
+        name: "Review amount and network fee",
+        exact: true,
+      })
+      .click();
+    await approval
+      .getByRole("heading", { name: "Approve sandbox withdrawal", exact: true })
+      .waitFor();
+    await approval
+      .getByLabel("Approve with", { exact: false })
+      .selectOption("password");
+    const abandonedPassword = approval.getByLabel("Current password", {
+      exact: true,
+    });
+    await abandonedPassword.fill(fixturePassword);
+    const abandonedInput = await abandonedPassword.elementHandle();
+    assert.ok(abandonedInput);
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("yap:provider-logout"));
+    });
+    assert.equal(await approval.count(), 0);
+    assert.equal(
+      await abandonedInput.evaluate((input) =>
+        input instanceof HTMLInputElement ? input.value : null,
+      ),
+      "",
+    );
+    await abandonedInput.dispose();
+    assert.equal(
+      (
+        await sandbox.summary({
+          userId: identity.userId,
+          sessionTokenHash: hashSessionToken(currentToken),
+        })
+      ).balances.reserved,
+      "5000000",
+    );
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("yap:account-changed"));
+    });
+    await root
+      .locator("[data-coin-balances] div")
+      .filter({ hasText: "Purchased principal" })
+      .getByText("500 YC", { exact: true })
+      .waitFor();
+    await page.waitForFunction(
+      () =>
+        "yapApproveCoinWithdrawal" in window &&
+        typeof window.yapApproveCoinWithdrawal === "function",
+    );
+    checks.push(
+      `${name}: the actual logout event removes unfinished security approval, erases its detached password input and does not create another reserve; a subsequent account refresh restores working controls`,
+    );
     phase = `${name}: keyboard, mobile and 200 percent layout zoom acceptance`;
     await automatedA11y(page);
     await page.screenshot({

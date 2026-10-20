@@ -1,6 +1,7 @@
 import {
   startAuthentication,
   startRegistration,
+  WebAuthnAbortService,
 } from "@simplewebauthn/browser";
 import type {
   AuthenticationResponseJSON,
@@ -75,7 +76,13 @@ if (mount) {
   root.append(heading, help, list, add, notice);
   let keys: SecurityKey[] = [],
     busy = false,
-    version = 0;
+    version = 0,
+    logoutGeneration = 0;
+  let cancelApproval: (() => void) | undefined;
+  function assertGeneration(generation: number) {
+    if (generation !== logoutGeneration)
+      throw new DOMException("Security change cancelled", "AbortError");
+  }
   async function request(
     path: string,
     method = "GET",
@@ -211,11 +218,13 @@ if (mount) {
     issue?: (credential: SecurityCredential) => Promise<Operation>,
     excludedWallet?: string,
   ): Promise<Approval> {
+    const generation = logoutGeneration;
     const [methods, walletData, securityData] = await Promise.all([
       api<{ legacyPassword: boolean }>("/methods"),
       api<{ wallets: Wallet[] }>("/wallets"),
       api<{ passkeys: SecurityKey[] }>("/security/passkeys"),
     ]);
+    assertGeneration(generation);
     const dialog = document.createElement("dialog");
     dialog.className = "information-card account-operation-dialog";
     const form = document.createElement("form"),
@@ -322,12 +331,21 @@ if (mount) {
     return new Promise((resolve, reject) => {
       let finished = false,
         submitting = false;
-      const close = () => {
+      const close = (restoreFocus = true) => {
+        if (cancelApproval === cancelForLogout) cancelApproval = undefined;
         password.value = "";
         dialog.close();
         dialog.remove();
-        (prior?.isConnected ? prior : add).focus();
+        if (restoreFocus) (prior?.isConnected ? prior : add).focus();
       };
+      const cancelForLogout = () => {
+        if (finished) return;
+        finished = true;
+        WebAuthnAbortService.cancelCeremony();
+        close(false);
+        reject(new DOMException("Security change cancelled", "AbortError"));
+      };
+      cancelApproval = cancelForLogout;
       const abort = () => {
         if (finished || submitting) return;
         finished = true;
@@ -365,6 +383,7 @@ if (mount) {
                 terms,
                 credential,
               });
+          if (finished || generation !== logoutGeneration) return;
           const proof: Approval = { id: operation.id };
           if (selected === "password") proof.password = password.value;
           else if (selected.startsWith("passkey:")) {
@@ -384,11 +403,13 @@ if (mount) {
               wallet,
             );
           }
+          if (finished || generation !== logoutGeneration) return;
           finished = true;
           password.value = "";
           close();
           resolve(proof);
         } catch (error) {
+          if (finished) return;
           message.textContent =
             error instanceof Error
               ? error.message
@@ -409,6 +430,7 @@ if (mount) {
   }
   async function enroll() {
     if (busy) return;
+    const generation = logoutGeneration;
     setBusy(true);
     notice.textContent = "Preparing security passkey setup…";
     let completionSent = false;
@@ -418,27 +440,33 @@ if (mount) {
         options: PublicKeyCredentialCreationOptionsJSON;
         bootstrapAllowed: boolean;
       }>("/security/passkeys/enrollment", "POST", {});
+      assertGeneration(generation);
       const proof = challenge.bootstrapAllowed
         ? undefined
         : await approval("security.passkey.enroll", {
             challengeId: challenge.id,
           });
+      assertGeneration(generation);
       notice.textContent =
         "Follow your device’s prompt to create your security passkey.";
       const response = await startRegistration({
         optionsJSON: challenge.options,
       });
+      assertGeneration(generation);
       completionSent = true;
       await api(
         `/security/passkeys/enrollment/${encodeURIComponent(challenge.id)}/complete`,
         "POST",
         { response, approval: proof },
       );
+      assertGeneration(generation);
       changed();
       await load();
+      assertGeneration(generation);
       notice.textContent =
         "Security passkey added. Other sessions were signed out.";
     } catch (error) {
+      if (generation !== logoutGeneration) return;
       notice.textContent =
         completionSent && !(error instanceof SecurityResponseError)
           ? "The setup result could not be confirmed. Refresh your passkey list before trying again."
@@ -448,12 +476,15 @@ if (mount) {
               ? error.message
               : "Security passkey setup is unavailable.";
     } finally {
-      setBusy(false);
-      add.focus();
+      if (generation === logoutGeneration) {
+        setBusy(false);
+        add.focus();
+      }
     }
   }
   async function removeKey(key: SecurityKey) {
     if (busy) return;
+    const generation = logoutGeneration;
     setBusy(true);
     let completionSent = false;
     try {
@@ -462,6 +493,7 @@ if (mount) {
         { keyId: key.id },
         key.id,
       );
+      assertGeneration(generation);
       completionSent = true;
       await request(
         `/security/passkeys/${encodeURIComponent(key.id)}`,
@@ -470,11 +502,14 @@ if (mount) {
           approval: proof,
         },
       );
+      assertGeneration(generation);
       changed();
       await load();
+      assertGeneration(generation);
       notice.textContent =
         "Security passkey removed. Other sessions were signed out.";
     } catch (error) {
+      if (generation !== logoutGeneration) return;
       notice.textContent =
         completionSent && !(error instanceof SecurityResponseError)
           ? "Removal could not be confirmed. Refresh your passkey list before trying again."
@@ -484,13 +519,16 @@ if (mount) {
               ? error.message
               : "Passkey removal is unavailable.";
     } finally {
-      setBusy(false);
-      add.focus();
+      if (generation === logoutGeneration) {
+        setBusy(false);
+        add.focus();
+      }
     }
   }
   add.addEventListener("click", () => void enroll());
   async function changeWallet(target: WalletChangeTarget) {
     if (busy) return;
+    const generation = logoutGeneration;
     setBusy(true);
     const prior =
       document.activeElement instanceof HTMLElement
@@ -521,6 +559,7 @@ if (mount) {
         },
         target.purpose === "unlink" ? target.targetWalletId : undefined,
       );
+      assertGeneration(generation);
       let proposedSignature: string | undefined;
       if (target.purpose === "link") {
         if (!issued.operation?.proposedMessage)
@@ -531,6 +570,7 @@ if (mount) {
           issued.operation.proposedMessage,
           { address: target.address, chainId: String(target.chainId) },
         );
+        assertGeneration(generation);
       }
       completionSent = true;
       await api(
@@ -538,13 +578,16 @@ if (mount) {
         "POST",
         { ...target, approval: proof, proposedSignature },
       );
+      assertGeneration(generation);
       changed();
       await load();
+      assertGeneration(generation);
       notice.textContent =
         target.purpose === "link"
           ? "Wallet linked. Your session was renewed."
           : "Wallet unlinked. Other sessions were signed out.";
     } catch (error) {
+      if (generation !== logoutGeneration) return;
       notice.textContent =
         completionSent && !(error instanceof SecurityResponseError)
           ? "The wallet change could not be confirmed. Refresh linked wallets before trying again."
@@ -554,12 +597,15 @@ if (mount) {
               ? error.message
               : "Wallet change is unavailable.";
     } finally {
-      setBusy(false);
-      (prior?.isConnected ? prior : add).focus();
+      if (generation === logoutGeneration) {
+        setBusy(false);
+        (prior?.isConnected ? prior : add).focus();
+      }
     }
   }
   async function linkProviderIdentity(token: string) {
     if (busy) throw new Error("Finish the current security change first.");
+    const generation = logoutGeneration;
     setBusy(true);
     let completionSent = false;
     try {
@@ -569,6 +615,7 @@ if (mount) {
         {},
         token,
       );
+      assertGeneration(generation);
       const proof = await approval(
         "provider.identity.link",
         { email: candidate.email ?? "the verified account" },
@@ -586,6 +633,7 @@ if (mount) {
           return operation;
         },
       );
+      assertGeneration(generation);
       completionSent = true;
       await request(
         `/security/provider/link/${encodeURIComponent(proof.id)}/complete`,
@@ -593,11 +641,14 @@ if (mount) {
         { approval: proof },
         token,
       );
+      assertGeneration(generation);
       changed();
       await load();
+      assertGeneration(generation);
       notice.textContent =
         "Sign-in method linked to your existing account. Other sessions were signed out.";
     } catch (error) {
+      if (generation !== logoutGeneration) throw error;
       notice.textContent =
         completionSent && !(error instanceof SecurityResponseError)
           ? "The link result could not be confirmed. Refresh account settings before trying again."
@@ -608,22 +659,26 @@ if (mount) {
               : "Sign-in linking is unavailable.";
       throw error;
     } finally {
-      setBusy(false);
-      add.focus();
+      if (generation === logoutGeneration) {
+        setBusy(false);
+        add.focus();
+      }
     }
   }
   async function approveProviderChange(change: ProviderChange) {
     if (busy) throw new Error("Finish the current security change first.");
+    const generation = logoutGeneration;
     setBusy(true);
     try {
       const terms = { ...change },
         proof = await approval("provider.credentials.change", terms);
+      assertGeneration(generation);
       await request("/security/provider/change", "POST", {
         terms,
         approval: proof,
       });
     } finally {
-      setBusy(false);
+      if (generation === logoutGeneration) setBusy(false);
     }
   }
   async function approveCoinWithdrawal(
@@ -632,6 +687,7 @@ if (mount) {
     sessionId: string,
   ) {
     if (busy) throw new Error("Finish the current security change first.");
+    const generation = logoutGeneration;
     setBusy(true);
     try {
       return await approval(
@@ -675,11 +731,15 @@ if (mount) {
         },
       );
     } finally {
-      setBusy(false);
+      if (generation === logoutGeneration) setBusy(false);
     }
   }
   window.addEventListener("yap:account-changed", () => void load());
   window.addEventListener("yap:provider-logout", () => {
+    ++logoutGeneration;
+    cancelApproval?.();
+    WebAuthnAbortService.cancelCeremony();
+    setBusy(false);
     delete window.yapSecurityWalletChange;
     delete window.yapLinkProviderIdentity;
     delete window.yapApproveProviderChange;

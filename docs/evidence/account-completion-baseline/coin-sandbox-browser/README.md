@@ -29,7 +29,9 @@ allows participation in a real five-minute YES/NO round without accelerating
 the application schedule. A cookie switch during the browser's blocking
 confirmation must reject spending by the replacement session. A delayed
 old-account response must preserve the replacement account's private state and
-usable controls.
+usable controls. The actual logout event must also remove an unfinished
+security approval, erase the detached password input and leave reserves
+unchanged; refreshing the account restores usable controls.
 
 Automated axe checks use WCAG 2.0/2.1/2.2 A/AA tags. The verifier checks keyboard
 activation, dialog focus and horizontal reflow at normal and CSS 200% layout

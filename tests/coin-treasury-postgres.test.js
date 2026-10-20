@@ -1,0 +1,343 @@
+import assert from "node:assert/strict";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { before, after, describe, it } from "node:test";
+import pg from "pg";
+import {
+  createCoinSandboxOperatorRepository,
+  createCoinSandboxRepository,
+} from "../dist/features/account-wallet/sandbox-repository.js";
+import { hashPassword } from "../dist/platform/auth/passwords.js";
+
+const ownerUrl = process.env.COIN_TREASURY_TEST_OWNER_DATABASE_URL,
+  runtimeUrl = process.env.COIN_TREASURY_TEST_DATABASE_URL;
+const custody = "0x1111111111111111111111111111111111111111",
+  network = "base-sepolia:84532",
+  config = { rail: "base-sepolia", depositDestination: custody };
+describe(
+  "receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger",
+  { skip: !ownerUrl || !runtimeUrl },
+  () => {
+    let owner, a, b, runtime, operator, other, passwordHash;
+    before(async () => {
+      for (const value of [ownerUrl, runtimeUrl]) {
+        const url = new URL(value);
+        assert.ok(["localhost", "127.0.0.1"].includes(url.hostname));
+        assert.match(
+          url.pathname,
+          /^\/revocation_test_coin_treasury(?:_(?:fresh|upgrade|ci))?$/,
+        );
+      }
+      const options = { options: "-c search_path=pg_catalog,yaparena,pg_temp" };
+      owner = new pg.Pool({ ...options, connectionString: ownerUrl });
+      a = new pg.Pool({ ...options, connectionString: ownerUrl });
+      b = new pg.Pool({ ...options, connectionString: ownerUrl });
+      runtime = new pg.Pool({ ...options, connectionString: runtimeUrl });
+      const current = (
+        await owner.query(
+          "SELECT rail FROM coin_sandbox_controls WHERE singleton",
+        )
+      ).rows[0];
+      if (current.rail !== "base-sepolia")
+        await owner.query(
+          "UPDATE coin_sandbox_controls SET rail='base-sepolia' WHERE singleton",
+        );
+      operator = createCoinSandboxOperatorRepository(a, config);
+      other = createCoinSandboxOperatorRepository(b, config);
+      passwordHash = await hashPassword(
+        "synthetic treasury fixture passphrase",
+      );
+    });
+    after(async () => {
+      await Promise.all([owner?.end(), a?.end(), b?.end(), runtime?.end()]);
+    });
+    async function actor() {
+      return (
+        await owner.query(
+          "INSERT INTO users(password_hash) VALUES($1) RETURNING id",
+          [passwordHash],
+        )
+      ).rows[0].id;
+    }
+    function evidence(amount = "1000000") {
+      const transactionId = `0x${randomBytes(32).toString("hex")}`;
+      return {
+        network,
+        transactionId,
+        locator: "log:0",
+        amount,
+        evidenceDigest: createHash("sha256")
+          .update(
+            JSON.stringify([
+              "synthetic finalized incoming receipt fixture",
+              transactionId,
+              amount,
+              custody,
+            ]),
+          )
+          .digest("hex"),
+      };
+    }
+    async function balance(purpose) {
+      return (
+        (
+          await owner.query(
+            "SELECT a.balance::text FROM coin_sandbox_system_accounts s JOIN coin_accounts a ON a.id=s.account_id WHERE s.purpose=$1",
+            [purpose],
+          )
+        ).rows[0]?.balance ?? "0"
+      );
+    }
+    it("credits only separately identified system treasury buckets without issuing purchased coins, grants or cash to the audit account", async () => {
+      const userId = await actor(),
+        historical = (
+          await owner.query("SELECT count(*)::int n FROM a4_postings")
+        ).rows[0].n;
+      for (const purpose of ["promotional", "center", "correction"]) {
+        const destination = `${purpose}_available`,
+          before = BigInt(await balance(destination));
+        const result = await operator.confirmTreasuryFunding({
+          operatorUserId: userId,
+          purpose,
+          amount: "1000000",
+          idempotencyKey: randomUUID(),
+          receipt: evidence(),
+        });
+        assert.equal(result.created, true);
+        assert.equal(result.request.kind, "treasury");
+        assert.equal(result.request.status, "completed");
+        assert.equal(BigInt(await balance(destination)) - before, 1000000n);
+        for (const [key, value] of Object.entries({
+          environment: "sandbox",
+          rail: "base-sepolia",
+          network,
+          asset: "USDC",
+          precision: "6",
+          destination: custody,
+          purpose,
+          amount: "1000000",
+        }))
+          assert.equal(result.request.terms[key], value);
+      }
+      const book = (
+        await owner.query(
+          "SELECT book FROM coin_sandbox_books WHERE user_id=$1",
+          [userId],
+        )
+      ).rows[0].book;
+      assert.deepEqual(book.grants, []);
+      assert.deepEqual(book.purchased, []);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT COALESCE(sum(balance),0)::text amount FROM coin_accounts WHERE user_id=$1",
+            [userId],
+          )
+        ).rows[0].amount,
+        "0",
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM coin_grant_lots WHERE user_id=$1",
+            [userId],
+          )
+        ).rows[0].n,
+        0,
+      );
+      assert.equal(
+        (await owner.query("SELECT count(*)::int n FROM a4_postings")).rows[0]
+          .n,
+        historical,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            `SELECT count(*)::int n FROM coin_journals j WHERE environment='sandbox' AND EXISTS(SELECT 1 FROM coin_postings p WHERE p.journal_id=j.id) AND (SELECT sum(amount) FROM coin_postings p WHERE p.journal_id=j.id)<>0`,
+          )
+        ).rows[0].n,
+        0,
+      );
+    });
+    it("consumes one exact external receipt and immutable idempotency scope across concurrent owner instances", async () => {
+      const userId = await actor(),
+        receipt = evidence(),
+        input = {
+          operatorUserId: userId,
+          purpose: "promotional",
+          amount: receipt.amount,
+          idempotencyKey: randomUUID(),
+          receipt,
+        },
+        before = BigInt(await balance("promotional_available"));
+      const results = await Promise.all([
+        operator.confirmTreasuryFunding(input),
+        other.confirmTreasuryFunding(input),
+      ]);
+      assert.equal(results.filter((result) => result.created).length, 1);
+      assert.equal(new Set(results.map((result) => result.request.id)).size, 1);
+      assert.equal(
+        BigInt(await balance("promotional_available")) - before,
+        1000000n,
+      );
+      for (const changes of [
+        { amount: "2000000", receipt: evidence("2000000") },
+        { purpose: "center" },
+        { receipt: evidence() },
+      ])
+        await assert.rejects(
+          operator.confirmTreasuryFunding({ ...input, ...changes }),
+          /idempotency conflict|assigned or conflicts/,
+        );
+      await assert.rejects(
+        operator.confirmTreasuryFunding({
+          ...input,
+          idempotencyKey: randomUUID(),
+        }),
+        /assigned or conflicts/,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM coin_sandbox_requests WHERE user_id=$1 AND kind='treasury'",
+            [userId],
+          )
+        ).rows[0].n,
+        1,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM coin_external_receipts WHERE transaction_id=$1",
+            [receipt.transactionId],
+          )
+        ).rows[0].n,
+        1,
+      );
+    });
+    it("globally rejects reassigning a treasury receipt to another operator or a purchased funding request", async () => {
+      const first = await actor(),
+        second = await actor(),
+        receipt = evidence(),
+        input = {
+          purpose: "center",
+          amount: receipt.amount,
+          idempotencyKey: randomUUID(),
+          receipt,
+        };
+      const results = await Promise.allSettled([
+        operator.confirmTreasuryFunding({ ...input, operatorUserId: first }),
+        other.confirmTreasuryFunding({ ...input, operatorUserId: second }),
+      ]);
+      assert.equal(
+        results.filter((result) => result.status === "fulfilled").length,
+        1,
+      );
+      assert.equal(
+        results.filter((result) => result.status === "rejected").length,
+        1,
+      );
+      const fundingId = randomUUID(),
+        terms = {
+          environment: "sandbox",
+          rail: "base-sepolia",
+          network,
+          asset: "USDC",
+          precision: "6",
+          amount: receipt.amount,
+          destination: custody,
+        };
+      await owner.query(
+        "INSERT INTO coin_sandbox_requests(id,user_id,kind,reference,terms_digest,terms,status) VALUES($1,$2,'funding',$3,$4,$5::jsonb,'quoted')",
+        [
+          fundingId,
+          second,
+          randomBytes(32).toString("hex"),
+          randomBytes(32).toString("hex"),
+          JSON.stringify(terms),
+        ],
+      );
+      await assert.rejects(
+        operator.confirmFunding({
+          userId: second,
+          requestId: fundingId,
+          receipt,
+        }),
+        /assigned or conflicts/,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT COALESCE(sum(balance),0)::text amount FROM coin_accounts WHERE user_id=$1 AND asset='USDC'",
+            [second],
+          )
+        ).rows[0].amount,
+        "0",
+      );
+    });
+    it("rejects runtime authority, simulation credits, mismatched receipts and ordinary funding completion of treasury requests", async () => {
+      const userId = await actor(),
+        receipt = evidence(),
+        input = {
+          operatorUserId: userId,
+          purpose: "correction",
+          amount: receipt.amount,
+          idempotencyKey: randomUUID(),
+          receipt,
+        };
+      await assert.rejects(
+        createCoinSandboxOperatorRepository(
+          runtime,
+          config,
+        ).confirmTreasuryFunding(input),
+        /operator ownership is required/,
+      );
+      await assert.rejects(
+        createCoinSandboxOperatorRepository(owner, {
+          rail: "simulation",
+        }).confirmTreasuryFunding(input),
+        /isolated testnet ledger/,
+      );
+      for (const wrong of [
+        { ...receipt, network: "simulation:usdc" },
+        { ...receipt, amount: "1" },
+        { ...receipt, evidenceDigest: "invalid" },
+      ])
+        await assert.rejects(
+          operator.confirmTreasuryFunding({ ...input, receipt: wrong }),
+          /does not match/,
+        );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM coin_sandbox_requests WHERE user_id=$1",
+            [userId],
+          )
+        ).rows[0].n,
+        0,
+      );
+      const result = await operator.confirmTreasuryFunding(input);
+      await assert.rejects(
+        operator.confirmFunding({
+          userId,
+          requestId: result.request.id,
+          receipt,
+        }),
+        /funding request conflicts/,
+      );
+      await assert.rejects(
+        createCoinSandboxRepository(runtime, config).confirmSimulatedFunding(
+          { userId, sessionTokenHash: "synthetic-unusable-session" },
+          { requestId: result.request.id },
+        ),
+        /simulated credits are prohibited/,
+      );
+      await assert.rejects(
+        owner.query(
+          'UPDATE coin_sandbox_requests SET terms=terms||\'{"purpose":"center"}\'::jsonb WHERE id=$1',
+          [result.request.id],
+        ),
+        /terms are immutable/,
+      );
+    });
+  },
+);

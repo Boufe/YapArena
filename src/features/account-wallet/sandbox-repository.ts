@@ -60,7 +60,7 @@ export type PreparedCoinApproval = Awaited<
 export interface SandboxRequest {
   id: string;
   userId: string;
-  kind: "funding" | "withdrawal" | "stake" | "correction";
+  kind: "funding" | "withdrawal" | "stake" | "correction" | "treasury";
   reference: string;
   termsDigest: string;
   terms: Record<string, string>;
@@ -504,6 +504,27 @@ async function receipt(
     !/^[a-f0-9]{64}$/.test(evidence.evidenceDigest)
   )
     error("reconciled transfer does not match its request");
+  const assigned = (
+    await client.query<{
+      network: string;
+      transactionId: string;
+      locator: string;
+      amount: string;
+      digest: string;
+    }>(
+      `SELECT network,transaction_id AS "transactionId",locator,amount::text,evidence_digest AS digest FROM coin_external_receipts WHERE request_id=$1`,
+      [request.id],
+    )
+  ).rows[0];
+  if (
+    assigned &&
+    (assigned.network !== network ||
+      assigned.transactionId !== evidence.transactionId ||
+      assigned.locator !== evidence.locator ||
+      assigned.amount !== amount ||
+      assigned.digest !== evidence.evidenceDigest)
+  )
+    error("external transfer was already assigned or conflicts");
   const prior = (
     await client.query<{ requestId: string; amount: string; digest: string }>(
       `SELECT request_id AS "requestId",amount::text,evidence_digest AS digest FROM coin_external_receipts
@@ -1133,6 +1154,127 @@ export function createCoinSandboxOperatorRepository(
 ) {
   const config = configure(configuration);
   return Object.freeze({
+    async confirmTreasuryFunding(input: {
+      operatorUserId: string;
+      purpose: "promotional" | "center" | "correction";
+      amount: string;
+      idempotencyKey: string;
+      receipt: SandboxTransferReceipt;
+    }) {
+      if (config.rail !== "base-sepolia")
+        error(
+          "reconciled treasury funding requires an isolated testnet ledger",
+          403,
+        );
+      atomicAmount(input.amount);
+      if (!["promotional", "center", "correction"].includes(input.purpose))
+        error("invalid treasury purpose", 400);
+      return ownerTx(
+        database,
+        config.rail,
+        input.operatorUserId,
+        async (client) => {
+          const reference = ref(
+            input.operatorUserId,
+            "treasury.funding",
+            input.idempotencyKey,
+          );
+          let request = (
+            await client.query<SandboxRequest>(
+              `SELECT ${columns} FROM coin_sandbox_requests WHERE user_id=$1 AND kind='treasury' AND reference=$2 FOR UPDATE`,
+              [input.operatorUserId, reference],
+            )
+          ).rows[0];
+          const scopeTerms = {
+            environment: "sandbox",
+            rail: config.rail,
+            network: config.network,
+            asset: "USDC",
+            precision: "6",
+            provider: "circle-test-usdc",
+            destination: config.depositDestination,
+            purpose: input.purpose,
+            amount: input.amount,
+          };
+          if (request) {
+            const previous = request;
+            if (
+              Object.entries(scopeTerms).some(
+                ([key, value]) => previous.terms[key] !== value,
+              )
+            )
+              error("treasury funding idempotency conflict");
+            await receipt(
+              client,
+              request,
+              input.receipt,
+              input.amount,
+              config.network,
+            );
+            return { created: false, request };
+          }
+          const id = randomUUID();
+          request = await insertRequest(client, {
+            id,
+            userId: input.operatorUserId,
+            kind: "treasury",
+            reference,
+            terms: { ...scopeTerms, requestId: id },
+            status: "completed",
+          });
+          // The trusted owner process must first reconcile the exact incoming
+          // transfer to the fixed custody address. Global receipt identity below
+          // prevents assigning that transfer to any user purchase/payout/treasury
+          // twice, including concurrent confirmations by different operators.
+          await receipt(
+            client,
+            request,
+            input.receipt,
+            input.amount,
+            config.network,
+          );
+          const snapshot = await lockSandboxBook(client, input.operatorUserId),
+            buckets = await ensureSandboxBuckets(client, input.operatorUserId);
+          const source =
+            input.purpose === "promotional"
+              ? buckets.system.promotional_external
+              : buckets.system.center_external;
+          const destination =
+            input.purpose === "promotional"
+              ? buckets.system.promotional_available
+              : input.purpose === "center"
+                ? buckets.system.center_available
+                : buckets.system.correction_available;
+          const cashJournalId = await journal(client, {
+            userId: input.operatorUserId,
+            reference: ref(input.operatorUserId, "treasury.funding.cash", id),
+            operation: "funding",
+            postings: [
+              { accountId: source, amount: String(-BigInt(input.amount)) },
+              { accountId: destination, amount: input.amount },
+            ],
+          });
+          await appendSandboxBookEvent(client, {
+            userId: input.operatorUserId,
+            snapshot,
+            book: snapshot.book,
+            kind: "treasury.funding.completed",
+            reference,
+            termsDigest: request.termsDigest,
+            requestId: id,
+            cashJournalId,
+            metadata: {
+              purpose: input.purpose,
+              rail: config.rail,
+              actorRole: "yaparena_owner",
+              receiptLocator: input.receipt.locator,
+              transactionId: input.receipt.transactionId,
+            },
+          });
+          return { created: true, request };
+        },
+      );
+    },
     confirmSimulatedFunding(input: { userId: string; requestId: string }) {
       return createCoinSandboxRepository(
         database,

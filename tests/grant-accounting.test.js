@@ -2,14 +2,17 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   allocateAtomicProportionally,
+  commitStakeCost,
   grantClaimKey,
   grantQualified,
   newAccountingGrant,
+  orderedPurchasedSourceIds,
   planPurchaseRefund,
   planStake,
   planWithdrawal,
   projectGrantAccounting,
   refundStake,
+  restoreWithdrawalSources,
   settleStake,
   torontoGrantDay,
 } from "../dist/features/account-wallet/grant-accounting.js";
@@ -414,7 +417,61 @@ describe("source-aware stake accounting", () => {
   });
 });
 
-describe("eligible withdrawal and original-route refund source plans", () => {
+describe("eligible withdrawal and internal correction source plans", () => {
+  it("defaults to all original principal FIFO before purchased profits, without exposing a user order setting", () => {
+    const original = book(
+      [],
+      [
+        purchased("profit-a", "5", "purchased_profit", "purchase-a"),
+        {
+          ...purchased(
+            "principal-b",
+            "10",
+            "purchased_principal",
+            "purchase-b",
+          ),
+          createdAt: secondDay,
+        },
+        purchased("principal-a", "10", "purchased_principal", "purchase-a"),
+      ],
+    );
+    assert.deepEqual(orderedPurchasedSourceIds(original), [
+      "principal-a",
+      "principal-b",
+      "profit-a",
+    ]);
+    const stake = planStake(original, "12");
+    assert.deepEqual(
+      stake.funding.sources.map((source) => [source.id, source.amount]),
+      [
+        ["principal-a", "10"],
+        ["principal-b", "2"],
+      ],
+    );
+    const withdrawal = planWithdrawal(original, "12", undefined, {});
+    assert.deepEqual(
+      withdrawal.sources.map((source) => [source.id, source.amount]),
+      [
+        ["principal-a", "10"],
+        ["principal-b", "2"],
+      ],
+    );
+    const internalReceiptOrder = planStake(original, "12", [
+      "profit-a",
+      "principal-a",
+      "principal-b",
+    ]);
+    assert.deepEqual(
+      internalReceiptOrder.funding.sources.map((source) => [
+        source.id,
+        source.amount,
+      ]),
+      [
+        ["profit-a", "5"],
+        ["principal-a", "7"],
+      ],
+    );
+  });
   it("withdraws purchased value before qualified backed profit and supports partial withdrawals", () => {
     const original = book(
       [
@@ -493,7 +550,7 @@ describe("eligible withdrawal and original-route refund source plans", () => {
       /invalid grant profit backing/,
     );
   });
-  it("refunds only identifiable remaining original purchase principal and never refunds earned profit", () => {
+  it("limits an internal correction to identifiable remaining original purchase principal", () => {
     const original = book(
       [],
       [
@@ -582,6 +639,272 @@ describe("accounting provenance and input boundaries", () => {
     );
     assert.throws(() =>
       newAccountingGrant({ id: "grant", kind: "daily", createdAt: "invalid" }),
+    );
+  });
+});
+
+describe("A4 actual-cost source commitment", () => {
+  it("releases excess admission collateral before attributing profit to actual paid cost", () => {
+    const original = book(
+      [grant("grant", "daily", { principalRemaining: "50" })],
+      [purchased("purchase", "55")],
+    );
+    const reserved = planStake(original, "105", order(original));
+    const committed = commitStakeCost(reserved.book, reserved.funding, "10");
+    assert.equal(committed.funding.amount, "10");
+    assert.deepEqual(
+      committed.funding.sources.map((source) => [source.id, source.amount]),
+      [["grant", "10"]],
+    );
+    assert.deepEqual(
+      committed.released.sources.map((source) => [source.id, source.amount]),
+      [
+        ["grant", "40"],
+        ["purchase", "55"],
+      ],
+    );
+    assert.equal(committed.book.grants[0].principalRemaining, "40");
+    assert.equal(committed.book.purchased[0].balance, "55");
+    assert.equal(committed.book.grants[0].netProfit, "0");
+    const settlement = settleStake(
+      committed.book,
+      committed.funding,
+      "10",
+      settledAt,
+    );
+    assert.equal(settlement.book.grants[0].profitRemaining, "10");
+    assert.equal(settlement.book.grants[0].principalRemaining, "50");
+    assert.equal(settlement.book.purchased.length, 1);
+    assert.equal(settlement.book.purchased[0].balance, "55");
+    assert.equal(balance(settlement.book), balance(original) + 10n);
+    assert.throws(
+      () => commitStakeCost(reserved.book, reserved.funding, "106"),
+      /exceeds its reservation/,
+    );
+    assert.throws(() => commitStakeCost(reserved.book, reserved.funding, "-1"));
+  });
+  it("fully releases zero execution and commits exact full execution without qualification changes", () => {
+    const original = book(
+      [
+        grant("grant", "daily", {
+          principalRemaining: "4",
+          profitRemaining: "3",
+          netProfit: "3",
+          peakNetProfit: "3",
+        }),
+      ],
+      [purchased("purchase", "5")],
+    );
+    const reserved = planStake(original, "12", order(original));
+    const zero = commitStakeCost(reserved.book, reserved.funding, "0");
+    assert.equal(zero.funding, null);
+    assert.equal(zero.released.amount, "12");
+    assert.deepEqual(zero.book, original);
+    const full = commitStakeCost(reserved.book, reserved.funding, "12");
+    assert.equal(full.released, null);
+    assert.deepEqual(full.book, reserved.book);
+    assert.deepEqual(full.funding, reserved.funding);
+  });
+  it("cuts the exact prefix inside grant principal/profit and purchased principal/profit", () => {
+    const original = book(
+      [
+        grant("grant", "daily", {
+          principalRemaining: "5",
+          profitRemaining: "3",
+          netProfit: "3",
+          peakNetProfit: "3",
+        }),
+      ],
+      [
+        purchased("principal", "4", "purchased_principal", "purchase"),
+        purchased("profit", "5", "purchased_profit", "purchase"),
+      ],
+    );
+    const reserved = planStake(original, "17", order(original));
+    for (const [cost, expected] of [
+      ["2", [["grant", "2", "0"]]],
+      ["7", [["grant", "5", "2"]]],
+      [
+        "10",
+        [
+          ["grant", "5", "3"],
+          ["principal", "2", "0"],
+        ],
+      ],
+      [
+        "14",
+        [
+          ["grant", "5", "3"],
+          ["principal", "4", "0"],
+          ["profit", "0", "2"],
+        ],
+      ],
+    ]) {
+      const result = commitStakeCost(reserved.book, reserved.funding, cost);
+      assert.deepEqual(
+        result.funding.sources.map((source) => [
+          source.id,
+          source.principal,
+          source.profit,
+        ]),
+        expected,
+      );
+      assert.equal(
+        BigInt(result.funding.amount) + BigInt(result.released.amount),
+        17n,
+      );
+      assert.equal(balance(result.book) + BigInt(cost), balance(original));
+      const restored = refundStake(result.book, result.funding);
+      assert.deepEqual(restored, original);
+    }
+  });
+  it("includes the actual fee in paid cost and the net result exactly once", () => {
+    const original = book([
+      grant("grant", "daily", { principalRemaining: "105" }),
+    ]);
+    const reserved = planStake(original, "105", []);
+    const premium = 9n,
+      fee = 1n,
+      proceeds = 11n;
+    const committed = commitStakeCost(
+      reserved.book,
+      reserved.funding,
+      String(premium + fee),
+    );
+    assert.equal(balance(committed.book), 95n);
+    const settled = settleStake(
+      committed.book,
+      committed.funding,
+      String(proceeds - premium - fee),
+      settledAt,
+    );
+    assert.equal(settled.book.grants[0].principalRemaining, "105");
+    assert.equal(settled.book.grants[0].profitRemaining, "1");
+    assert.equal(settled.book.grants[0].netProfit, "1");
+    assert.equal(balance(settled.book), 106n);
+  });
+});
+
+describe("reconciled failed payout source restoration", () => {
+  function reservedPayout() {
+    const original = book(
+      [
+        grant("qualified", "welcome", {
+          profitRemaining: "20",
+          netProfit: yc(2500),
+          peakNetProfit: yc(2500),
+        }),
+      ],
+      [
+        purchased("principal", "10", "purchased_principal", "purchase"),
+        purchased("profit", "7", "purchased_profit", "purchase"),
+      ],
+    );
+    return {
+      original,
+      reserved: planWithdrawal(original, "25", order(original), {
+        qualified: "20",
+      }),
+    };
+  }
+  it("restores the exact purchased and qualified-profit sources and promotional backing", () => {
+    const { original, reserved } = reservedPayout();
+    assert.equal(reserved.reservation.operation, "withdrawal");
+    assert.equal(reserved.reservation.amount, "25");
+    assert.deepEqual(
+      reserved.reservation.sources.map((source) => [
+        source.id,
+        source.principal,
+        source.profit,
+      ]),
+      [
+        ["principal", "10", "0"],
+        ["profit", "0", "7"],
+        ["qualified", "0", "8"],
+      ],
+    );
+    assert.deepEqual(reserved.backing, { qualified: "12" });
+    const restored = restoreWithdrawalSources(
+      reserved.book,
+      reserved.reservation,
+      reserved.backing,
+    );
+    assert.deepEqual(restored.book, original);
+    assert.deepEqual(restored.backing, { qualified: "20" });
+    assert.equal(restored.book.grants[0].netProfit, yc(2500));
+    assert.equal(restored.book.grants[0].peakNetProfit, yc(2500));
+    assert.equal(
+      projectGrantAccounting(restored.book, restored.backing).withdrawable,
+      "37",
+    );
+  });
+  it("adds released sources to current state without rolling back unrelated later activity", () => {
+    const { reserved } = reservedPayout();
+    const current = {
+      ...reserved.book,
+      grants: reserved.book.grants.map((source) => ({
+        ...source,
+        profitRemaining: "13",
+        netProfit: String(BigInt(source.netProfit) + 1n),
+        peakNetProfit: String(BigInt(source.peakNetProfit) + 1n),
+      })),
+      purchased: reserved.book.purchased.map((source) =>
+        source.id === "principal" ? { ...source, balance: "3" } : source,
+      ),
+    };
+    const restored = restoreWithdrawalSources(current, reserved.reservation, {
+      qualified: "13",
+    });
+    assert.equal(restored.book.purchased[0].balance, "13");
+    assert.equal(restored.book.purchased[1].balance, "7");
+    assert.equal(restored.book.grants[0].profitRemaining, "21");
+    assert.equal(
+      restored.book.grants[0].netProfit,
+      String(BigInt(yc(2500)) + 1n),
+    );
+    assert.deepEqual(restored.backing, { qualified: "21" });
+  });
+  it("rejects another account's payout, grant-principal restoration and incompatible source provenance", () => {
+    const { reserved } = reservedPayout();
+    for (const reservation of [
+      { ...reserved.reservation, scope: { ...scope, accountId: "73" } },
+      { ...reserved.reservation, operation: "stake" },
+      {
+        ...reserved.reservation,
+        sources: reserved.reservation.sources.map((source) =>
+          source.kind === "grant"
+            ? { ...source, principal: source.amount, profit: "0" }
+            : source,
+        ),
+      },
+      {
+        ...reserved.reservation,
+        sources: reserved.reservation.sources.map((source) =>
+          source.kind === "purchased_principal"
+            ? { ...source, purchaseId: "foreign" }
+            : source,
+        ),
+      },
+    ])
+      assert.throws(() =>
+        restoreWithdrawalSources(reserved.book, reservation, reserved.backing),
+      );
+    const unqualified = {
+      ...reserved.book,
+      grants: reserved.book.grants.map((source) => ({
+        ...source,
+        netProfit: "0",
+        peakNetProfit: "0",
+      })),
+    };
+    assert.throws(
+      () =>
+        restoreWithdrawalSources(
+          unqualified,
+          reserved.reservation,
+          reserved.backing,
+        ),
+      /unqualified profit/,
     );
   });
 });

@@ -50,6 +50,9 @@ export interface StakeFunding {
   amount: string;
   sources: readonly Readonly<AccountingSourceSlice>[];
 }
+export interface WithdrawalSourceReservation extends StakeFunding {
+  operation: "withdrawal";
+}
 export type GrantProfitBacking = Readonly<Record<string, string>>;
 
 function invalid(message: string): never {
@@ -163,6 +166,24 @@ function purchaseOrder<T extends Readonly<PurchasedSource>>(
     return source;
   });
 }
+
+// Approved original-principal-first policy. Both categories are immediately
+// eligible after funded issuance; this ordering preserves exact provenance.
+export function orderedPurchasedSourceIds(book: GrantAccountingBook) {
+  validate(book);
+  return Object.freeze(
+    [
+      ...oldest(
+        book.purchased.filter(
+          (source) => source.kind === "purchased_principal",
+        ),
+      ),
+      ...oldest(
+        book.purchased.filter((source) => source.kind === "purchased_profit"),
+      ),
+    ].map((source) => source.id),
+  );
+}
 function add(value: string, delta: bigint) {
   const result = BigInt(value) + delta;
   atomicAmount(String(result), true);
@@ -262,11 +283,12 @@ export function grantQualified(grant: Readonly<AccountingGrant>) {
 
 // This is an exact funding PLAN, not promotional exposure admission. A caller
 // must reserve independently funded maximum exposure before committing a grant
-// stake. Purchased component order is explicit until its product rule is chosen.
+// stake. Explicit order overrides are for trusted internal receipt processing;
+// never accept an order selector from a browser.
 export function planStake(
   book: GrantAccountingBook,
   amount: string,
-  purchasedOrder: readonly string[],
+  purchasedOrder: readonly string[] = orderedPurchasedSourceIds(book),
 ) {
   const result = mutable(book);
   const ordered = purchaseOrder(result, purchasedOrder);
@@ -356,6 +378,71 @@ function validateFunding(book: GrantAccountingBook, funding: StakeFunding) {
   }
   if (total !== atomicAmount(funding.amount))
     invalid("funding total does not balance");
+}
+
+function fundingSnapshot(
+  scope: Readonly<AccountCoinScope>,
+  sources: readonly Readonly<AccountingSourceSlice>[],
+): StakeFunding | null {
+  if (!sources.length) return null;
+  const amount = sources.reduce(
+    (total, source) => total + BigInt(source.amount),
+    0n,
+  );
+  return Object.freeze({
+    scope: Object.freeze({ ...scope }),
+    amount: String(amount),
+    sources: Object.freeze(
+      sources.map((source) => Object.freeze({ ...source })),
+    ),
+  });
+}
+
+// A4 admits against a conservative face-value/maximum-fee reservation, then
+// executes a possibly smaller premium plus its actual fee. Only that ACTUAL
+// cost is a settlement weight. Release the unused suffix to its exact sources
+// without qualification profit. Caller atomically stores the split once under
+// the original operation lock before settlement can use the committed receipt.
+export function commitStakeCost(
+  book: GrantAccountingBook,
+  reserved: StakeFunding,
+  actualCost: string,
+) {
+  validateFunding(book, reserved);
+  let remaining = atomicAmount(actualCost, true);
+  if (remaining > BigInt(reserved.amount))
+    invalid("actual stake cost exceeds its reservation");
+  const committed: AccountingSourceSlice[] = [];
+  const released: AccountingSourceSlice[] = [];
+  for (const source of reserved.sources) {
+    const used = minimum(remaining, BigInt(source.amount));
+    const principal = minimum(used, BigInt(source.principal));
+    const profit = used - principal;
+    if (used)
+      committed.push({
+        ...source,
+        amount: String(used),
+        principal: String(principal),
+        profit: String(profit),
+      });
+    const releasePrincipal = BigInt(source.principal) - principal;
+    const releaseProfit = BigInt(source.profit) - profit;
+    if (releasePrincipal + releaseProfit)
+      released.push({
+        ...source,
+        amount: String(releasePrincipal + releaseProfit),
+        principal: String(releasePrincipal),
+        profit: String(releaseProfit),
+      });
+    remaining -= used;
+  }
+  const funding = fundingSnapshot(reserved.scope, committed);
+  const release = fundingSnapshot(reserved.scope, released);
+  return {
+    book: release ? refundStake(book, release) : freeze(book),
+    funding,
+    released: release,
+  };
 }
 
 export function settleStake(
@@ -542,7 +629,7 @@ export function projectGrantAccounting(
 export function planWithdrawal(
   book: GrantAccountingBook,
   amount: string,
-  purchasedOrder: readonly string[],
+  purchasedOrder: readonly string[] = orderedPurchasedSourceIds(book),
   backing: GrantProfitBacking,
 ) {
   const result = mutable(book);
@@ -554,11 +641,20 @@ export function planWithdrawal(
     amount: string;
     kind: AccountingSourceSlice["kind"];
   }[] = [];
+  const reserved: AccountingSourceSlice[] = [];
   for (const source of ordered) {
     const used = minimum(remaining, BigInt(source.balance));
     if (!used) continue;
     source.balance = add(source.balance, -used);
     sources.push({ id: source.id, kind: source.kind, amount: String(used) });
+    reserved.push({
+      id: source.id,
+      kind: source.kind,
+      purchaseId: source.purchaseId,
+      principal: source.kind === "purchased_principal" ? String(used) : "0",
+      profit: source.kind === "purchased_profit" ? String(used) : "0",
+      amount: String(used),
+    });
     remaining -= used;
   }
   for (const grant of oldest(result.grants)) {
@@ -569,11 +665,26 @@ export function planWithdrawal(
     grant.profitRemaining = add(grant.profitRemaining, -used);
     backed.set(grant.id, (backed.get(grant.id) ?? 0n) - used);
     sources.push({ id: grant.id, kind: "grant", amount: String(used) });
+    reserved.push({
+      id: grant.id,
+      kind: "grant",
+      grantKind: grant.kind,
+      principal: "0",
+      profit: String(used),
+      amount: String(used),
+    });
     remaining -= used;
   }
   if (remaining)
     throw new CoinOperationError("insufficient withdrawable backing");
+  const reservation: WithdrawalSourceReservation = Object.freeze({
+    operation: "withdrawal",
+    scope: Object.freeze({ ...book.scope }),
+    amount,
+    sources: Object.freeze(reserved.map((source) => Object.freeze(source))),
+  });
   return {
+    reservation,
     book: freeze(result),
     backing: Object.freeze(
       Object.fromEntries([...backed].map(([id, value]) => [id, String(value)])),
@@ -581,6 +692,50 @@ export function planWithdrawal(
     sources: Object.freeze(sources.map((source) => Object.freeze(source))),
   };
 }
+
+// Restore only after the orchestrator has locked a persisted payout operation
+// and authoritatively established no transfer (or no submission ever occurred).
+// The source reserve and its independent promotional cash backing remain held
+// until that reconciliation. This pure helper cannot consume a receipt once.
+export function restoreWithdrawalSources(
+  book: GrantAccountingBook,
+  reservation: WithdrawalSourceReservation,
+  backing: GrantProfitBacking,
+) {
+  validateFunding(book, reservation);
+  if (reservation.operation !== "withdrawal")
+    invalid("withdrawal reservation is required");
+  const result = mutable(book);
+  const backed = backingFor(result, backing);
+  for (const source of reservation.sources) {
+    if (source.kind === "grant") {
+      const grant = result.grants.find((entry) => entry.id === source.id)!;
+      if (BigInt(source.principal) !== 0n || !grantQualified(grant))
+        invalid(
+          "withdrawal cannot restore grant principal or unqualified profit",
+        );
+      const restored = BigInt(source.profit);
+      grant.profitRemaining = add(grant.profitRemaining, restored);
+      backed.set(grant.id, (backed.get(grant.id) ?? 0n) + restored);
+    } else {
+      const purchased = result.purchased.find(
+        (entry) => entry.id === source.id,
+      )!;
+      purchased.balance = add(purchased.balance, BigInt(source.amount));
+    }
+  }
+  return {
+    book: freeze(result),
+    backing: Object.freeze(
+      Object.fromEntries(
+        [...backed].map(([id, amount]) => [id, String(amount)]),
+      ),
+    ),
+  };
+}
+// Internal correction planning only. Completed purchases use ordinary USDC
+// withdrawals; this helper does not promise or expose original-route refunds.
+// Rejected/incorrect funding requires its own support/reconciliation authority.
 export function planPurchaseRefund(
   book: GrantAccountingBook,
   purchaseId: string,

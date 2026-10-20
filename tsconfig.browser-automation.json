@@ -19,6 +19,7 @@
     "scripts/verify-browser-release.ts",
     "scripts/verify-email-auth-browser.ts",
     "scripts/verify-security-passkey-browser.ts",
+    "scripts/verify-session-coordination-browser.ts",
     "scripts/verify-media-cloud-revocation.ts",
     "scripts/verify-coin-sandbox-browser.ts",
     "scripts/migration-exports.d.ts",

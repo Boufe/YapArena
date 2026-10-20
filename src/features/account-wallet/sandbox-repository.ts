@@ -1683,6 +1683,11 @@ export function createCoinSandboxOperatorRepository(
         }
         const id = randomUUID(),
           terms = {
+            requestId: id,
+            environment: "sandbox",
+            asset: "USDC",
+            precision: "6",
+            network: config.network,
             originalRequestId: original.id,
             reason: input.reason,
             rail: config.rail,

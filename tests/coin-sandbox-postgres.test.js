@@ -1085,7 +1085,26 @@ describe(
         decision: "reject",
         idempotencyKey: randomUUID(),
       });
-      assert.equal((await operator.retryCorrection(retry)).status, "completed");
+      await runCoinSandboxOperator({
+        command: "retry-correction",
+        body: {
+          correctionId: retry.correctionId,
+          idempotencyKey: retry.idempotencyKey,
+        },
+        environment: {
+          COIN_SANDBOX_OWNER_DATABASE_URL: ownerUrl,
+          COIN_SANDBOX_RAIL: "simulation",
+        },
+      });
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT status FROM coin_sandbox_requests WHERE id=$1",
+            [retry.correctionId],
+          )
+        ).rows[0].status,
+        "completed",
+      );
       assert.equal((await operator.retryCorrection(retry)).created, false);
       assert.equal((await repo.summary(second)).financialReviewRequired, false);
       assert.equal((await repo.summary(second)).balances.cashAvailable, "0");

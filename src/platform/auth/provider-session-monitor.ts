@@ -37,6 +37,11 @@ export function createProviderSessionMonitor(
           changed =
             state.subject !== mapping.subject ||
             state.credentialsDigest !== mapping.credentialsDigest;
+          if (!changed && state.credentials)
+            await client.query(
+              "UPDATE provider_identities SET credentials_snapshot=$2::jsonb WHERE user_id=$1 AND credentials_snapshot IS NULL",
+              [userId, JSON.stringify(state.credentials)],
+            );
         } catch (error) {
           if (!(error instanceof ProviderCredentialChangedError)) throw error;
           changed = true;

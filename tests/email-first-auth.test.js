@@ -150,6 +150,7 @@ describe("verified provider evidence", () => {
       sessionId: claims.sid,
       email: "verified@example.test",
       methods: ["email"],
+      credentials: [{ type: "email", id: "verified@example.test" }],
       issuedAt: claims.iat,
       credentialsDigest: createHash("sha256")
         .update(

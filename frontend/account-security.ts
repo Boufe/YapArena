@@ -8,10 +8,15 @@ import type {
   PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
 import type { WalletChangeTarget } from "./account-types.js";
+import type { ProviderChange } from "./auth-events.js";
 declare global {
   interface Window {
     yapSecurityWalletChange?: (target: WalletChangeTarget) => Promise<void>;
     yapLinkProviderIdentity?: (token: string) => Promise<void>;
+    yapApproveCoinWithdrawal?: (
+      requestId: string,
+      terms: Record<string, string>,
+    ) => Promise<Approval>;
   }
 }
 
@@ -126,6 +131,8 @@ if (mount) {
       if (current !== version) return;
       window.yapSecurityWalletChange = changeWallet;
       window.yapLinkProviderIdentity = linkProviderIdentity;
+      window.yapApproveProviderChange = approveProviderChange;
+      window.yapApproveCoinWithdrawal = approveCoinWithdrawal;
       keys = data.passkeys;
       list.replaceChildren();
       for (const key of keys) {
@@ -223,7 +230,11 @@ if (mount) {
             ? "Unlink wallet"
             : purpose === "provider.identity.link"
               ? "Link sign-in method"
-              : "Add security passkey";
+              : purpose === "provider.credentials.change"
+                ? "Change sign-in methods"
+                : purpose === "withdrawal.request"
+                  ? "Approve sandbox withdrawal"
+                  : "Add security passkey";
     dialog.setAttribute("aria-labelledby", titleId);
     description.textContent =
       "Approve this change with a trusted method that stays on your account. Approval expires in five minutes.";
@@ -231,6 +242,16 @@ if (mount) {
       description.textContent = `${title.textContent} ${terms.address} on chain ${terms.chainId}. Approve with a trusted method that stays on your account. This does not authorize a transaction.`;
     if (purpose === "provider.identity.link")
       description.textContent = `Add sign-in for ${terms.email}. Your existing account and credentials stay with you. Approve this change with a trusted method.`;
+    if (purpose === "provider.credentials.change")
+      description.textContent = `Approve ${terms.action} for ${terms.method}: ${terms.target}. Privy will verify the new method. You will then review the exact changes and verify again before YapArena accepts them.`;
+    if (purpose === "withdrawal.request")
+      description.textContent = `Sandbox only. Verify every term before approving: ${Object.entries(
+        terms,
+      )
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(
+          "; ",
+        )}. This authorization is for this exact request and does not sign a live transaction.`;
     label.textContent = "Approve with ";
     label.append(select);
     passwordLabel.textContent = "Current password ";
@@ -298,6 +319,7 @@ if (mount) {
       let finished = false,
         submitting = false;
       const close = () => {
+        password.value = "";
         dialog.close();
         dialog.remove();
         (prior?.isConnected ? prior : add).focus();
@@ -586,10 +608,64 @@ if (mount) {
       add.focus();
     }
   }
+  async function approveProviderChange(change: ProviderChange) {
+    if (busy) throw new Error("Finish the current security change first.");
+    setBusy(true);
+    try {
+      const terms = { ...change },
+        proof = await approval("provider.credentials.change", terms);
+      await request("/security/provider/change", "POST", {
+        terms,
+        approval: proof,
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function approveCoinWithdrawal(
+    requestId: string,
+    terms: Record<string, string>,
+  ) {
+    if (busy) throw new Error("Finish the current security change first.");
+    setBusy(true);
+    try {
+      return await approval(
+        "withdrawal.request",
+        terms,
+        undefined,
+        async (credential) => {
+          const response = await fetch(
+            `/api/coin-sandbox/withdrawals/${encodeURIComponent(requestId)}/operations`,
+            {
+              method: "POST",
+              credentials: "same-origin",
+              cache: "no-store",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ credential }),
+              signal: AbortSignal.timeout(30000),
+            },
+          );
+          if (!response.ok) {
+            const value: { error?: string } = await response
+              .json()
+              .catch(() => ({}));
+            throw new SecurityResponseError(
+              value.error ?? "Sandbox withdrawal approval unavailable.",
+            );
+          }
+          return response.json();
+        },
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   window.addEventListener("yap:account-changed", () => void load());
   window.addEventListener("yap:provider-logout", () => {
     delete window.yapSecurityWalletChange;
     delete window.yapLinkProviderIdentity;
+    delete window.yapApproveProviderChange;
+    delete window.yapApproveCoinWithdrawal;
     ++version;
     keys = [];
     list.replaceChildren();

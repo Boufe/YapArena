@@ -31,7 +31,7 @@ async function bootstrapAllowed(client: PoolClient, userId: string) {
   // posting or creating grant lots. Auth runtime keeps read-only ledger access.
   const result = await client.query<{ allowed: boolean }>(
     `SELECT u.password_hash IS NULL
-      AND EXISTS(SELECT 1 FROM provider_identities p WHERE p.user_id=u.id AND p.methods ? 'email')
+      AND EXISTS(SELECT 1 FROM provider_identities p WHERE p.user_id=u.id AND (p.methods ? 'email' OR p.methods ? 'google_oauth'))
       AND NOT EXISTS(SELECT 1 FROM wallet_identities w WHERE w.user_id=u.id)
       AND NOT EXISTS(SELECT 1 FROM account_security_keys k WHERE k.user_id=u.id)
       AND NOT EXISTS(SELECT 1 FROM coin_accounts a WHERE a.user_id=u.id AND
@@ -130,7 +130,7 @@ export function createSecurityPasskeyRepository(database: Pool) {
           userDisplayName: "YapArena security passkey",
           attestationType: "none",
           authenticatorSelection: {
-            residentKey: "preferred",
+            residentKey: "required",
             userVerification: "required",
           },
           excludeCredentials: keys.rows.map((key) => ({

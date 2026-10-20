@@ -119,8 +119,8 @@ export function createLegacyProviderLink(
               "these accounts require deliberate ownership review; no accounts were merged",
             );
           await client.query(
-            `INSERT INTO provider_identities(provider,subject,user_id,email,methods,auth_generation,credentials_digest)
-            VALUES('privy',$1,$2,$3,$4::jsonb,$5,$6)`,
+            `INSERT INTO provider_identities(provider,subject,user_id,email,methods,auth_generation,credentials_digest,credentials_snapshot)
+            VALUES('privy',$1,$2,$3,$4::jsonb,$5,$6,$7::jsonb)`,
             [
               identity.subject,
               input.userId,
@@ -128,6 +128,9 @@ export function createLegacyProviderLink(
               JSON.stringify(identity.methods),
               account.authGeneration,
               identity.credentialsDigest,
+              identity.credentials
+                ? JSON.stringify(identity.credentials)
+                : null,
             ],
           );
           const consumed = await client.query(

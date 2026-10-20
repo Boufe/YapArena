@@ -1,10 +1,20 @@
 export type AuthMode = "login" | "signup";
 export type AuthRequest = { returnTo?: string; mode?: AuthMode };
+export type ProviderChange = {
+  action: "link" | "remove" | "update";
+  method: "email" | "google_oauth" | "passkey";
+  target: string;
+};
 declare global {
+  interface Window {
+    yapLinkProviderIdentity?: (token: string) => Promise<void>;
+    yapApproveProviderChange?: (change: ProviderChange) => Promise<void>;
+  }
   interface WindowEventMap {
     "yap:request-auth": CustomEvent<AuthRequest>;
     "yap:auth-mode": CustomEvent<AuthMode | null>;
     "yap:auth-dismissed": Event;
     "yap:auth-complete": Event;
+    "yap:link-provider": Event;
   }
 }

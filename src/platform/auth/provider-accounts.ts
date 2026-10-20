@@ -7,6 +7,10 @@ import {
   SessionUnavailableError,
 } from "./sessions.ts";
 import type { AuthenticationUser } from "./users.ts";
+import {
+  verifiedStoredCredentials,
+  type ProviderCredential,
+} from "./provider-credentials.ts";
 
 export class ProviderAccountError extends Error {
   constructor(
@@ -85,8 +89,8 @@ export function createProviderAccounts(database: Pool) {
           );
           user = account.rows[0]!;
           await client.query(
-            `INSERT INTO provider_identities(provider,subject,user_id,email,methods,auth_generation,credentials_digest)
-            VALUES('privy',$1,$2,$3,$4::jsonb,$5,$6)`,
+            `INSERT INTO provider_identities(provider,subject,user_id,email,methods,auth_generation,credentials_digest,credentials_snapshot)
+            VALUES('privy',$1,$2,$3,$4::jsonb,$5,$6,$7::jsonb)`,
             [
               identity.subject,
               user.id,
@@ -94,6 +98,9 @@ export function createProviderAccounts(database: Pool) {
               JSON.stringify(identity.methods),
               user.authGeneration,
               identity.credentialsDigest,
+              identity.credentials
+                ? JSON.stringify(identity.credentials)
+                : null,
             ],
           );
           created = true;
@@ -113,8 +120,13 @@ export function createProviderAccounts(database: Pool) {
             401,
           );
         await client.query(
-          "UPDATE provider_identities SET email=$2,methods=$3::jsonb WHERE provider='privy' AND subject=$1",
-          [identity.subject, identity.email, JSON.stringify(identity.methods)],
+          "UPDATE provider_identities SET email=$2,methods=$3::jsonb,credentials_snapshot=COALESCE($4::jsonb,credentials_snapshot) WHERE provider='privy' AND subject=$1",
+          [
+            identity.subject,
+            identity.email,
+            JSON.stringify(identity.methods),
+            identity.credentials ? JSON.stringify(identity.credentials) : null,
+          ],
         );
         await insertSession(
           client,
@@ -134,12 +146,24 @@ export function createProviderAccounts(database: Pool) {
     },
     async details(userId: string) {
       const result = await database.query<{
+        subject: string;
         email: string | null;
         methods: string[];
-      }>("SELECT email,methods FROM provider_identities WHERE user_id=$1", [
-        userId,
-      ]);
-      return result.rows[0] ?? null;
+        credentialsDigest: string;
+        credentialsSnapshot: ProviderCredential[] | null;
+      }>(
+        `SELECT subject,email,methods,credentials_digest AS "credentialsDigest",credentials_snapshot AS "credentialsSnapshot" FROM provider_identities WHERE user_id=$1`,
+        [userId],
+      );
+      const mapping = result.rows[0];
+      return mapping
+        ? {
+            subject: mapping.subject,
+            email: mapping.email,
+            methods: mapping.methods,
+            credentials: verifiedStoredCredentials(mapping),
+          }
+        : null;
     },
   };
 }

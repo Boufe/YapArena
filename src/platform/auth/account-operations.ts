@@ -89,7 +89,7 @@ function unavailable(): never {
 // This is retained-credential authorization, not a general recent-auth flag.
 // No access-token issuance time or browser/provider MFA callback is accepted.
 export function createAccountOperationRepository(database: Pool) {
-  return Object.freeze({
+  const repository = {
     async create(input: {
       userId: string;
       sessionTokenHash: string;
@@ -412,6 +412,23 @@ export function createAccountOperationRepository(database: Pool) {
         "DELETE FROM account_operations WHERE expires_at<clock_timestamp()-interval '1 day'",
       );
       return result.rowCount ?? 0;
+    },
+  };
+  return Object.freeze({
+    ...repository,
+    async authorize(input: Parameters<typeof repository.prepare>[0]) {
+      const approval = await repository.prepare(input),
+        client = await database.connect();
+      try {
+        await client.query("BEGIN");
+        await approval.consume(client, async () => {});
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
     },
   });
 }

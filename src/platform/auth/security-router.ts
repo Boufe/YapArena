@@ -21,6 +21,7 @@ import type {
 } from "./provider-wallet-operations.ts";
 import { normalizeWalletAddress, validChainId } from "./siwe.ts";
 import type { createLegacyProviderLink } from "./legacy-provider-link.ts";
+import type { createAccountAccessRepository } from "./account-access.ts";
 
 function object(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -104,7 +105,9 @@ function authentication(value: unknown): AuthenticationResponseJSON {
     },
   };
 }
-function credential(value: unknown): AccountOperationCredential {
+export function parseAccountOperationCredential(
+  value: unknown,
+): AccountOperationCredential {
   const body = object(value);
   if (!body) invalid();
   if (body.type === "password" && exact(body, ["type"]))
@@ -123,7 +126,7 @@ function credential(value: unknown): AccountOperationCredential {
     return { type: "passkey", keyId: body.keyId };
   invalid();
 }
-function proof(value: unknown) {
+export function parseAccountOperationApproval(value: unknown) {
   const body = object(value);
   if (
     !body ||
@@ -146,6 +149,8 @@ function proof(value: unknown) {
       : {}),
   };
 }
+const credential = parseAccountOperationCredential;
+const proof = parseAccountOperationApproval;
 function walletTarget(body: Record<string, unknown>): ProviderWalletTarget {
   const address = normalizeWalletAddress(body.address);
   if (
@@ -175,6 +180,25 @@ function providerToken(request: Request) {
     throw new AccountOperationError(401, "provider authentication required");
   return header.slice(7);
 }
+function providerChange(value: unknown): Record<string, string> {
+  const terms = object(value);
+  if (
+    !terms ||
+    !exact(terms, ["action", "method", "target"]) ||
+    !["link", "remove", "update"].includes(String(terms.action)) ||
+    !["email", "google_oauth", "passkey"].includes(String(terms.method)) ||
+    typeof terms.target !== "string" ||
+    !terms.target.length ||
+    terms.target.length > 2048 ||
+    (terms.action === "update" && terms.method !== "email")
+  )
+    invalid();
+  return {
+    action: String(terms.action),
+    method: String(terms.method),
+    target: terms.target,
+  };
+}
 
 export type SecurityRouterOptions = {
   sessions: ReturnType<typeof createSessionRepository>;
@@ -182,11 +206,13 @@ export type SecurityRouterOptions = {
   passkeys: ReturnType<typeof createSecurityPasskeyRepository>;
   walletOperations?: ReturnType<typeof createProviderWalletOperations>;
   legacyProviderLink?: ReturnType<typeof createLegacyProviderLink>;
+  access?: ReturnType<typeof createAccountAccessRepository>;
   environment: string;
   applicationOrigin: string;
   sessionDurationMs?: number;
   siweRpcUrls?: Readonly<Record<string, string>>;
   sharedAccountLimiter?: RequestHandler;
+  sharedAccessLimiter?: RequestHandler;
 };
 
 export function createAccountSecurityRouter({
@@ -195,11 +221,13 @@ export function createAccountSecurityRouter({
   passkeys,
   walletOperations,
   legacyProviderLink,
+  access,
   environment,
   applicationOrigin,
   sessionDurationMs = 604800000,
   siweRpcUrls = {},
   sharedAccountLimiter,
+  sharedAccessLimiter,
 }: SecurityRouterOptions) {
   const router = express.Router(),
     cookie = getCookieSettings(environment);
@@ -217,7 +245,6 @@ export function createAccountSecurityRouter({
     response.set("Cache-Control", "no-store");
     next();
   });
-  router.use(createRequireAuthentication({ sessions, environment }));
   router.use((request, response, next) => {
     if (
       !["GET", "HEAD", "OPTIONS"].includes(request.method) &&
@@ -228,6 +255,89 @@ export function createAccountSecurityRouter({
         .json({ error: "request origin is not allowed" });
     return next();
   });
+  if (access) {
+    const publicAccess = express.Router();
+    publicAccess.use(
+      "/security/access",
+      createApiRateLimiter({ windowMs: 900000, limit: 30 }),
+    );
+    if (sharedAccessLimiter)
+      publicAccess.use("/security/access", sharedAccessLimiter);
+    publicAccess.post("/security/access/login", async (request, response) => {
+      const body = object(request.body);
+      if (!body || Object.keys(body).length) invalid();
+      return response.json(
+        await access.loginOptions({ origin: applicationOrigin }),
+      );
+    });
+    publicAccess.post(
+      "/security/access/login/:id/complete",
+      async (request, response) => {
+        const body = object(request.body),
+          id = request.params.id;
+        if (!body || !uuid(id) || !exact(body, ["authentication"])) invalid();
+        const result = await access.login({
+          id,
+          authentication: authentication(body.authentication),
+          origin: applicationOrigin,
+          sessionDurationMs,
+        });
+        response.cookie(cookie.name, result.token, {
+          ...cookie.options,
+          maxAge: sessionDurationMs,
+        });
+        return response.status(204).end();
+      },
+    );
+    publicAccess.post(
+      "/security/access/reconciliation/candidate",
+      async (request, response) => {
+        const body = object(request.body);
+        if (!body || Object.keys(body).length) invalid();
+        return response.json(
+          await access.reconciliationCandidate(providerToken(request)),
+        );
+      },
+    );
+    publicAccess.post(
+      "/security/access/reconciliation",
+      async (request, response) => {
+        const body = object(request.body);
+        if (!body || !exact(body, ["credential"])) invalid();
+        return response.json(
+          await access.reconciliationOptions({
+            token: providerToken(request),
+            credential: credential(body.credential),
+            origin: applicationOrigin,
+          }),
+        );
+      },
+    );
+    publicAccess.post(
+      "/security/access/reconciliation/:id/complete",
+      async (request, response) => {
+        const body = object(request.body),
+          id = request.params.id;
+        if (!body || !uuid(id) || !exact(body, ["approval"])) invalid();
+        const approval = proof(body.approval);
+        if (approval.id !== id) invalid();
+        const result = await access.reconcile({
+          ...approval,
+          token: providerToken(request),
+          origin: applicationOrigin,
+          rpcUrls: siweRpcUrls,
+          sessionDurationMs,
+        });
+        response.cookie(cookie.name, result.token, {
+          ...cookie.options,
+          maxAge: sessionDurationMs,
+        });
+        return response.status(204).end();
+      },
+    );
+    router.use(publicAccess);
+  }
+  router.use(createRequireAuthentication({ sessions, environment }));
   const mutations = express.Router();
   mutations.use(createApiRateLimiter({ windowMs: 900000, limit: 30 }));
   if (sharedAccountLimiter) mutations.use(sharedAccountLimiter);
@@ -250,11 +360,17 @@ export function createAccountSecurityRouter({
         : body.purpose === "security.passkey.remove"
           ? "keyId"
           : null;
-    if (!key || !uuid(terms[key]) || !exact(terms, [key])) invalid();
+    const exactTerms =
+      body.purpose === "provider.credentials.change"
+        ? providerChange(terms)
+        : key && uuid(terms[key]) && exact(terms, [key])
+          ? { [key]: terms[key] }
+          : null;
+    if (!exactTerms) invalid();
     const operation = await operations.create({
       ...session(request),
       purpose: String(body.purpose),
-      terms: { [key]: terms[key] },
+      terms: exactTerms,
       credential: credential(body.credential),
     });
     return response.json({
@@ -263,6 +379,19 @@ export function createAccountSecurityRouter({
       authorizationMessage: operation.authorizationMessage,
       authenticationOptions: operation.authenticationOptions,
     });
+  });
+  mutations.post("/security/provider/change", async (request, response) => {
+    const body = object(request.body);
+    if (!body || !exact(body, ["terms", "approval"])) invalid();
+    await operations.authorize({
+      ...session(request),
+      ...proof(body.approval),
+      purpose: "provider.credentials.change",
+      terms: providerChange(body.terms),
+      rpcUrls: siweRpcUrls,
+      requestId: String(request.id),
+    });
+    return response.status(204).end();
   });
   mutations.post(
     "/security/passkeys/enrollment/:id/complete",

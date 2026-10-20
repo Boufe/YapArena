@@ -82,6 +82,161 @@ function fixture(overrides = {}) {
   return { app, seen, call };
 }
 describe("security passkey HTTP boundaries", () => {
+  it("provides sessionless key login without trusting an app cookie, account selector or browser credential flags", async () => {
+    const seen = [];
+    const { app } = fixture({
+      sessions: {
+        async findUserByTokenHash() {
+          throw new Error("public key login must not use a stale app cookie");
+        },
+      },
+      access: {
+        async loginOptions(input) {
+          seen.push(input);
+          return { id, authenticationOptions: { challenge: "AQID" } };
+        },
+        async login(input) {
+          seen.push(input);
+          return { token: "synthetic-key-cookie" };
+        },
+      },
+    });
+    const call = (path) =>
+      request(app)
+        .post(`/api/auth/security/access${path}`)
+        .set("Origin", origin);
+    assert.equal((await call("/login").send({ userId })).status, 400);
+    assert.equal(
+      (await call("/login").set("Origin", "https://attacker.example").send({}))
+        .status,
+      403,
+    );
+    assert.equal((await call("/login").send({})).status, 200);
+    const authentication = {
+      id: "AQID",
+      rawId: "AQID",
+      type: "public-key",
+      response: {
+        clientDataJSON: "AQID",
+        authenticatorData: "AQID",
+        signature: "AQID",
+        userHandle: "AQID",
+      },
+      clientExtensionResults: {},
+    };
+    assert.equal(
+      (
+        await call(`/login/${id}/complete`).send({
+          authentication,
+          mfaCompleted: true,
+        })
+      ).status,
+      400,
+    );
+    const response = await call(`/login/${id}/complete`).send({
+      authentication,
+    });
+    assert.equal(response.status, 204);
+    assert.match(
+      response.headers["set-cookie"][0],
+      /^__Host-session=synthetic-key-cookie;/,
+    );
+    assert.equal(seen.at(-1).userId, undefined);
+    assert.equal(seen.at(-1).authentication.response.userHandle, "AQID");
+  });
+  it("binds sessionless reconciliation to bearer identity and one exact proof ID without browser ownership fields", async () => {
+    const seen = [],
+      { app } = fixture({
+        access: {
+          async reconciliationCandidate(token) {
+            seen.push(token);
+            return { before: [], after: [] };
+          },
+          async reconciliationOptions(input) {
+            seen.push(input);
+            return { id };
+          },
+          async reconcile(input) {
+            seen.push(input);
+            return { token: "synthetic-recovered-cookie" };
+          },
+        },
+      });
+    const call = (path) =>
+      request(app)
+        .post(`/api/auth/security/access/reconciliation${path}`)
+        .set("Origin", origin)
+        .set("Authorization", "Bearer synthetic-provider-token");
+    assert.equal(
+      (
+        await request(app)
+          .post("/api/auth/security/access/reconciliation/candidate")
+          .set("Origin", origin)
+          .send({})
+      ).status,
+      401,
+    );
+    assert.equal((await call("/candidate").send({})).status, 200);
+    assert.equal(
+      (await call("").send({ credential: { type: "password" }, userId }))
+        .status,
+      400,
+    );
+    assert.equal(
+      (await call("").send({ credential: { type: "password" } })).status,
+      200,
+    );
+    assert.equal(
+      (
+        await call(`/${id}/complete`).send({
+          approval: { id: randomUUID(), password: "synthetic" },
+        })
+      ).status,
+      400,
+    );
+    const response = await call(`/${id}/complete`).send({
+      approval: { id, password: "synthetic" },
+    });
+    assert.equal(response.status, 204);
+    assert.equal(seen.at(-1).token, "synthetic-provider-token");
+    assert.equal(seen.at(-1).userId, undefined);
+    assert.match(
+      response.headers["set-cookie"][0],
+      /^__Host-session=synthetic-recovered-cookie;/,
+    );
+  });
+  it("consumes an operation-specific prior approval before allowing the provider-change UI", async () => {
+    const seen = [],
+      { call } = fixture({
+        operations: {
+          async authorize(input) {
+            seen.push(input);
+          },
+        },
+      }),
+      terms = { action: "update", method: "email", target: "new@example.test" };
+    assert.equal(
+      (
+        await call("post", "/provider/change").send({
+          terms,
+          approval: { id, password: "synthetic" },
+        })
+      ).status,
+      204,
+    );
+    assert.equal(seen[0].purpose, "provider.credentials.change");
+    assert.deepEqual(seen[0].terms, terms);
+    assert.equal(seen[0].userId, userId);
+    assert.equal(
+      (
+        await call("post", "/provider/change").send({
+          terms: { ...terms, amount: "1" },
+          approval: { id },
+        })
+      ).status,
+      400,
+    );
+  });
   it("requires an application cookie and exact origin and rejects account selectors or arbitrary operations", async () => {
     const { app, call } = fixture();
     assert.equal(

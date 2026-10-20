@@ -20,6 +20,9 @@ import { hashPassword } from "../dist/platform/auth/passwords.js";
 import { createProviderAccounts } from "../dist/platform/auth/provider-accounts.js";
 import { createProviderWalletOperations } from "../dist/platform/auth/provider-wallet-operations.js";
 import { privateKeyToAccount } from "viem/accounts";
+import { createAccountAccessRepository } from "../dist/platform/auth/account-access.js";
+import { providerCredentialsDigest } from "../dist/platform/auth/provider-credentials.js";
+import { ProviderUnavailableError } from "../dist/platform/auth/privy.js";
 
 const ownerUrl = process.env.WALLET_TEST_OWNER_DATABASE_URL;
 const runtimeUrl = process.env.WALLET_TEST_DATABASE_URL;
@@ -93,7 +96,10 @@ function authenticator() {
         },
       };
     },
-    authentication(options, { counter = 1, flags = 0x05, ...overrides } = {}) {
+    authentication(
+      options,
+      { counter = 1, flags = 0x05, userHandle, ...overrides } = {},
+    ) {
       const clientData = Buffer.from(
         JSON.stringify({
           type: "webauthn.get",
@@ -109,6 +115,7 @@ function authenticator() {
         type: "public-key",
         clientExtensionResults: {},
         response: {
+          ...(userHandle ? { userHandle } : {}),
           clientDataJSON: clientData.toString("base64url"),
           authenticatorData: authData.toString("base64url"),
           signature: sign(
@@ -207,6 +214,10 @@ describe(
         challenge = await repository.enrollmentOptions(f);
       assert.equal(
         challenge.options.authenticatorSelection.userVerification,
+        "required",
+      );
+      assert.equal(
+        challenge.options.authenticatorSelection.residentKey,
         "required",
       );
       const approval = await approve(f, "security.passkey.enroll", {
@@ -672,6 +683,573 @@ describe(
           /enrollment is invalid/,
         );
       assert.deepEqual(await repository.list(f.userId), []);
+    });
+    async function accessFixture() {
+      const enrolled = await enroll(await fixture());
+      const credentials = [
+        { type: "email", id: `${randomUUID()}@example.test` },
+      ];
+      const identity = {
+        subject: `did:privy:${randomUUID()}`,
+        sessionId: randomUUID(),
+        email: credentials[0].id,
+        methods: ["email"],
+        issuedAt: Math.floor(Date.now() / 1000),
+        credentialsDigest: providerCredentialsDigest(credentials),
+        credentials,
+      };
+      await owner.query(
+        `INSERT INTO provider_identities(provider,subject,user_id,email,methods,credentials_digest,credentials_snapshot,auth_generation)
+        SELECT 'privy',$1,id,$2,'["email"]'::jsonb,$3,$4::jsonb,auth_generation FROM users WHERE id=$5`,
+        [
+          identity.subject,
+          identity.email,
+          identity.credentialsDigest,
+          JSON.stringify(credentials),
+          enrolled.f.userId,
+        ],
+      );
+      return {
+        ...enrolled,
+        identity,
+        userHandle: enrolled.challenge.options.user.id,
+      };
+    }
+    it("signs in with a discoverable retained security key, checks provider state every time, and rejects wrong user handles and replay", async () => {
+      const f = await accessFixture();
+      let inspections = 0;
+      const service = createAccountAccessRepository(a, {
+        async verify() {
+          throw new Error("key login must not require provider token");
+        },
+        async inspect() {
+          inspections++;
+          return f.identity;
+        },
+      });
+      const challenge = await service.loginOptions({ origin });
+      assert.equal(challenge.authenticationOptions.allowCredentials, undefined);
+      await assert.rejects(
+        service.login({
+          id: challenge.id,
+          origin,
+          sessionDurationMs: 600000,
+          authentication: f.authenticatorDevice.authentication(
+            challenge.authenticationOptions,
+            { userHandle: randomBytes(32).toString("base64url") },
+          ),
+        }),
+        /verification failed/,
+      );
+      const logged = await service.login({
+        id: challenge.id,
+        origin,
+        sessionDurationMs: 600000,
+        authentication: f.authenticatorDevice.authentication(
+          challenge.authenticationOptions,
+          { userHandle: f.userHandle },
+        ),
+      });
+      assert.equal(
+        (
+          await createSessionRepository(b).findUserByTokenHash(
+            hashSessionToken(logged.token),
+          )
+        ).id,
+        f.f.userId,
+      );
+      await assert.rejects(
+        service.login({
+          id: challenge.id,
+          origin,
+          sessionDurationMs: 600000,
+          authentication: f.authenticatorDevice.authentication(
+            challenge.authenticationOptions,
+            { counter: 2, userHandle: f.userHandle },
+          ),
+        }),
+        /expired/,
+      );
+      const second = await service.loginOptions({ origin });
+      await service.login({
+        id: second.id,
+        origin,
+        sessionDurationMs: 600000,
+        authentication: f.authenticatorDevice.authentication(
+          second.authenticationOptions,
+          { counter: 2, userHandle: f.userHandle },
+        ),
+      });
+      assert.equal(inspections, 2);
+    });
+    it("rejects discoverable login challenges issued before any later account revocation", async () => {
+      const f = await accessFixture(),
+        service = createAccountAccessRepository(a, {
+          async verify() {
+            return f.identity;
+          },
+          async inspect() {
+            return f.identity;
+          },
+        }),
+        challenge = await service.loginOptions({ origin });
+      await createSessionRepository(b).revoke(
+        f.f.userId,
+        f.f.sessionTokenHash,
+        false,
+      );
+      await assert.rejects(
+        service.login({
+          id: challenge.id,
+          origin,
+          sessionDurationMs: 600000,
+          authentication: f.authenticatorDevice.authentication(
+            challenge.authenticationOptions,
+            { userHandle: f.userHandle },
+          ),
+        }),
+        /expired or account access changed/,
+      );
+    });
+    it("requires an exact displayed provider delta and bound SID before atomically restoring one session with a retained key", async () => {
+      const f = await accessFixture();
+      const credentials = [
+        { type: "email", id: `${randomUUID()}@example.test` },
+        { type: "google_oauth", id: randomUUID() },
+      ];
+      let current = {
+        ...f.identity,
+        sessionId: randomUUID(),
+        email: credentials[0].id,
+        methods: ["email", "google_oauth"],
+        credentialsDigest: providerCredentialsDigest(credentials),
+        credentials,
+      };
+      const verifier = {
+          async verify() {
+            return current;
+          },
+          async inspect() {
+            return current;
+          },
+        },
+        service = createAccountAccessRepository(a, verifier);
+      const login = await service.loginOptions({ origin });
+      await assert.rejects(
+        service.login({
+          id: login.id,
+          origin,
+          sessionDurationMs: 600000,
+          authentication: f.authenticatorDevice.authentication(
+            login.authenticationOptions,
+            { userHandle: f.userHandle },
+          ),
+        }),
+        /Sign-in methods changed/,
+      );
+      assert.equal(
+        await createSessionRepository(b).findUserByTokenHash(
+          f.f.sessionTokenHash,
+        ),
+        null,
+      );
+      const candidate = await service.reconciliationCandidate(
+        "synthetic-provider-token",
+      );
+      assert.deepEqual(candidate.before, f.identity.credentials);
+      assert.deepEqual(candidate.after, credentials);
+      const operation = await service.reconciliationOptions({
+        token: "synthetic-provider-token",
+        origin,
+        credential: { type: "passkey", keyId: f.result.keyId },
+      });
+      assert.deepEqual(operation.after, credentials);
+      const proof = {
+        id: operation.id,
+        token: "synthetic-provider-token",
+        origin,
+        rpcUrls: {},
+        sessionDurationMs: 600000,
+        authentication: f.authenticatorDevice.authentication(
+          operation.authenticationOptions,
+          { counter: 2, userHandle: f.userHandle },
+        ),
+      };
+      const real = current;
+      current = { ...current, sessionId: randomUUID() };
+      await assert.rejects(service.reconcile(proof), /expired/);
+      current = real;
+      const results = await Promise.allSettled([
+        service.reconcile(proof),
+        createAccountAccessRepository(b, verifier).reconcile(proof),
+      ]);
+      assert.equal(
+        results.filter((value) => value.status === "fulfilled").length,
+        1,
+      );
+      assert.equal(
+        results.filter((value) => value.status === "rejected").length,
+        1,
+      );
+      const updated = (
+        await owner.query(
+          "SELECT user_id,credentials_digest,credentials_snapshot FROM provider_identities WHERE subject=$1",
+          [f.identity.subject],
+        )
+      ).rows[0];
+      assert.equal(updated.user_id, f.f.userId);
+      assert.equal(updated.credentials_digest, current.credentialsDigest);
+      assert.deepEqual(updated.credentials_snapshot, credentials);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM sessions WHERE user_id=$1",
+            [f.f.userId],
+          )
+        ).rows[0].n,
+        1,
+      );
+      await assert.rejects(service.reconcile(proof), /expired/);
+    });
+    it("permits a retained password reconciliation without treating a provider token as fresh proof", async () => {
+      const f = await accessFixture(),
+        credentials = [{ type: "email", id: `${randomUUID()}@example.test` }],
+        identity = {
+          ...f.identity,
+          credentials,
+          email: credentials[0].id,
+          credentialsDigest: providerCredentialsDigest(credentials),
+        };
+      const service = createAccountAccessRepository(a, {
+          async verify() {
+            return identity;
+          },
+          async inspect() {
+            return identity;
+          },
+        }),
+        operation = await service.reconciliationOptions({
+          token: "synthetic-provider-token",
+          origin,
+          credential: { type: "password" },
+        });
+      const input = {
+        id: operation.id,
+        token: "synthetic-provider-token",
+        origin,
+        rpcUrls: {},
+        sessionDurationMs: 600000,
+      };
+      await assert.rejects(
+        service.reconcile({ ...input, password: "incorrect" }),
+        /password is incorrect/,
+      );
+      const result = await service.reconcile({ ...input, password });
+      assert.equal(
+        (
+          await createSessionRepository(b).findUserByTokenHash(
+            hashSessionToken(result.token),
+          )
+        ).id,
+        f.f.userId,
+      );
+    });
+    it("requires a retained wallet signature for the exact displayed method changes and rejects another wallet", async () => {
+      const f = await accessFixture(),
+        wallet = privateKeyToAccount(`0x${randomBytes(32).toString("hex")}`),
+        other = privateKeyToAccount(`0x${randomBytes(32).toString("hex")}`),
+        walletId = randomUUID();
+      await owner.query(
+        "INSERT INTO wallet_identities(id,user_id,address,chain_id) VALUES($1,$2,$3,1)",
+        [walletId, f.f.userId, wallet.address.toLowerCase()],
+      );
+      const credentials = [
+          { type: "email", id: `${randomUUID()}@example.test` },
+        ],
+        identity = {
+          ...f.identity,
+          credentials,
+          email: credentials[0].id,
+          credentialsDigest: providerCredentialsDigest(credentials),
+        },
+        service = createAccountAccessRepository(a, {
+          async verify() {
+            return identity;
+          },
+          async inspect() {
+            return identity;
+          },
+        });
+      const operation = await service.reconciliationOptions({
+          token: "synthetic-provider-token",
+          origin,
+          credential: { type: "wallet", walletId },
+        }),
+        input = {
+          id: operation.id,
+          token: "synthetic-provider-token",
+          origin,
+          rpcUrls: {},
+          sessionDurationMs: 600000,
+        };
+      assert.ok(operation.authorizationMessage.includes(f.identity.email));
+      assert.ok(operation.authorizationMessage.includes(identity.email));
+      await assert.rejects(
+        service.reconcile({
+          ...input,
+          signature: await other.signMessage({
+            message: operation.authorizationMessage,
+          }),
+        }),
+        /wallet verification failed/,
+      );
+      const result = await service.reconcile({
+        ...input,
+        signature: await wallet.signMessage({
+          message: operation.authorizationMessage,
+        }),
+      });
+      assert.equal(
+        (
+          await createSessionRepository(b).findUserByTokenHash(
+            hashSessionToken(result.token),
+          )
+        ).id,
+        f.f.userId,
+      );
+    });
+    it("checks challenge expiry after provider inspection and rolls back key use and provisional session creation", async () => {
+      let inspections = 0;
+      const f = await accessFixture(),
+        service = createAccountAccessRepository(a, {
+          async verify() {
+            return f.identity;
+          },
+          async inspect() {
+            inspections++;
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            return f.identity;
+          },
+        }),
+        challenge = await service.loginOptions({ origin }),
+        shortId = randomUUID();
+      await owner.query(
+        `INSERT INTO account_access_challenges(id,purpose,nonce,credential_type,created_at,expires_at)
+        SELECT $1,purpose,nonce,credential_type,date_trunc('milliseconds',clock_timestamp()),date_trunc('milliseconds',clock_timestamp())+interval '400 milliseconds'
+        FROM account_access_challenges WHERE id=$2`,
+        [shortId, challenge.id],
+      );
+      await assert.rejects(
+        service.login({
+          id: shortId,
+          origin,
+          sessionDurationMs: 600000,
+          authentication: f.authenticatorDevice.authentication(
+            challenge.authenticationOptions,
+            { userHandle: f.userHandle },
+          ),
+        }),
+        /expired/,
+      );
+      assert.equal(inspections, 1);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT counter FROM account_security_keys WHERE id=$1",
+            [f.result.keyId],
+          )
+        ).rows[0].counter,
+        "0",
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM sessions WHERE user_id=$1",
+            [f.f.userId],
+          )
+        ).rows[0].n,
+        1,
+      );
+    });
+    it("applies account and operation abuse limits after server-side identity resolution and before checking proof", async () => {
+      const f = await accessFixture(),
+        attempts = [],
+        service = createAccountAccessRepository(
+          a,
+          {
+            async verify() {
+              return f.identity;
+            },
+            async inspect() {
+              return f.identity;
+            },
+          },
+          {
+            async authorizeAttempt(userId, purpose) {
+              attempts.push({ userId, purpose });
+              throw new Error("synthetic account limit");
+            },
+          },
+        ),
+        challenge = await service.loginOptions({ origin });
+      await assert.rejects(
+        service.login({
+          id: challenge.id,
+          origin,
+          sessionDurationMs: 600000,
+          authentication: f.authenticatorDevice.authentication(
+            challenge.authenticationOptions,
+            { userHandle: f.userHandle },
+          ),
+        }),
+        /account limit/,
+      );
+      const reconcile = await service.reconciliationOptions({
+        token: "synthetic-provider-token",
+        origin,
+        credential: { type: "password" },
+      });
+      await assert.rejects(
+        service.reconcile({
+          id: reconcile.id,
+          token: "synthetic-provider-token",
+          origin,
+          rpcUrls: {},
+          sessionDurationMs: 600000,
+          password,
+        }),
+        /account limit/,
+      );
+      assert.deepEqual(attempts, [
+        { userId: f.f.userId, purpose: "security.login" },
+        { userId: f.f.userId, purpose: "provider.credentials.reconcile" },
+      ]);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT counter FROM account_security_keys WHERE id=$1",
+            [f.result.keyId],
+          )
+        ).rows[0].counter,
+        "0",
+      );
+    });
+    it("does not guess an unknown old provider snapshot or cross a later revocation while reconciling", async () => {
+      const f = await accessFixture(),
+        service = createAccountAccessRepository(a, {
+          async verify() {
+            return f.identity;
+          },
+          async inspect() {
+            return f.identity;
+          },
+        });
+      const operation = await service.reconciliationOptions({
+        token: "synthetic-provider-token",
+        origin,
+        credential: { type: "password" },
+      });
+      await createSessionRepository(b).revoke(
+        f.f.userId,
+        f.f.sessionTokenHash,
+        false,
+      );
+      await assert.rejects(
+        service.reconcile({
+          id: operation.id,
+          token: "synthetic-provider-token",
+          origin,
+          rpcUrls: {},
+          sessionDurationMs: 600000,
+          password,
+        }),
+        /expired/,
+      );
+      await owner.query(
+        "UPDATE provider_identities SET credentials_snapshot=NULL,methods='[\"google_oauth\"]'::jsonb WHERE user_id=$1",
+        [f.f.userId],
+      );
+      await assert.rejects(
+        service.reconciliationCandidate("synthetic-provider-token"),
+        /earlier sign-in methods need ownership review/,
+      );
+    });
+    it("fails closed on provider outage and rolls back a verified key counter with no new cookie", async () => {
+      const f = await accessFixture(),
+        service = createAccountAccessRepository(a, {
+          async verify() {
+            throw new ProviderUnavailableError("provider unavailable");
+          },
+          async inspect() {
+            throw new ProviderUnavailableError("provider unavailable");
+          },
+        }),
+        challenge = await service.loginOptions({ origin });
+      await assert.rejects(
+        service.login({
+          id: challenge.id,
+          origin,
+          sessionDurationMs: 600000,
+          authentication: f.authenticatorDevice.authentication(
+            challenge.authenticationOptions,
+            { userHandle: f.userHandle },
+          ),
+        }),
+        ProviderUnavailableError,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT counter FROM account_security_keys WHERE id=$1",
+            [f.result.keyId],
+          )
+        ).rows[0].counter,
+        "0",
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM sessions WHERE user_id=$1",
+            [f.f.userId],
+          )
+        ).rows[0].n,
+        1,
+      );
+    });
+    it("allows a verified Google-only first security key at the same before-funds bootstrap boundary", async () => {
+      const credentials = [{ type: "google_oauth", id: randomUUID() }],
+        identity = {
+          subject: `did:privy:${randomUUID()}`,
+          sessionId: randomUUID(),
+          email: null,
+          methods: ["google_oauth"],
+          issuedAt: Math.floor(Date.now() / 1000),
+          credentials,
+          credentialsDigest: providerCredentialsDigest(credentials),
+        },
+        token = createSessionToken();
+      const { user } = await createProviderAccounts(a).exchange(
+        identity,
+        token.tokenHash,
+        new Date(Date.now() + 600000),
+      );
+      accounts.push(user.id);
+      const context = {
+          userId: user.id,
+          sessionTokenHash: token.tokenHash,
+          origin,
+        },
+        repository = createSecurityPasskeyRepository(a),
+        challenge = await repository.enrollmentOptions(context),
+        device = authenticator();
+      assert.equal(challenge.bootstrapAllowed, true);
+      await repository.completeEnrollment({
+        ...context,
+        id: challenge.id,
+        response: device.registration(challenge.options),
+        sessionDurationMs: 600000,
+      });
+      assert.equal((await repository.list(user.id)).length, 1);
     });
   },
 );

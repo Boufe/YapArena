@@ -7,9 +7,21 @@ import {
   useLoginWithEmail,
   useLoginWithOAuth,
   useLoginWithPasskey,
+  useLinkAccount,
+  useLinkEmail,
+  useUpdateEmail,
+  useUnlinkEmail,
+  useUnlinkOAuth,
+  useUnlinkPasskey,
 } from "@privy-io/react-auth";
+import {
+  startAuthentication,
+  WebAuthnAbortService,
+  type AuthenticationResponseJSON,
+  type PublicKeyCredentialRequestOptionsJSON,
+} from "@simplewebauthn/browser";
 import { safeAuthReturn } from "./auth-return.js";
-import type { AuthMode } from "./auth-events.js";
+import type { AuthMode, ProviderChange } from "./auth-events.js";
 
 type Config = {
   enabled: boolean;
@@ -44,6 +56,52 @@ function announceSession() {
   window.dispatchEvent(new Event("yap:account-changed"));
   channel?.postMessage("changed");
 }
+async function securityRequest(
+  path: string,
+  body: unknown,
+  token?: string,
+): Promise<Response> {
+  const response = await fetch(`/api/auth/security/${path}`, {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!response.ok) {
+    const value: { error?: string } = await response.json().catch(() => ({}));
+    throw new Error(
+      value.error ?? "Security verification is unavailable. Try again.",
+    );
+  }
+  return response;
+}
+async function securityJSON<T>(
+  path: string,
+  body: unknown,
+  token?: string,
+): Promise<T> {
+  return (await securityRequest(path, body, token)).json();
+}
+function rememberLink(value: boolean) {
+  try {
+    if (value) sessionStorage.setItem("yaparena-provider-link", "1");
+    else sessionStorage.removeItem("yaparena-provider-link");
+  } catch {
+    /* Intent only, never authentication evidence. */
+  }
+}
+function hasLinkIntent() {
+  try {
+    return sessionStorage.getItem("yaparena-provider-link") === "1";
+  } catch {
+    return false;
+  }
+}
 
 function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
   const [intent, setIntent] = useState<AuthMode | null>(
@@ -54,6 +112,10 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         : null,
   );
   const { ready, authenticated, getAccessToken, logout } = usePrivy();
+  const [reconciliationToken, setReconciliationToken] = useState<string | null>(
+    null,
+  );
+  const linkIntent = useRef(hasLinkIntent());
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
@@ -98,15 +160,24 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
   }, []);
   useEffect(() => {
     const end = () => {
+      setReconciliationToken(null);
+      WebAuthnAbortService.cancelCeremony();
       void logout().catch(() => {});
     };
     window.addEventListener("yap:provider-logout", end);
     return () => window.removeEventListener("yap:provider-logout", end);
   }, [logout]);
   useEffect(() => {
+    const link = () => {
+      linkIntent.current = true;
+      rememberLink(true);
+      setMessage("Verify the sign-in method to link to your existing account.");
+    };
     const mode = (event: CustomEvent<AuthMode | null>) =>
       setIntent(event.detail);
     const dismiss = () => {
+      linkIntent.current = false;
+      rememberLink(false);
       cancelled.current = true;
       if (journeyStart.current !== null) measure("cancelled");
       journeyStart.current = null;
@@ -118,9 +189,11 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
       );
     };
     window.addEventListener("yap:auth-mode", mode);
+    window.addEventListener("yap:link-provider", link);
     window.addEventListener("yap:auth-dismissed", dismiss);
     return () => {
       window.removeEventListener("yap:auth-mode", mode);
+      window.removeEventListener("yap:link-provider", link);
       window.removeEventListener("yap:auth-dismissed", dismiss);
     };
   }, []);
@@ -129,7 +202,11 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
       emailInput.current?.focus();
   }, [ready, intent]);
 
-  async function run(action: () => Promise<void>, failure: string) {
+  async function run(
+    action: () => Promise<void>,
+    failure: string,
+    detail = false,
+  ) {
     if (pending.current || completing.current) return;
     if (journeyStart.current === null) {
       journeyStart.current = performance.now();
@@ -140,11 +217,13 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
     cancelled.current = false;
     try {
       await action();
-    } catch {
+    } catch (error) {
       measure("provider_error");
       setMessage(
         navigator.onLine
-          ? failure
+          ? detail && error instanceof Error
+            ? error.message
+            : failure
           : "You’re offline. Reconnect, then try again.",
       );
     } finally {
@@ -163,6 +242,23 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         credentials: "same-origin",
         cache: "no-store",
       });
+      if (linkIntent.current || hasLinkIntent()) {
+        if (!current.ok)
+          throw new Error(
+            "Sign in to your existing account before linking another sign-in method.",
+          );
+        if (!window.yapLinkProviderIdentity)
+          throw new Error("Open account settings and retry linking.");
+        const token = await getAccessToken();
+        if (!token || cancelled.current) return;
+        await window.yapLinkProviderIdentity(token);
+        linkIntent.current = false;
+        rememberLink(false);
+        announceSession();
+        window.dispatchEvent(new Event("yap:auth-complete"));
+        setMessage("Sign-in linked to your existing account.");
+        return;
+      }
       if (current.status !== 200) {
         if (cancelled.current) return;
         const token = await getAccessToken();
@@ -181,6 +277,10 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
             credentials: "same-origin",
           });
           if (!check.ok) {
+            if (response.status === 403) {
+              setReconciliationToken(token);
+              return;
+            }
             setMessage(
               response.status === 403
                 ? "Account access changed. Ownership verification is required before signing in again."
@@ -214,9 +314,11 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
       window.dispatchEvent(new Event("yap:auth-complete"));
       if (target) location.assign(target);
       else setMessage("You’re signed in. Your profile is optional.");
-    } catch {
+    } catch (error) {
       setMessage(
-        "Connection interrupted. Retry to check whether sign-in completed.",
+        error instanceof Error
+          ? error.message
+          : "Connection interrupted. Retry to check whether sign-in completed.",
       );
     } finally {
       completing.current = false;
@@ -238,6 +340,35 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
     }, "We couldn’t send a code. Check your email address and try again shortly.");
   }
   const seconds = Math.max(0, Math.ceil((resendAt - clock) / 1_000));
+  async function keyLogin() {
+    await run(
+      async () => {
+        const challenge = await securityJSON<{
+          id: string;
+          authenticationOptions: PublicKeyCredentialRequestOptionsJSON;
+        }>("access/login", {});
+        const authentication = await startAuthentication({
+          optionsJSON: challenge.authenticationOptions,
+        });
+        if (cancelled.current) return;
+        await securityRequest(
+          `access/login/${encodeURIComponent(challenge.id)}/complete`,
+          { authentication },
+        );
+        announceSession();
+        window.dispatchEvent(new Event("yap:auth-complete"));
+        const target = safeAuthReturn(
+          root?.dataset.authReturn ??
+            new URLSearchParams(location.search).get("next"),
+          location.origin,
+        );
+        if (target) location.assign(target);
+        else setMessage("You’re signed in with your security passkey.");
+      },
+      "Security passkey sign-in was cancelled or no matching key was found.",
+      true,
+    );
+  }
   return (
     <div className="auth-card" data-step={step} aria-busy={!ready || busy}>
       <div className="auth-card-top">
@@ -392,6 +523,16 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         </div>
       )}
       <div className="auth-alternatives">
+        <button
+          className="button-secondary"
+          type="button"
+          disabled={busy || linkIntent.current}
+          onClick={() => {
+            if (!linkIntent.current) void keyLogin();
+          }}
+        >
+          Use a YapArena security passkey
+        </button>
         {google && (
           <button
             className="button-secondary"
@@ -510,12 +651,341 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         . Signing in never approves a payment.
       </p>
       <Captcha />
-      <Settings />
+      <Settings
+        google={google}
+        passkeys={passkeys}
+        onReconcile={setReconciliationToken}
+      />
+      {reconciliationToken && (
+        <Reconciliation
+          token={reconciliationToken}
+          onClose={() => setReconciliationToken(null)}
+          onComplete={() => {
+            setReconciliationToken(null);
+            announceSession();
+            window.dispatchEvent(new Event("yap:auth-complete"));
+            setMessage(
+              "Account access restored. Other sessions were signed out.",
+            );
+            const target = safeAuthReturn(
+              root?.dataset.authReturn ??
+                new URLSearchParams(location.search).get("next"),
+              location.origin,
+            );
+            if (target) location.assign(target);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function Settings() {
+type ProviderCredential = {
+  type: "email" | "google_oauth" | "passkey";
+  id: string;
+};
+const providerMethodNames = {
+  email: "Email",
+  google_oauth: "Google account",
+  passkey: "Provider sign-in passkey",
+};
+type LinkedWallet = { id: string; address: string; chainId: string };
+async function injectedWalletRequest(
+  method: string,
+  params?: string[],
+): Promise<unknown> {
+  const provider: unknown = Reflect.get(window, "ethereum");
+  if (typeof provider !== "object" || provider === null)
+    throw new Error("Open your retained wallet extension to continue.");
+  const request: unknown = Reflect.get(provider, "request");
+  if (typeof request !== "function")
+    throw new Error("Your wallet extension cannot approve this request.");
+  const result: unknown = await Reflect.apply(request, provider, [
+    { method, ...(params ? { params } : {}) },
+  ]);
+  return result;
+}
+type RecoveryCandidate = {
+  before: ProviderCredential[];
+  after: ProviderCredential[];
+  legacyPassword: boolean;
+  passkeys: { id: string; createdAt: string }[];
+  wallets: LinkedWallet[];
+};
+function Reconciliation({
+  token,
+  onClose,
+  onComplete,
+}: {
+  token: string;
+  onClose: () => void;
+  onComplete: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null),
+    title = useRef<HTMLHeadingElement>(null),
+    locked = useRef(false);
+  const [candidate, setCandidate] = useState<RecoveryCandidate | null>(null),
+    [selected, setSelected] = useState(""),
+    [password, setPassword] = useState(""),
+    [message, setMessage] = useState("Checking sign-in changes…"),
+    [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const prior =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    measure("recovery_started");
+    dialog.current?.showModal();
+    title.current?.focus();
+    let cancelled = false;
+    void securityJSON<RecoveryCandidate>(
+      "access/reconciliation/candidate",
+      {},
+      token,
+    )
+      .then((value) => {
+        if (cancelled) return;
+        setCandidate(value);
+        setSelected(
+          value.passkeys[0]
+            ? `passkey:${value.passkeys[0].id}`
+            : value.legacyPassword
+              ? "password"
+              : value.wallets[0]
+                ? `wallet:${value.wallets[0].id}`
+                : "",
+        );
+        setMessage(
+          "Review the exact sign-in methods below. Continue only if you recognize every change.",
+        );
+      })
+      .catch((error) => {
+        if (!cancelled)
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Ownership review is required.",
+          );
+      });
+    return () => {
+      cancelled = true;
+      WebAuthnAbortService.cancelCeremony();
+      dialog.current?.close();
+      if (prior?.isConnected) prior.focus();
+    };
+  }, [token]);
+  async function complete() {
+    if (locked.current || !candidate || !selected) return;
+    locked.current = true;
+    setBusy(true);
+    setMessage("Waiting for verification…");
+    try {
+      const credential =
+        selected === "password"
+          ? { type: "password" }
+          : selected.startsWith("passkey:")
+            ? { type: "passkey", keyId: selected.slice(8) }
+            : { type: "wallet", walletId: selected.slice(7) };
+      const operation = await securityJSON<{
+        id: string;
+        before: ProviderCredential[];
+        after: ProviderCredential[];
+        authenticationOptions?: PublicKeyCredentialRequestOptionsJSON;
+        authorizationMessage: string | null;
+      }>("access/reconciliation", { credential }, token);
+      if (
+        JSON.stringify(operation.before) !== JSON.stringify(candidate.before) ||
+        JSON.stringify(operation.after) !== JSON.stringify(candidate.after)
+      )
+        throw new Error(
+          "Sign-in methods changed again. Close and start verification again.",
+        );
+      const approval: {
+        id: string;
+        password?: string;
+        signature?: string;
+        authentication?: AuthenticationResponseJSON;
+      } = { id: operation.id };
+      if (selected === "password") approval.password = password;
+      else if (selected.startsWith("passkey:")) {
+        if (!operation.authenticationOptions)
+          throw new Error("Security passkey verification unavailable.");
+        approval.authentication = await startAuthentication({
+          optionsJSON: operation.authenticationOptions,
+        });
+      } else {
+        const wallet = candidate.wallets.find(
+          (value) => value.id === selected.slice(7),
+        );
+        if (!wallet || !operation.authorizationMessage)
+          throw new Error("Open your retained wallet extension to continue.");
+        const accounts = await injectedWalletRequest("eth_requestAccounts"),
+          chainId = await injectedWalletRequest("eth_chainId");
+        const address: unknown = Array.isArray(accounts) ? accounts[0] : null;
+        if (
+          typeof address !== "string" ||
+          typeof chainId !== "string" ||
+          address.toLowerCase() !== wallet.address.toLowerCase() ||
+          Number.parseInt(chainId, 16) !== Number(wallet.chainId)
+        )
+          throw new Error(
+            `Switch your wallet to ${wallet.address} on chain ${wallet.chainId}, then retry.`,
+          );
+        const hex = `0x${Array.from(new TextEncoder().encode(operation.authorizationMessage), (value) => value.toString(16).padStart(2, "0")).join("")}`;
+        const signature = await injectedWalletRequest("personal_sign", [
+          hex,
+          wallet.address,
+        ]);
+        if (typeof signature !== "string")
+          throw new Error("Your wallet did not return a signature.");
+        approval.signature = signature;
+      }
+      setPassword("");
+      await securityRequest(
+        `access/reconciliation/${encodeURIComponent(operation.id)}/complete`,
+        { approval },
+        token,
+      );
+      measure("recovery_completed");
+      onComplete();
+    } catch (error) {
+      setPassword("");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Verification failed. If the result is uncertain, check account access before retrying.",
+      );
+    } finally {
+      locked.current = false;
+      setBusy(false);
+    }
+  }
+  return createSettingsPortal(
+    <dialog
+      ref={dialog}
+      className="information-card account-operation-dialog"
+      aria-labelledby="reconciliation-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!busy) {
+          setPassword("");
+          onClose();
+        }
+      }}
+    >
+      <form
+        className="stack-form"
+        aria-busy={busy}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void complete();
+        }}
+      >
+        <h2 ref={title} tabIndex={-1} id="reconciliation-title">
+          Review sign-in changes
+        </h2>
+        {candidate && (
+          <>
+            <h3>Previously accepted</h3>
+            <ul>
+              {candidate.before.map((value) => (
+                <li key={`${value.type}:${value.id}`}>
+                  {providerMethodNames[value.type]}: {value.id}
+                </li>
+              ))}
+            </ul>
+            <h3>Current verified provider methods</h3>
+            <ul>
+              {candidate.after.map((value) => (
+                <li key={`${value.type}:${value.id}`}>
+                  {providerMethodNames[value.type]}: {value.id}
+                </li>
+              ))}
+            </ul>
+            <label>
+              Verify with a retained method
+              <select
+                value={selected}
+                disabled={busy}
+                onChange={(event) => {
+                  setSelected(event.target.value);
+                  setPassword("");
+                }}
+              >
+                {candidate.passkeys.map((key) => (
+                  <option key={key.id} value={`passkey:${key.id}`}>
+                    Security passkey added{" "}
+                    {new Date(key.createdAt).toLocaleString()}
+                  </option>
+                ))}
+                {candidate.legacyPassword && (
+                  <option value="password">Current password</option>
+                )}
+                {candidate.wallets.map((wallet) => (
+                  <option key={wallet.id} value={`wallet:${wallet.id}`}>
+                    {wallet.address} · chain {wallet.chainId}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {selected === "password" && (
+              <label>
+                Current password
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  disabled={busy}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </label>
+            )}
+            {!selected && (
+              <p>
+                No retained security method is available. Ownership review is
+                required. Email sign-in cannot replace a lost security passkey.
+              </p>
+            )}
+          </>
+        )}
+        <p role="status" aria-live="polite" aria-atomic="true">
+          {message}
+        </p>
+        <button className="button" type="submit" disabled={busy || !selected}>
+          Accept these methods and restore access
+        </button>
+        <button
+          className="button-secondary"
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setPassword("");
+            onClose();
+          }}
+        >
+          Cancel
+        </button>
+        <p className="form-note">
+          This restores one YapArena session and signs out other sessions. It
+          never approves a payment. If these changes are unfamiliar, cancel and
+          request ownership review.
+        </p>
+      </form>
+    </dialog>,
+    document.body,
+  );
+}
+
+function Settings({
+  google,
+  passkeys,
+  onReconcile,
+}: {
+  google: boolean;
+  passkeys: boolean;
+  onReconcile: (token: string) => void;
+}) {
   const methodNames: Record<string, string> = {
     email: "Email",
     google_oauth: "Google",
@@ -523,10 +993,105 @@ function Settings() {
     password: "Password",
   };
   const [userMethods, setMethods] = useState<string[]>([]);
+  const [provider, setProvider] = useState<{
+    subject?: string;
+    methods: string[];
+    credentials: ProviderCredential[] | null;
+  } | null>(null);
+  const [busy, setBusy] = useState(false),
+    [message, setMessage] = useState(""),
+    [newEmail, setNewEmail] = useState(""),
+    [emailCode, setEmailCode] = useState(""),
+    [pendingEmail, setPendingEmail] = useState<{
+      address: string;
+      update: boolean;
+    } | null>(null);
+  const { ready, authenticated, user, getAccessToken } = usePrivy(),
+    pending = useRef(false),
+    refreshVersion = useRef(0);
+  const updateEmail = useUpdateEmail(),
+    linkEmail = useLinkEmail(),
+    unlinkEmail = useUnlinkEmail(),
+    unlinkOAuth = useUnlinkOAuth(),
+    unlinkPasskey = useUnlinkPasskey();
+  async function reconcile() {
+    setEmailCode("");
+    setPendingEmail(null);
+    try {
+      sessionStorage.removeItem("yaparena-provider-change");
+    } catch {
+      /* Navigation intent only. */
+    }
+    const token = await getAccessToken();
+    if (!token)
+      throw new Error("Verify your provider sign-in, then review the changes.");
+    onReconcile(token);
+    setMessage(
+      "Review the exact provider changes and verify with your retained security credential to finish.",
+    );
+  }
+  const links = useLinkAccount({
+    onSuccess: () => {
+      void reconcile().catch(() =>
+        setMessage(
+          "Verify your provider sign-in and retry ownership verification.",
+        ),
+      );
+      setBusy(false);
+      pending.current = false;
+    },
+    onError: () => {
+      setMessage(
+        "Linking was cancelled or unavailable. Your accepted YapArena methods were not changed.",
+      );
+      setBusy(false);
+      pending.current = false;
+    },
+  });
+  async function change(action: () => Promise<void>) {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    try {
+      await action();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The change could not be confirmed. Verify your provider sign-in to review its current state.",
+      );
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  }
+  async function approve(terms: ProviderChange) {
+    if (!window.yapApproveProviderChange)
+      throw new Error("Load your account security settings before continuing.");
+    if (!authenticated || user?.id !== provider?.subject)
+      throw new Error(
+        "Sign in with the current provider account before changing its methods.",
+      );
+    await window.yapApproveProviderChange(terms);
+  }
   useEffect(() => {
-    let version = 0;
+    if (!ready || !authenticated) return;
+    let kind: string | null = null;
+    try {
+      kind = sessionStorage.getItem("yaparena-provider-change");
+    } catch {
+      /* Optional redirect recovery. */
+    }
+    if (kind && user?.linkedAccounts.some((account) => account.type === kind))
+      void reconcile().catch(() =>
+        setMessage(
+          "Verify your provider sign-in and retry ownership verification.",
+        ),
+      );
+  }, [ready, authenticated, user]);
+  useEffect(() => {
     async function refresh() {
-      const current = ++version;
+      const current = ++refreshVersion.current;
       setMethods([]);
       try {
         const response = await fetch("/api/auth/methods", {
@@ -535,14 +1100,20 @@ function Settings() {
         });
         if (!response.ok) return;
         const value: {
-          provider: { methods: string[] } | null;
+          provider: {
+            subject?: string;
+            methods: string[];
+            credentials: ProviderCredential[] | null;
+          } | null;
           legacyPassword: boolean;
         } = await response.json();
-        if (current === version)
+        if (current === refreshVersion.current) {
+          setProvider(value.provider);
           setMethods([
             ...(value.legacyPassword ? ["password"] : []),
             ...(value.provider?.methods ?? []),
           ]);
+        }
       } catch {
         // The account remains controlled by its server session during outages.
       }
@@ -550,7 +1121,7 @@ function Settings() {
     void refresh();
     window.addEventListener("yap:account-changed", refresh);
     return () => {
-      version++;
+      refreshVersion.current++;
       window.removeEventListener("yap:account-changed", refresh);
     };
   }, []);
@@ -577,7 +1148,263 @@ function Settings() {
             Keep access to your verified email. Changes to financial
             authorization require separate ownership verification.
           </p>
-          <p>Adding or removing sign-in methods is not available yet.</p>
+          {provider ? (
+            <>
+              {(!authenticated || user?.id !== provider.subject) && (
+                <p>
+                  Sign in with your current email or provider passkey before
+                  changing provider methods. A YapArena security passkey
+                  restores app access and does not create a Privy session.
+                </p>
+              )}
+              <form
+                className="stack-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void change(async () => {
+                    const address = newEmail.trim(),
+                      update = provider.methods.includes("email");
+                    await approve({
+                      action: update ? "update" : "link",
+                      method: "email",
+                      target: address,
+                    });
+                    if (update)
+                      await updateEmail.sendCode({ newEmailAddress: address });
+                    else await linkEmail.sendCode({ email: address });
+                    setPendingEmail({ address, update });
+                    setEmailCode("");
+                    setMessage(
+                      "Privy sent a code to the new email. Enter its newest code below.",
+                    );
+                  });
+                }}
+              >
+                <label>
+                  New sign-in email
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={newEmail}
+                    disabled={busy || Boolean(pendingEmail)}
+                    onChange={(event) => setNewEmail(event.target.value)}
+                  />
+                </label>
+                <button
+                  className="button-secondary"
+                  type="submit"
+                  disabled={
+                    busy ||
+                    Boolean(pendingEmail) ||
+                    !authenticated ||
+                    user?.id !== provider.subject
+                  }
+                >
+                  {provider.methods.includes("email")
+                    ? "Change email"
+                    : "Add email"}
+                </button>
+              </form>
+              {pendingEmail && (
+                <form
+                  className="stack-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void change(async () => {
+                      if (pendingEmail.update)
+                        await updateEmail.verifyCode({ code: emailCode });
+                      else await linkEmail.linkWithCode({ code: emailCode });
+                      await reconcile();
+                    });
+                  }}
+                >
+                  <label>
+                    Code for {pendingEmail.address}
+                    <input
+                      autoComplete="one-time-code"
+                      inputMode="numeric"
+                      pattern="[0-9]{6}"
+                      maxLength={6}
+                      required
+                      value={emailCode}
+                      disabled={busy}
+                      onChange={(event) =>
+                        setEmailCode(
+                          event.target.value.replace(/\D/g, "").slice(0, 6),
+                        )
+                      }
+                    />
+                  </label>
+                  <button
+                    className="button"
+                    type="submit"
+                    disabled={busy || emailCode.length !== 6}
+                  >
+                    Verify new email
+                  </button>
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void change(async () => {
+                        if (pendingEmail.update)
+                          await updateEmail.sendCode({
+                            newEmailAddress: pendingEmail.address,
+                          });
+                        else
+                          await linkEmail.sendCode({
+                            email: pendingEmail.address,
+                          });
+                        setEmailCode("");
+                        setMessage(
+                          "Privy resent the code. Use the newest one.",
+                        );
+                      })
+                    }
+                  >
+                    Resend new email code
+                  </button>
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      setPendingEmail(null);
+                      setEmailCode("");
+                    }}
+                  >
+                    Cancel email change
+                  </button>
+                </form>
+              )}
+              {google && !provider.methods.includes("google_oauth") && (
+                <button
+                  className="button-secondary"
+                  type="button"
+                  disabled={
+                    busy || !authenticated || user?.id !== provider.subject
+                  }
+                  onClick={() =>
+                    void change(async () => {
+                      await approve({
+                        action: "link",
+                        method: "google_oauth",
+                        target: "provider-verified-google-account",
+                      });
+                      try {
+                        sessionStorage.setItem(
+                          "yaparena-provider-change",
+                          "google_oauth",
+                        );
+                      } catch {
+                        /* Intent only. */
+                      }
+                      links.linkGoogle();
+                    })
+                  }
+                >
+                  Add Google sign-in
+                </button>
+              )}
+              {passkeys && (
+                <button
+                  className="button-secondary"
+                  type="button"
+                  disabled={
+                    busy || !authenticated || user?.id !== provider.subject
+                  }
+                  onClick={() =>
+                    void change(async () => {
+                      await approve({
+                        action: "link",
+                        method: "passkey",
+                        target: "new-provider-passkey",
+                      });
+                      links.linkPasskey();
+                    })
+                  }
+                >
+                  Add provider sign-in passkey
+                </button>
+              )}
+              <ul className="account-list">
+                {(provider.credentials ?? []).map((entry) => (
+                  <li key={`${entry.type}:${entry.id}`}>
+                    <p>
+                      {methodNames[entry.type]}: {entry.id}
+                    </p>
+                    <button
+                      className="button-secondary"
+                      type="button"
+                      disabled={
+                        busy ||
+                        !authenticated ||
+                        user?.id !== provider.subject ||
+                        (provider.credentials?.length ?? 0) <= 1
+                      }
+                      onClick={() =>
+                        void change(async () => {
+                          await approve({
+                            action: "remove",
+                            method: entry.type,
+                            target: entry.id,
+                          });
+                          if (entry.type === "email")
+                            await unlinkEmail.unlink({ address: entry.id });
+                          else if (entry.type === "google_oauth")
+                            await unlinkOAuth.unlink({
+                              provider: "google",
+                              subject: entry.id,
+                            });
+                          else
+                            await unlinkPasskey.unlink({
+                              credentialId: entry.id,
+                            });
+                          await reconcile();
+                        })
+                      }
+                    >
+                      Remove {methodNames[entry.type]}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button
+                className="button-secondary"
+                type="button"
+                disabled={busy || !authenticated}
+                onClick={() => void change(reconcile)}
+              >
+                Review provider changes or recover access
+              </button>
+            </>
+          ) : (
+            <button
+              className="button-secondary"
+              type="button"
+              disabled={busy || !userMethods.length}
+              onClick={() => {
+                window.dispatchEvent(new Event("yap:link-provider"));
+                window.dispatchEvent(
+                  new CustomEvent("yap:request-auth", {
+                    detail: { mode: "login" },
+                  }),
+                );
+              }}
+            >
+              Link email, Google or provider passkey to this existing account
+            </button>
+          )}
+          <p role="status" aria-live="polite" aria-atomic="true">
+            {message}
+          </p>
+          <p className="form-note">
+            Keep at least one provider sign-in method. Changes require a
+            retained security credential. If all stronger methods are lost,
+            ownership review is required; an email code cannot reset them.
+          </p>
         </>,
         settingsRoot,
       )

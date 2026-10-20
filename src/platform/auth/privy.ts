@@ -1,5 +1,8 @@
 import { PrivyClient, NotFoundError } from "@privy-io/node";
-import { createHash } from "node:crypto";
+import {
+  providerCredentialsDigest,
+  type ProviderCredential,
+} from "./provider-credentials.ts";
 
 export type ProviderIdentity = {
   subject: string;
@@ -8,6 +11,7 @@ export type ProviderIdentity = {
   methods: string[];
   issuedAt: number;
   credentialsDigest: string;
+  credentials?: ProviderCredential[];
 };
 export type IdentityVerifier = {
   verify(token: string): Promise<ProviderIdentity>;
@@ -16,7 +20,7 @@ export type IdentityVerifier = {
   ): Promise<
     Pick<
       ProviderIdentity,
-      "subject" | "email" | "methods" | "credentialsDigest"
+      "subject" | "email" | "methods" | "credentialsDigest" | "credentials"
     >
   >;
   configuration(): Promise<{ google: boolean; passkeys: boolean }>;
@@ -71,18 +75,22 @@ export function createPrivyVerifier(config: {
     )
       throw new ProviderCredentialChangedError("provider account unavailable");
     const email = user.linked_accounts.find((entry) => entry.type === "email");
-    const credentials = user.linked_accounts
-      .map((entry) => {
-        if (entry.type === "email") return ["email", entry.address];
+    const credentials: ProviderCredential[] = user.linked_accounts
+      .map((entry): ProviderCredential => {
+        if (entry.type === "email") return { type: "email", id: entry.address };
         if (entry.type === "google_oauth")
-          return ["google_oauth", entry.subject];
-        if (entry.type === "passkey") return ["passkey", entry.credential_id];
+          return { type: "google_oauth", id: entry.subject };
+        if (entry.type === "passkey")
+          return { type: "passkey", id: entry.credential_id };
         throw new ProviderCredentialChangedError(
           "unsupported authentication method",
         );
       })
-      .map((value) => JSON.stringify(value))
-      .sort();
+      .sort((a, b) =>
+        JSON.stringify([a.type, a.id]).localeCompare(
+          JSON.stringify([b.type, b.id]),
+        ),
+      );
     if (!credentials.length)
       throw new ProviderCredentialChangedError(
         "authentication method required",
@@ -93,9 +101,8 @@ export function createPrivyVerifier(config: {
       methods: [
         ...new Set(user.linked_accounts.map((entry) => entry.type)),
       ].sort(),
-      credentialsDigest: createHash("sha256")
-        .update(JSON.stringify(credentials))
-        .digest("hex"),
+      credentialsDigest: providerCredentialsDigest(credentials),
+      credentials,
     };
   }
   return {

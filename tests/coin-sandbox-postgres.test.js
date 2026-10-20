@@ -187,9 +187,10 @@ describe(
             [actor.userId],
           );
         else
-          await owner.query("UPDATE users SET password_hash=NULL WHERE id=$1", [
-            actor.userId,
-          ]);
+          await owner.query(
+            "UPDATE users SET email=NULL,password_hash=NULL WHERE id=$1",
+            [actor.userId],
+          );
         const before = await counts(actor);
         await assert.rejects(
           approve(actor, quote),
@@ -279,7 +280,7 @@ describe(
         reason: "incorrect_funding",
       });
       await owner.query(
-        "UPDATE users SET account_status='suspended',password_hash=NULL WHERE id=$1",
+        "UPDATE users SET account_status='suspended',email=NULL,password_hash=NULL WHERE id=$1",
         [submitted.userId],
       );
       const reconciled = await operator.observe({
@@ -685,12 +686,16 @@ describe(
         amount: "12345678",
         idempotencyKey: randomUUID(),
       });
+      const assigned = await repo.quoteFunding(context, {
+        amount: "12345678",
+        idempotencyKey: randomUUID(),
+      });
       await owner.query(
         `INSERT INTO coin_external_receipts(id,request_id,network,asset,transaction_id,locator,amount,evidence_digest)
       VALUES($1,$2,'simulation:usdc','USDC',$3,'credit:0',$4,$5)`,
         [
           randomUUID(),
-          quote.id,
+          assigned.id,
           `simulation:${second.id}`,
           second.terms.amount,
           "a".repeat(64),

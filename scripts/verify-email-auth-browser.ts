@@ -176,6 +176,30 @@ try {
       }
     });
     const page = await context.newPage();
+    async function checkHeaderZoom(state: "guest" | "member") {
+      if (name !== "desktop") return;
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.evaluate(() => {
+        document.documentElement.style.zoom = "2";
+      });
+      try {
+        assert.equal(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1,
+          ),
+          true,
+          `${state} header reflows at 200% zoom`,
+        );
+        await page.locator("[data-site-header]").screenshot({
+          path: resolve(directory, `header-${state}-zoom.png`),
+        });
+      } finally {
+        await page.evaluate(() => {
+          document.documentElement.style.zoom = "";
+        });
+        await page.setViewportSize(viewport);
+      }
+    }
     page.on("pageerror", (error) => errors.push(error.message));
     const requests: { path: string; status: number }[] = [];
     page.on("response", (response) =>
@@ -617,6 +641,7 @@ try {
       path: resolve(directory, `header-guest-${name}.png`),
       fullPage: false,
     });
+    await checkHeaderZoom("guest");
     await login.click();
     const authModal = page.locator("#site-auth-dialog");
     await authModal
@@ -709,6 +734,7 @@ try {
         "1250 YC",
     );
     await page.evaluate(() => window.scrollTo(0, 0));
+    await checkHeaderZoom("member");
     await page.screenshot({
       path: resolve(directory, `header-member-${name}.png`),
       fullPage: false,

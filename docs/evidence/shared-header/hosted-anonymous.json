@@ -1,0 +1,55 @@
+{
+  "at": "2026-10-20T00:13:19.764Z",
+  "origin": "https://yaparena-staging-web.onrender.com",
+  "revision": "9c1958503830c280cde257ae1022d9fbd69a70c3",
+  "topLevelCspViolations": 0,
+  "observations": [
+    {
+      "viewport": "desktop",
+      "pages": [
+        "/",
+        "/live",
+        "/debates",
+        "/topics",
+        "/about",
+        "/match",
+        "/coins"
+      ],
+      "initialProviderRequests": 0,
+      "popupReadyMs": 1258,
+      "authBundle": {
+        "durationMs": 374,
+        "transferBytes": 1721094,
+        "encodedBytes": 1720794
+      },
+      "captchaFrames": 2,
+      "pageErrors": 0,
+      "overflow": false,
+      "cancellationAndFocus": true
+    },
+    {
+      "viewport": "mobile",
+      "pages": [
+        "/",
+        "/live",
+        "/debates",
+        "/topics",
+        "/about",
+        "/match",
+        "/coins"
+      ],
+      "initialProviderRequests": 0,
+      "popupReadyMs": 1557,
+      "authBundle": {
+        "durationMs": 808,
+        "transferBytes": 1721095,
+        "encodedBytes": 1720795
+      },
+      "captchaFrames": 2,
+      "pageErrors": 0,
+      "overflow": false,
+      "cancellationAndFocus": true
+    }
+  ],
+  "scope": "Real anonymous staging pages and provider/public metadata in fresh desktop/mobile Chromium contexts, no interception. No email or OTP submitted, CAPTCHA solved, identity or session created, or money action attempted. Signed-in/header grant behavior has separate synthetic local evidence; earlier founder signup is separate. Workstation timings do not establish population performance or physical-device/WCAG acceptance."
+}

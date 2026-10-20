@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-20T00:01:12.731Z",
+  "at": "2026-10-20T00:17:24.276Z",
   "checks": [
     "desktop: synthetic withdrawal balance, independent grant bars, sticky qualification, Escape/focus restoration",
     "desktop: SDK initialization with synthetic CAPTCHA-disabled metadata, email/code form, keyboard submit, focus, resend wait, wrong-code error, change email, refresh, no overflow, automated WCAG tags",

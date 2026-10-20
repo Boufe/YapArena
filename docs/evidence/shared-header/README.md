@@ -75,3 +75,48 @@ DATABASE_TEST_MODE=host npm run verify:browser
 
 The public app ID is sufficient for the first command. Do not load an operator
 environment or app secret into a browser test or runtime process.
+
+The [complete release gate](release-results.json) passed on `9c19585`: 528 tests,
+zero skips, 94.30% line / 92.88% branch / 95.63% function coverage; fresh/upgrade
+SQL isolation, account/A4/workspace/shared-data browsers, homepage and Live/replay
+preview checks all passed. Two earlier gate runs stopped at assertions for the
+removed homepage nav/account link. Those assertions now exercise the shared Live
+link and no-JavaScript Log in fallback. A sandbox attempt could not initialize
+PostgreSQL shared memory; the recorded successful gate used permitted native
+PostgreSQL 17 outside that sandbox, with disposable owner/runtime identities.
+The optional historical original-export geometry comparison was not requested;
+this authorized design change does not claim parity with that old header.
+
+CI's separate community browser found header overflow at 200% CSS zoom on the
+initial revision ([failed run](https://github.com/Boufe/YapArena/actions/runs/39345178262)).
+The follow-up uses container queries in addition to viewport fallbacks so layout
+responds to the space the header actually has. Focused synthetic
+[visitor](after/header-guest-zoom.png) and
+[member](after/header-member-zoom.png) checks now verify 1280 × 900 at 200% zoom.
+The community browser's existing zoom, narrow-screen, draft recovery, IME,
+reconnect, moderation and axe checks also pass locally. The full community soak
+and new GitHub CI run are recorded separately when complete.
+
+## Hosted observations
+
+The [deployment report](hosted-deployment.json) records the explicitly deployed
+staging revision, healthy public routes and anonymous session denial. No database
+reset, financial enablement, automatic deployment change or worker revision change
+is part of this rollout.
+
+Real anonymous [desktop](hosted-popup-desktop.png) and
+[mobile](hosted-popup-mobile.png) popup screenshots use fresh browser contexts
+with no interception. The [hosted browser report](hosted-anonymous.json) checks
+the shared header on seven public pages, zero provider requests before opening
+authentication, real provider/CAPTCHA initialization, exact initiating URLs and
+Back/Escape/Keep exploring dismissal with focus restoration. It records measured
+readiness and compressed transfer size; these workstation observations are not
+population-performance, successful login, inbox, physical-device or WCAG acceptance.
+The first hosted check matched both a header link and a hidden popup button;
+the corrected check scopes its selector to the header. No credential was submitted.
+
+The [read-only account postflight](hosted-accounts.json) verifies four preserved
+accounts, one verified provider identity and zero live money journals/grants.
+There is no active manual-account app session at this observation; its latest
+session deletion was 2026-10-19 22:49:55 UTC, before this rollout. Two consumed
+provider-session exchanges remain recorded. No acceptance identity was created.

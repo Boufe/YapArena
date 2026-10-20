@@ -11,7 +11,11 @@ import {
   accountOperationTermsDigest,
   type createAccountOperationRepository,
 } from "./account-operations.ts";
-import type { IdentityVerifier, ProviderIdentity } from "./privy.ts";
+import {
+  ProviderUnavailableError,
+  type IdentityVerifier,
+  type ProviderIdentity,
+} from "./privy.ts";
 import {
   providerCredentialsDigest,
   verifiedStoredCredentials,
@@ -19,6 +23,7 @@ import {
 } from "./provider-credentials.ts";
 import { assertActiveSession, insertSession, lockAccount } from "./sessions.ts";
 import { createSessionToken } from "./session-tokens.ts";
+import { firstProviderPasskeyBootstrapAllowed as bootstrapAllowed } from "./provider-passkey-policy.ts";
 
 type PreparedApproval = Awaited<
   ReturnType<ReturnType<typeof createAccountOperationRepository>["prepare"]>
@@ -246,24 +251,6 @@ const terms = (intent: Intent) => ({
   beforeDigest: intent.beforeDigest,
 });
 
-async function bootstrapAllowed(client: PoolClient, userId: string) {
-  return (
-    (
-      await client.query<{ allowed: boolean }>(
-        `SELECT u.password_hash IS NULL
-       AND EXISTS(SELECT 1 FROM provider_identities p WHERE p.user_id=u.id AND (p.methods ? 'email' OR p.methods ? 'google_oauth'))
-       AND NOT EXISTS(SELECT 1 FROM wallet_identities w WHERE w.user_id=u.id)
-       AND NOT EXISTS(SELECT 1 FROM account_security_keys k WHERE k.user_id=u.id)
-       AND NOT EXISTS(SELECT 1 FROM coin_accounts a WHERE a.user_id=u.id AND
-         (a.balance<>0 OR EXISTS(SELECT 1 FROM coin_postings p WHERE p.account_id=a.id)))
-       AND NOT EXISTS(SELECT 1 FROM coin_grant_lots g WHERE g.user_id=u.id) AS allowed
-       FROM users u WHERE u.id=$1`,
-        [userId],
-      )
-    ).rows[0]?.allowed === true
-  );
-}
-
 export function createProviderPasskeys(
   database: Pool,
   verifier: Pick<IdentityVerifier, "verify" | "inspect">,
@@ -327,7 +314,13 @@ export function createProviderPasskeys(
   async function inspectCandidate(intent: Intent, token: string) {
     // verify includes the trusted, uncached GET. Never hold a connection during
     // provider IO; final local ownership/session/intent state is locked again.
-    const identity = await verifier.verify(token);
+    const identity = await verifier.verify(token).catch((error: unknown) => {
+      if (error instanceof ProviderUnavailableError) throw error;
+      throw new AccountOperationError(
+        401,
+        "Verify your Privy sign-in before finishing passkey setup.",
+      );
+    });
     if (identity.subject !== intent.subject || !identity.sessionId) invalid();
     let addition;
     if (intent.mode === "existing") {

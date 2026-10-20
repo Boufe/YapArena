@@ -74,9 +74,15 @@ describe(
       const user = (
         await owner.query("INSERT INTO users DEFAULT VALUES RETURNING id")
       ).rows[0];
-      await owner.query(
-        "INSERT INTO account_roles(user_id,role) VALUES($1,'participant')",
-        [user.id],
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM account_roles WHERE user_id=$1 AND role='participant'",
+            [user.id],
+          )
+        ).rows[0].n,
+        1,
+        "new accounts receive the participant role from the account trigger",
       );
       return session(user.id, expiresAt);
     }

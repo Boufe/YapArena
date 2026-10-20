@@ -82,6 +82,9 @@ if (root) {
     sharedBusy = false;
   let accessEpoch = 0;
   let accessRefreshPending = false;
+  // Keep a draft off the visible document until its original account is verified.
+  // A guest's initiating draft may survive sign-in; another account's draft may not.
+  let detachedArgument: { owner: string | null; value: string } | null = null;
   const sharedAbort = new AbortController();
   const selectRound = (item: RoundPoint) =>
     act(async () => {
@@ -102,7 +105,7 @@ if (root) {
   const chart = createRoundChart(root, selectRound, (point) => {
     prices.show(point ?? defaultPrice);
   });
-  function clearPrivate(preserveDraft = false) {
+  function clearPrivate() {
     userId = null;
     run = null;
     pending = null;
@@ -110,7 +113,7 @@ if (root) {
     selectedRound = null;
     listSignature = undefined;
     el("runs").replaceChildren(new Option("Choose a round", ""));
-    if (!preserveDraft) el("argument").value = "";
+    el("argument").value = "";
     el("review").close();
     el("terms").textContent = "";
     el("review-status").textContent = "";
@@ -162,7 +165,10 @@ if (root) {
         "Account changed. Review the current account before continuing.",
       );
     if (!response.ok) {
-      if (response.status === 401) clearPrivate();
+      if (response.status === 401) {
+        detachedArgument = null;
+        clearPrivate();
+      }
       if (
         response.status === 404 &&
         (path.includes("/timeline") || path.includes("/workspace"))
@@ -694,6 +700,10 @@ if (root) {
     const epoch = accessEpoch;
     const auth = await api<Auth>("auth/me");
     if (epoch !== accessEpoch) return;
+    const draft = detachedArgument;
+    detachedArgument = null;
+    if (draft && (draft.owner === null || draft.owner === auth.user.id))
+      el("argument").value = draft.value;
     if (userId === auth.user.id) {
       await refresh();
       return;
@@ -713,7 +723,11 @@ if (root) {
   }
   window.addEventListener("yap:account-changed", () => {
     ++accessEpoch;
-    clearPrivate(true);
+    detachedArgument ??= {
+      owner: userId ?? null,
+      value: el("argument").value,
+    };
+    clearPrivate();
     status("Checking your account. Review the action before confirming.");
     accessRefreshPending = true;
     if (!busy) {

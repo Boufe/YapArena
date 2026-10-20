@@ -14,6 +14,7 @@ import {
   renderAbout,
   renderMatchmaking,
 } from "../dist/features/discovery/web.js";
+import { renderDebateWorkspace } from "../dist/features/discovery/debate-web.js";
 import { createEmailAuthSecurity } from "../dist/platform/auth/browser-security.js";
 
 // Local UI evidence only: real installed Privy SDK and public configuration,
@@ -61,6 +62,10 @@ const assetFiles = [
   "site-header.js",
   "auth-return.js",
   "site.js",
+  "matching.js",
+  "a4-inline.js",
+  "arena-chart.js",
+  "arena-price.js",
   "account-auth.css",
   "site-header.css",
   "site.css",
@@ -95,6 +100,7 @@ const sourceHashes = Object.fromEntries(
       "scripts/verify-email-auth-browser.ts",
       "dist/features/discovery/web.js",
       "dist/features/discovery/account-web.js",
+      "dist/features/discovery/debate-web.js",
     ].map(async (file) => [
       file,
       createHash("sha256")
@@ -154,6 +160,43 @@ app.get("/match", (_request, response) =>
       '<html lang="en">',
       '<html lang="en" data-email-first>',
     ),
+  ),
+);
+app.get("/test/inline-return", (_request, response) =>
+  response.send(
+    renderAbout(base)
+      .replace('<html lang="en">', '<html lang="en" data-email-first>')
+      .replace(
+        "</main>",
+        renderDebateWorkspace(
+          {
+            id: "return-fixture-debate",
+            slug: "return-fixture-debate",
+            proposition: "Synthetic return-action fixture",
+            status: "scheduled",
+            rulesVersion: "fixture-v1",
+            scheduledAt: null,
+            liveStartedAt: null,
+            liveEndedAt: null,
+            isDemo: true,
+            createdAt: new Date("2026-10-19T12:00:00.000Z"),
+            topic: {
+              slug: "return-fixture-topic",
+              title: "Synthetic fixture topic",
+              sideALabel: "For",
+              sideBLabel: "Against",
+            },
+            speakerA: null,
+            speakerB: null,
+            sponsor: null,
+          },
+          true,
+          (file) => `/assets/${file}`,
+        ).replace(
+          /<script[^>]+src="\/assets\/(?:arena\.js|media\.bundle\.js|community\.js)"[^>]*><\/script>/g,
+          "",
+        ) + "</main>",
+      ),
   ),
 );
 app.get("/test/debate", (_request, response) =>
@@ -2260,6 +2303,227 @@ try {
       assert.equal(matchingWrites, 0);
       checks.push(
         `${name}: matching clears private result lists during permission refresh, preserves its draft fields and never opens a request automatically`,
+      );
+
+      const publicTopic = {
+        slug: "context",
+        title: "Synthetic public context",
+        sideALabel: "For",
+        sideBLabel: "Against",
+      };
+      await page.route("**/api/public/topics/context", (route) =>
+        route.fulfill({ json: publicTopic }),
+      );
+      await page
+        .locator('#request-create input[name="topicSlug"]')
+        .fill("context");
+      await page
+        .locator('#request-create input[name="scheduledAt"]')
+        .fill("2026-11-20T12:00");
+      await proposition.fill("Original actor request must not continue.");
+      const oldTopic = deferred(),
+        oldTopicStarted = deferred();
+      let holdTopic = true;
+      await page.route("**/api/public/topics/context", async (route) => {
+        if (holdTopic) {
+          oldTopicStarted.release();
+          await oldTopic.promise;
+        }
+        return route.fulfill({ json: publicTopic });
+      });
+      await page.locator("#request-create").evaluate((form) => {
+        if (form instanceof HTMLFormElement) form.requestSubmit();
+      });
+      await oldTopicStarted.promise;
+      fixtureAccountId = "matching-replacement-account";
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("yap:account-changed")),
+      );
+      await page
+        .getByText("Matching ready. Review your request before submitting.", {
+          exact: true,
+        })
+        .waitFor();
+      await proposition.fill("Replacement actor keeps this separate proposal.");
+      const oldTopicResponse = page.waitForResponse(
+        "**/api/public/topics/context",
+      );
+      holdTopic = false;
+      oldTopic.release();
+      await (await oldTopicResponse).finished();
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+      assert.equal(
+        matchingWrites,
+        0,
+        "a held lookup cannot initiate the old actor's POST with the replacement cookie",
+      );
+      assert.equal(
+        await proposition.inputValue(),
+        "Replacement actor keeps this separate proposal.",
+      );
+
+      const topicForm = page.locator("#topic-create");
+      for (const [field, value] of Object.entries({
+        slug: "original-topic",
+        title: "Original actor topic",
+        summary: "Original actor synthetic draft summary.",
+        sideALabel: "For",
+        sideBLabel: "Against",
+      }))
+        await topicForm.locator(`[name="${field}"]`).fill(value);
+      const oldCreate = deferred(),
+        oldCreateStarted = deferred();
+      await page.route("**/api/matching/topics", async (route) => {
+        matchingWrites++;
+        oldCreateStarted.release();
+        await oldCreate.promise;
+        return route.fulfill({ status: 201, json: { topic: publicTopic } });
+      });
+      await topicForm
+        .getByRole("button", { name: "Create private draft" })
+        .click();
+      await oldCreateStarted.promise;
+      fixtureAccountId = "matching-third-account";
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("yap:account-changed")),
+      );
+      await page
+        .getByText("Matching ready. Review your request before submitting.", {
+          exact: true,
+        })
+        .waitFor();
+      await topicForm
+        .locator('[name="title"]')
+        .fill("Replacement actor topic draft");
+      const oldCreateResponse = page.waitForResponse("**/api/matching/topics");
+      oldCreate.release();
+      await (await oldCreateResponse).finished();
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+      assert.equal(
+        await topicForm.locator('[name="title"]').inputValue(),
+        "Replacement actor topic draft",
+      );
+      assert.equal(
+        await page.locator("#match-notice").textContent(),
+        "Matching ready. Review your request before submitting.",
+      );
+      assert.equal(
+        matchingWrites,
+        1,
+        "only the original explicitly submitted topic write occurred",
+      );
+      checks.push(
+        `${name}: matching discards an old account's delayed topic lookup before any follow-on request and its delayed creation response cannot reset or announce success over the replacement actor's draft`,
+      );
+
+      let inlineWrites = 0;
+      await page.route("**/api/a4/**", (route) => {
+        if (route.request().method() !== "GET") inlineWrites++;
+        if (route.request().url().includes("/workspace"))
+          return route.fulfill({
+            json: {
+              accountId: fixtureAccountId,
+              runs: { items: [] },
+              run: null,
+              wallet: {
+                mode: "yap-coins",
+                balances: [{ kind: "available", amount: "1000000" }],
+                fundingPolicy: { starterCoins: 0, refillCoins: 0 },
+              },
+              timeline: {
+                revision: "fixture",
+                scope: "human",
+                items: [],
+                totals: {
+                  premium: "0",
+                  humanCommitments: 0,
+                  botCommitments: 0,
+                },
+              },
+            },
+          });
+        return route.fulfill({
+          json: route.request().url().includes("/publication")
+            ? { published: false }
+            : { items: [] },
+        });
+      });
+      fixtureAccountId = "inline-original-account";
+      await page.goto(`${base}/test/inline-return`);
+      await page.locator("[data-inline-access]").waitFor({ state: "visible" });
+      await page
+        .getByText("Choose a round or start a labeled sandbox.", {
+          exact: true,
+        })
+        .waitFor();
+      const argument = page.locator("[data-inline-argument]");
+      await argument.fill("Keep only for its verified original account.");
+      let inlineIdentityGate = deferred(),
+        inlineIdentityStarted = deferred(),
+        holdInlineIdentity = false;
+      await page.route("**/api/auth/me", async (route) => {
+        if (holdInlineIdentity) {
+          inlineIdentityStarted.release();
+          await inlineIdentityGate.promise;
+        }
+        return route.fallback();
+      });
+      const refreshInlineIdentity = async (nextAccount: string) => {
+        inlineIdentityGate = deferred();
+        inlineIdentityStarted = deferred();
+        holdInlineIdentity = true;
+        fixtureAccountId = nextAccount;
+        await page.evaluate(() =>
+          window.dispatchEvent(new Event("yap:account-changed")),
+        );
+        await inlineIdentityStarted.promise;
+        assert.equal(
+          await argument.inputValue(),
+          "",
+          "private argument detaches before identity verification",
+        );
+        assert.equal(
+          await page.locator("[data-inline-access]").isVisible(),
+          false,
+        );
+        holdInlineIdentity = false;
+        inlineIdentityGate.release();
+        await page
+          .getByText("Choose a round or start a labeled sandbox.", {
+            exact: true,
+          })
+          .waitFor();
+      };
+      await refreshInlineIdentity("inline-original-account");
+      assert.equal(
+        await argument.inputValue(),
+        "Keep only for its verified original account.",
+      );
+      await refreshInlineIdentity("inline-replacement-account");
+      assert.equal(
+        await argument.inputValue(),
+        "",
+        "another verified account never receives the previous actor's argument",
+      );
+      await argument.fill("Replacement actor's independent draft.");
+      await refreshInlineIdentity("inline-replacement-account");
+      assert.equal(
+        await argument.inputValue(),
+        "Replacement actor's independent draft.",
+      );
+      assert.equal(inlineWrites, 0);
+      checks.push(
+        `${name}: inline A4 immediately detaches an argument during identity inspection, restores it only to the same verified actor, clears it for a replacement account, and performs no automatic mutation`,
       );
 
       let ordinaryExchanges = 0;

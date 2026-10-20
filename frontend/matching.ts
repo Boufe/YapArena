@@ -23,6 +23,7 @@ sideMap.textContent = "Choose a published topic to see its side mapping.";
 topicSlugInput.closest("label")!.after(sideMap);
 let currentUser: { id: string } | null = null;
 let accountEpoch = 0;
+class StaleAccountResponse extends Error {}
 
 function say(message: string) {
   notice.textContent = message;
@@ -32,14 +33,17 @@ async function api<T = void>(
   method = "GET",
   body?: unknown,
 ): Promise<T> {
+  const epoch = accountEpoch;
   const response = await fetch(path, {
     method,
     credentials: "same-origin",
     headers: body === undefined ? {} : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  if (epoch !== accountEpoch) throw new StaleAccountResponse();
   if (response.status === 204) return null as T;
   const data: { error?: string } = await response.json();
+  if (epoch !== accountEpoch) throw new StaleAccountResponse();
   if (!response.ok)
     throw new Error(data.error || "Request failed. Please try again.");
   return data as T;
@@ -63,14 +67,15 @@ function action(
   button.className = "small-button";
   button.textContent = label;
   button.addEventListener("click", async () => {
+    const epoch = accountEpoch;
     button.disabled = true;
     try {
       await handler();
       await refresh();
     } catch (error) {
-      say((error as Error).message);
+      if (epoch === accountEpoch) say((error as Error).message);
     } finally {
-      button.disabled = false;
+      if (epoch === accountEpoch) button.disabled = false;
     }
   });
   item.append(button);
@@ -101,6 +106,7 @@ async function loadTopic() {
 }
 topicSlugInput.addEventListener("change", () =>
   loadTopic().catch((error: unknown) => {
+    if (error instanceof StaleAccountResponse) return;
     sideMap.textContent = "Choose a published topic to see its side mapping.";
     say((error as Error).message);
   }),
@@ -225,6 +231,7 @@ document
   .querySelector<HTMLFormElement>("#topic-create")!
   .addEventListener("submit", async (event) => {
     event.preventDefault();
+    const epoch = accountEpoch;
     const form = event.currentTarget as HTMLFormElement;
     const data = new FormData(form);
     try {
@@ -233,12 +240,13 @@ document
       say("Topic created as a private draft. Publish it when ready.");
       await refresh();
     } catch (error) {
-      say((error as Error).message);
+      if (epoch === accountEpoch) say((error as Error).message);
     }
   });
 
 requestForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const epoch = accountEpoch;
   const form = event.currentTarget as HTMLFormElement;
   const data = Object.fromEntries(new FormData(form));
   try {
@@ -264,7 +272,7 @@ requestForm.addEventListener("submit", async (event) => {
     );
     await refresh();
   } catch (error) {
-    say((error as Error).message);
+    if (epoch === accountEpoch) say((error as Error).message);
   }
 });
 

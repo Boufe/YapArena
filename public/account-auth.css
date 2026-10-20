@@ -23,6 +23,11 @@
   margin-left: auto;
   max-width: 100%;
 }
+#coin-sandbox [data-coin-reports] > li {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .account-back {
   color: #a3b4c5;
   font-size: 0.8rem;

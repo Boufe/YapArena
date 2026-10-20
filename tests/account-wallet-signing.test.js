@@ -24,13 +24,20 @@ function page({
   reject = false,
 } = {}) {
   const elements = new Map();
+  const createElement = () => ({
+    textContent: "",
+    addEventListener() {},
+    setAttribute() {},
+    replaceChildren() {},
+    reset() {},
+    parentElement: { append() {} },
+    elements: {
+      credential: { addEventListener() {} },
+      handle: { value: "", disabled: false },
+    },
+  });
   function element(selector) {
-    if (!elements.has(selector))
-      elements.set(selector, {
-        textContent: "",
-        addEventListener() {},
-        elements: { credential: { addEventListener() {} } },
-      });
+    if (!elements.has(selector)) elements.set(selector, createElement());
     return elements.get(selector);
   }
   const issued = createChallengeMessage({
@@ -47,11 +54,16 @@ function page({
   const signedMessages = [];
   const completedLogins = [];
   const context = vm.createContext({
-    document: { querySelector: element },
+    document: {
+      querySelector: element,
+      querySelectorAll: () => [],
+      createElement,
+    },
     TextEncoder,
     URL,
     window: {
       addEventListener() {},
+      clearTimeout() {},
       location: { search: "", origin },
       ethereum: {
         async request({ method, params }) {
@@ -91,6 +103,7 @@ function page({
       }
       return {
         ok,
+        status: ok ? 200 : 401,
         headers: { get: () => "application/json" },
         json: async () => data,
       };

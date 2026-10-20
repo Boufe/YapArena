@@ -1369,6 +1369,7 @@ async function scenario(database: string, upgrade: boolean) {
       }).catch(
         (error: ExecFileException & { stdout: string; stderr: string }) => {
           console.log(error.stdout);
+          console.error(error.stderr);
           throw new Error("Full runtime-backed quality gate failed");
         },
       );

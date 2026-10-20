@@ -1,0 +1,23 @@
+{
+  "reviewedAt": "2026-10-20T07:10:11.189Z",
+  "repositoryHead": "2c944d7465c03f348999740dbede2228428be58d",
+  "scope": "Read-only independent source review; no release mutation executed by the reviewer.",
+  "files": [
+    {
+      "path": "scripts/release-account-render.ts",
+      "sha256": "92902fabdfd1cff561925a13ead37c59d0c5b380782c29ea8a1eed4c8656a0d3"
+    },
+    {
+      "path": "scripts/release-account-staging.ts",
+      "sha256": "16bc7c2f4311c054d2bac2ed41dc34f7df03cd913b727ff9f131286beec73b36"
+    },
+    {
+      "path": "frontend/session-coordination.ts",
+      "sha256": "dd1eafbf5c6c0af2d972bad5fcb8f7c2f80beb678161ae57d5001f07f21f49f4"
+    },
+    {
+      "path": "src/platform/auth/router.ts",
+      "sha256": "3d787bd9418e4c8d545d936479d3f9031f9370c7bdb8bcf52b926a7860771f46"
+    }
+  ]
+}

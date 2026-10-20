@@ -1,8 +1,8 @@
 // DOM assertions retain the existing server-rendered markup and event-target guarantees.
 /* global document, window */
-let accountVersion = 0;
-window.addEventListener("yap:account-changed", () => accountVersion++);
-window.addEventListener("yap:provider-logout", () => accountVersion++);
+let sessionControlEpoch = 0;
+window.addEventListener("yap:account-changed", () => sessionControlEpoch++);
+window.addEventListener("yap:provider-logout", () => sessionControlEpoch++);
 for (const [id, path, retainCurrent] of [
   ["sign-out-all", "logout-all", false],
   ["sign-out-others", "logout-other-sessions", true],
@@ -17,7 +17,7 @@ for (const [id, path, retainCurrent] of [
         : "Sign out all sessions, including this device? You will need to sign in again.";
       if (!window.confirm(message)) return;
       if (button.disabled) return;
-      const version = accountVersion;
+      const version = sessionControlEpoch;
       button.disabled = true;
       try {
         const response = await fetch(`/api/auth/${path}`, {
@@ -25,7 +25,7 @@ for (const [id, path, retainCurrent] of [
           credentials: "same-origin",
           signal: AbortSignal.timeout(10000),
         });
-        if (version !== accountVersion) return;
+        if (version !== sessionControlEpoch) return;
         if (!response.ok) {
           const body: { error?: string } = await response.json();
           throw new Error(body.error || "Sign-out failed. Please try again.");
@@ -46,7 +46,7 @@ for (const [id, path, retainCurrent] of [
             "All sessions signed out, including this device. Sign in again to continue.";
         }
       } catch (error) {
-        if (version === accountVersion)
+        if (version === sessionControlEpoch)
           notice.textContent = (error as Error).message;
       } finally {
         button.disabled = false;

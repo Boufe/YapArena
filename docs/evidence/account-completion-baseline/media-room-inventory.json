@@ -1,0 +1,19 @@
+{
+  "at": "2026-10-20T05:32:22.196Z",
+  "scope": "Read-only named staging Render configuration and LiveKit room/participant inventory. No tokens, identities, secrets, room names, joins, mutations, recording or egress in evidence.",
+  "serviceId": "srv-datv1kjncjis73a500cg",
+  "controlOrigin": "https://yaparena-staging-e100x84o.livekit.cloud",
+  "publicOrigin": "wss://yaparena-staging-e100x84o.livekit.cloud",
+  "hostMatchesPublicSnapshot": true,
+  "rooms": 0,
+  "participants": 0,
+  "legacySpeakers": 0,
+  "uuidSpeakers": 0,
+  "viewers": 0,
+  "other": 0,
+  "limitations": [
+    "Inventory identifies connected participants only, not outstanding unconnected JWTs.",
+    "No old-token replay or revocation call performed.",
+    "No physical-device or media-quality acceptance."
+  ]
+}

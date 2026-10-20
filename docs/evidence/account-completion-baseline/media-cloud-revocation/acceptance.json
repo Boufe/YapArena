@@ -1,0 +1,102 @@
+{
+  "at": "2026-10-20T05:44:25.147Z",
+  "revision": "7a2482b94934132d586ebf64467938f1b64fcebc",
+  "scope": "Actual hosted LiveKit Cloud signaling/revocation with disposable identities, real installed SDK and actual application provider path; no application account, microphone, camera, media publishing, recording or egress. Not genuine application logout, physical-device or media-quality acceptance.",
+  "passed": false,
+  "controlOrigin": "https://yaparena-staging-e100x84o.livekit.cloud",
+  "publicOrigin": "wss://yaparena-staging-e100x84o.livekit.cloud",
+  "fixtureRoom": "debate-de02b40f-f591-4a8a-be73-fd559ac0f731",
+  "maximumConcurrentClients": 2,
+  "cloudTrialElapsedMs": 46943,
+  "participantUsageUpperBoundMs": 90000,
+  "confirmedIncludedQuotaMinutes": 5,
+  "roomExpired": false,
+  "intervals": [
+    {
+      "label": "original speaker baseline",
+      "startedAt": "2026-10-20T05:43:38.632Z",
+      "stoppedAt": "2026-10-20T05:43:42.281Z",
+      "roundedUpperBoundMs": 10000
+    },
+    {
+      "label": "public viewer baseline",
+      "startedAt": "2026-10-20T05:43:39.672Z",
+      "stoppedAt": "2026-10-20T05:43:43.933Z",
+      "roundedUpperBoundMs": 10000
+    },
+    {
+      "label": "server-refreshed speaker baseline",
+      "startedAt": "2026-10-20T05:43:42.455Z",
+      "stoppedAt": "2026-10-20T05:43:43.026Z",
+      "roundedUpperBoundMs": 10000
+    },
+    {
+      "label": "original token replay",
+      "startedAt": "2026-10-20T05:43:43.190Z",
+      "stoppedAt": "2026-10-20T05:43:43.432Z",
+      "roundedUpperBoundMs": 10000
+    },
+    {
+      "label": "server-refreshed token replay",
+      "startedAt": "2026-10-20T05:43:43.549Z",
+      "stoppedAt": "2026-10-20T05:43:43.821Z",
+      "roundedUpperBoundMs": 10000
+    },
+    {
+      "label": "public viewer reconnect",
+      "startedAt": "2026-10-20T05:43:44.047Z",
+      "stoppedAt": "2026-10-20T05:43:44.438Z",
+      "roundedUpperBoundMs": 10000
+    }
+  ],
+  "checks": [
+    "original fresh speaker and independent view-only viewer connect without publishing tracks",
+    "real SignalClient token-refresh event produced a signature-verified newer nbf token accepted before cutoff",
+    "actual integrated explicit-cutoff removal disconnects the fixture and rejects both original and server-refreshed tokens as unauthorized",
+    "independent public view-only client stays connected, retains no-publish permission and reconnects with its original token"
+  ],
+  "result": {
+    "originalNbf": 1792475018,
+    "serverRefreshedNbf": 1792475022,
+    "explicitCutoffUnixSeconds": {
+      "minimum": 1792475052,
+      "maximum": 1792475053,
+      "source": "actual compiled createMediaProvider.removeSpeaker path"
+    },
+    "originalReplay": {
+      "connected": false,
+      "denied": true,
+      "status": 401,
+      "canPublish": false,
+      "canSubscribe": false,
+      "publishedTracks": 0
+    },
+    "refreshedReplay": {
+      "connected": false,
+      "denied": true,
+      "status": 401,
+      "canPublish": false,
+      "canSubscribe": false,
+      "publishedTracks": 0
+    },
+    "viewerReconnect": {
+      "connected": true,
+      "denied": false,
+      "status": null,
+      "canPublish": false,
+      "canSubscribe": true,
+      "publishedTracks": 0
+    }
+  },
+  "sourceHashes": {
+    "scripts/verify-media-cloud-revocation.ts": "d4122d4decf19dea1e79afdf7445c6c4162d3c6f71a3dd4e3486b957b2bff63d",
+    "dist/features/media/provider.js": "327574609bb2c9de05d6fcbcd4d4f3ddaaf69bea2d112a6a944536d08ba80c3d",
+    "node_modules/livekit-client/dist/livekit-client.umd.js": "7fa17e37af5e996d8a25f15a637dcc0620215bc01b394e5d209f726afe7dc04d",
+    "node_modules/livekit-client/src/room/RTCEngine.ts": "23b415be2141215d5617eb02ff44754acd60539cd9760615a2f4c742ec5fc536"
+  },
+  "limitations": [
+    "Quota availability was confirmed by the founder; provider billing plan was not changed or inferred.",
+    "Disposable provider identities are not retained YapArena accounts; full app-session/provider-outbox acceptance is separate.",
+    "No recordings, physical devices, screen reader or audiovisual quality tested."
+  ]
+}

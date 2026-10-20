@@ -5,6 +5,7 @@ import express from "express";
 import request from "../scripts/test-http-request.ts";
 import {
   createPrivyVerifier,
+  createPrivySessionControl,
   ProviderCredentialChangedError,
 } from "../dist/platform/auth/privy.js";
 import { loadProviderConfig } from "../dist/platform/auth/provider-config.js";
@@ -108,6 +109,68 @@ function verifier(
   });
 }
 describe("verified provider evidence", () => {
+  it("sends explicit empty JSON for the installed SDK's freeze/unfreeze transport and keeps provider reads bodyless", async () => {
+    const calls = [];
+    const control = createPrivySessionControl({
+      appId,
+      appSecret: "synthetic",
+      fetch: async (url, init) => {
+        const outbound = new Request(url, init);
+        calls.push({
+          method: outbound.method,
+          path: new URL(outbound.url).pathname,
+          contentType: outbound.headers.get("content-type"),
+          body: await outbound.text(),
+          hasSignal: init.signal instanceof AbortSignal,
+        });
+        return new Response(
+          JSON.stringify(
+            outbound.method === "GET"
+              ? { frozen_at: 12345 }
+              : { success: true },
+          ),
+          { headers: { "Content-Type": "application/json" } },
+        );
+      },
+    });
+    const options = { signal: AbortSignal.timeout(10000) };
+    assert.deepEqual(await control.state(claims.sub, options), {
+      frozenAt: 12345,
+    });
+    await control.freeze(claims.sub, options);
+    await control.unfreeze(claims.sub, options);
+    const path = `/v1/users/${claims.sub}`;
+    assert.deepEqual(calls, [
+      { method: "GET", path, contentType: null, body: "", hasSignal: true },
+      {
+        method: "POST",
+        path: `${path}/freeze`,
+        contentType: "application/json",
+        body: "{}",
+        hasSignal: true,
+      },
+      {
+        method: "DELETE",
+        path: `${path}/freeze`,
+        contentType: "application/json",
+        body: "{}",
+        hasSignal: true,
+      },
+    ]);
+    const denied = createPrivySessionControl({
+      appId,
+      appSecret: "synthetic",
+      fetch: async () =>
+        new Response(JSON.stringify({ success: false }), {
+          headers: { "Content-Type": "application/json" },
+        }),
+    });
+    await assert.rejects(denied.freeze(claims.sub), /provider freeze failed/);
+    await assert.rejects(
+      denied.unfreeze(claims.sub),
+      /provider unfreeze failed/,
+    );
+  });
   it("inspects current server-side credentials without accepting token refresh as reauthentication", async () => {
     const state = await verifier().inspect(claims.sub);
     assert.equal(state.subject, claims.sub);
@@ -672,6 +735,35 @@ describe("provider exchange API", () => {
       );
       assert.ok(!JSON.stringify(r.body).includes("private provider data"));
       assert.equal(r.headers["set-cookie"], undefined);
+    }
+  });
+  it("distinguishes credential reconciliation from reset, retired-identity and revoked-session refusals without issuing cookies or private reset metadata", async () => {
+    for (const [code, status] of [
+      ["provider_credentials_changed", 403],
+      ["provider_identity_retired", 403],
+      ["provider_reset_pending", 503],
+      ["provider_reset_review_required", 403],
+      ["provider_access_review_required", 403],
+      ["provider_session_revoked", 401],
+      ["provider_signin_paused", 503],
+    ]) {
+      const response = await exchange(
+        setup({ fail: new ProviderAccountError("safe refusal", status, code) }),
+      );
+      assert.equal(response.status, status);
+      assert.deepEqual(response.body, { error: "safe refusal", code });
+      assert.equal(response.headers["set-cookie"], undefined);
+      assert.equal(response.headers["cache-control"], "no-store");
+      assert.equal(
+        response.headers["retry-after"],
+        code === "provider_reset_pending" ? "5" : undefined,
+      );
+      assert.equal(
+        Object.keys(response.body).some((key) =>
+          /subject|account|generation|frozen|attempt|digest|job/i.test(key),
+        ),
+        false,
+      );
     }
   });
   it("allows only bounded aggregate telemetry fields", async () => {

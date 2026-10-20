@@ -135,12 +135,14 @@ export type ProviderSessionControl = {
 export function createPrivySessionControl(config: {
   appId: string;
   appSecret: string;
+  fetch?: typeof globalThis.fetch;
 }): ProviderSessionControl {
   const client = new PrivyClient({
     appId: config.appId,
     appSecret: config.appSecret,
     timeout: 5_000,
     maxRetries: 0,
+    fetch: config.fetch,
   });
   return {
     async state(subject, options) {
@@ -148,11 +150,17 @@ export function createPrivySessionControl(config: {
       return { frozenAt: user.frozen_at ?? null };
     },
     async freeze(subject, options) {
-      const result = await client.users().freeze(subject, options);
+      const result = await client.users().freeze(subject, {
+        ...options,
+        body: {},
+      });
       if (!result.success) throw new Error("provider freeze failed");
     },
     async unfreeze(subject, options) {
-      const result = await client.users().unfreeze(subject, options);
+      const result = await client.users().unfreeze(subject, {
+        ...options,
+        body: {},
+      });
       if (!result.success) throw new Error("provider unfreeze failed");
     },
   };

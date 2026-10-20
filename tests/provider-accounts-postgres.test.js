@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { before, after, describe, it } from "node:test";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
-import { createProviderAccounts } from "../dist/platform/auth/provider-accounts.js";
+import {
+  createProviderAccounts,
+  ProviderAccountError,
+} from "../dist/platform/auth/provider-accounts.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { hashSessionToken } from "../dist/platform/auth/session-tokens.js";
 import { createProviderRevocation } from "../dist/platform/auth/provider-revocation.js";
@@ -35,6 +38,12 @@ describe(
         hashSessionToken(token),
         new Date(Date.now() + 600_000),
       );
+    const rejectedExchange = (code, status) => (error) => {
+      assert.ok(error instanceof ProviderAccountError);
+      assert.equal(error.code, code);
+      assert.equal(error.status, status);
+      return true;
+    };
     before(async () => {
       for (const input of [ownerUrl, runtimeUrl]) {
         const url = new URL(input);
@@ -83,7 +92,7 @@ describe(
       assert.deepEqual(calls, ["freeze", "unfreeze"]);
       await assert.rejects(
         exchange(repo, { ...id, sessionId: randomUUID(), issuedAt: cutoff }),
-        /authenticate again/,
+        rejectedExchange("provider_session_revoked", 401),
       );
       const fresh = await exchange(repo, {
         ...id,
@@ -104,7 +113,7 @@ describe(
           sessionId: randomUUID(),
           credentialsDigest: "b".repeat(64),
         }),
-        /ownership reconciliation/,
+        rejectedExchange("provider_credentials_changed", 403),
       );
       assert.equal(
         (
@@ -115,6 +124,62 @@ describe(
         ).rows[0].n,
         1,
       );
+    });
+    it("reports pending, uncertain and unmatched session-reset fences without accepting an unchanged credential or consuming its SID", async () => {
+      const id = identity(),
+        repo = createProviderAccounts(a),
+        token = randomUUID(),
+        made = await exchange(repo, id, token);
+      await createSessionRepository(a).revoke(
+        made.user.id,
+        hashSessionToken(token),
+        false,
+      );
+      const state = async () =>
+        (
+          await owner.query(
+            `SELECT u.auth_generation::text AS generation,p.auth_generation::text AS mapped_generation,
+              p.credentials_digest,p.minimum_issued_at::text,
+              (SELECT count(*)::int FROM sessions WHERE user_id=u.id) AS sessions,
+              (SELECT count(*)::int FROM provider_session_exchanges WHERE user_id=u.id) AS consumed
+             FROM users u JOIN provider_identities p ON p.user_id=u.id WHERE u.id=$1`,
+            [made.user.id],
+          )
+        ).rows[0];
+      const before = await state();
+      assert.notEqual(before.generation, before.mapped_generation);
+      assert.equal(before.sessions, 0);
+      assert.equal(before.consumed, 1);
+      for (const [jobState, code, status] of [
+        ["pending", "provider_reset_pending", 503],
+        ["running", "provider_reset_pending", 503],
+        ["manual", "provider_reset_review_required", 403],
+        ["complete", "provider_access_review_required", 403],
+      ]) {
+        await owner.query(
+          "UPDATE provider_revocation_jobs SET state=$2 WHERE user_id=$1",
+          [made.user.id, jobState],
+        );
+        await assert.rejects(
+          exchange(createProviderAccounts(b), {
+            ...id,
+            sessionId: randomUUID(),
+            issuedAt: id.issuedAt + 3600,
+          }),
+          rejectedExchange(code, status),
+        );
+        assert.deepEqual(await state(), before);
+      }
+      // A job for another subject must not be mistaken for this mapping's reset.
+      await owner.query(
+        "UPDATE provider_revocation_jobs SET state='manual',subject=$2 WHERE user_id=$1",
+        [made.user.id, `did:privy:${randomUUID()}`],
+      );
+      await assert.rejects(
+        exchange(repo, { ...id, sessionId: randomUUID() }),
+        rejectedExchange("provider_access_review_required", 403),
+      );
+      assert.deepEqual(await state(), before);
     });
     async function legacyFixture() {
       const password = "synthetic legacy linking passphrase",
@@ -407,7 +472,7 @@ describe(
             ...id,
             sessionId: randomUUID(),
           }),
-          /ownership verification/,
+          rejectedExchange("provider_reset_pending", 503),
         );
       }
     });
@@ -661,7 +726,7 @@ describe(
       await assert.rejects(service.synchronize(made.user.id), /outage/);
       await assert.rejects(
         exchange(repo, { ...id, sessionId: randomUUID() }),
-        /ownership verification/,
+        rejectedExchange("provider_reset_pending", 503),
       );
       await service.synchronize(made.user.id);
       await owner.query(
@@ -732,7 +797,7 @@ describe(
       );
       await assert.rejects(
         exchange(repo, { ...id, sessionId: randomUUID() }),
-        /ownership verification/,
+        rejectedExchange("provider_reset_review_required", 403),
       );
     });
     it("does not freeze a superseded generation between claiming and provider control", async () => {
@@ -964,14 +1029,14 @@ describe(
       await sessions.deleteByTokenHash(hashSessionToken(token));
       await assert.rejects(
         exchange(createProviderAccounts(b), id),
-        /already been used/,
+        rejectedExchange("provider_session_revoked", 401),
       );
       const next = randomUUID();
       await exchange(repo, { ...id, sessionId: randomUUID() }, next);
       await sessions.revoke(made.user.id, hashSessionToken(next), false);
       await assert.rejects(
         exchange(createProviderAccounts(b), { ...id, sessionId: randomUUID() }),
-        /ownership verification/,
+        rejectedExchange("provider_reset_pending", 503),
       );
       assert.equal(
         await sessions.findUserByTokenHash(hashSessionToken(next)),
@@ -999,7 +1064,7 @@ describe(
       await owner.query("DELETE FROM users WHERE id=$1", [made.user.id]);
       await assert.rejects(
         exchange(createProviderAccounts(b), { ...id, sessionId: randomUUID() }),
-        /previous identity/,
+        rejectedExchange("provider_identity_retired", 403),
       );
       assert.equal(
         (

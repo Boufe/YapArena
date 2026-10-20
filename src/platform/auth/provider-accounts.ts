@@ -12,10 +12,20 @@ import {
   type ProviderCredential,
 } from "./provider-credentials.ts";
 
+export type ProviderAccountErrorCode =
+  | "provider_credentials_changed"
+  | "provider_identity_retired"
+  | "provider_reset_pending"
+  | "provider_reset_review_required"
+  | "provider_access_review_required"
+  | "provider_session_revoked"
+  | "provider_signin_paused";
+
 export class ProviderAccountError extends Error {
   constructor(
     message: string,
     readonly status = 409,
+    readonly code?: ProviderAccountErrorCode,
   ) {
     super(message);
   }
@@ -44,6 +54,7 @@ export function createProviderAccounts(database: Pool) {
           throw new ProviderAccountError(
             "sign-in is paused for maintenance",
             503,
+            "provider_signin_paused",
           );
         const mapped = await client.query<{
           userId: string | null;
@@ -61,6 +72,7 @@ export function createProviderAccounts(database: Pool) {
             throw new ProviderAccountError(
               "this previous identity requires new ownership verification",
               403,
+              "provider_identity_retired",
             );
           const account = await lockAccount(client, mapped.rows[0].userId);
           if (!account)
@@ -69,18 +81,44 @@ export function createProviderAccounts(database: Pool) {
             throw new ProviderAccountError(
               "sign-in methods changed; ownership reconciliation is required",
               403,
+              "provider_credentials_changed",
             );
           // A new iat or unrecognized sid is not fresh authentication. Do not let
           // any surviving provider session cross a local revocation boundary.
-          if (account.authGeneration !== mapped.rows[0].generation)
+          if (account.authGeneration !== mapped.rows[0].generation) {
+            // A delayed/uncertain provider reset is not a credential delta.
+            // Inspect only this identity's current local revocation boundary;
+            // an unrelated or retired identity's job conveys no authority.
+            const job = (
+              await client.query<{ state: string }>(
+                `SELECT state FROM provider_revocation_jobs
+                 WHERE user_id=$1 AND subject=$2 AND generation=$3`,
+                [account.id, identity.subject, account.authGeneration],
+              )
+            ).rows[0];
+            if (job?.state === "pending" || job?.state === "running")
+              throw new ProviderAccountError(
+                "previous provider sessions are still being reset; try a new sign-in shortly",
+                503,
+                "provider_reset_pending",
+              );
+            if (job?.state === "manual")
+              throw new ProviderAccountError(
+                "previous provider sessions could not be safely reset; operator review is required before sign-in",
+                403,
+                "provider_reset_review_required",
+              );
             throw new ProviderAccountError(
               "account access changed; ownership verification is required",
               403,
+              "provider_access_review_required",
             );
+          }
           if (identity.issuedAt < Number(mapped.rows[0].minimumIssuedAt))
             throw new ProviderAccountError(
               "authenticate again after the provider session reset",
               401,
+              "provider_session_revoked",
             );
           user = account;
         } else {
@@ -118,6 +156,7 @@ export function createProviderAccounts(database: Pool) {
           throw new ProviderAccountError(
             "this sign-in session has already been used; authenticate again",
             401,
+            "provider_session_revoked",
           );
         await client.query(
           "UPDATE provider_identities SET email=$2,methods=$3::jsonb,credentials_snapshot=COALESCE($4::jsonb,credentials_snapshot) WHERE provider='privy' AND subject=$1",

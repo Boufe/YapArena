@@ -278,8 +278,13 @@ export function createAuthRouter({
         .status(result.created ? 201 : 200)
         .json({ user: publicUser(result.user), created: result.created });
     } catch (error) {
-      if (error instanceof ProviderAccountError)
-        return response.status(error.status).json({ error: error.message });
+      if (error instanceof ProviderAccountError) {
+        if (error.code === "provider_reset_pending")
+          response.set("Retry-After", "5");
+        return response
+          .status(error.status)
+          .json({ error: error.message, code: error.code });
+      }
       if (error instanceof SessionUnavailableError)
         return response.status(401).json({ error: "account unavailable" });
       throw error;

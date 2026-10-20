@@ -1,0 +1,44 @@
+{
+  "revision": "4b880918934f8be0060f260392ea29f0601a01e9",
+  "uncommittedImplementation": true,
+  "boundary": "The backend/migration/test sources below match the final zero-exit focused run. Later UI storage/focus changes are excluded; native browser evidence has its own hashes.",
+  "sourceHashes": {
+    "src/platform/auth/provider-identity-recovery.ts": "ba607a7275ffde5a292ae1c048ba205b916be82d31db30983188a77a7b351cfa",
+    "src/platform/auth/provider-revocation.ts": "0119b4378e791b0ed08000ae8f9e774b50094591aa49f519256103dbd3c4bc41",
+    "src/platform/auth/provider-session-monitor.ts": "8a966e3ce6435af355c1108c9f73bdf30f18ee097d50bc4f57af2bd6f2541e10",
+    "src/platform/auth/security-router.ts": "2a4d9533823ec8de9be2895862cd5bddbbfd2eb2c1dfd19ef2f9762c464e219b",
+    "src/platform/auth/account-operations.ts": "72246fc6de70eeb90bec291224d3b0eb5983eec596edc82aef01af4c8b27d1d4",
+    "src/platform/auth/provider-accounts.ts": "8be65bf8ecdc3a202acca2da8e6784e8e0e33d3b4492dc8d7673cc62116fe3c8",
+    "src/platform/auth/provider-credentials.ts": "7af32dffaaac3781e9e9a759af4d812b54b13db2da75cc8d5a9b2462212ac5b5",
+    "src/platform/auth/sessions.ts": "9622e4a3b57ed5d0c992cb9d592ba7bfc81e4e1bdee385aa9d8b49f688666e5c",
+    "migrations/1792426011000_add-provider-identity-recovery.js": "ad9ba0ba7abf1f12199b4a24736f2c11818aae05e4fe555d720f6d5ef37b1bfb",
+    "tests/account-security-passkeys-postgres.test.js": "f28b43c741fea9675c05dda5196b4d00fbcf254ddc76009d8871c78b00b567a8"
+  },
+  "outputSha256": "36667de3adfac61688e904d9ec2a2bc5bd582a22d53eeb2656fe29e43680f838",
+  "counts": {
+    "fresh": {
+      "tests": 151,
+      "passed": 151,
+      "failed": 0,
+      "skipped": 0
+    },
+    "upgrade": {
+      "tests": 151,
+      "passed": 151,
+      "failed": 0,
+      "skipped": 0
+    },
+    "baseTreasuryFresh": {
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    },
+    "baseTreasuryUpgrade": {
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    }
+  }
+}

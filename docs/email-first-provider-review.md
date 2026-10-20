@@ -327,6 +327,45 @@ login. The authentication owner confirmed that toggling available methods does
 not itself change retained users' credential snapshots; actually linking one
 does and requires the new retained-proof reconciliation flow.
 
+### Lost sole provider method and local identity replacement
+
+Rechecked on 2026-10-20: Privy's current
+[support policy](https://docs.privy.io/user-management/users/managing-users/supporting-your-users)
+states that a user who loses their only login method cannot recover that Privy
+account. The application cannot unilaterally change the original user's linked
+email, and Privy has no recovery backdoor. Its
+[email update flow](https://docs.privy.io/user-management/users/updating-accounts)
+requires an authenticated provider user. Enterprise MFA resets are a separate
+capability and do not establish sole-email recovery. No paid feature is approved.
+
+The founder approved a separate YapArena policy for loss of a sole provider
+email or sole Google login: a person who retains a YapArena **security passkey**
+may verify a different email using Privy and explicitly replace the old local
+provider mapping. Other multi-method or embedded-wallet identities are outside
+this recovery scope. The approved Google route may use the same email address
+associated with the lost Google login; the replacement must still be a distinct,
+unbound and never-retired provider email identity with retained-key approval.
+This does not allow same-address text to establish account ownership. The internal account ID,
+profile, keys and balances stay with the original account. The old DID remains
+permanently retired; an already mapped or retired new DID must not be merged or
+reassigned. This is local identity replacement authorized by the retained app
+key, not recovery or mutation of the original Privy account. Implementation and
+its separate acceptance are tracked in the completion matrix.
+
+Fresh sensitive authorization comes from a server-verified, operation-bound
+retained application-key assertion. The new provider token and server-fetched
+sole-email identity establish control of that new provider identity. Token
+issuance time, `latest_verified_at`, and a browser code-success flag are not a
+nonce-bound fresh-authentication attestation. Privy still issues and verifies
+all email codes. No duplicate OTP service, provider account deletion, email-only
+financial recovery or automatic email-based merging is authorized.
+
+The separate all-strong-methods-lost policy remains unchanged: ordinary email
+access may continue, but financial activity stays locked pending an approved
+recovery procedure. Linking a backup provider Google account or provider passkey
+while still authenticated helps prevent loss of the sole provider route; genuine
+enrollment and returning-user acceptance remain separate from configuration.
+
 [Allowed origins](https://docs.privy.io/recipes/dashboard/allowed-domains)
 restrict client SDK use, not server-secret API access. Keep the exact staging
 origin and no generic hosting wildcard. [Privy's HttpOnly-cookie recipe](https://docs.privy.io/recipes/react/cookies)

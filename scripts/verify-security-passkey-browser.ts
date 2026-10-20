@@ -19,6 +19,13 @@ import { createSecurityPasskeyRepository } from "../dist/platform/auth/security-
 import { createAccountOperationRepository } from "../dist/platform/auth/account-operations.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createProviderAccounts } from "../dist/platform/auth/provider-accounts.js";
+import { createProviderIdentityRecovery } from "../dist/platform/auth/provider-identity-recovery.js";
+import { createProviderRevocation } from "../dist/platform/auth/provider-revocation.js";
+import { createProviderSessionMonitor } from "../dist/platform/auth/provider-session-monitor.js";
+import { providerCredentialsDigest } from "../dist/platform/auth/provider-credentials.js";
+import type { ProviderIdentity } from "../dist/platform/auth/privy.js";
+import { createIdentityRepository } from "../dist/features/identity/repository.js";
+import { createCoinSandboxRepository } from "../dist/features/account-wallet/sandbox-repository.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
 import { createRequireAuthentication } from "../dist/platform/auth/router.js";
 
@@ -70,6 +77,31 @@ async function sourceHash(path: string) {
   return createHash("sha256")
     .update(await readFile(path))
     .digest("hex");
+}
+function object(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function requestOptions(value: unknown): PublicKeyCredentialRequestOptionsJSON {
+  assert.ok(object(value));
+  assert.equal(typeof value.challenge, "string");
+  assert.ok(typeof value.challenge === "string");
+  assert.ok(typeof value.rpId === "string");
+  assert.ok(typeof value.timeout === "number");
+  assert.equal(value.userVerification, "required");
+  assert.equal(value.extensions, undefined);
+  assert.ok(Array.isArray(value.allowCredentials));
+  return {
+    challenge: value.challenge,
+    rpId: value.rpId,
+    timeout: value.timeout,
+    userVerification: "required",
+    allowCredentials: value.allowCredentials.map((credential: unknown) => {
+      assert.ok(object(credential) && typeof credential.id === "string");
+      assert.equal(credential.type, "public-key");
+      assert.equal(credential.transports, undefined);
+      return { type: "public-key", id: credential.id };
+    }),
+  };
 }
 
 try {
@@ -149,21 +181,55 @@ try {
   const passkeys = createSecurityPasskeyRepository(runtimePool);
   const operations = createAccountOperationRepository(runtimePool);
   const providerAccounts = createProviderAccounts(runtimePool);
-  async function fixture() {
+  const profiles = createIdentityRepository(runtimePool);
+  const sandbox = createCoinSandboxRepository(runtimePool, {
+    rail: "simulation",
+  });
+  const providerIdentities = new Map<string, ProviderIdentity>();
+  const providerTokens = new Map<string, ProviderIdentity>();
+  const verifier = {
+    async verify(token: string) {
+      const identity = providerTokens.get(token);
+      assert.ok(identity, "synthetic provider token not configured");
+      return identity;
+    },
+    async inspect(subject: string) {
+      const identity = providerIdentities.get(subject);
+      assert.ok(identity, "synthetic provider identity not configured");
+      return identity;
+    },
+  };
+  const providerIdentityRecovery = createProviderIdentityRecovery(
+    runtimePool,
+    verifier,
+  );
+  function providerIdentity(method: "email" | "google_oauth" = "email") {
+    const identifier =
+      method === "email"
+        ? `${randomUUID()}@example.test`
+        : `synthetic-google:${randomUUID()}`;
+    const credentials = [{ type: method, id: identifier }];
+    const identity: ProviderIdentity = {
+      subject: `did:privy:${randomUUID()}`,
+      sessionId: randomUUID(),
+      email: method === "email" ? identifier : null,
+      methods: [method],
+      issuedAt: Math.floor(Date.now() / 1000),
+      credentialsDigest: providerCredentialsDigest(credentials),
+      credentials,
+    };
+    providerIdentities.set(identity.subject, identity);
+    return identity;
+  }
+  async function fixture(method: "email" | "google_oauth" = "email") {
     const token = createSessionToken();
+    const identity = providerIdentity(method);
     const { user } = await providerAccounts.exchange(
-      {
-        subject: `did:privy:${randomUUID()}`,
-        sessionId: randomUUID(),
-        email: `${randomUUID()}@example.test`,
-        methods: ["email"],
-        issuedAt: Math.floor(Date.now() / 1000),
-        credentialsDigest: "a".repeat(64),
-      },
+      identity,
       token.tokenHash,
       new Date(Date.now() + 600000),
     );
-    return { userId: user.id, token: token.token };
+    return { userId: user.id, token: token.token, providerIdentity: identity };
   }
   const applicationPort = await availablePort();
   const origin = `http://localhost:${applicationPort}`;
@@ -204,15 +270,19 @@ try {
     );
     response.json({ wallets: result.rows });
   });
-  app.use(
-    "/api/auth",
-    createAccountSecurityRouter({
+  function securityRoutes() {
+    return createAccountSecurityRouter({
       sessions,
       operations,
       passkeys,
+      providerIdentityRecovery,
       environment: "test",
       applicationOrigin: origin,
-    }),
+    });
+  }
+  let securityRouter = securityRoutes();
+  app.use("/api/auth", (request, response, next) =>
+    securityRouter(request, response, next),
   );
   app.use(
     (
@@ -240,8 +310,14 @@ try {
     ["desktop", { width: 1440, height: 1000 }],
     ["mobile", { width: 390, height: 844 }],
   ] as const) {
+    // Each viewport is an independent application fixture. Keep its real
+    // 30-request mutation limiter intact without spending the next fixture's
+    // IP budget on the preceding desktop scenario.
+    securityRouter = securityRoutes();
     phase = `${name}: real browser security ceremony`;
-    const identity = await fixture();
+    const identity = await fixture(
+      name === "mobile" ? "google_oauth" : "email",
+    );
     const context = await browser.newContext({
       viewport,
       reducedMotion: "reduce",
@@ -494,6 +570,363 @@ try {
     checks.push(
       `${name}: final key cannot approve its own removal; cross-origin mutation rejected; automated WCAG tags and no horizontal overflow pass`,
     );
+    phase = `${name}: preserve a funded account through retained-key provider recovery`;
+    const currentCookie = (await context.cookies()).find(
+      (entry) => entry.name === "session",
+    );
+    assert.ok(currentCookie);
+    const oldSessionHash = createHash("sha256")
+      .update(currentCookie.value)
+      .digest("hex");
+    const oldContext = {
+      userId: identity.userId,
+      sessionTokenHash: oldSessionHash,
+    };
+    await profiles.createProfile(
+      identity.userId,
+      `recover-${randomUUID().slice(0, 12)}`,
+      "Synthetic preserved recovery profile",
+      "This profile must remain on the same internal account.",
+    );
+    await sandbox.initialize(oldContext);
+    const funding = await sandbox.quoteFunding(oldContext, {
+      idempotencyKey: randomUUID(),
+      amount: "10000000",
+    });
+    await sandbox.confirmSimulatedFunding(oldContext, {
+      requestId: funding.id,
+    });
+    const profileBefore = await profiles.getProfile(identity.userId);
+    const summaryBefore = await sandbox.summary(oldContext);
+    const countBefore = (
+      await runtimePool.query<{ count: number }>(
+        "SELECT count(*)::int AS count FROM users",
+      )
+    ).rows[0]!.count;
+    const journalCountBefore = (
+      await runtimePool.query<{ count: number }>(
+        "SELECT count(*)::int AS count FROM coin_journals",
+      )
+    ).rows[0]!.count;
+    const retainedKeys = await passkeys.list(identity.userId);
+    assert.equal(retainedKeys.length, 1);
+    const replacement = providerIdentity();
+    const replacementToken = secret();
+    providerTokens.set(replacementToken, replacement);
+    const headers = {
+      origin,
+      authorization: `Bearer ${replacementToken}`,
+    };
+    const candidateResponse = await context.request.post(
+      `${origin}/api/auth/security/provider/recovery/candidate`,
+      { headers, data: {} },
+    );
+    assert.equal(candidateResponse.status(), 200);
+    const candidate: unknown = await candidateResponse.json();
+    assert.ok(object(candidate));
+    assert.equal(candidate.oldMethod, identity.providerIdentity.methods[0]);
+    assert.equal(candidate.newEmail, replacement.email);
+    const optionsResponse = await context.request.post(
+      `${origin}/api/auth/security/provider/recovery`,
+      {
+        headers,
+        data: { credential: { type: "passkey", keyId: retainedKeys[0]!.id } },
+      },
+    );
+    assert.equal(optionsResponse.status(), 200);
+    const options: unknown = await optionsResponse.json();
+    assert.ok(object(options) && typeof options.id === "string");
+    assert.deepEqual(options.terms, candidate.terms);
+    for (const id of [randomUUID(), options.id])
+      await assert.rejects(
+        runtimePool.query(
+          "SELECT yaparena.apply_provider_identity_recovery($1)",
+          [id],
+        ),
+        (error: unknown) => object(error) && error.code === "23514",
+      );
+    const revokedKey = (
+      await runtimePool.query<{ id: string }>(
+        "SELECT id FROM account_security_keys WHERE user_id=$1 AND revoked_at IS NOT NULL ORDER BY id LIMIT 1",
+        [identity.userId],
+      )
+    ).rows[0];
+    assert.ok(revokedKey);
+    for (const invalid of ["purpose", "expired", "key"] as const) {
+      const id = randomUUID();
+      const clone = () =>
+        runtimePool.query(
+          `INSERT INTO account_operations(id,user_id,session_token_hash,auth_generation,purpose,terms,
+        terms_digest,nonce,credential_type,authorizing_passkey_id,created_at,expires_at)
+        SELECT $1,user_id,session_token_hash,auth_generation,CASE WHEN $3='purpose' THEN 'security.passkey.enroll' ELSE purpose END,
+        terms,terms_digest,nonce,credential_type,CASE WHEN $3='key' THEN $4::uuid ELSE authorizing_passkey_id END,
+        CASE WHEN $3='expired' THEN clock_timestamp()-interval '10 minutes' ELSE created_at END,
+        CASE WHEN $3='expired' THEN clock_timestamp()-interval '6 minutes' ELSE expires_at END
+        FROM account_operations WHERE id=$2`,
+          [id, options.id, invalid, revokedKey.id],
+        );
+      await clone();
+      await assert.rejects(
+        runtimePool.query(
+          "SELECT yaparena.apply_provider_identity_recovery($1)",
+          [id],
+        ),
+        (error: unknown) => object(error) && error.code === "23514",
+      );
+    }
+    assert.equal(
+      (await sessions.findUserByTokenHash(oldSessionHash))?.id,
+      identity.userId,
+    );
+    assert.equal(
+      (await providerAccounts.details(identity.userId))?.subject,
+      identity.providerIdentity.subject,
+    );
+    checks.push(
+      `${name}: actual runtime SQL rejects a missing, wrong-purpose, expired or revoked-key proof; even a correctly scoped live proof cannot commit identity replacement without atomic proof consumption, leaving the original session and mapping intact`,
+    );
+    const publicKey = requestOptions(options.authenticationOptions);
+    const authentication = await page.evaluate(async (json) => {
+      const credential = await navigator.credentials.get({
+        publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(json),
+      });
+      if (!(credential instanceof PublicKeyCredential))
+        throw new Error("native recovery assertion missing");
+      if (!(credential.response instanceof AuthenticatorAssertionResponse))
+        throw new Error("native recovery did not authenticate");
+      return credential.toJSON();
+    }, publicKey);
+    const preparedRecoveryApproval = { id: options.id, authentication };
+    const completionPath = `/api/auth/security/provider/recovery/${options.id}/complete`;
+    const foreign = await browser.newContext();
+    await foreign.addCookies([
+      {
+        name: "session",
+        value: other.token,
+        url: origin,
+        httpOnly: true,
+        sameSite: "Strict",
+      },
+    ]);
+    assert.equal(
+      (
+        await foreign.request.post(`${origin}${completionPath}`, {
+          headers,
+          data: { approval: preparedRecoveryApproval },
+        })
+      ).status(),
+      409,
+    );
+    await foreign.close();
+    const priorCompletions = completions.length;
+    const recoveryDone = page
+      .evaluate(async (token) => {
+        if (!window.yapRecoverProviderIdentity)
+          throw new Error("provider recovery control unavailable");
+        await window.yapRecoverProviderIdentity(token);
+      }, replacementToken)
+      .then(
+        () => true,
+        () => false,
+      );
+    const recoveryDialog = page.getByRole("dialog");
+    await recoveryDialog
+      .getByRole("heading", { name: "Replace lost sign-in", exact: true })
+      .waitFor();
+    assert.ok(replacement.email);
+    await recoveryDialog
+      .getByText(replacement.email, { exact: false })
+      .waitFor();
+    assert.match(await recoveryDialog.innerText(), /[Pp]ermanently retire/);
+    assert.match(
+      await recoveryDialog.innerText(),
+      /does not authorize a payment/,
+    );
+    assert.equal(
+      await recoveryDialog.getByRole("combobox").locator("option").count(),
+      1,
+    );
+    assert.deepEqual(
+      await page.evaluate(async () =>
+        (
+          await window.axe.run(["main", "dialog[open]"], {
+            runOnly: {
+              type: "tag",
+              values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"],
+            },
+          })
+        ).violations.map((entry) => ({ id: entry.id, impact: entry.impact })),
+      ),
+      [],
+    );
+    await page.screenshot({
+      path: resolve(evidenceDirectory, `recovery-${name}.png`),
+      fullPage: true,
+    });
+    await recoveryDialog
+      .getByRole("button", { name: "Approve change", exact: true })
+      .click();
+    assert.equal(await recoveryDone, true);
+    await root
+      .getByText(
+        "Lost sign-in replaced. Your account and balances were preserved; the old sign-in is permanently retired.",
+        { exact: true },
+      )
+      .waitFor();
+    const completed = completions
+      .slice(priorCompletions)
+      .find((entry) =>
+        entry.path.startsWith("/api/auth/security/provider/recovery/"),
+      );
+    assert.ok(
+      completed && object(completed.body) && object(completed.body.approval),
+    );
+    const completedApproval = completed.body.approval;
+    assert.ok(typeof completedApproval.id === "string");
+    const newCookie = (await context.cookies()).find(
+      (entry) => entry.name === "session",
+    );
+    assert.ok(newCookie && newCookie.value !== currentCookie.value);
+    const newSessionHash = createHash("sha256")
+      .update(newCookie.value)
+      .digest("hex");
+    assert.equal(
+      (await sessions.findUserByTokenHash(newSessionHash))?.id,
+      identity.userId,
+    );
+    assert.equal(await sessions.findUserByTokenHash(oldSessionHash), null);
+    const summaryAfter = await sandbox.summary({
+      userId: identity.userId,
+      sessionTokenHash: newSessionHash,
+    });
+    for (const field of [
+      "book",
+      "version",
+      "projection",
+      "balances",
+      "requests",
+    ] as const)
+      assert.deepEqual(summaryAfter[field], summaryBefore[field]);
+    assert.deepEqual(await profiles.getProfile(identity.userId), profileBefore);
+    assert.deepEqual(await passkeys.list(identity.userId), retainedKeys);
+    assert.equal(
+      (
+        await runtimePool.query<{ count: number }>(
+          "SELECT count(*)::int AS count FROM users",
+        )
+      ).rows[0]!.count,
+      countBefore,
+    );
+    assert.equal(
+      (
+        await runtimePool.query<{ count: number }>(
+          "SELECT count(*)::int AS count FROM coin_journals",
+        )
+      ).rows[0]!.count,
+      journalCountBefore,
+    );
+    const mapping = await providerAccounts.details(identity.userId);
+    assert.ok(mapping);
+    assert.equal(mapping.subject, replacement.subject);
+    assert.equal(mapping.email, replacement.email);
+    checks.push(
+      `${name}: a native user-verified retained app key replaces a synthetic sole ${identity.providerIdentity.methods[0]} provider identity with a separately verified synthetic email DID; the same internal account, profile, retained key and funded source/ledger balances survive with no extra user or cash journal`,
+    );
+    phase = `${name}: fence delayed retired-provider jobs from the replacement`;
+    await owner.query(
+      `INSERT INTO provider_revocation_jobs(user_id,subject,generation)
+      SELECT id,$2,auth_generation FROM users WHERE id=$1`,
+      [identity.userId, identity.providerIdentity.subject],
+    );
+    let providerCalls = 0;
+    await createProviderRevocation(runtimePool, {
+      async state() {
+        providerCalls++;
+        return { frozenAt: null };
+      },
+      async freeze() {
+        providerCalls++;
+      },
+      async unfreeze() {
+        providerCalls++;
+      },
+    }).synchronize(identity.userId);
+    assert.equal(providerCalls, 0);
+    assert.deepEqual(
+      (
+        await runtimePool.query<{ state: string; reason: string }>(
+          `SELECT j.state,j.failure_reason AS reason FROM provider_revocation_jobs j JOIN users u ON u.id=j.user_id
+          WHERE u.id=$1 AND j.generation=u.auth_generation`,
+          [identity.userId],
+        )
+      ).rows,
+      [{ state: "complete", reason: "retired_identity" }],
+    );
+    await owner.query(
+      `UPDATE provider_revocation_jobs SET state='manual',failure_reason='uncertain_provider_outcome'
+      WHERE user_id=$1 AND subject=$2`,
+      [identity.userId, identity.providerIdentity.subject],
+    );
+    await createProviderSessionMonitor(runtimePool, verifier)(
+      identity.userId,
+      newSessionHash,
+    );
+    assert.equal(
+      (await sessions.findUserByTokenHash(newSessionHash))?.id,
+      identity.userId,
+    );
+    assert.equal(
+      (await providerAccounts.details(identity.userId))?.subject,
+      replacement.subject,
+    );
+    checks.push(
+      `${name}: an adversarial current-generation job for the retired DID completes without any external provider call; an old-subject manual fence cannot invalidate the replacement identity's current session monitor`,
+    );
+    phase = `${name}: permanently fence recovered provider identity and replay`;
+    assert.equal(
+      (
+        await context.request.post(`${origin}${completed.path}`, {
+          headers,
+          data: { approval: completedApproval },
+        })
+      ).status(),
+      409,
+    );
+    await assert.rejects(
+      providerAccounts.exchange(
+        { ...identity.providerIdentity, sessionId: randomUUID() },
+        createSessionToken().tokenHash,
+        new Date(Date.now() + 600000),
+      ),
+      { name: "Error", status: 403 },
+    );
+    await assert.rejects(
+      providerAccounts.exchange(
+        replacement,
+        createSessionToken().tokenHash,
+        new Date(Date.now() + 600000),
+      ),
+      { name: "Error", status: 401 },
+    );
+    const recovery = (
+      await runtimePool.query<{
+        userId: string;
+        consumed: boolean;
+        retired: boolean;
+      }>(
+        `SELECT r.user_id::text AS "userId",o.consumed_at IS NOT NULL AS consumed,
+        p.user_id IS NULL AND p.email IS NULL AND p.credentials_snapshot IS NULL AS retired
+        FROM provider_identity_recoveries r JOIN account_operations o ON o.id=r.id
+        JOIN provider_identities p ON p.subject=r.old_subject AND p.provider=r.provider WHERE r.id=$1`,
+        [completedApproval.id],
+      )
+    ).rows;
+    assert.deepEqual(recovery, [
+      { userId: identity.userId, consumed: true, retired: true },
+    ]);
+    checks.push(
+      `${name}: recovery rejects another actual account before proof consumption; consumed-proof replay and the replacement provider SID are rejected, and even a fresh session of the retired original DID cannot reprovision or reopen the account`,
+    );
     await cdp.send("WebAuthn.removeVirtualAuthenticator", { authenticatorId });
     await cdp.send("WebAuthn.removeVirtualAuthenticator", {
       authenticatorId: secondAuthenticator.authenticatorId,
@@ -522,9 +955,24 @@ try {
               "src/platform/auth/security-passkeys.ts",
               "src/platform/auth/security-router.ts",
               "src/platform/auth/account-operations.ts",
+              "src/platform/auth/provider-identity-recovery.ts",
+              "src/platform/auth/provider-accounts.ts",
+              "src/platform/auth/provider-credentials.ts",
+              "src/platform/auth/provider-revocation.ts",
+              "src/platform/auth/provider-session-monitor.ts",
+              "src/features/identity/repository.ts",
+              "src/features/account-wallet/sandbox-repository.ts",
+              "migrations/1792426011000_add-provider-identity-recovery.js",
               "dist/platform/auth/security-passkeys.js",
               "dist/platform/auth/security-router.js",
               "dist/platform/auth/account-operations.js",
+              "dist/platform/auth/provider-identity-recovery.js",
+              "dist/platform/auth/provider-accounts.js",
+              "dist/platform/auth/provider-credentials.js",
+              "dist/platform/auth/provider-revocation.js",
+              "dist/platform/auth/provider-session-monitor.js",
+              "dist/features/identity/repository.js",
+              "dist/features/account-wallet/sandbox-repository.js",
             ].map(async (path) => [path, await sourceHash(path)]),
           ),
         ),

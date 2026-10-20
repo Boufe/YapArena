@@ -20,6 +20,31 @@ overflow. [Desktop](desktop.png) and [mobile](mobile.png) images visibly label t
 isolated component fixture. The matched full-account theme/layout screenshots
 remain in the parent evidence directory.
 
+The expanded run passes twelve groups. Desktop replaces a synthetic sole-email
+provider identity; mobile replaces a synthetic sole-Google identity with a
+different synthetic email identity. The provider verifier is a labelled local
+fixture, so this does not prove Privy code delivery or a genuine OAuth session.
+The actual `yapRecoverProviderIdentity` component renders the permanent-retirement
+terms and permits only the retained application security key. Native WebAuthn
+responses pass through the real router and runtime PostgreSQL transaction.
+[Desktop recovery](recovery-desktop.png) and
+[mobile recovery](recovery-mobile.png) capture that exact approval dialog.
+
+The recovery cases preserve the internal account, real local profile, retained
+key and a source-aware book backed by a deterministic 10 simulated-USDC
+purchase. Balances, requests and cash-journal counts remain unchanged, and no
+extra application user is created. Real SQL rejects missing, wrong-purpose,
+expired and revoked-key proofs; an otherwise valid unconsumed operation cannot
+commit through the definer's deferred constraint. An actual second account
+cannot consume the native assertion. After success, the old current cookie,
+the consumed proof and new provider SID cannot be replayed; a fresh SID of the
+retired original DID cannot provision another user or reopen the account.
+
+Each sequential viewport instantiates its own unchanged security router and
+30-request mutation limiter. This keeps desktop's deliberate negative requests
+from consuming the separate mobile fixture's IP budget; no limit is disabled or
+raised. Cross-instance/Redis abuse acceptance has separate evidence.
+
 Two virtual devices are needed: WebAuthn correctly rejects registering an
 already registered authenticator when it appears in `excludeCredentials`.
 The test pauses scheduling immediately before a second native registration call

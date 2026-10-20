@@ -53,6 +53,7 @@ const reviewedPending = [
   "1792426008000_bind-media-replacement-intent",
   "1792426009000_add-sandbox-error-reports",
   "1792426010000_enforce-sandbox-withdrawal-operator-boundary",
+  "1792426011000_add-provider-identity-recovery",
 ];
 const exec = promisify(execFile),
   sha = (value: Buffer | string) =>
@@ -539,8 +540,9 @@ try {
     assert.deepEqual(await sequences(local), metadata.sequences);
     metadata.restoreVerified = true;
     step = "rehearse exact additive migration set as local owner";
-    // The restored schema has no hosted/provider objects or data. The local
-    // owner role is deliberately not a superuser and owns only this new DB.
+    // This private restore includes retained application rows and provider
+    // mappings. It excludes external provider schemas/state and makes no
+    // provider calls. The local owner is not a superuser and owns only this DB.
     await runMigrations(local);
     assert.deepEqual(await migrations(local), Object.keys(migrationHashes));
     await verifyAccounts(local);

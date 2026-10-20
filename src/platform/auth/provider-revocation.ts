@@ -39,22 +39,17 @@ export function createProviderRevocation(
         await client.query("ROLLBACK");
         return;
       }
-      if (user.generation !== generation) {
+      if (job.state === "running") {
         await client.query(
-          "UPDATE provider_revocation_jobs SET state='complete' WHERE user_id=$1 AND generation=$2",
+          "UPDATE provider_revocation_jobs SET state='manual',failure_reason='uncertain_provider_outcome' WHERE user_id=$1 AND generation=$2",
           [userId, generation],
         );
         await client.query("COMMIT");
         return;
       }
-      // A freeze that predates this job may be an independent provider incident
-      // control. Never silently undo it. Retrying our own uncertain call is safe.
-      if (
-        job.attempts === 0 &&
-        (await provider.state(job.subject)).frozenAt !== null
-      ) {
+      if (user.generation !== generation) {
         await client.query(
-          "UPDATE provider_revocation_jobs SET state='manual' WHERE user_id=$1 AND generation=$2",
+          "UPDATE provider_revocation_jobs SET state='complete' WHERE user_id=$1 AND generation=$2",
           [userId, generation],
         );
         await client.query("COMMIT");
@@ -65,14 +60,6 @@ export function createProviderRevocation(
         [userId, generation],
       );
       await client.query("COMMIT");
-      await provider.freeze(job.subject);
-      const frozen = await provider.state(job.subject);
-      if (
-        !Number.isSafeInteger(frozen.frozenAt) ||
-        frozen.frozenAt === null ||
-        frozen.frozenAt < 1
-      )
-        throw new Error("provider revocation confirmation unavailable");
       await client.query("BEGIN");
       const latest = (
         await client.query<{ generation: string; status: string }>(
@@ -81,21 +68,102 @@ export function createProviderRevocation(
         )
       ).rows[0];
       if (!latest || latest.generation !== generation) {
+        await client.query(
+          "UPDATE provider_revocation_jobs SET state='complete' WHERE user_id=$1 AND generation=$2",
+          [userId, generation],
+        );
+        await client.query("COMMIT");
+        return;
+      }
+      const claimed = (
+        await client.query<{ attempts: number; state: string }>(
+          "SELECT attempts,state FROM provider_revocation_jobs WHERE user_id=$1 AND generation=$2 FOR UPDATE",
+          [userId, generation],
+        )
+      ).rows[0];
+      if (
+        !claimed ||
+        claimed.state !== "running" ||
+        claimed.attempts !== job.attempts + 1
+      ) {
         await client.query("ROLLBACK");
         return;
       }
-      if (latest.status === "active") {
-        await provider.unfreeze(job.subject);
-        await client.query(
-          "UPDATE provider_identities SET auth_generation=$2,minimum_issued_at=GREATEST(minimum_issued_at,$3) WHERE user_id=$1",
-          [userId, generation, frozen.frozenAt + 1],
-        );
-      }
-      await client.query(
-        "UPDATE provider_revocation_jobs SET state='complete' WHERE user_id=$1 AND generation=$2",
+      const inherited = await client.query(
+        "SELECT 1 FROM provider_revocation_jobs WHERE user_id=$1 AND generation<$2 AND state IN ('manual','running') LIMIT 1",
         [userId, generation],
       );
-      await client.query("COMMIT");
+      if (inherited.rowCount) {
+        await client.query(
+          "UPDATE provider_revocation_jobs SET state='manual',failure_reason='inherited_manual' WHERE user_id=$1 AND generation=$2",
+          [userId, generation],
+        );
+        await client.query("COMMIT");
+        return;
+      }
+      // Keep the account ordering lock across the bounded provider calls. A
+      // newer generation cannot otherwise distinguish our older in-flight
+      // freeze from an independent incident freeze, and could remain fenced
+      // indefinitely. A shared deadline bounds all four provider calls together;
+      // SDK calls also have individual five-second timeouts and no retries.
+      const options = { signal: AbortSignal.timeout(20_000) };
+      let initial;
+      try {
+        initial = await provider.state(job.subject, options);
+      } catch (error) {
+        // This attempt has made no mutation. A durable pending state permits a
+        // retry; an abandoned running attempt instead requires reconciliation.
+        await client.query(
+          "UPDATE provider_revocation_jobs SET state='pending' WHERE user_id=$1 AND generation=$2",
+          [userId, generation],
+        );
+        await client.query("COMMIT");
+        throw error;
+      }
+      if (initial.frozenAt !== null) {
+        await client.query(
+          "UPDATE provider_revocation_jobs SET state='manual',failure_reason='independent_provider_freeze' WHERE user_id=$1 AND generation=$2",
+          [userId, generation],
+        );
+        await client.query("COMMIT");
+        return;
+      }
+      try {
+        await provider.freeze(job.subject, options);
+        const frozen = await provider.state(job.subject, options);
+        if (
+          !Number.isSafeInteger(frozen.frozenAt) ||
+          frozen.frozenAt === null ||
+          frozen.frozenAt < 1
+        )
+          throw new Error("provider revocation confirmation unavailable");
+        await client.query(
+          "UPDATE provider_revocation_jobs SET confirmed_frozen_at=$3 WHERE user_id=$1 AND generation=$2",
+          [userId, generation, frozen.frozenAt],
+        );
+        if (latest.status === "active") {
+          await provider.unfreeze(job.subject, options);
+          await client.query(
+            "UPDATE provider_identities SET auth_generation=$2,minimum_issued_at=GREATEST(minimum_issued_at,$3) WHERE user_id=$1",
+            [userId, generation, frozen.frozenAt + 1],
+          );
+        }
+        await client.query(
+          "UPDATE provider_revocation_jobs SET state='complete' WHERE user_id=$1 AND generation=$2",
+          [userId, generation],
+        );
+        await client.query("COMMIT");
+      } catch (error) {
+        // A response timeout cannot establish whether the provider changed
+        // state. Its API has no operation/ownership ID for a freeze. Never
+        // silently unfreeze a possibly independent incident control on retry.
+        await client.query(
+          "UPDATE provider_revocation_jobs SET state='manual',failure_reason='uncertain_provider_outcome' WHERE user_id=$1 AND generation=$2",
+          [userId, generation],
+        );
+        await client.query("COMMIT");
+        throw error;
+      }
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;

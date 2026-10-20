@@ -3,7 +3,10 @@ import { generateKeyPairSync, createSign, createHash } from "node:crypto";
 import { describe, it } from "node:test";
 import express from "express";
 import request from "../scripts/test-http-request.ts";
-import { createPrivyVerifier } from "../dist/platform/auth/privy.js";
+import {
+  createPrivyVerifier,
+  ProviderCredentialChangedError,
+} from "../dist/platform/auth/privy.js";
 import { loadProviderConfig } from "../dist/platform/auth/provider-config.js";
 import { createSharedAbuseLimiter } from "../dist/platform/shared-abuse.js";
 import { createApp } from "../dist/app.js";
@@ -98,6 +101,31 @@ function verifier(
   });
 }
 describe("verified provider evidence", () => {
+  it("inspects current server-side credentials without accepting token refresh as reauthentication", async () => {
+    const state = await verifier().inspect(claims.sub);
+    assert.equal(state.subject, claims.sub);
+    assert.equal(state.email, "verified@example.test");
+    assert.equal(state.sessionId, undefined);
+    assert.equal(state.issuedAt, undefined);
+    for (const user of [
+      {
+        id: claims.sub,
+        is_guest: false,
+        frozen_at: 12345,
+        linked_accounts: [{ type: "email", address: "verified@example.test" }],
+      },
+      {
+        id: claims.sub,
+        is_guest: false,
+        linked_accounts: [{ type: "wallet", address: "unapproved" }],
+      },
+      { id: claims.sub, is_guest: false, linked_accounts: [] },
+    ])
+      await assert.rejects(
+        verifier(user).inspect(claims.sub),
+        ProviderCredentialChangedError,
+      );
+  });
   it("refuses unsafe email merging and reflects configured login methods", async () => {
     assert.deepEqual(await verifier().configuration(), {
       google: true,

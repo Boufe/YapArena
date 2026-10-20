@@ -7,6 +7,11 @@ import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { hashSessionToken } from "../dist/platform/auth/session-tokens.js";
 import { createProviderRevocation } from "../dist/platform/auth/provider-revocation.js";
 import { createAccountWallet } from "../dist/features/account-wallet/repository.js";
+import { createProviderSessionMonitor } from "../dist/platform/auth/provider-session-monitor.js";
+import {
+  ProviderUnavailableError,
+  ProviderCredentialChangedError,
+} from "../dist/platform/auth/privy.js";
 const ownerUrl = process.env.A4_TEST_OWNER_URL;
 const runtimeUrl = process.env.A4_TEST_DATABASE_URL;
 describe(
@@ -109,6 +114,87 @@ describe(
         1,
       );
     });
+    it("inspects every protected cookie lookup, fails closed on outages and leaves local revocation available", async () => {
+      const id = identity(),
+        token = randomUUID(),
+        made = await exchange(createProviderAccounts(a), id, token);
+      let calls = 0,
+        outage = false;
+      const monitor = createProviderSessionMonitor(b, {
+        async inspect(subject) {
+          calls++;
+          assert.equal(subject, id.subject);
+          if (outage)
+            throw new ProviderUnavailableError("provider unavailable");
+          return id;
+        },
+      });
+      const sessions = createSessionRepository(a, {
+        verifyProviderSession: monitor,
+      });
+      for (let n = 0; n < 2; n++)
+        assert.equal(
+          (await sessions.findUserByTokenHash(hashSessionToken(token))).id,
+          made.user.id,
+        );
+      assert.equal(calls, 2);
+      outage = true;
+      await assert.rejects(
+        sessions.findUserByTokenHash(hashSessionToken(token)),
+        ProviderUnavailableError,
+      );
+      assert.equal(
+        (
+          await sessions.findUserByTokenHash(hashSessionToken(token), {
+            localRevocation: true,
+          })
+        ).id,
+        made.user.id,
+      );
+      assert.equal(calls, 3);
+      await sessions.revoke(made.user.id, hashSessionToken(token), false);
+      assert.equal(
+        await sessions.findUserByTokenHash(hashSessionToken(token), {
+          localRevocation: true,
+        }),
+        null,
+      );
+    });
+    it("revokes existing app cookies across instances for provider credential changes or removed/frozen accounts", async () => {
+      for (const invalidAccount of [false, true]) {
+        const id = identity(),
+          token = randomUUID();
+        await exchange(createProviderAccounts(a), id, token);
+        const monitor = createProviderSessionMonitor(a, {
+          async inspect() {
+            if (invalidAccount)
+              throw new ProviderCredentialChangedError(
+                "provider account unavailable",
+              );
+            return { ...id, credentialsDigest: "b".repeat(64) };
+          },
+        });
+        await assert.rejects(
+          createSessionRepository(b, {
+            verifyProviderSession: monitor,
+          }).findUserByTokenHash(hashSessionToken(token)),
+          /ownership reconciliation/,
+        );
+        assert.equal(
+          await createSessionRepository(a).findUserByTokenHash(
+            hashSessionToken(token),
+          ),
+          null,
+        );
+        await assert.rejects(
+          exchange(createProviderAccounts(b), {
+            ...id,
+            sessionId: randomUUID(),
+          }),
+          /ownership verification/,
+        );
+      }
+    });
     it("reads each owned grant separately and retains qualification after later losses", async () => {
       const user = (await exchange(createProviderAccounts(a), identity())).user;
       const lot = randomUUID(),
@@ -179,7 +265,7 @@ describe(
         c.release();
       }
     });
-    it("keeps provider outages fenced and retries uncertain calls", async () => {
+    it("keeps provider read outages fenced and retries without changing external state", async () => {
       const id = identity(),
         token = randomUUID(),
         repo = createProviderAccounts(a);
@@ -193,10 +279,10 @@ describe(
         frozenAt = null;
       const control = {
         async state() {
+          if (fail) throw Error("outage");
           return { frozenAt };
         },
         async freeze() {
-          if (fail) throw Error("outage");
           frozenAt = Math.floor(Date.now() / 1000);
         },
         async unfreeze() {
@@ -224,6 +310,197 @@ describe(
           )
         ).rows[0].state,
         "complete",
+      );
+    });
+    it("keeps uncertain provider mutations and later generations fenced for manual reconciliation", async () => {
+      const id = identity(),
+        token = randomUUID(),
+        repo = createProviderAccounts(a);
+      const made = await exchange(repo, id, token);
+      await createSessionRepository(a).revoke(
+        made.user.id,
+        hashSessionToken(token),
+        false,
+      );
+      let frozenAt = null,
+        unfreezes = 0,
+        freezes = 0;
+      const control = {
+        async state() {
+          return { frozenAt };
+        },
+        async freeze() {
+          freezes++;
+          frozenAt = Math.floor(Date.now() / 1000);
+          throw Error("uncertain response");
+        },
+        async unfreeze() {
+          unfreezes++;
+          frozenAt = null;
+        },
+      };
+      await assert.rejects(
+        createProviderRevocation(b, control).synchronize(made.user.id),
+        /uncertain response/,
+      );
+      await owner.query(
+        "UPDATE users SET auth_generation=auth_generation+1 WHERE id=$1",
+        [made.user.id],
+      );
+      await createProviderRevocation(a, control).synchronize(made.user.id);
+      assert.equal(freezes, 1);
+      assert.equal(unfreezes, 0);
+      assert.deepEqual(
+        (
+          await owner.query(
+            "SELECT state,failure_reason FROM provider_revocation_jobs WHERE user_id=$1 ORDER BY generation",
+            [made.user.id],
+          )
+        ).rows,
+        [
+          { state: "manual", failure_reason: "uncertain_provider_outcome" },
+          { state: "manual", failure_reason: "inherited_manual" },
+        ],
+      );
+      await assert.rejects(
+        exchange(repo, { ...id, sessionId: randomUUID() }),
+        /ownership verification/,
+      );
+    });
+    it("does not freeze a superseded generation between claiming and provider control", async () => {
+      const id = identity(),
+        token = randomUUID(),
+        repo = createProviderAccounts(a);
+      const made = await exchange(repo, id, token);
+      await createSessionRepository(a).revoke(
+        made.user.id,
+        hashSessionToken(token),
+        false,
+      );
+      let commits = 0,
+        freezes = 0,
+        frozenAt = null;
+      const database = {
+        query: (...args) => b.query(...args),
+        async connect() {
+          const client = await b.connect();
+          return {
+            async query(sql, values) {
+              const result = await client.query(sql, values);
+              if (sql === "COMMIT" && ++commits === 1)
+                await owner.query(
+                  "UPDATE users SET auth_generation=auth_generation+1 WHERE id=$1",
+                  [made.user.id],
+                );
+              return result;
+            },
+            release: () => client.release(),
+          };
+        },
+      };
+      const control = {
+        async state() {
+          return { frozenAt };
+        },
+        async freeze() {
+          freezes++;
+          frozenAt = Math.floor(Date.now() / 1000);
+        },
+        async unfreeze() {
+          frozenAt = null;
+        },
+      };
+      await createProviderRevocation(database, control).synchronize(
+        made.user.id,
+      );
+      assert.equal(freezes, 0);
+      await createProviderRevocation(b, control).synchronize(made.user.id);
+      assert.equal(freezes, 1);
+      assert.deepEqual(
+        (
+          await owner.query(
+            "SELECT state FROM provider_revocation_jobs WHERE user_id=$1 ORDER BY generation",
+            [made.user.id],
+          )
+        ).rows.map((row) => row.state),
+        ["complete", "complete"],
+      );
+    });
+    it("orders a new generation after in-flight provider control across application pools", async () => {
+      const id = identity(),
+        token = randomUUID(),
+        repo = createProviderAccounts(a);
+      const made = await exchange(repo, id, token);
+      await createSessionRepository(a).revoke(
+        made.user.id,
+        hashSessionToken(token),
+        false,
+      );
+      const entered = Promise.withResolvers(),
+        release = Promise.withResolvers();
+      let frozenAt = null,
+        freezes = 0;
+      const control = {
+        async state() {
+          return { frozenAt };
+        },
+        async freeze() {
+          freezes++;
+          frozenAt = Math.floor(Date.now() / 1000);
+          entered.resolve();
+          await release.promise;
+        },
+        async unfreeze() {
+          frozenAt = null;
+        },
+      };
+      const c = await owner.connect();
+      const pid = (await c.query("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      const processing = createProviderRevocation(b, control).synchronize(
+        made.user.id,
+      );
+      let revoking;
+      try {
+        await entered.promise;
+        revoking = c.query(
+          "UPDATE users SET auth_generation=auth_generation+1 WHERE id=$1",
+          [made.user.id],
+        );
+        const deadline = Date.now() + 5000;
+        let blocked = false;
+        while (Date.now() < deadline) {
+          const state = await owner.query(
+            "SELECT 1 FROM pg_stat_activity WHERE pid=$1 AND wait_event_type='Lock'",
+            [pid],
+          );
+          if (state.rowCount) {
+            blocked = true;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        assert.equal(
+          blocked,
+          true,
+          "revocation waits for provider control's account lock",
+        );
+      } finally {
+        release.resolve();
+        await processing;
+        await revoking;
+        c.release();
+      }
+      assert.equal(frozenAt, null);
+      await createProviderRevocation(a, control).synchronize(made.user.id);
+      assert.equal(freezes, 2);
+      assert.deepEqual(
+        (
+          await owner.query(
+            "SELECT state FROM provider_revocation_jobs WHERE user_id=$1 ORDER BY generation",
+            [made.user.id],
+          )
+        ).rows.map((row) => row.state),
+        ["complete", "complete"],
       );
     });
     it("never unfreezes suspended accounts or independent provider freezes", async () => {

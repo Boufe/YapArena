@@ -1,4 +1,4 @@
-import { PrivyClient } from "@privy-io/node";
+import { PrivyClient, NotFoundError } from "@privy-io/node";
 import { createHash } from "node:crypto";
 
 export type ProviderIdentity = {
@@ -11,9 +11,18 @@ export type ProviderIdentity = {
 };
 export type IdentityVerifier = {
   verify(token: string): Promise<ProviderIdentity>;
+  inspect(
+    subject: string,
+  ): Promise<
+    Pick<
+      ProviderIdentity,
+      "subject" | "email" | "methods" | "credentialsDigest"
+    >
+  >;
   configuration(): Promise<{ google: boolean; passkeys: boolean }>;
 };
 export class ProviderUnavailableError extends Error {}
+export class ProviderCredentialChangedError extends Error {}
 
 export function createPrivyVerifier(config: {
   appId: string;
@@ -44,61 +53,77 @@ export function createPrivyVerifier(config: {
       throw new ProviderUnavailableError("provider configuration unavailable");
     }
   }
+  async function inspect(subject: string) {
+    const user = await client
+      .users()
+      ._get(subject)
+      .catch((error: unknown) => {
+        if (error instanceof NotFoundError)
+          throw new ProviderCredentialChangedError(
+            "provider account unavailable",
+          );
+        throw new ProviderUnavailableError("provider identity unavailable");
+      });
+    if (
+      user.id !== subject ||
+      user.is_guest ||
+      (user.frozen_at !== undefined && user.frozen_at !== null)
+    )
+      throw new ProviderCredentialChangedError("provider account unavailable");
+    const email = user.linked_accounts.find((entry) => entry.type === "email");
+    const credentials = user.linked_accounts
+      .map((entry) => {
+        if (entry.type === "email") return ["email", entry.address];
+        if (entry.type === "google_oauth")
+          return ["google_oauth", entry.subject];
+        if (entry.type === "passkey") return ["passkey", entry.credential_id];
+        throw new ProviderCredentialChangedError(
+          "unsupported authentication method",
+        );
+      })
+      .map((value) => JSON.stringify(value))
+      .sort();
+    if (!credentials.length)
+      throw new ProviderCredentialChangedError(
+        "authentication method required",
+      );
+    return {
+      subject,
+      email: email?.type === "email" ? email.address : null,
+      methods: [
+        ...new Set(user.linked_accounts.map((entry) => entry.type)),
+      ].sort(),
+      credentialsDigest: createHash("sha256")
+        .update(JSON.stringify(credentials))
+        .digest("hex"),
+    };
+  }
   return {
     configuration,
+    inspect,
     async verify(token) {
       const claims = await client.utils().auth().verifyAccessToken(token);
       await configuration();
       // The supported verifier checks signature, issuer, audience and expiry.
       // Fetch linked accounts server-side; never accept browser ownership claims.
-      const user = await client
-        .users()
-        ._get(claims.user_id)
-        .catch(() => {
-          throw new ProviderUnavailableError("provider identity unavailable");
-        });
-      if (
-        user.id !== claims.user_id ||
-        user.is_guest ||
-        user.frozen_at ||
-        !claims.session_id
-      )
-        throw new Error("provider identity unavailable");
-      const email = user.linked_accounts.find(
-        (entry) => entry.type === "email",
-      );
-      const credentials = user.linked_accounts
-        .map((entry) => {
-          if (entry.type === "email") return ["email", entry.address];
-          if (entry.type === "google_oauth")
-            return ["google_oauth", entry.subject];
-          if (entry.type === "passkey") return ["passkey", entry.credential_id];
-          throw new Error("unsupported authentication method");
-        })
-        .map((value) => JSON.stringify(value))
-        .sort();
-      if (!credentials.length)
-        throw new Error("authentication method required");
+      const identity = await inspect(claims.user_id);
+      if (!claims.session_id) throw new Error("provider identity unavailable");
       return {
-        subject: claims.user_id,
+        ...identity,
         sessionId: claims.session_id,
-        email: email?.type === "email" ? email.address : null,
-        methods: [
-          ...new Set(user.linked_accounts.map((entry) => entry.type)),
-        ].sort(),
         issuedAt: claims.issued_at,
-        credentialsDigest: createHash("sha256")
-          .update(JSON.stringify(credentials))
-          .digest("hex"),
       };
     },
   };
 }
 
 export type ProviderSessionControl = {
-  state(subject: string): Promise<{ frozenAt: number | null }>;
-  freeze(subject: string): Promise<void>;
-  unfreeze(subject: string): Promise<void>;
+  state(
+    subject: string,
+    options?: { signal: AbortSignal },
+  ): Promise<{ frozenAt: number | null }>;
+  freeze(subject: string, options?: { signal: AbortSignal }): Promise<void>;
+  unfreeze(subject: string, options?: { signal: AbortSignal }): Promise<void>;
 };
 export function createPrivySessionControl(config: {
   appId: string;
@@ -111,16 +136,16 @@ export function createPrivySessionControl(config: {
     maxRetries: 0,
   });
   return {
-    async state(subject) {
-      const user = await client.users()._get(subject);
+    async state(subject, options) {
+      const user = await client.users()._get(subject, options);
       return { frozenAt: user.frozen_at ?? null };
     },
-    async freeze(subject) {
-      const result = await client.users().freeze(subject);
+    async freeze(subject, options) {
+      const result = await client.users().freeze(subject, options);
       if (!result.success) throw new Error("provider freeze failed");
     },
-    async unfreeze(subject) {
-      const result = await client.users().unfreeze(subject);
+    async unfreeze(subject, options) {
+      const result = await client.users().unfreeze(subject, options);
       if (!result.success) throw new Error("provider unfreeze failed");
     },
   };

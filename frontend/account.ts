@@ -34,6 +34,8 @@ const profileForm = document.querySelector<ProfileForm>("#profile-form")!;
 let currentProfile: Profile | null = null;
 let linkedWallets: LinkedWallet[] = [];
 let passwordAvailable = false;
+let accountVersion = 0;
+let endedSessionNotice = "";
 let pendingChange: PendingWalletChange | null = null;
 let expiryTimer: number | undefined;
 const changeDialog =
@@ -160,13 +162,14 @@ function returnToRequestedPage() {
   return true;
 }
 
-async function loadProfile() {
+async function loadProfile(version = accountVersion) {
   let profile: Profile | null = null;
   try {
     profile = (await api<{ profile: Profile }>("/api/me/profile")).profile;
   } catch (error) {
     if ((error as AccountError).message !== "profile not found") throw error;
   }
+  if (version !== accountVersion) return;
   currentProfile = profile;
   profileForm.elements.handle.value = profile?.handle ?? "";
   profileForm.elements.handle.disabled = Boolean(profile);
@@ -184,11 +187,12 @@ async function loadProfile() {
   )!.disabled = profile?.publicationState === "hidden";
 }
 
-async function loadWallets() {
+async function loadWallets(version = accountVersion) {
   const list = document.querySelector<HTMLElement>("#wallet-list")!;
   list.replaceChildren();
   const wallets = (await api<{ wallets: LinkedWallet[] }>("/api/auth/wallets"))
     .wallets;
+  if (version !== accountVersion) return;
   linkedWallets = wallets;
   if (!wallets.length) list.append(item("No wallet linked yet."));
   for (const wallet of wallets) {
@@ -216,6 +220,7 @@ async function loadCollection<T>(
   path: string,
   selector: string,
   render: (entry: T) => HTMLLIElement,
+  version = accountVersion,
 ) {
   const list = document.querySelector<HTMLElement>(selector)!;
   list.replaceChildren();
@@ -224,6 +229,7 @@ async function loadCollection<T>(
     const data = await api<CollectionPage<T>>(
       `${path}?limit=20&offset=${offset}`,
     );
+    if (version !== accountVersion) return;
     if (!offset && !data.items.length) list.append(item("Nothing here yet."));
     for (const entry of data.items) list.append(render(entry));
     offset += data.items.length;
@@ -248,8 +254,11 @@ async function loadCollection<T>(
 }
 
 async function loadAccount() {
+  const version = ++accountVersion;
   try {
     const { user } = await api<{ user: AccountUser }>("/api/auth/me");
+    if (version !== accountVersion) return;
+    endedSessionNotice = "";
     passwordAvailable = Boolean(user.email);
     signedOut.hidden = true;
     signedIn.hidden = false;
@@ -260,6 +269,7 @@ async function loadAccount() {
         provider: { email: string | null } | null;
         legacyPassword: boolean;
       }>("/api/auth/methods");
+      if (version !== accountVersion) return;
       passwordAvailable = methods.legacyPassword;
       document.querySelector<HTMLElement>("#account-name")!.textContent =
         methods.provider?.email || user.email || "Your account";
@@ -269,6 +279,7 @@ async function loadAccount() {
         pending: string;
         promotional: string;
       }>("/api/account-wallet");
+      if (version !== accountVersion) return;
       for (const [kind, amount] of Object.entries(balance)) {
         const target = document.querySelector<HTMLElement>(
           `[data-funds="${kind}"]`,
@@ -297,12 +308,16 @@ async function loadAccount() {
           ),
       ),
     ]);
+    if (version !== accountVersion) return;
     say("Account ready.");
   } catch (error) {
-    if ((error as AccountError).message === "authentication required") {
-      signedIn.hidden = true;
-      signedOut.hidden = false;
-      say("Sign in to create a profile and follow people or topics.");
+    if (version !== accountVersion) return;
+    if ((error as AccountError).status === 401) {
+      clearAccountState();
+      say(
+        endedSessionNotice ||
+          "Sign in to create a profile and follow people or topics.",
+      );
       return;
     }
     say((error as AccountError).message);
@@ -317,18 +332,32 @@ document
   .addEventListener("click", () => walletAction("link"));
 document
   .querySelector<HTMLElement>("#sign-out")!
-  .addEventListener("click", async () => {
+  .addEventListener("click", async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    if (button.disabled) return;
+    button.disabled = true;
+    let expired = false;
     try {
-      await api("/api/auth/logout", "POST");
-      window.dispatchEvent(new Event("yap:provider-logout"));
+      try {
+        await api("/api/auth/logout", "POST");
+      } catch (error) {
+        if ((error as AccountError).status !== 401) throw error;
+        expired = true;
+      }
+      window.dispatchEvent(
+        new CustomEvent("yap:provider-logout", { detail: expired }),
+      );
+      window.dispatchEvent(new Event("yap:account-changed"));
       if ("BroadcastChannel" in window) {
         const channel = new BroadcastChannel("yaparena-account");
         channel.postMessage("changed");
         channel.close();
       }
-      await loadAccount();
+      document.querySelector<HTMLButtonElement>("#wallet-login")?.focus();
     } catch (error) {
       say((error as AccountError).message);
+    } finally {
+      button.disabled = false;
     }
   });
 
@@ -381,12 +410,13 @@ profileForm.addEventListener("submit", async (event) => {
   }
 });
 
-async function loadNotifications() {
+async function loadNotifications(version = accountVersion) {
   const list = document.querySelector<HTMLElement>("#account-notifications")!;
   list.replaceChildren();
   const { notifications } = await api<{ notifications: { message: string }[] }>(
     "/api/matching/notifications",
   );
+  if (version !== accountVersion) return;
   if (!notifications.length) list.append(item("No account notifications."));
   for (const notification of notifications)
     list.append(item(notification.message));
@@ -398,6 +428,30 @@ function resetWalletChange() {
   changeForm.reset();
   changeForm.hidden = false;
   document.querySelector<HTMLElement>("#new-wallet-proof")!.hidden = true;
+}
+
+function clearAccountState() {
+  ++accountVersion;
+  currentProfile = null;
+  linkedWallets = [];
+  passwordAvailable = false;
+  signedIn.hidden = true;
+  signedOut.hidden = false;
+  document.querySelector<HTMLElement>("#account-name")!.textContent = "";
+  profileForm.reset();
+  profileForm.elements.handle.disabled = false;
+  document.querySelector<HTMLElement>("#profile-state")!.textContent = "";
+  for (const selector of [
+    "#wallet-list",
+    "#follow-list",
+    "#activity-list",
+    "#account-notifications",
+  ])
+    document.querySelector<HTMLElement>(selector)!.replaceChildren();
+  for (const target of document.querySelectorAll<HTMLElement>("[data-funds]"))
+    target.textContent = "—";
+  if (changeDialog.open) changeDialog.close();
+  resetWalletChange();
 }
 
 function openWalletChange(target: WalletChangeTarget) {
@@ -603,6 +657,18 @@ document
     }
   });
 
+window.addEventListener("yap:provider-logout", (event) => {
+  const expired: unknown = event instanceof CustomEvent ? event.detail : false;
+  endedSessionNotice =
+    expired === true
+      ? "This session has ended. Sign in again to sign out other devices."
+      : "";
+  clearAccountState();
+  say(
+    endedSessionNotice ||
+      "Sign in to create a profile and follow people or topics.",
+  );
+});
 window.addEventListener("yap:account-changed", () => void loadAccount());
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) void loadAccount();

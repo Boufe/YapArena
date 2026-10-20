@@ -21,6 +21,7 @@ if (header) {
       ? new BroadcastChannel("yaparena-account")
       : null;
   let version = 0;
+  let endedSessionNotice = "";
   function clearAccount() {
     balance.textContent = "—";
     reserved.textContent = "Checking balance…";
@@ -61,10 +62,11 @@ if (header) {
       if (auth.status === 401 || auth.status === 403) {
         clearAccount();
         session("guest");
-        status.textContent = "";
+        status.textContent = endedSessionNotice;
         return;
       }
       if (!auth.ok) throw new Error("account unavailable");
+      endedSessionNotice = "";
       session("member");
       status.textContent = "";
       const [profileResponse, walletResponse] = await Promise.all([
@@ -146,6 +148,18 @@ if (header) {
     session("checking");
     void refresh();
   });
+  window.addEventListener("yap:provider-logout", (event) => {
+    ++version;
+    const expired: unknown =
+      event instanceof CustomEvent ? event.detail : false;
+    endedSessionNotice =
+      expired === true
+        ? "This session has ended. Sign in again to sign out other devices."
+        : "";
+    clearAccount();
+    session("guest");
+    status.textContent = endedSessionNotice;
+  });
   window.addEventListener("focus", () => void refresh());
   window.addEventListener("pageshow", (event) => {
     if (event.persisted) {
@@ -183,6 +197,9 @@ if (header) {
   let scriptLoad: Promise<void> | undefined;
   let closingFromHistory = false;
   let completed = false;
+  // A reload discards the dialog but retains history.state. Bind entries to
+  // this document so Back cannot mistake an older dialog entry for this one.
+  const authHistoryId = crypto.randomUUID();
   function returnPath(candidate?: string) {
     return (
       safeAuthReturn(candidate ?? null, location.origin) ??
@@ -241,7 +258,7 @@ if (header) {
       authDialog.showModal();
       if (push)
         history.pushState(
-          { yapAuthDialog: true, mode, returnTo: returnPath(next) },
+          { yapAuthDialog: authHistoryId, mode, returnTo: returnPath(next) },
           "",
           location.href,
         );
@@ -279,7 +296,7 @@ if (header) {
       value &&
       typeof value === "object" &&
       "yapAuthDialog" in value &&
-      value.yapAuthDialog === true,
+      value.yapAuthDialog === authHistoryId,
     );
   }
   close.addEventListener("click", () => authDialog.close());
@@ -417,10 +434,15 @@ if (header) {
           method: "POST",
           credentials: "same-origin",
         });
-        if (!response.ok) throw new Error("logout unavailable");
+        if (!response.ok && response.status !== 401)
+          throw new Error("logout unavailable");
         clearAccount();
         session("guest");
-        window.dispatchEvent(new Event("yap:provider-logout"));
+        window.dispatchEvent(
+          new CustomEvent("yap:provider-logout", {
+            detail: response.status === 401,
+          }),
+        );
         window.dispatchEvent(new Event("yap:account-changed"));
         channel?.postMessage("changed");
         guest.querySelector<HTMLAnchorElement>("a")?.focus();

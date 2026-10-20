@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { resolve } from "node:path";
 import express from "express";
 import helmet from "helmet";
-import { chromium } from "playwright-core";
+import { chromium, type Page, type Route } from "playwright-core";
 import axe from "axe-core";
 import { renderAccount, renderAbout } from "../dist/features/discovery/web.js";
 import { createEmailAuthSecurity } from "../dist/platform/auth/browser-security.js";
@@ -37,6 +39,64 @@ try {
 const directory = resolve(
   process.env.AUTH_BROWSER_ARTIFACT_DIR ?? "docs/evidence/email-first",
 );
+const publicDirectory = resolve(
+  process.env.AUTH_BROWSER_PUBLIC_DIR ?? "public",
+);
+const phase = process.env.AUTH_BROWSER_PHASE ?? "current";
+assert.match(phase, /^[a-z-]{1,40}$/);
+const revision = execFileSync("git", ["rev-parse", "HEAD"], {
+  encoding: "utf8",
+}).trim();
+const assetFiles = [
+  "account-auth.bundle.js",
+  "account-security.bundle.js",
+  "account-session-list.js",
+  "account-sessions.js",
+  "account.js",
+  "site-header.js",
+  "site.js",
+  "account-auth.css",
+  "site-header.css",
+  "site.css",
+  "arena.css",
+];
+const assetHashes = Object.fromEntries(
+  await Promise.all(
+    assetFiles.map(async (file) => {
+      try {
+        return [
+          file,
+          createHash("sha256")
+            .update(await readFile(resolve(publicDirectory, file)))
+            .digest("hex"),
+        ];
+      } catch (error) {
+        if (
+          error !== null &&
+          typeof error === "object" &&
+          "code" in error &&
+          error.code === "ENOENT"
+        )
+          return [file, null];
+        throw error;
+      }
+    }),
+  ),
+);
+const sourceHashes = Object.fromEntries(
+  await Promise.all(
+    [
+      "scripts/verify-email-auth-browser.ts",
+      "dist/features/discovery/web.js",
+      "dist/features/discovery/account-web.js",
+    ].map(async (file) => [
+      file,
+      createHash("sha256")
+        .update(await readFile(resolve(file)))
+        .digest("hex"),
+    ]),
+  ),
+);
 await mkdir(directory, { recursive: true });
 const app = express();
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -44,7 +104,7 @@ app.use(createEmailAuthSecurity("test"));
 app.get("/test/axe.js", (_request, response) =>
   response.type("js").send(axe.source),
 );
-app.use("/assets", express.static(resolve("public")));
+app.use("/assets", express.static(publicDirectory));
 app.get("/account", (request, response) =>
   response.send(
     renderAccount(base, request.query.baseline !== "1").replace(
@@ -94,6 +154,33 @@ app.get("/api/me/profile", (_request, response) =>
 );
 app.get("/api/auth/wallets", (_request, response) =>
   response.json({ wallets: [] }),
+);
+app.get("/api/auth/security/passkeys", (_request, response) =>
+  response.json({ passkeys: [] }),
+);
+app.get("/api/auth/sessions", (_request, response) =>
+  response.json({
+    sessions: [
+      {
+        id: "100",
+        current: true,
+        createdAt: "2026-10-19T12:00:00.000Z",
+        expiresAt: "2026-11-19T12:00:00.000Z",
+      },
+      {
+        id: "101",
+        current: false,
+        createdAt: "2026-10-19T11:00:00.000Z",
+        expiresAt: "2026-11-19T11:00:00.000Z",
+      },
+    ],
+    hasMore: false,
+  }),
+);
+app.delete("/api/auth/sessions/:id", (request, response) =>
+  ["100", "101"].includes(request.params.id)
+    ? response.json({ current: request.params.id === "100" })
+    : response.status(404).json({ error: "session not found" }),
 );
 app.get(["/api/me/follows", "/api/me/activity"], (_request, response) =>
   response.json({ items: [], pagination: { hasMore: false } }),
@@ -156,6 +243,45 @@ const browser = await chromium.launch({
 });
 const checks: string[] = [];
 const errors: string[] = [];
+const requirementFailures: string[] = [];
+function deferred() {
+  let release = () => {};
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+}
+async function capture(page: Page, name: string, fullPage: boolean) {
+  const badge = page.locator("[data-acceptance-fixture-label]");
+  await page.evaluate((label) => {
+    const element = document.createElement("div");
+    element.dataset.acceptanceFixtureLabel = "true";
+    element.textContent = label;
+    Object.assign(element.style, {
+      position: "fixed",
+      left: "8px",
+      bottom: "8px",
+      zIndex: "2147483647",
+      maxWidth: "calc(100vw - 16px)",
+      padding: "5px 8px",
+      font: "11px/1.4 monospace",
+      background: "#fff2c4",
+      color: "#271900",
+      border: "1px solid #927328",
+      pointerEvents: "none",
+    });
+    if (Number(getComputedStyle(document.documentElement).zoom) > 1) {
+      element.style.top = "8px";
+      element.style.bottom = "auto";
+    }
+    (document.querySelector("dialog[open]") ?? document.body).append(element);
+  }, `LOCAL UI FIXTURE · ${phase} · Synthetic identity/OTP; no money`);
+  try {
+    await page.screenshot({ path: resolve(directory, name), fullPage });
+  } finally {
+    await badge.evaluate((element) => element.remove());
+  }
+}
 try {
   for (const [name, viewport] of [
     ["desktop", { width: 1440, height: 1000 }],
@@ -183,6 +309,7 @@ try {
       }
     });
     const page = await context.newPage();
+    await page.clock.install();
     async function checkHeaderZoom(state: "guest" | "member") {
       if (name !== "desktop") return;
       await page.setViewportSize({ width: 1280, height: 900 });
@@ -197,11 +324,52 @@ try {
           true,
           `${state} header reflows at 200% zoom`,
         );
-        await page.locator("[data-site-header]").screenshot({
-          path: resolve(directory, `header-${state}-zoom.png`),
-        });
+        await capture(page, `header-${state}-zoom.png`, false);
         checks.push(`${name}: ${state} header reflows at 200% CSS zoom`);
       } finally {
+        await page.evaluate(() => {
+          document.documentElement.style.zoom = "";
+        });
+        await page.setViewportSize(viewport);
+      }
+    }
+    async function checkJourneyZoom(journey: string, selector: string) {
+      if (name !== "desktop") return;
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.evaluate(() => {
+        document.documentElement.style.zoom = "2";
+      });
+      try {
+        assert.equal(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1,
+          ),
+          true,
+          `${journey} has no horizontal overflow at 200% CSS zoom`,
+        );
+        assert.equal(
+          await page.locator(selector).evaluate((surface) =>
+            [...surface.querySelectorAll("input,select,button")]
+              .filter((element) => element.getClientRects().length > 0)
+              .every((element) => {
+                const box = element.getBoundingClientRect();
+                return box.left >= -1 && box.right <= innerWidth + 1;
+              }),
+          ),
+          true,
+          `${journey} controls remain horizontally reachable at 200% CSS zoom`,
+        );
+        checks.push(
+          `${name}: ${journey} reflows with reachable controls at 200% CSS zoom`,
+        );
+      } catch (error) {
+        requirementFailures.push(
+          `${name}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      } finally {
+        if (journey === "account-settings")
+          await page.locator("#account-security").scrollIntoViewIfNeeded();
+        await capture(page, `${journey}-zoom.png`, false);
         await page.evaluate(() => {
           document.documentElement.style.zoom = "";
         });
@@ -273,10 +441,14 @@ try {
     let sends = 0,
       verifications = 0;
     let captchaFixtures = 0;
+    let providerGate: ReturnType<typeof deferred> | undefined;
+    let sendGate: ReturnType<typeof deferred> | undefined;
+    let verifyGate: ReturnType<typeof deferred> | undefined;
     await page.route(
       (url) => url.pathname === `/api/v1/apps/${appId}`,
       async (route) => {
         captchaFixtures++;
+        await providerGate?.promise;
         await route.fulfill({
           headers: {
             "access-control-allow-origin": base,
@@ -295,10 +467,12 @@ try {
     );
     await page.route("**/api/v1/passwordless/init", async (route) => {
       sends++;
+      await sendGate?.promise;
       await route.fulfill({ json: { success: true } });
     });
     await page.route("**/api/v1/passwordless/authenticate", async (route) => {
       verifications++;
+      await verifyGate?.promise;
       await route.fulfill({
         status: 400,
         json: {
@@ -313,10 +487,8 @@ try {
         exact: true,
       })
       .waitFor();
-    await page.screenshot({
-      path: resolve(directory, `before-${name}.png`),
-      fullPage: true,
-    });
+    await capture(page, `legacy-comparison-${name}.png`, true);
+    providerGate = deferred();
     await page.goto(
       `${base}/account?next=%2Fdebates%2Ffixture%3Fround%3D1%23commit`,
     );
@@ -324,10 +496,7 @@ try {
     try {
       await button.waitFor();
     } catch {
-      await page.screenshot({
-        path: resolve(directory, "initialization-failure.png"),
-        fullPage: true,
-      });
+      await capture(page, "initialization-failure.png", true);
       console.log(
         JSON.stringify({
           phase: "provider initialization",
@@ -340,6 +509,14 @@ try {
         "email form initialization failed; see local fixture evidence",
       );
     }
+    assert.equal(await button.isDisabled(), true);
+    assert.equal(
+      await page.locator("#email-auth [aria-busy]").getAttribute("aria-busy"),
+      "true",
+      "provider initialization stays busy before public metadata arrives",
+    );
+    providerGate.release();
+    providerGate = undefined;
     await page
       .waitForFunction(
         () =>
@@ -364,10 +541,8 @@ try {
         .getAttribute("autocomplete"),
       "email",
     );
-    await page.screenshot({
-      path: resolve(directory, `after-${name}.png`),
-      fullPage: true,
-    });
+    await capture(page, `account-email-${name}.png`, true);
+    await checkJourneyZoom("account-email", "#email-auth");
     await page.waitForFunction(() => Boolean(window.axe));
     const results = await page.evaluate(async () =>
       window.axe.run("#email-auth", {
@@ -392,7 +567,23 @@ try {
     await page
       .getByLabel("Email address", { exact: true })
       .fill("synthetic@example.invalid");
+    sendGate = deferred();
     await button.press("Enter");
+    await page.waitForFunction(
+      () =>
+        document.querySelector<HTMLButtonElement>(
+          '#email-auth button[type="submit"]',
+        )?.textContent === "Sending code…",
+    );
+    assert.equal(await page.locator("#auth-email").isDisabled(), true);
+    assert.equal(await page.locator("#auth-code").count(), 0);
+    await page.locator("#email-auth form").evaluate((form) => {
+      (form as HTMLFormElement).requestSubmit();
+      (form as HTMLFormElement).requestSubmit();
+    });
+    assert.equal(sends, 1, "delayed email send cannot be duplicated");
+    sendGate.release();
+    sendGate = undefined;
     const code = page.getByLabel("Verification code", { exact: true });
     await code.waitFor();
     assert.ok(
@@ -409,18 +600,73 @@ try {
       await page.getByRole("button", { name: /Resend in/ }).isDisabled(),
       true,
     );
-    await code.fill("123456");
+    await code.focus();
+    await page.keyboard.insertText("123456");
+    assert.equal(await code.inputValue(), "123456");
+    verifyGate = deferred();
     await page.getByRole("button", { name: "Verify and continue" }).click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector<HTMLButtonElement>(
+          '#email-auth button[type="submit"]',
+        )?.textContent === "Verifying…",
+    );
+    assert.equal(await code.isDisabled(), true);
+    await page.locator("#email-auth form").evaluate((form) => {
+      (form as HTMLFormElement).requestSubmit();
+      (form as HTMLFormElement).requestSubmit();
+    });
+    assert.equal(verifications, 1, "delayed verification cannot be duplicated");
+    verifyGate.release();
+    verifyGate = undefined;
     await page
       .getByText("That code is incorrect, expired or already used.", {
         exact: false,
       })
       .waitFor();
     assert.equal(verifications, 1);
-    await page.screenshot({
-      path: resolve(directory, `code-error-${name}.png`),
-      fullPage: true,
-    });
+    await capture(page, `code-error-${name}.png`, true);
+    await checkJourneyZoom("code-error", "#email-auth");
+    assert.equal(await code.getAttribute("inputmode"), "numeric");
+    assert.equal(
+      await page.locator(".auth-status").getAttribute("aria-live"),
+      "polite",
+    );
+    assert.equal(
+      await page.locator(".auth-status").getAttribute("aria-atomic"),
+      "true",
+    );
+    assert.deepEqual(
+      await page.evaluate(async () =>
+        (
+          await window.axe.run("#email-auth", {
+            runOnly: {
+              type: "tag",
+              values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"],
+            },
+          })
+        ).violations.map((entry) => ({ id: entry.id, impact: entry.impact })),
+      ),
+      [],
+    );
+    await page.clock.fastForward(31_000);
+    await page
+      .getByRole("button", { name: "Resend code", exact: true })
+      .click();
+    await page
+      .getByText(
+        "Check your inbox and spam folder. Enter the newest code from Privy.",
+        {
+          exact: true,
+        },
+      )
+      .waitFor();
+    assert.equal(sends, 2);
+    assert.equal(await code.inputValue(), "");
+    assert.equal(
+      await page.getByRole("button", { name: /Resend in/ }).isDisabled(),
+      true,
+    );
     await page.getByRole("button", { name: "Change email" }).click();
     await page.getByLabel("Email address", { exact: true }).waitFor();
     await page.waitForFunction(
@@ -445,10 +691,11 @@ try {
       false,
     );
     let appSignedIn = true;
+    let fixtureAccountId = "fixture";
     await page.route("**/api/auth/me", (route) =>
       route.fulfill(
         appSignedIn
-          ? { json: { user: { id: "fixture", email: null } } }
+          ? { json: { user: { id: fixtureAccountId, email: null } } }
           : { status: 401, json: { error: "authentication required" } },
       ),
     );
@@ -467,10 +714,7 @@ try {
         ),
       [40, 0, 100],
     );
-    await page.screenshot({
-      path: resolve(directory, `wallet-progress-${name}.png`),
-      fullPage: true,
-    });
+    await capture(page, `wallet-progress-${name}.png`, true);
     await walletToggle.press("Escape");
     assert.equal(
       await page
@@ -489,6 +733,12 @@ try {
     );
     checks.push(
       `${name}: SDK initialization with synthetic CAPTCHA-disabled metadata, email/code form, keyboard submit, focus, resend wait, wrong-code error, change email, refresh, no overflow, automated WCAG tags`,
+    );
+    checks.push(
+      `${name}: delayed provider readiness disables submit, delayed send/verification retain busy states and reject repeated native form submissions, paste-style whole-code text insertion`,
+    );
+    checks.push(
+      `${name}: invalid-code status has polite/atomic announcements and automated WCAG checks; virtual-clock cooldown permits a single resend, clears old code and restarts the wait`,
     );
     await page.goto(`${base}/test/debate?round=42#commit`);
     await page
@@ -513,10 +763,7 @@ try {
       ),
       [],
     );
-    await page.screenshot({
-      path: resolve(directory, `balance-dialog-${name}.png`),
-      fullPage: true,
-    });
+    await capture(page, `balance-dialog-${name}.png`, true);
     await dialog
       .getByRole("button", { name: "Close", exact: true })
       .press("Escape");
@@ -541,7 +788,7 @@ try {
     await page.route("**/api/auth/me", (route) =>
       route.fulfill(
         appSignedIn
-          ? { json: { user: { id: "fixture", email: null } } }
+          ? { json: { user: { id: fixtureAccountId, email: null } } }
           : { status: 401, json: { error: "authentication required" } },
       ),
     );
@@ -594,16 +841,44 @@ try {
     await page.route("**/api/matching/notifications", (route) =>
       route.fulfill({ json: { notifications: [] } }),
     );
+    let managedSessions = [
+      {
+        id: "100",
+        current: true,
+        createdAt: "2026-10-19T12:00:00.000Z",
+        expiresAt: "2026-11-19T12:00:00.000Z",
+      },
+      {
+        id: "101",
+        current: false,
+        createdAt: "2026-10-19T11:00:00.000Z",
+        expiresAt: "2026-11-19T11:00:00.000Z",
+      },
+    ];
+    const sessionRemovals: string[] = [];
+    let sessionRemovalGate: ReturnType<typeof deferred> | undefined;
+    let sessionRemovalStarted: ReturnType<typeof deferred> | undefined;
+    await page.route("**/api/auth/sessions", (route) =>
+      route.fulfill({ json: { sessions: managedSessions, hasMore: false } }),
+    );
+    await page.route("**/api/auth/sessions/*", async (route) => {
+      assert.equal(route.request().method(), "DELETE");
+      const id = new URL(route.request().url()).pathname.split("/").at(-1)!;
+      sessionRemovals.push(id);
+      sessionRemovalStarted?.release();
+      await sessionRemovalGate?.promise;
+      if (!sessionRemovalGate)
+        managedSessions = managedSessions.filter((entry) => entry.id !== id);
+      await route.fulfill({ json: { current: id === "100" } });
+    });
     await page.goto(`${base}/account`);
     await page.getByText("Account ready.", { exact: true }).waitFor();
     await page
       .locator("#provider-settings")
       .getByText("Email", { exact: true })
       .waitFor();
-    await page.screenshot({
-      path: resolve(directory, `account-signed-in-${name}.png`),
-      fullPage: true,
-    });
+    await capture(page, `account-signed-in-${name}.png`, true);
+    await checkJourneyZoom("account-settings", "#signed-in");
     console.log(`${name}: checking account accessibility and controls`);
     await page.waitForFunction(() => Boolean(window.axe));
     assert.deepEqual(
@@ -661,6 +936,122 @@ try {
         },
       },
     ]);
+    if (phase === "after") {
+      const sessions = page.getByRole("region", {
+        name: "Active YapArena sessions",
+        exact: true,
+      });
+      await sessions
+        .getByText(
+          "2 active sessions. Devices and locations are not collected.",
+          { exact: true },
+        )
+        .waitFor();
+      page.once("dialog", (confirmation) => void confirmation.accept());
+      await sessions
+        .getByRole("button", { name: /^Sign out session, started/ })
+        .click();
+      await sessions
+        .getByText("Session signed out.", { exact: true })
+        .waitFor();
+      assert.deepEqual(sessionRemovals, ["101"]);
+      assert.equal(
+        await sessions
+          .getByRole("button", { name: /^Sign out session, started/ })
+          .count(),
+        0,
+      );
+      assert.equal(
+        await sessions
+          .getByRole("button", { name: "Refresh active sessions", exact: true })
+          .evaluate((element) => document.activeElement === element),
+        true,
+      );
+      sessionRemovalGate = deferred();
+      sessionRemovalStarted = deferred();
+      page.once("dialog", (confirmation) => void confirmation.accept());
+      await sessions
+        .getByRole("button", { name: /^Sign out this session, started/ })
+        .click();
+      await sessionRemovalStarted.promise;
+      await page.waitForFunction(
+        () =>
+          document.querySelector<HTMLButtonElement>(
+            '[aria-label="Active YapArena sessions"] > button',
+          )?.disabled,
+      );
+      assert.deepEqual(sessionRemovals, ["101", "100"]);
+      fixtureAccountId = "replacement-fixture";
+      managedSessions = [
+        {
+          id: "200",
+          current: true,
+          createdAt: "2026-10-20T04:00:00.000Z",
+          expiresAt: "2026-11-20T04:00:00.000Z",
+        },
+      ];
+      await page.evaluate(() => {
+        Reflect.set(window, "__staleRemovalLogouts", 0);
+        window.addEventListener("yap:provider-logout", () =>
+          Reflect.set(
+            window,
+            "__staleRemovalLogouts",
+            Number(Reflect.get(window, "__staleRemovalLogouts")) + 1,
+          ),
+        );
+        window.dispatchEvent(new Event("yap:account-changed"));
+      });
+      await sessions
+        .getByText(
+          "1 active session. Devices and locations are not collected.",
+          { exact: true },
+        )
+        .waitFor();
+      const staleResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "DELETE" &&
+          new URL(response.url()).pathname === "/api/auth/sessions/100",
+      );
+      sessionRemovalGate.release();
+      await staleResponse;
+      await page.evaluate(
+        () =>
+          new Promise<void>((done) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => done())),
+          ),
+      );
+      assert.equal(await page.locator("#signed-in").isVisible(), true);
+      assert.equal(
+        await page.evaluate(() => Reflect.get(window, "__staleRemovalLogouts")),
+        0,
+      );
+      assert.equal(
+        await sessions
+          .getByText(
+            "1 active session. Devices and locations are not collected.",
+            { exact: true },
+          )
+          .isVisible(),
+        true,
+      );
+      assert.equal(
+        await sessions
+          .getByRole("button", { name: "Refresh active sessions", exact: true })
+          .isEnabled(),
+        true,
+      );
+      assert.equal(
+        await sessions
+          .getByRole("button", { name: /^Sign out this session, started/ })
+          .isEnabled(),
+        true,
+      );
+      await capture(page, `session-race-protected-${name}.png`, true);
+      sessionRemovalGate = undefined;
+      checks.push(
+        `${name}: session list removes only the selected other session, restores refresh focus and ignores a late current-session DELETE after account change without signing out the replacement account`,
+      );
+    }
     await page.route("**/api/auth/logout-other-sessions", (route) =>
       route.fulfill({ status: 204 }),
     );
@@ -672,6 +1063,79 @@ try {
       })
       .waitFor();
     assert.equal(await page.locator("#signed-in").isVisible(), true);
+    const oldAccountReads = deferred(),
+      oldAccountReadsArrived = deferred(),
+      oldAccountResponses: Promise<void>[] = [];
+    let holdAccountReads = true;
+    const oldAccountReadHandler = async (route: Route) => {
+      if (!holdAccountReads) return route.fallback();
+      const finished = deferred();
+      oldAccountResponses.push(finished.promise);
+      if (oldAccountResponses.length >= 2) oldAccountReadsArrived.release();
+      await oldAccountReads.promise;
+      try {
+        await route.fulfill({
+          json: { user: { id: fixtureAccountId, email: null } },
+        });
+      } finally {
+        finished.release();
+      }
+    };
+    await page.route("**/api/auth/me", oldAccountReadHandler);
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
+    await oldAccountReadsArrived.promise;
+    holdAccountReads = false;
+    await page.route("**/api/auth/logout", (route) => {
+      appSignedIn = false;
+      return route.fulfill({
+        status: 401,
+        json: {
+          error:
+            "this session has ended; sign in again to sign out other devices",
+        },
+      });
+    });
+    await page.locator("#sign-out").click();
+    await page.locator("#signed-out").waitFor({ state: "visible" });
+    assert.equal(await page.locator("#signed-in").isVisible(), false);
+    await page
+      .locator("#account-notice")
+      .getByText(
+        "This session has ended. Sign in again to sign out other devices.",
+        { exact: true },
+      )
+      .waitFor();
+    assert.equal(await page.locator("#account-name").textContent(), "");
+    assert.equal(
+      await page
+        .locator('#profile-form input[name="displayName"]')
+        .inputValue(),
+      "",
+    );
+    await page.locator('[data-site-header][data-session="guest"]').waitFor();
+    oldAccountReads.release();
+    await Promise.all(oldAccountResponses);
+    await page.evaluate(
+      () =>
+        new Promise<void>((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => done())),
+        ),
+    );
+    assert.equal(await page.locator("#signed-in").isVisible(), false);
+    assert.equal(await page.locator("#account-name").textContent(), "");
+    assert.equal(await page.locator("[data-header-member]").isVisible(), false);
+    await page.unroute("**/api/auth/me", oldAccountReadHandler);
+    checks.push(
+      `${name}: an expired normal sign-out cookie clears account fields and member controls, ignores delayed pre-logout identity responses and explains that other-device sign-out is unconfirmed`,
+    );
+    await page.unroute("**/api/auth/logout");
+    appSignedIn = true;
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
+    await page.getByText("Account ready.", { exact: true }).waitFor();
     await page.route("**/api/auth/logout-all", (route) => {
       appSignedIn = false;
       return route.fulfill({ status: 204 });
@@ -700,10 +1164,7 @@ try {
     );
     assert.equal(await page.locator("[data-header-member]").isVisible(), false);
     await compareSharedHeaderStyles();
-    await page.screenshot({
-      path: resolve(directory, `header-guest-${name}.png`),
-      fullPage: false,
-    });
+    await capture(page, `header-guest-${name}.png`, false);
     await checkHeaderZoom("guest");
     await login.click();
     const authModal = page.locator("#site-auth-dialog");
@@ -739,10 +1200,7 @@ try {
       ),
       [],
     );
-    await page.screenshot({
-      path: resolve(directory, `signup-popup-${name}.png`),
-      fullPage: false,
-    });
+    await capture(page, `signup-popup-${name}.png`, false);
     await page.keyboard.press("Escape");
     await authModal.waitFor({ state: "hidden" });
     await page.waitForFunction(
@@ -756,10 +1214,7 @@ try {
       .getByRole("button", { name: "Continue with email" })
       .click();
     await authModal.getByLabel("Verification code", { exact: true }).waitFor();
-    await page.screenshot({
-      path: resolve(directory, `code-popup-${name}.png`),
-      fullPage: false,
-    });
+    await capture(page, `code-popup-${name}.png`, false);
     await page.keyboard.press("Escape");
     await authModal.waitFor({ state: "hidden" });
     await page.locator("#participate-login").click();
@@ -771,6 +1226,41 @@ try {
       await authModal.getByLabel("Email address", { exact: true }).inputValue(),
       "",
       "dismissal clears email and code",
+    );
+    sendGate = deferred();
+    const lateSend = page.waitForRequest(
+      (request) =>
+        new URL(request.url()).pathname === "/api/v1/passwordless/init",
+    );
+    await authModal
+      .getByLabel("Email address", { exact: true })
+      .fill("synthetic@example.invalid");
+    await authModal
+      .getByRole("button", { name: "Continue with email" })
+      .click();
+    await lateSend;
+    await page.keyboard.press("Escape");
+    await authModal.waitFor({ state: "hidden" });
+    const lateSendResponse = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/v1/passwordless/init",
+    );
+    sendGate.release();
+    sendGate = undefined;
+    await lateSendResponse;
+    await page.locator("#participate-login").click();
+    await authModal.waitFor({ state: "visible" });
+    await page.waitForFunction(
+      () => document.activeElement?.id === "auth-email",
+    );
+    assert.equal(
+      await authModal.getByLabel("Email address", { exact: true }).inputValue(),
+      "",
+      "a late send response cannot restore cancelled email or advance the form",
+    );
+    assert.equal(await authModal.locator("#auth-code").count(), 0);
+    checks.push(
+      `${name}: delayed code-send response after dismissal cannot restore credentials or advance a reopened popup`,
     );
     await page.goBack();
     await authModal.waitFor({ state: "hidden" });
@@ -798,10 +1288,7 @@ try {
     );
     await page.evaluate(() => window.scrollTo(0, 0));
     await checkHeaderZoom("member");
-    await page.screenshot({
-      path: resolve(directory, `header-member-${name}.png`),
-      fullPage: false,
-    });
+    await capture(page, `header-member-${name}.png`, false);
     await page.getByRole("button", { name: "Deposit", exact: true }).click();
     await page
       .getByRole("heading", { name: "Add Yap Coins", exact: true })
@@ -816,6 +1303,39 @@ try {
         .evaluate((node) => node === document.activeElement),
       true,
     );
+    await page.locator("[data-header-account]").click();
+    await page
+      .getByRole("link", { name: "Account settings", exact: true })
+      .waitFor();
+    await page.route("**/api/auth/logout", (route) => {
+      appSignedIn = false;
+      return route.fulfill({
+        status: 401,
+        json: {
+          error:
+            "this session has ended; sign in again to sign out other devices",
+        },
+      });
+    });
+    await page.getByRole("button", { name: "Log out", exact: false }).click();
+    await login.waitFor();
+    assert.equal(await page.locator("[data-header-member]").isVisible(), false);
+    await page
+      .locator("[data-header-status]")
+      .getByText(
+        "This session has ended. Sign in again to sign out other devices.",
+        { exact: true },
+      )
+      .waitFor();
+    checks.push(
+      `${name}: expired header sign-out clears the member menu and preserves the warning that other devices may remain signed in`,
+    );
+    await page.unroute("**/api/auth/logout");
+    appSignedIn = true;
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
+    await page.getByRole("button", { name: "Deposit", exact: true }).waitFor();
     await page.locator("[data-header-account]").click();
     await page
       .getByRole("link", { name: "Account settings", exact: true })
@@ -917,6 +1437,102 @@ try {
     checks.push(
       `${name}: anonymous controls only, lazy SDK, unified login/signup/protected-action popup, exact return path, cancellation clears credentials, Back/Escape/focus restoration, server-session-only member balance/deposit/user menu, honest funding gate, cross-tab logout, outage recovery, stale balance rejection and modal WCAG tags`,
     );
+    const pendingPage = await context.newPage();
+    pendingPage.on("pageerror", (error) => errors.push(error.message));
+    let sessionGate = deferred();
+    await pendingPage.route("**/api/auth/me", async (route) => {
+      await sessionGate.promise;
+      await route.fulfill({ json: { user: { id: "fixture", email: null } } });
+    });
+    await pendingPage.goto(`${base}/test/entry?initializing=1`);
+    await pendingPage
+      .locator('[data-site-header][data-session="checking"]')
+      .waitFor();
+    assert.equal(
+      await pendingPage.locator("[data-header-guest]").isVisible(),
+      false,
+      "guest controls stay hidden while the initial application session is pending",
+    );
+    assert.equal(
+      await pendingPage.locator("[data-header-member]").isVisible(),
+      false,
+    );
+    sessionGate.release();
+    await pendingPage
+      .getByRole("button", { name: "Deposit", exact: true })
+      .waitFor();
+    sessionGate = deferred();
+    await pendingPage.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
+    await pendingPage
+      .locator('[data-site-header][data-session="checking"]')
+      .waitFor();
+    assert.equal(
+      await pendingPage.locator("[data-header-guest]").isVisible(),
+      false,
+      "refreshing an application session does not flash guest controls",
+    );
+    sessionGate.release();
+    await pendingPage
+      .getByRole("button", { name: "Deposit", exact: true })
+      .waitFor();
+    await pendingPage.close();
+    checks.push(
+      `${name}: initial and refreshed application-session requests retain a checking state without showing guest controls before the server responds`,
+    );
+    // A refreshed modal entry retains browser history state. A later Back must
+    // still dismiss the newly opened popup in a single step.
+    await page.goto(`${base}/test/entry?refresh=1#commit`);
+    await page.getByRole("link", { name: "Log in", exact: true }).click();
+    await authModal.waitFor({ state: "visible" });
+    await page.reload();
+    await page.getByRole("link", { name: "Log in", exact: true }).click();
+    await authModal.waitFor({ state: "visible" });
+    await page.goBack();
+    try {
+      assert.equal(
+        await authModal.isVisible(),
+        false,
+        "Back dismisses a reopened popup after refresh",
+      );
+      checks.push(`${name}: refresh/reopen retains single-step Back dismissal`);
+    } catch (error) {
+      requirementFailures.push(
+        `${name}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await capture(page, `refresh-back-failure-${name}.png`, false);
+    }
+    await page.goto(`${base}/test/entry?download-failure=1`);
+    await page.route(
+      "**/assets/account-auth.bundle.js*",
+      (route) => route.abort("failed"),
+      { times: 1 },
+    );
+    await page.getByRole("link", { name: "Log in", exact: true }).click();
+    await authModal
+      .getByText(
+        "Sign-in could not load. Check your connection, then close and reopen this window to retry.",
+        {
+          exact: true,
+        },
+      )
+      .waitFor();
+    assert.equal(await authModal.getByRole("status").count(), 1);
+    await capture(page, `provider-download-failure-${name}.png`, false);
+    await page.keyboard.press("Escape");
+    await authModal.waitFor({ state: "hidden" });
+    await page.getByRole("link", { name: "Log in", exact: true }).click();
+    await authModal.getByLabel("Email address", { exact: true }).waitFor();
+    await page.waitForFunction(
+      () =>
+        !document.querySelector<HTMLButtonElement>(
+          '#email-auth button[type="submit"]',
+        )?.disabled,
+    );
+    checks.push(
+      `${name}: interrupted provider-bundle download is announced and close/reopen retries the real installed SDK successfully`,
+    );
     await context.close();
   }
   assert.deepEqual(errors, []);
@@ -925,8 +1541,13 @@ try {
     JSON.stringify(
       {
         at: new Date().toISOString(),
+        revision,
+        phase,
+        assetHashes,
+        sourceHashes,
         checks,
         errors,
+        requirementFailures,
         scope:
           "Local SSR fixture and installed Privy SDK; public provider metadata fetched live with CAPTCHA explicitly disabled in the fixture response only; OTP endpoints intercepted. No real CAPTCHA validation, email delivery, successful provider login, hosted session, physical device or complete WCAG conformance evidence.",
       },
@@ -934,6 +1555,7 @@ try {
       2,
     ) + "\n",
   );
+  assert.deepEqual(requirementFailures, []);
   console.log(JSON.stringify({ result: "PASS", checks, evidence: directory }));
 } finally {
   await browser.close();

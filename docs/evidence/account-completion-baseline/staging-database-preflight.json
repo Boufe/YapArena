@@ -1,8 +1,8 @@
 {
-  "at": "2026-10-20T06:52:09.571Z",
+  "at": "2026-10-20T16:04:07.807Z",
   "phase": "preflight",
   "passed": true,
-  "revision": "d259a56481439675e133aa683d10aa1cff4b71de",
+  "revision": "d13a209afd6545abce40305ba7ca4b4cbd963e1b",
   "helperSha256": "ae7c98963a09d4dafe0572c887a60011092bbf8d7dcd12f486e5b94cbafad012",
   "projectRef": "ypteqfmjietdqjzyvgtk",
   "targetVerified": true,
@@ -59,7 +59,8 @@
       "1792426007000_add-account-access-reconciliation",
       "1792426008000_bind-media-replacement-intent",
       "1792426009000_add-sandbox-error-reports",
-      "1792426010000_enforce-sandbox-withdrawal-operator-boundary"
+      "1792426010000_enforce-sandbox-withdrawal-operator-boundary",
+      "1792426011000_add-provider-identity-recovery"
     ],
     "unknownApplied": []
   },

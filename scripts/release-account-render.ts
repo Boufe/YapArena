@@ -203,6 +203,8 @@ function safe(state: Snapshot, webDatabase: string | undefined) {
     },
     coinSandboxEnabled: vars.get("COIN_SANDBOX_ENABLED") === "true",
     sandboxWebhookConfigured: Boolean(vars.get("COIN_SANDBOX_WEBHOOK_SECRET")),
+    backgroundJobsEnabledByConfiguration:
+      (vars.get("RUN_BACKGROUND_JOBS") ?? "true") === "true",
   };
 }
 async function all() {
@@ -300,6 +302,11 @@ try {
     states = await all();
     assert.equal(states[0]?.variables.get("COIN_SANDBOX_ENABLED"), "true");
   } else if (mode === "deploy") {
+    assert.equal(
+      web.variables.get("RUN_BACKGROUND_JOBS") ?? "true",
+      "true",
+      "the updated staging web service must process account and media revocation",
+    );
     step = "deploy explicitly supplied current repository commit to web only";
     assert.equal(process.env.ACCOUNT_STAGING_RENDER_COMMIT, revision);
     assert.match(revision, /^[a-f0-9]{40}$/);

@@ -71,8 +71,16 @@ overflow assertions then passed. The initial password/section locator failures
 were corrected in the verifier without changing product behavior or weakening
 acceptance assertions.
 
-Two final executions overlapped after coordinator messages crossed. They used
+Two earlier executions overlapped after coordinator messages crossed. They used
 separate disposable databases and unchanged application assets. The later
-coordinator execution completed successfully and wrote the final, complete
-artifact set at 2026-10-20 07:09 UTC; its `results.json` and source hashes are
-authoritative. No shared database or hosted identity was mutated.
+coordinator execution completed successfully at 2026-10-20 07:09 UTC.
+No shared database or hosted identity was mutated.
+
+The subsequent integrated-account build was tested again at 2026-10-20
+16:13 UTC, starting at `454468f420dd55a987aaa2914cad80d1dac253ca`.
+The command exited zero with all **22** desktop/mobile groups passing and no
+browser, accessibility or layout errors. The current `results.json` records
+both endpoint revisions and exact source/asset hashes; application assets
+remained frozen during the run. Its complete screenshot set supersedes the
+earlier current images. Later protected-response cache-header changes and the
+full repository release gate are separately verified.

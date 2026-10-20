@@ -280,6 +280,13 @@ try {
   const settings = parsed,
     pooler = settings.host.endsWith(".pooler.supabase.com");
   assert.ok(pooler || settings.host === `db.${projectRef}.supabase.co`);
+  // Backup snapshots, session settings and migration advisory locks require a
+  // direct connection or session pooler, never transaction pooling on 6543.
+  assert.equal(
+    settings.port,
+    5432,
+    "staging release requires the direct or session-pooler port",
+  );
   assert.equal(
     settings.owner.user,
     `yaparena_owner${pooler ? `.${projectRef}` : ""}`,

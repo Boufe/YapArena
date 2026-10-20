@@ -1,8 +1,8 @@
 {
-  "at": "2026-10-20T06:58:47.283Z",
+  "at": "2026-10-20T16:09:57.997Z",
   "mode": "inspect",
-  "revision": "58e7b2749b644aeac4695cd2bacb2826cd61c20a",
-  "helperSha256": "92902fabdfd1cff561925a13ead37c59d0c5b380782c29ea8a1eed4c8656a0d3",
+  "revision": "d13a209afd6545abce40305ba7ca4b4cbd963e1b",
+  "helperSha256": "66a2f11b1ec2520f7d588ca5a407ce622406a510d52e1b680ef4ad84b9f8634b",
   "mutations": [],
   "services": [
     {
@@ -32,7 +32,8 @@
         "pgRootCertConfigured": false
       },
       "coinSandboxEnabled": false,
-      "sandboxWebhookConfigured": false
+      "sandboxWebhookConfigured": false,
+      "backgroundJobsEnabledByConfiguration": true
     },
     {
       "id": "srv-db38jiid0e5s73ffr2cg",
@@ -61,7 +62,8 @@
         "pgRootCertConfigured": false
       },
       "coinSandboxEnabled": false,
-      "sandboxWebhookConfigured": false
+      "sandboxWebhookConfigured": false,
+      "backgroundJobsEnabledByConfiguration": true
     }
   ],
   "limitations": [

@@ -1,0 +1,103 @@
+{
+  "at": "2026-10-20T04:59:45.841Z",
+  "revision": "07bfe9bc2bcf90408290e2451b8491f3b6044bf8",
+  "sourceSha256": "077d37493f0f42929a84894d1cd27a6654d26b988102feaaa8fbcde74fb0a4f7",
+  "verifierSourceSha256": "621ebd475f2ce12c9c01136529e815079d420057d8d67275f4eda9daccab5160",
+  "scope": "Actual Base Sepolia chain RPC; valueless Circle test USDC; no live funds, custody-provider acceptance, conversion route or application-ledger acceptance claimed.",
+  "asset": {
+    "environment": "sandbox",
+    "network": "eip155:84532",
+    "chainId": 84532,
+    "token": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "precision": 6,
+    "id": "circle-test-usdc:base-sepolia"
+  },
+  "mode": "--execute",
+  "completed": true,
+  "externalBalancesReconciled": true,
+  "blocked": null,
+  "addresses": {
+    "funder": "0x45F22372C63d939a05d06D0C060C943426135913",
+    "custody": "0x320870E5694Ccb9978eC8cE910871Ebf98c58e72",
+    "recipient": "0x9F1BedFb83e8c1D6d20cAb0751F06E2D7E328b31"
+  },
+  "gasSupply": {
+    "hash": "0x8ffbf07f111458632cfbee29b02511fa88bc6b32aa302df292ca1cf805b5b759",
+    "nonce": 1,
+    "amount": "200000000000000",
+    "destination": "0x320870E5694Ccb9978eC8cE910871Ebf98c58e72"
+  },
+  "gasObservation": {
+    "status": "completed",
+    "blockNumber": "48350799",
+    "blockHash": "0xd0739edf9aad237b809a3b94504e1fab2ecc01ce0e1b86902ed80c5f40611aa7",
+    "finalizedBlockNumber": "48351493"
+  },
+  "before": {
+    "funder": {
+      "usdc": "15000000",
+      "gas": "799501045999781"
+    },
+    "custody": {
+      "usdc": "4000000",
+      "gas": "199627045999908"
+    },
+    "recipient": {
+      "usdc": "1000000",
+      "gas": "0"
+    }
+  },
+  "after": {
+    "funder": {
+      "usdc": "15000000",
+      "gas": "799501045999781"
+    },
+    "custody": {
+      "usdc": "4000000",
+      "gas": "199627045999908"
+    },
+    "recipient": {
+      "usdc": "1000000",
+      "gas": "0"
+    }
+  },
+  "operations": [
+    {
+      "operation": "funding",
+      "from": "0x45F22372C63d939a05d06D0C060C943426135913",
+      "to": "0x320870E5694Ccb9978eC8cE910871Ebf98c58e72",
+      "amount": "5000000",
+      "nonce": 0,
+      "hash": "0xd6823a2446e2ad796c5e1376bb0dd32733a460aaaf4699ea49b7ccd5cdc3ec54",
+      "observation": {
+        "status": "completed",
+        "finalNoTransfer": false,
+        "transactionId": "0xd6823a2446e2ad796c5e1376bb0dd32733a460aaaf4699ea49b7ccd5cdc3ec54",
+        "blockNumber": "48350753",
+        "blockHash": "0xeb7dc381861f65ae2a789076fda2b7f483e488f1946a79b7c993cb8f98211eb6",
+        "finalizedBlockNumber": "48351493",
+        "eventLogIndex": 7,
+        "reason": "exact test-USDC transfer reconciled in finalized canonical state"
+      }
+    },
+    {
+      "operation": "payout",
+      "from": "0x320870E5694Ccb9978eC8cE910871Ebf98c58e72",
+      "to": "0x9F1BedFb83e8c1D6d20cAb0751F06E2D7E328b31",
+      "amount": "1000000",
+      "nonce": 0,
+      "hash": "0xdf73a19c80c757183cc9b5cd48cdff54252b742aa048e22fafa086419d1bc71d",
+      "observation": {
+        "status": "completed",
+        "finalNoTransfer": false,
+        "transactionId": "0xdf73a19c80c757183cc9b5cd48cdff54252b742aa048e22fafa086419d1bc71d",
+        "blockNumber": "48351389",
+        "blockHash": "0x901c963b4e383b156a1e03783c0ef28b4ed2654339afe296811f11e49a754505",
+        "finalizedBlockNumber": "48351493",
+        "eventLogIndex": 252,
+        "reason": "exact test-USDC transfer reconciled in finalized canonical state"
+      }
+    }
+  ],
+  "outstanding": []
+}

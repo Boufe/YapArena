@@ -13,6 +13,8 @@
   },
   "files": [
     "scripts/verify-auth-redis.ts",
+    "scripts/verify-coin-testnet.ts",
+    "scripts/verify-coin-testnet-ledger.ts",
     "scripts/reset-test-accounts.ts",
     "scripts/provision-database.ts",
     "scripts/migrate-database.ts",

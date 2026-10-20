@@ -1,0 +1,34 @@
+{
+  "observedAt": "2026-10-20T04:39:21.912Z",
+  "source": "https://auth.privy.io/api/v1/apps/cmvfjb3r800vy0hl3heg2cuvv",
+  "classification": "public; explicit configuration fields only; no credentials or identities",
+  "settings": {
+    "id": "cmvfjb3r800vy0hl3heg2cuvv",
+    "name": "YapArena",
+    "allowed_domains": ["https://yaparena-staging-web.onrender.com"],
+    "email_auth": true,
+    "google_oauth": false,
+    "passkey_auth": false,
+    "passkeys_for_signup_enabled": false,
+    "merge_accounts_by_email": false,
+    "embedded_wallet_config": {
+      "create_on_login": "off",
+      "ethereum": {
+        "create_on_login": "off"
+      },
+      "solana": {
+        "create_on_login": "off"
+      },
+      "user_owned_recovery_options": ["user-passcode"],
+      "require_user_password_on_create": false,
+      "require_user_owned_recovery_on_create": false,
+      "mode": "user-controlled-server-wallets-only"
+    },
+    "enabled_captcha_provider": "turnstile",
+    "captcha_enabled": true,
+    "custom_api_url": null,
+    "mfa_methods": [],
+    "external_wallets_for_signup_enabled": true,
+    "allowlist_enabled": false
+  }
+}

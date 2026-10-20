@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-20T05:55:49.409Z",
+  "scope": "Read-only named staging Redis connectivity probe; no keys or configuration mutation.",
+  "accepted": false,
+  "phase": "connect hosted Redis from workstation",
+  "tls": true,
+  "elapsedMs": 662,
+  "errorCategory": "Error",
+  "errorCode": null,
+  "details": "Endpoint, namespace, credentials and provider errors omitted."
+}

@@ -8,7 +8,10 @@ import {
 } from "../dist/platform/auth/provider-accounts.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { hashSessionToken } from "../dist/platform/auth/session-tokens.js";
-import { createProviderRevocation } from "../dist/platform/auth/provider-revocation.js";
+import {
+  createProviderRevocation,
+  ProviderResetRetryError,
+} from "../dist/platform/auth/provider-revocation.js";
 import { createAccountWallet } from "../dist/features/account-wallet/repository.js";
 import { createProviderSessionMonitor } from "../dist/platform/auth/provider-session-monitor.js";
 import {
@@ -798,6 +801,494 @@ describe(
       await assert.rejects(
         exchange(repo, { ...id, sessionId: randomUUID() }),
         rejectedExchange("provider_reset_review_required", 403),
+      );
+    });
+    async function uncertainResetFixture() {
+      const id = identity(),
+        token = randomUUID(),
+        made = await exchange(createProviderAccounts(a), id, token);
+      await createSessionRepository(a).revoke(
+        made.user.id,
+        hashSessionToken(token),
+        false,
+      );
+      await owner.query(
+        `UPDATE provider_revocation_jobs SET state='manual',attempts=1,
+          failure_reason='uncertain_provider_outcome',lease_until='-infinity'
+         WHERE user_id=$1`,
+        [made.user.id],
+      );
+      return { id, made };
+    }
+    const stoppedRetry = (stage, status) => (error) => {
+      assert.ok(error instanceof ProviderResetRetryError);
+      assert.equal(error.stage, stage);
+      assert.equal(error.providerStatus, status);
+      assert.equal(error.message, `provider reset retry stopped at ${stage}`);
+      return true;
+    };
+    it("atomically claims one owner-reviewed uncertain reset, excludes a competing worker and makes only the same completed retry idempotent", async () => {
+      const f = await uncertainResetFixture(),
+        entered = Promise.withResolvers(),
+        release = Promise.withResolvers(),
+        requestId = randomUUID(),
+        cutoff = Math.floor(Date.now() / 1000);
+      let frozenAt = null,
+        reads = 0,
+        mutations = 0,
+        inspections = 0,
+        competitorCalls = 0;
+      const control = {
+        async state() {
+          reads++;
+          if (reads === 2) {
+            entered.resolve();
+            await release.promise;
+          }
+          return { frozenAt };
+        },
+        async freeze() {
+          mutations++;
+          frozenAt = cutoff;
+        },
+        async unfreeze() {
+          mutations++;
+          frozenAt = null;
+        },
+      };
+      const service = createProviderRevocation(owner, control, {
+        operatorInspector: {
+          async inspect() {
+            inspections++;
+            return f.id;
+          },
+        },
+      });
+      const retry = service.retryUncertain({
+        userId: f.made.user.id,
+        requestId,
+      });
+      try {
+        await entered.promise;
+        const claimed = (
+          await owner.query(
+            `SELECT state,attempts,lease_until>clock_timestamp() AS live
+             FROM provider_revocation_jobs WHERE user_id=$1`,
+            [f.made.user.id],
+          )
+        ).rows[0];
+        assert.deepEqual(claimed, {
+          state: "running",
+          attempts: 2,
+          live: true,
+        });
+        await createProviderRevocation(b, {
+          async state() {
+            competitorCalls++;
+            return { frozenAt: null };
+          },
+          async freeze() {
+            competitorCalls++;
+          },
+          async unfreeze() {
+            competitorCalls++;
+          },
+        }).synchronize(f.made.user.id);
+        assert.equal(competitorCalls, 0);
+      } finally {
+        release.resolve();
+      }
+      assert.deepEqual(await retry, { state: "complete" });
+      assert.equal(mutations, 2);
+      assert.equal(reads, 3);
+      assert.equal(inspections, 1);
+      const done = (
+        await owner.query(
+          `SELECT u.auth_generation=p.auth_generation AS synchronized,j.state,j.attempts,
+           p.minimum_issued_at::text AS cutoff,
+           (SELECT count(*)::int FROM sessions WHERE user_id=u.id) AS sessions,
+           (SELECT count(*)::int FROM identity_audit_events WHERE user_id=u.id
+             AND event_type='provider.reset.retry_requested' AND metadata->>'requestId'=$2) AS audits
+           FROM users u JOIN provider_identities p ON p.user_id=u.id
+           JOIN provider_revocation_jobs j ON j.user_id=u.id AND j.generation=u.auth_generation WHERE u.id=$1`,
+          [f.made.user.id, requestId],
+        )
+      ).rows[0];
+      assert.deepEqual(done, {
+        synchronized: true,
+        state: "complete",
+        attempts: 2,
+        cutoff: String(cutoff + 1),
+        sessions: 0,
+        audits: 1,
+      });
+      await assert.rejects(
+        exchange(createProviderAccounts(a), {
+          ...f.id,
+          sessionId: randomUUID(),
+          issuedAt: cutoff,
+        }),
+        rejectedExchange("provider_session_revoked", 401),
+      );
+      assert.deepEqual(
+        await service.retryUncertain({ userId: f.made.user.id, requestId }),
+        { state: "complete" },
+      );
+      assert.equal(mutations, 2);
+      assert.equal(reads, 3);
+      assert.equal(inspections, 1);
+      await assert.rejects(
+        service.retryUncertain({
+          userId: f.made.user.id,
+          requestId: randomUUID(),
+        }),
+        stoppedRetry("snapshot"),
+      );
+      const newToken = randomUUID();
+      await exchange(
+        createProviderAccounts(a),
+        {
+          ...f.id,
+          sessionId: randomUUID(),
+          issuedAt: cutoff + 1,
+        },
+        newToken,
+      );
+      await createSessionRepository(a).revoke(
+        f.made.user.id,
+        hashSessionToken(newToken),
+        false,
+      );
+      await assert.rejects(
+        service.retryUncertain({ userId: f.made.user.id, requestId }),
+        stoppedRetry("snapshot"),
+      );
+      assert.equal(mutations, 2);
+    });
+    it("denies runtime authority and unsafe operator reset evidence before claiming or changing a fence", async () => {
+      for (const scenario of [
+        "runtime",
+        "missing-inspector",
+        "changed-provider",
+        "frozen-provider",
+        "outage",
+        "confirmed-freeze",
+        "older-unresolved",
+      ]) {
+        const f = await uncertainResetFixture();
+        let mutations = 0,
+          inspections = 0;
+        if (scenario === "confirmed-freeze")
+          await owner.query(
+            "UPDATE provider_revocation_jobs SET confirmed_frozen_at=12345 WHERE user_id=$1",
+            [f.made.user.id],
+          );
+        if (scenario === "older-unresolved")
+          await owner.query(
+            `INSERT INTO provider_revocation_jobs(user_id,subject,generation,state)
+             SELECT user_id,subject,generation-1,'pending' FROM provider_revocation_jobs WHERE user_id=$1`,
+            [f.made.user.id],
+          );
+        const snapshot = async () =>
+          (
+            await owner.query(
+              `SELECT u.auth_generation::text,p.auth_generation::text AS mapped_generation,
+           j.state,j.attempts,j.confirmed_frozen_at::text
+           FROM users u JOIN provider_identities p ON p.user_id=u.id
+           JOIN provider_revocation_jobs j ON j.user_id=u.id AND j.generation=u.auth_generation WHERE u.id=$1`,
+              [f.made.user.id],
+            )
+          ).rows[0];
+        const before = await snapshot();
+        const service = createProviderRevocation(
+          scenario === "runtime" ? a : owner,
+          {
+            async state() {
+              return {
+                frozenAt: scenario === "frozen-provider" ? 12345 : null,
+              };
+            },
+            async freeze() {
+              mutations++;
+            },
+            async unfreeze() {
+              mutations++;
+            },
+          },
+          scenario === "missing-inspector"
+            ? {}
+            : {
+                operatorInspector: {
+                  async inspect() {
+                    inspections++;
+                    if (scenario === "outage")
+                      throw Object.assign(
+                        new Error("private provider failure"),
+                        { status: 503 },
+                      );
+                    return scenario === "changed-provider"
+                      ? { ...f.id, credentialsDigest: "b".repeat(64) }
+                      : f.id;
+                  },
+                },
+              },
+        );
+        const stage =
+          scenario === "runtime"
+            ? "owner"
+            : scenario === "missing-inspector"
+              ? "input"
+              : scenario === "confirmed-freeze"
+                ? "snapshot"
+                : scenario === "older-unresolved"
+                  ? "claim"
+                  : "provider_inspection";
+        await assert.rejects(
+          service.retryUncertain({
+            userId: f.made.user.id,
+            requestId: randomUUID(),
+          }),
+          stoppedRetry(stage, scenario === "outage" ? 503 : undefined),
+        );
+        assert.deepEqual(await snapshot(), before);
+        assert.equal(mutations, 0);
+        if (
+          ["runtime", "missing-inspector", "confirmed-freeze"].includes(
+            scenario,
+          )
+        )
+          assert.equal(inspections, 0);
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT count(*)::int n FROM identity_audit_events WHERE user_id=$1 AND event_type='provider.reset.retry_requested'",
+              [f.made.user.id],
+            )
+          ).rows[0].n,
+          0,
+        );
+      }
+    });
+    it("releases its only owner connection during inspection and rejects a generation change before claiming", async () => {
+      const f = await uncertainResetFixture(),
+        single = new pg.Pool({
+          connectionString: ownerUrl,
+          max: 1,
+          options: "-c search_path=pg_catalog,yaparena,pg_temp",
+        }),
+        entered = Promise.withResolvers(),
+        release = Promise.withResolvers();
+      let mutations = 0;
+      const retry = createProviderRevocation(
+        single,
+        {
+          state: async () => ({ frozenAt: null }),
+          async freeze() {
+            mutations++;
+          },
+          async unfreeze() {
+            mutations++;
+          },
+        },
+        {
+          operatorInspector: {
+            async inspect() {
+              entered.resolve();
+              await release.promise;
+              return f.id;
+            },
+          },
+        },
+      ).retryUncertain({ userId: f.made.user.id, requestId: randomUUID() });
+      const rejected = assert.rejects(retry, stoppedRetry("claim"));
+      try {
+        await entered.promise;
+        await Promise.race([
+          single.query(
+            "UPDATE users SET auth_generation=auth_generation+1 WHERE id=$1",
+            [f.made.user.id],
+          ),
+          new Promise((_, reject) => {
+            const timer = setTimeout(
+              () =>
+                reject(new Error("inspection held owner pool or account lock")),
+              2000,
+            );
+            timer.unref();
+          }),
+        ]);
+      } finally {
+        release.resolve();
+        await rejected;
+        await single.end();
+      }
+      assert.equal(mutations, 0);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM identity_audit_events WHERE user_id=$1 AND event_type='provider.reset.retry_requested'",
+            [f.made.user.id],
+          )
+        ).rows[0].n,
+        0,
+      );
+    });
+    it("retains the manual fence and reports only bounded stage/status when an owner retry has an uncertain provider mutation", async () => {
+      const f = await uncertainResetFixture(),
+        requestId = randomUUID();
+      let freezes = 0,
+        unfreezes = 0;
+      const service = createProviderRevocation(
+        owner,
+        {
+          state: async () => ({ frozenAt: null }),
+          async freeze() {
+            freezes++;
+            throw Object.assign(
+              new Error("private provider transport details"),
+              { status: 400 },
+            );
+          },
+          async unfreeze() {
+            unfreezes++;
+          },
+        },
+        { operatorInspector: { inspect: async () => f.id } },
+      );
+      await assert.rejects(
+        service.retryUncertain({ userId: f.made.user.id, requestId }),
+        stoppedRetry("freeze", 400),
+      );
+      assert.equal(freezes, 1);
+      assert.equal(unfreezes, 0);
+      assert.deepEqual(
+        (
+          await owner.query(
+            `SELECT j.state,j.attempts,j.failure_reason,u.auth_generation<>p.auth_generation AS fenced
+         FROM provider_revocation_jobs j JOIN users u ON u.id=j.user_id
+         JOIN provider_identities p ON p.user_id=u.id WHERE u.id=$1 AND j.generation=u.auth_generation`,
+            [f.made.user.id],
+          )
+        ).rows[0],
+        {
+          state: "manual",
+          attempts: 2,
+          failure_reason: "uncertain_provider_outcome",
+          fenced: true,
+        },
+      );
+      await assert.rejects(
+        service.retryUncertain({ userId: f.made.user.id, requestId }),
+        stoppedRetry("snapshot"),
+      );
+      assert.equal(freezes, 1);
+      assert.equal(unfreezes, 0);
+    });
+    it("keeps an owner retry manual after its post-claim provider read fails so an older worker cannot take over", async () => {
+      const f = await uncertainResetFixture();
+      let reads = 0,
+        mutations = 0;
+      const control = {
+        async state() {
+          reads++;
+          if (reads === 2)
+            throw Object.assign(new Error("private provider read failure"), {
+              status: 503,
+            });
+          return { frozenAt: null };
+        },
+        async freeze() {
+          mutations++;
+        },
+        async unfreeze() {
+          mutations++;
+        },
+      };
+      await assert.rejects(
+        createProviderRevocation(owner, control, {
+          operatorInspector: { inspect: async () => f.id },
+        }).retryUncertain({ userId: f.made.user.id, requestId: randomUUID() }),
+        stoppedRetry("provider_state", 503),
+      );
+      await owner.query(
+        "UPDATE provider_revocation_jobs SET lease_until='-infinity' WHERE user_id=$1",
+        [f.made.user.id],
+      );
+      await createProviderRevocation(b, control).synchronize(f.made.user.id);
+      assert.equal(reads, 2);
+      assert.equal(mutations, 0);
+      assert.deepEqual(
+        (
+          await owner.query(
+            "SELECT state,attempts FROM provider_revocation_jobs WHERE user_id=$1",
+            [f.made.user.id],
+          )
+        ).rows[0],
+        { state: "manual", attempts: 2 },
+      );
+    });
+    it("rejects an expired operator claim before external mutation and does not let a worker reuse it", async () => {
+      const f = await uncertainResetFixture();
+      let intercepted = false,
+        mutations = 0;
+      const wrapped = {
+        query: owner.query.bind(owner),
+        async connect() {
+          const client = await owner.connect();
+          return {
+            async query(text, values) {
+              const result = await client.query(text, values);
+              if (text === "COMMIT" && !intercepted) {
+                intercepted = true;
+                await owner.query(
+                  "UPDATE provider_revocation_jobs SET lease_until='-infinity' WHERE user_id=$1",
+                  [f.made.user.id],
+                );
+                await createProviderRevocation(b, {
+                  state: async () => {
+                    mutations++;
+                    return { frozenAt: null };
+                  },
+                  async freeze() {
+                    mutations++;
+                  },
+                  async unfreeze() {
+                    mutations++;
+                  },
+                }).synchronize(f.made.user.id);
+              }
+              return result;
+            },
+            release: () => client.release(),
+          };
+        },
+      };
+      await assert.rejects(
+        createProviderRevocation(
+          wrapped,
+          {
+            state: async () => ({ frozenAt: null }),
+            async freeze() {
+              mutations++;
+            },
+            async unfreeze() {
+              mutations++;
+            },
+          },
+          { operatorInspector: { inspect: async () => f.id } },
+        ).retryUncertain({ userId: f.made.user.id, requestId: randomUUID() }),
+        stoppedRetry("result"),
+      );
+      assert.equal(intercepted, true);
+      assert.equal(mutations, 0);
+      assert.deepEqual(
+        (
+          await owner.query(
+            "SELECT state,attempts FROM provider_revocation_jobs WHERE user_id=$1",
+            [f.made.user.id],
+          )
+        ).rows[0],
+        { state: "manual", attempts: 2 },
       );
     });
     it("does not freeze a superseded generation between claiming and provider control", async () => {

@@ -16,6 +16,10 @@ import { createRequireAuthentication } from "../dist/platform/auth/router.js";
 import { createCoinSandboxRouter } from "../dist/features/account-wallet/sandbox-router.js";
 import { createCoinDebateSandbox } from "../dist/features/account-wallet/debate-sandbox.js";
 import { createSandboxWebhookRouter } from "../dist/features/account-wallet/sandbox-webhooks.js";
+import {
+  createSandboxErrorReports,
+  createSandboxErrorReportOperator,
+} from "../dist/features/account-wallet/sandbox-reports.js";
 import { runCoinSandboxOperator } from "../scripts/coin-sandbox-operator.ts";
 import {
   createCoinSandboxRepository,
@@ -1218,11 +1222,31 @@ describe(
         decision: "reject",
         idempotencyKey: randomUUID(),
       });
+      const report = await createSandboxErrorReports(a, "simulation").submit(
+          second,
+          {
+            requestId: funded.quote.id,
+            message: "Synthetic erroneous credit review",
+            idempotencyKey: randomUUID(),
+          },
+        ),
+        reviewed = await createSandboxErrorReportOperator(
+          owner,
+          "simulation",
+        ).review({
+          reportId: report.report.id,
+          idempotencyKey: randomUUID(),
+          outcome: "erroneous_credit",
+          note: "Synthetic reviewed wrong credit",
+          evidenceDigest: digest("synthetic correction evidence"),
+        });
       await runCoinSandboxOperator({
         command: "retry-correction",
         body: {
           correctionId: retry.correctionId,
           idempotencyKey: retry.idempotencyKey,
+          reportId: report.report.id,
+          reviewId: reviewed.event.id,
         },
         environment: {
           COIN_SANDBOX_OWNER_DATABASE_URL: ownerUrl,

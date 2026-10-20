@@ -57,6 +57,13 @@ export interface SandboxConfiguration {
 export type PreparedCoinApproval = Awaited<
   ReturnType<ReturnType<typeof createAccountOperationRepository>["prepare"]>
 >;
+// Trusted owner-process review, never constructed from browser identifiers.
+// Configured correction CLI requires this; legacy owner-only internal fixtures
+// may omit it. Validation and its audit event share the correction transaction.
+export interface PreparedFundingCorrectionReview {
+  id: string;
+  validate(client: PoolClient, originalFundingRequestId: string): Promise<void>;
+}
 export interface SandboxRequest {
   id: string;
   userId: string;
@@ -1783,6 +1790,7 @@ export function createCoinSandboxOperatorRepository(
       requestId: string;
       idempotencyKey: string;
       reason: "incorrect_funding" | "operator_error";
+      review?: PreparedFundingCorrectionReview;
     }) {
       if (!["incorrect_funding", "operator_error"].includes(input.reason))
         error("invalid correction reason", 400);
@@ -1794,6 +1802,7 @@ export function createCoinSandboxOperatorRepository(
         );
         if (original.kind !== "funding" || original.status !== "completed")
           error("completed funding request is required");
+        if (input.review) await input.review.validate(client, original.id);
         const key = ref(
             input.userId,
             "funding.correction",
@@ -1848,6 +1857,7 @@ export function createCoinSandboxOperatorRepository(
             originalRequestId: original.id,
             reason: input.reason,
             rail: config.rail,
+            ...(input.review ? { reviewId: input.review.id } : {}),
           };
         await insertRequest(client, {
           id,
@@ -1899,6 +1909,7 @@ export function createCoinSandboxOperatorRepository(
       userId: string;
       correctionId: string;
       idempotencyKey: string;
+      review?: PreparedFundingCorrectionReview;
     }) {
       return ownerTx(database, config.rail, input.userId, async (client) => {
         const correction = await requestForUpdate(
@@ -1912,6 +1923,20 @@ export function createCoinSandboxOperatorRepository(
           correction.terms.rail !== config.rail
         )
           error("funding correction request is required");
+        if (input.review) {
+          if (
+            correction.terms.reviewId &&
+            correction.terms.reviewId !== input.review.id
+          )
+            error(
+              "correction review differs from its original authorization",
+              403,
+            );
+          await input.review.validate(
+            client,
+            correction.terms.originalRequestId,
+          );
+        }
         const key = ref(
             input.userId,
             "funding.correction.retry",
@@ -1981,6 +2006,7 @@ export function createCoinSandboxOperatorRepository(
             originalRequestId: original.id,
             actorRole: "yaparena_owner",
             resolvedByExistingReversal: Boolean(existing),
+            ...(input.review ? { reviewId: input.review.id } : {}),
             rail: config.rail,
           },
         });

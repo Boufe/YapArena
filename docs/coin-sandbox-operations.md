@@ -71,19 +71,21 @@ The operator accepts one JSON object on stdin, at most 32 KiB. It prints a bound
 command/status summary, with no addresses, amounts, account identifiers, signing
 bytes, connection strings or provider error objects. Keep operator input private.
 
-| Command             | JSON fields                                                                               | Effect                                                                                                                                                                        |
-| ------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `review`            | `requestId`, `decision` (`approve` / `reject`), `idempotencyKey`                          | Approve a gross reservation into pending cash, or reject an unsubmitted request and restore its exact sources.                                                                |
-| `simulate`          | `requestId`, `status`; optional `transactionId`                                           | Explicit valueless simulation outcome. Never available on testnet.                                                                                                            |
-| `confirm-funding`   | `requestId`, `transactionId`, `sender`                                                    | Base Sepolia only: verify the exact finalized incoming test-USDC transfer before cash issuance.                                                                               |
-| `confirm-treasury`  | `operatorUserId`, `purpose`, `amount`, `idempotencyKey`, `transactionId`, `sender`        | Base Sepolia only: allocate an exact finalized incoming test-USDC transfer to a separate promotional, center or correction bucket; never reuse a purchased or payout receipt. |
-| `reconcile`         | `requestId`; incoming funding also needs `transactionId`, `sender`                        | Read the pinned external chain and update a single operation. Caller status is never evidence for testnet.                                                                    |
-| `reconcile-pending` | optional `limit` (1–100, default 20)                                                      | One bounded pass over approved/pending/uncertain testnet payouts that have a persisted signed identity. Schedule the explicit command in a separate owner process if desired. |
-| `drain-inbox`       | optional `limit` (1–100, default 20)                                                      | One bounded pass over authenticated, unacknowledged notifications, then append owner-only outcomes.                                                                           |
-| `seed-simulation`   | `userId`, `purpose` (`promotional` / `center` / `correction`), `amount`, `idempotencyKey` | Simulation fixtures only. Does not create actual treasury funds or credit a user's balance.                                                                                   |
-| `correct`           | `requestId`, `reason` (`incorrect_funding` / `operator_error`), `idempotencyKey`          | Append an exact reversal of fully unspent original funding; otherwise freeze new financial activity for review.                                                               |
-| `retry-correction`  | `correctionId`, `idempotencyKey`                                                          | Retry the exact correction after reconciliation restores its original sources.                                                                                                |
-| `void-round`        | `roundId`, `reason` (`debate_unavailable` / `operator_cancelled`)                         | Owner-only refund of an open sandbox round, restoring exact sources and unused backing without earning profit.                                                                |
+| Command             | JSON fields                                                                                                                                  | Effect                                                                                                                                                                                                                     |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `review`            | `requestId`, `decision` (`approve` / `reject`), `idempotencyKey`                                                                             | Approve a gross reservation into pending cash, or reject an unsubmitted request and restore its exact sources.                                                                                                             |
+| `simulate`          | `requestId`, `status`; optional `transactionId`                                                                                              | Explicit valueless simulation outcome. Never available on testnet.                                                                                                                                                         |
+| `confirm-funding`   | `requestId`, `transactionId`, `sender`                                                                                                       | Base Sepolia only: verify the exact finalized incoming test-USDC transfer before cash issuance.                                                                                                                            |
+| `confirm-treasury`  | `operatorUserId`, `purpose`, `amount`, `idempotencyKey`, `transactionId`, `sender`                                                           | Base Sepolia only: allocate an exact finalized incoming test-USDC transfer to a separate promotional, center or correction bucket; never reuse a purchased or payout receipt.                                              |
+| `reconcile`         | `requestId`; incoming funding also needs `transactionId`, `sender`                                                                           | Read the pinned external chain and update a single operation. Caller status is never evidence for testnet.                                                                                                                 |
+| `reconcile-pending` | optional `limit` (1–100, default 20)                                                                                                         | One bounded pass over approved/pending/uncertain testnet payouts that have a persisted signed identity. Schedule the explicit command in a separate owner process if desired.                                              |
+| `drain-inbox`       | optional `limit` (1–100, default 20)                                                                                                         | One bounded pass over authenticated, unacknowledged notifications, then append owner-only outcomes.                                                                                                                        |
+| `seed-simulation`   | `userId`, `purpose` (`promotional` / `center` / `correction`), `amount`, `idempotencyKey`                                                    | Simulation fixtures only. Does not create actual treasury funds or credit a user's balance.                                                                                                                                |
+| `correct`           | `requestId`, `reportId`, `reviewId`, `reason` (`incorrect_funding` / `operator_error`), `idempotencyKey`                                     | Require an evidence-reviewed erroneous credit for this exact original funding, then append its exact reversal or hold it for reconciliation.                                                                               |
+| `retry-correction`  | `correctionId`, `reportId`, `reviewId`, `idempotencyKey`                                                                                     | Require the same reviewed original funding and retry after reconciliation restores its original sources.                                                                                                                   |
+| `review-report`     | `reportId`, `outcome`, private `note`, `evidenceDigest`, `idempotencyKey`; optional safe `publicNote`, approved `amount` or recovery `quote` | Append owner evidence and a separately publishable outcome. An operator compensation review needs an exact atomic USDC amount. A recovery quote needs `amount`, pinned `network`, ISO `expiresAt`, and safe `description`. |
+| `compensate-report` | `reportId`, `reviewId`, atomic USDC `amount`, `idempotencyKey`                                                                               | Restore only evidence-reviewed original cash sources from separately funded correction cash. No new coin category, qualification progress or cash grant principal is created.                                              |
+| `void-round`        | `roundId`, `reason` (`debate_unavailable` / `operator_cancelled`)                                                                            | Owner-only refund of an open sandbox round, restoring exact sources and unused backing without earning profit.                                                                                                             |
 
 Completed purchases support USDC withdrawals only. Corrections are auditable
 operator repairs; they do not promise original-route unused-purchase refunds or
@@ -91,6 +93,60 @@ refunds of trading losses. Withdrawal minimum is 5 USDC **gross debit**. The
 displayed network fee is deducted from gross, so gross 5.00 and fee 0.10 pays 4.90.
 There is no daily withdrawal cap. Gross, fee, net, rail, network, asset,
 destination and quote identity are bound to the fresh, one-use operation proof.
+
+## Error reports, reviewed corrections and original-source restoration
+
+An authenticated account can report an owned deposit or payout request without
+a filing deadline. Reports do not debit, hold, pause or restore money. They remain
+available during a financial correction hold. Descriptions and private evidence
+notes are limited to 2,000 characters and never enter logs or metric labels.
+Account/request-scoped idempotency preserves an exact submission. Stored reports
+and all review/consent/correction events are append-only.
+
+Owner review outcomes are `evidence_required`, `no_error`, `erroneous_credit`,
+`operator_shortfall`, `operator_cost` or `recovery_quote`. Review requires a private
+note and evidence digest; only an explicitly supplied safe `publicNote` and
+public outcome/quote fields appear in customer projections. A report alone never
+authorizes a reversal. Configured `correct` and `retry-correction` commands require
+a review for the same account and exact original funding request, classified as
+an erroneous credit. Validation and its immutable review reference share the
+financial transaction. Low-level repository correction methods remain trusted
+owner-only internals for isolated fixtures and are not an unreviewed web API.
+
+YapArena-caused missing internal balances can be restored only from funded
+`correction_available` USDC, with owner evidence identifying the missing amount.
+The balance journal, original-source book credit and report receipt commit
+together. The source IDs and categories stay intact; grant principal stays
+spend-only and current/peak qualifying profit never increases. Partial restored
+amounts use original debit weights with largest-remainder allocation, stable
+source-order ties and remaining per-source caps. Cumulative restoration is checked
+across every report for that original request, preventing duplicate compensation
+under a new report ID. An unfunded operator reserve cannot credit a customer.
+
+For a completed deposit, restore only missing original purchase principal, capped
+at the original confirmed credit. Reconcile any outstanding reservations of that
+principal first. For a completed payout, use only its persisted original cash
+source reservation, capped at the original gross debit and its source slices.
+An uncertain or pending payout cannot use compensation to release its original
+reserve. Ordinary spending and trading losses do not establish an operator error.
+Completed purchases retain the USDC-withdrawal policy; reports introduce no
+original-route purchase refund product.
+
+A recovery quote states exact USDC cost, rail/network, expiry and a safe
+description. Consent requires a fresh retained-credential proof with purpose
+`recovery.cost.consent`, bound to the account, session/generation, report, original
+request, exact quote identity/digest/terms and expiry. It consumes once, and a
+superseded or expired quote fails closed. A recorded consent authorizes **no
+charge and no external recovery execution**; no later action may treat it as a
+general financial approval. A lost-response retry can read the existing report;
+the consumed proof itself remains invalid for reuse.
+
+The sandbox implements restoration of provably missing **internal sources**.
+Provider-specific recovery/network expenses outside an original application debit
+still need the selected provider route and evidence, and remain live-disabled.
+This scope is not a waiver of YapArena's approved responsibility for its own
+errors or those expenses. Simulated reserve seeds are valueless test fixtures;
+Base Sepolia correction reserves require their own verified incoming receipt.
 
 ## Authenticated notification inbox
 

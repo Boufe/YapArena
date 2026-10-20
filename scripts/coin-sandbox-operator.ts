@@ -20,6 +20,11 @@ import {
 } from "../dist/features/account-wallet/base-sepolia.js";
 import { createCoinDebateSandbox } from "../dist/features/account-wallet/debate-sandbox.js";
 import {
+  createSandboxErrorReportOperator,
+  type RecoveryCostQuote,
+  type ReportOutcome,
+} from "../dist/features/account-wallet/sandbox-reports.js";
+import {
   atomicAmount,
   CoinOperationError,
   type ExternalObservation,
@@ -114,6 +119,7 @@ export async function runCoinSandboxOperator(input: {
     rail,
     ...(custody ? { depositDestination: custody } : {}),
   });
+  const reportOperator = createSandboxErrorReportOperator(database, rail);
   try {
     const identity = (
       await database.query<{ safe: boolean }>(
@@ -295,6 +301,76 @@ export async function runCoinSandboxOperator(input: {
     let status: string = "recorded",
       processed = 0;
     switch (command) {
+      case "review-report": {
+        const body = fields(input.body, [
+          "reportId",
+          "outcome",
+          "note",
+          "publicNote",
+          "evidenceDigest",
+          "amount",
+          "quote",
+          "idempotencyKey",
+        ]);
+        function outcome(value: unknown): ReportOutcome {
+          switch (value) {
+            case "evidence_required":
+            case "no_error":
+            case "erroneous_credit":
+            case "operator_shortfall":
+            case "operator_cost":
+            case "recovery_quote":
+              return value;
+            default:
+              return invalid("report review outcome is required");
+          }
+        }
+        let recoveryQuote: RecoveryCostQuote | undefined;
+        if (body.quote !== undefined) {
+          const q = fields(body.quote, [
+            "amount",
+            "network",
+            "expiresAt",
+            "description",
+          ]);
+          recoveryQuote = {
+            amount: text(q.amount),
+            network: text(q.network),
+            expiresAt: text(q.expiresAt),
+            description: text(q.description),
+          };
+        }
+        await reportOperator.review({
+          reportId: uuid(body.reportId),
+          outcome: outcome(body.outcome),
+          note: text(body.note),
+          evidenceDigest: text(body.evidenceDigest),
+          idempotencyKey: text(body.idempotencyKey),
+          ...(body.publicNote !== undefined
+            ? { publicNote: text(body.publicNote) }
+            : {}),
+          ...(body.amount !== undefined ? { amount: text(body.amount) } : {}),
+          ...(recoveryQuote ? { quote: recoveryQuote } : {}),
+        });
+        status = "reviewed";
+        break;
+      }
+      case "compensate-report": {
+        const body = fields(input.body, [
+          "reportId",
+          "reviewId",
+          "amount",
+          "idempotencyKey",
+        ]);
+        await reportOperator.compensate({
+          reportId: uuid(body.reportId),
+          reviewId: uuid(body.reviewId),
+          amount: text(body.amount),
+          idempotencyKey: text(body.idempotencyKey),
+        });
+        status = "restored";
+        break;
+      }
       case "confirm-treasury": {
         const body = fields(input.body, [
           "operatorUserId",
@@ -405,6 +481,8 @@ export async function runCoinSandboxOperator(input: {
             "requestId",
             "reason",
             "idempotencyKey",
+            "reportId",
+            "reviewId",
           ]),
           row = await request(body.requestId);
         if (
@@ -412,21 +490,46 @@ export async function runCoinSandboxOperator(input: {
           body.reason !== "operator_error"
         )
           invalid("correction reason required");
+        const review = await reportOperator.prepareCorrection({
+          reportId: uuid(body.reportId),
+          reviewId: uuid(body.reviewId),
+          requestId: row.id,
+          action: "correct",
+          idempotencyKey: text(body.idempotencyKey),
+        });
+        if (review.userId !== row.userId)
+          invalid("review belongs to another account");
         await operator.correctFunding({
           userId: row.userId,
           requestId: row.id,
           reason: body.reason,
           idempotencyKey: text(body.idempotencyKey),
+          review,
         });
         break;
       }
       case "retry-correction": {
-        const body = fields(input.body, ["correctionId", "idempotencyKey"]),
+        const body = fields(input.body, [
+            "correctionId",
+            "idempotencyKey",
+            "reportId",
+            "reviewId",
+          ]),
           row = await request(body.correctionId);
+        const review = await reportOperator.prepareCorrection({
+          reportId: uuid(body.reportId),
+          reviewId: uuid(body.reviewId),
+          requestId: uuid(row.terms.originalRequestId),
+          action: "retry",
+          idempotencyKey: text(body.idempotencyKey),
+        });
+        if (review.userId !== row.userId)
+          invalid("review belongs to another account");
         await operator.retryCorrection({
           userId: row.userId,
           correctionId: row.id,
           idempotencyKey: text(body.idempotencyKey),
+          review,
         });
         break;
       }

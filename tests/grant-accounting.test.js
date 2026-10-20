@@ -8,6 +8,7 @@ import {
   newAccountingGrant,
   orderedPurchasedSourceIds,
   planPurchaseRefund,
+  planCashSourceRestoration,
   planStake,
   planWithdrawal,
   projectGrantAccounting,
@@ -418,6 +419,202 @@ describe("source-aware stake accounting", () => {
 });
 
 describe("eligible withdrawal and internal correction source plans", () => {
+  it("restores evidence-reviewed partial cash debits to their exact capped original sources without earning qualification", () => {
+    const original = book(
+      [
+        grant("qualified", "welcome", {
+          principalRemaining: "0",
+          profitRemaining: "4",
+          netProfit: "24999999",
+          peakNetProfit: "25000000",
+        }),
+      ],
+      [
+        purchased("principal", "3"),
+        purchased("profit", "3", "purchased_profit", "principal"),
+      ],
+    );
+    const withdrawal = planWithdrawal(original, "10", undefined, {
+      qualified: "4",
+    });
+    const first = planCashSourceRestoration(
+        withdrawal.book,
+        withdrawal.reservation,
+        "5",
+      ),
+      second = planCashSourceRestoration(
+        first.book,
+        withdrawal.reservation,
+        "5",
+        first.cumulativeRestored,
+      );
+    assert.deepEqual(
+      first.restored.map((s) => [s.id, s.amount]),
+      [
+        ["principal", "2"],
+        ["profit", "1"],
+        ["qualified", "2"],
+      ],
+    );
+    assert.deepEqual(second.book, original);
+    assert.deepEqual(second.cumulativeRestored, {
+      principal: "3",
+      profit: "3",
+      qualified: "4",
+    });
+    assert.equal(first.book.grants[0].netProfit, "24999999");
+    assert.equal(first.book.grants[0].peakNetProfit, "25000000");
+    assert.deepEqual(
+      original.purchased.map((s) => s.kind),
+      second.book.purchased.map((s) => s.kind),
+    );
+    assert.throws(
+      () =>
+        planCashSourceRestoration(
+          second.book,
+          withdrawal.reservation,
+          "1",
+          second.cumulativeRestored,
+        ),
+      /original debit/,
+    );
+  });
+  it("redistributes residual atoms after a source cap is exhausted, conserving every partial credit", () => {
+    const original = book(
+        [],
+        [purchased("a", "1"), purchased("b", "1"), purchased("c", "1")],
+      ),
+      withdrawal = planWithdrawal(original, "3", undefined, {});
+    let current = withdrawal.book,
+      prior = {};
+    for (let index = 0; index < 3; index++) {
+      const restored = planCashSourceRestoration(
+        current,
+        withdrawal.reservation,
+        "1",
+        prior,
+      );
+      assert.equal(restored.restored.length, 1);
+      assert.equal(restored.restored[0].id, ["a", "b", "c"][index]);
+      assert.equal(balance(restored.book), BigInt(index + 1));
+      current = restored.book;
+      prior = restored.cumulativeRestored;
+    }
+    assert.deepEqual(current, original);
+  });
+  it("conserves adversarial partial restorations across independent original source caps and large exact integers", () => {
+    for (let principal = 1; principal <= 3; principal++)
+      for (let profit = 1; profit <= 3; profit++)
+        for (let promotional = 1; promotional <= 3; promotional++) {
+          const original = book(
+              [
+                grant("g", "welcome", {
+                  principalRemaining: "0",
+                  profitRemaining: String(promotional),
+                  netProfit: "25000000",
+                  peakNetProfit: "25000000",
+                }),
+              ],
+              [
+                purchased("p", String(principal)),
+                purchased("p-profit", String(profit), "purchased_profit", "p"),
+              ],
+            ),
+            total = principal + profit + promotional,
+            withdrawal = planWithdrawal(original, String(total), undefined, {
+              g: String(promotional),
+            });
+          for (let step = 1; step <= total; step++) {
+            let current = withdrawal.book,
+              prior = {},
+              remaining = total;
+            while (remaining) {
+              const amount = Math.min(step, remaining),
+                next = planCashSourceRestoration(
+                  current,
+                  withdrawal.reservation,
+                  String(amount),
+                  prior,
+                );
+              assert.equal(
+                balance(next.book) - balance(current),
+                BigInt(amount),
+              );
+              for (const source of withdrawal.reservation.sources)
+                assert.ok(
+                  BigInt(next.cumulativeRestored[source.id]) <=
+                    BigInt(source.amount),
+                );
+              assert.equal(next.book.grants[0].netProfit, "25000000");
+              assert.equal(next.book.grants[0].peakNetProfit, "25000000");
+              current = next.book;
+              prior = next.cumulativeRestored;
+              remaining -= amount;
+            }
+            assert.deepEqual(current, original);
+          }
+        }
+    const huge = 10n ** 30n,
+      original = book(
+        [],
+        [
+          purchased("a", String(huge)),
+          purchased("b", String(huge)),
+          purchased("c", String(huge)),
+        ],
+      ),
+      withdrawal = planWithdrawal(original, String(3n * huge), undefined, {}),
+      first = planCashSourceRestoration(
+        withdrawal.book,
+        withdrawal.reservation,
+        String(2n * huge),
+      ),
+      last = planCashSourceRestoration(
+        first.book,
+        withdrawal.reservation,
+        String(huge),
+        first.cumulativeRestored,
+      );
+    assert.deepEqual(last.book, original);
+  });
+  it("rejects foreign, invented, over-restored, zero and virtual-principal compensation inputs", () => {
+    const original = book([], [purchased("a", "7")]),
+      withdrawal = planWithdrawal(original, "7", undefined, {});
+    for (const [amount, prior] of [
+      ["0", {}],
+      ["8", {}],
+      ["1", { a: "8" }],
+      ["1", { unknown: "1" }],
+      ["-1", {}],
+    ])
+      assert.throws(() =>
+        planCashSourceRestoration(
+          withdrawal.book,
+          withdrawal.reservation,
+          amount,
+          prior,
+        ),
+      );
+    assert.throws(
+      () =>
+        planCashSourceRestoration(
+          { ...withdrawal.book, scope: { ...scope, accountId: "73" } },
+          withdrawal.reservation,
+          "1",
+        ),
+      /another account/,
+    );
+    assert.throws(
+      () => planCashSourceRestoration(book(), withdrawal.reservation, "1"),
+      /provenance/,
+    );
+    const promotional = planStake(book([grant("virtual")]), "1", []);
+    assert.throws(
+      () =>
+        planCashSourceRestoration(promotional.book, promotional.funding, "1"),
+      /virtual grant principal/,
+    );
+  });
   it("defaults to all original principal FIFO before purchased profits, without exposing a user order setting", () => {
     const original = book(
       [],

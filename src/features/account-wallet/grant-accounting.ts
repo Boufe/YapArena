@@ -733,6 +733,94 @@ export function restoreWithdrawalSources(
     ),
   };
 }
+
+// Evidence-reviewed operator compensation restores ONLY persisted original cash
+// sources. The caller must debit separately funded correction cash atomically;
+// this plan never establishes backing, authorizes payment, or earns grant profit.
+// Cumulative caps are across every report for the same original financial debit.
+// Precondition: existing grant profits are already fully cash-backed under the
+// repository invariant; the correction journal finances the restored cash only.
+export function planCashSourceRestoration(
+  book: GrantAccountingBook,
+  original: StakeFunding,
+  amount: string,
+  priorRestored: Readonly<Record<string, string>> = {},
+) {
+  validateFunding(book, original);
+  const debit = atomicAmount(amount),
+    ids = new Set(original.sources.map((s) => s.id));
+  for (const id of Object.keys(priorRestored))
+    if (!ids.has(id))
+      invalid("restoration contains an unknown original source");
+  const weights = original.sources.map((source) => BigInt(source.amount)),
+    prior = original.sources.map((source) =>
+      atomicAmount(priorRestored[source.id] ?? "0", true),
+    ),
+    caps = weights.map((weight, index) => {
+      if (prior[index]! > weight)
+        invalid("restoration exceeds an original source debit");
+      return weight - prior[index]!;
+    });
+  if (debit > caps.reduce((sum, cap) => sum + cap, 0n))
+    invalid("restoration exceeds the original debit");
+  for (const source of original.sources)
+    if (source.kind === "grant" && BigInt(source.principal) !== 0n)
+      invalid("cash compensation cannot restore virtual grant principal");
+  const restored = weights.map(() => 0n);
+  let remaining = debit;
+  while (remaining) {
+    const active = weights
+      .map((_, i) => i)
+      .filter((i) => restored[i]! < caps[i]!);
+    const shares = allocateAtomicProportionally(
+      remaining,
+      active.map((i) => weights[i]!),
+    );
+    for (const [position, index] of active.entries()) {
+      const share = minimum(shares[position]!, caps[index]! - restored[index]!);
+      restored[index] = restored[index]! + share;
+      remaining -= share;
+    }
+  }
+  const sources = original.sources.flatMap((source, index) => {
+    const credited = restored[index]!;
+    return credited
+      ? [
+          {
+            ...source,
+            amount: String(credited),
+            principal:
+              source.kind === "purchased_principal" ? String(credited) : "0",
+            profit:
+              source.kind === "purchased_principal" ? "0" : String(credited),
+          },
+        ]
+      : [];
+  });
+  const reservation: WithdrawalSourceReservation = {
+    ...original,
+    operation: "withdrawal",
+    amount,
+    sources,
+  };
+  const result = restoreWithdrawalSources(
+    book,
+    reservation,
+    Object.fromEntries(book.grants.map((g) => [g.id, g.profitRemaining])),
+  );
+  return {
+    ...result,
+    restored: Object.freeze(sources.map((source) => Object.freeze(source))),
+    cumulativeRestored: Object.freeze(
+      Object.fromEntries(
+        original.sources.map((source, index) => [
+          source.id,
+          String(prior[index]! + restored[index]!),
+        ]),
+      ),
+    ),
+  };
+}
 // Internal correction planning only. Completed purchases use ordinary USDC
 // withdrawals; this helper does not promise or expose original-route refunds.
 // Rejected/incorrect funding requires its own support/reconciliation authority.

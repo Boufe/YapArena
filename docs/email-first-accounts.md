@@ -336,7 +336,11 @@ the financial header. CSP now supports the lazy popup site-wide while retaining
 configured media origins. OAuth credential parameters are excluded from return
 paths and HTTP request logs. The Deposit button explains that funding is not yet
 available. No provider identity, wallet, money journal or financial adapter is
-created by this UI change. Optional-method and financial acceptance remain gated.
+created by this UI change. Responsive container queries support 200% header
+reflow; a desktop/mobile comparison verifies shared geometry and typography
+without the debate stylesheet. The final UI revision `c1f2c3f` is deployed and
+verified anonymously on staging; real popup signup, optional-method and financial
+acceptance remain gated as described in the linked evidence.
 
 ## Evidence
 

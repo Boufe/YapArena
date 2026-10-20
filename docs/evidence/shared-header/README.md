@@ -102,8 +102,9 @@ geometry, typography and colors without depending on the debate stylesheet.
 
 ## Hosted observations
 
-The [deployment report](hosted-deployment.json) records the explicitly deployed
-staging revision, healthy public routes and anonymous session denial. No database
+The [deployment report](hosted-deployment.json) records final UI revision
+`c1f2c3f` live at 2026-10-20 00:27:25 UTC, healthy public routes and anonymous
+session denial. No database
 reset, financial enablement, automatic deployment change or worker revision change
 is part of this rollout.
 
@@ -112,7 +113,8 @@ Real anonymous [desktop](hosted-popup-desktop.png) and
 with no interception. The [hosted browser report](hosted-anonymous.json) checks
 the shared header on seven public pages, zero provider requests before opening
 authentication, real provider/CAPTCHA initialization, exact initiating URLs and
-Back/Escape/Keep exploring dismissal with focus restoration. It records measured
+Back/Escape/Keep exploring dismissal with focus restoration, plus hosted 200%
+header reflow. It records measured
 readiness and compressed transfer size; these workstation observations are not
 population-performance, successful login, inbox, physical-device or WCAG acceptance.
 The first hosted check matched both a header link and a hidden popup button;
@@ -120,6 +122,13 @@ the corrected check scopes its selector to the header. No credential was submitt
 
 The [read-only account postflight](hosted-accounts.json) verifies four preserved
 accounts, one verified provider identity and zero live money journals/grants.
-There is no active manual-account app session at this observation; its latest
-session deletion was 2026-10-19 22:49:55 UTC, before this rollout. Two consumed
-provider-session exchanges remain recorded. No acceptance identity was created.
+There is no active manual-account app session at the final observation; the
+latest session deletion was 2026-10-20 00:16:38 UTC, before the final styling
+rollout. Three consumed provider-session exchanges map to the same account.
+These mutable counts changed during independent activity; they are not a
+captured returning-user/logout journey. No automation acceptance identity was created.
+
+The final shared-source CI run is [39347465148](https://github.com/Boufe/YapArena/actions/runs/39347465148).
+Follow [PR #42](https://github.com/Boufe/YapArena/pull/42) for the latest checks.
+The earlier failed zoom run remains historical failure evidence; full WCAG,
+physical-device, recovery and financial acceptance remain open.

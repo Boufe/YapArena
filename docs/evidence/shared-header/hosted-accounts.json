@@ -1,12 +1,12 @@
 {
-  "at": "2026-10-20T00:13:12.612Z",
+  "at": "2026-10-20T00:29:37.611Z",
   "origin": "https://yaparena-staging-web.onrender.com",
-  "revision": "9c1958503830c280cde257ae1022d9fbd69a70c3",
+  "revision": "c1f2c3fc1dab0f673b87083e899217e4b2074108",
   "scope": "Read-only PostgreSQL and provider inspection after shared-header rollout; no user, credential, session or financial mutation",
   "providerIdentities": 1,
   "verifiedEmailMatchesProvider": true,
   "activeManualAccountSessions": 0,
-  "consumedProviderSessions": 2,
+  "consumedProviderSessions": 3,
   "originalSelectedAccountsAbsent": true,
   "retainedAccounts": 3,
   "totalAccounts": 4,
@@ -14,7 +14,7 @@
   "liveGrantLotsIssued": 0,
   "manualUserAccountPreserved": true,
   "automationAcceptanceAccountsCreated": 0,
-  "latestObservedSessionDeletionAt": "2026-10-19T22:49:55.823Z",
+  "latestObservedSessionDeletionAt": "2026-10-20T00:16:38.430Z",
   "financialFeaturesEnabled": false,
-  "note": "Provider-session exchanges are cumulative; a later exchange did not create another account. No active app session was present; the last observed session deletion predates the shared-header rollout. This read is not a captured returning-user or revocation acceptance trial."
+  "note": "Provider-session exchanges and app sessions can change during independent manual activity. This read-only observation is not a captured returning-user or logout acceptance journey. The latest observed session deletion predates the final c1f2c3f styling rollout."
 }

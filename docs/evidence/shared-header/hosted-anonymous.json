@@ -1,7 +1,7 @@
 {
-  "at": "2026-10-20T00:13:19.764Z",
+  "at": "2026-10-20T00:30:09.993Z",
   "origin": "https://yaparena-staging-web.onrender.com",
-  "revision": "9c1958503830c280cde257ae1022d9fbd69a70c3",
+  "revision": "c1f2c3fc1dab0f673b87083e899217e4b2074108",
   "topLevelCspViolations": 0,
   "observations": [
     {
@@ -16,16 +16,17 @@
         "/coins"
       ],
       "initialProviderRequests": 0,
-      "popupReadyMs": 1258,
+      "popupReadyMs": 2115,
       "authBundle": {
-        "durationMs": 374,
+        "durationMs": 1149,
         "transferBytes": 1721094,
         "encodedBytes": 1720794
       },
       "captchaFrames": 2,
       "pageErrors": 0,
       "overflow": false,
-      "cancellationAndFocus": true
+      "cancellationAndFocus": true,
+      "headerZoomChecked": true
     },
     {
       "viewport": "mobile",
@@ -39,16 +40,17 @@
         "/coins"
       ],
       "initialProviderRequests": 0,
-      "popupReadyMs": 1557,
+      "popupReadyMs": 1337,
       "authBundle": {
-        "durationMs": 808,
-        "transferBytes": 1721095,
-        "encodedBytes": 1720795
+        "durationMs": 590,
+        "transferBytes": 1721499,
+        "encodedBytes": 1721199
       },
       "captchaFrames": 2,
       "pageErrors": 0,
       "overflow": false,
-      "cancellationAndFocus": true
+      "cancellationAndFocus": true,
+      "headerZoomChecked": false
     }
   ],
   "scope": "Real anonymous staging pages and provider/public metadata in fresh desktop/mobile Chromium contexts, no interception. No email or OTP submitted, CAPTCHA solved, identity or session created, or money action attempted. Signed-in/header grant behavior has separate synthetic local evidence; earlier founder signup is separate. Workstation timings do not establish population performance or physical-device/WCAG acceptance."

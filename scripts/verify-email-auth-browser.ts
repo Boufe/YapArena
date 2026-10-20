@@ -1255,6 +1255,86 @@ try {
       checks.push(
         `${name}: held account inspection clears prior private fields without guest flashes; initial and continuing inspection outages retain a usable local sign-out action, which sends one logout request and hides after confirmed guest state`,
       );
+      for (const action of ["account", "header", "all", "others"] as const) {
+        const gate = deferred(),
+          started = deferred(),
+          path =
+            action === "all"
+              ? "/api/auth/logout-all"
+              : action === "others"
+                ? "/api/auth/logout-other-sessions"
+                : "/api/auth/logout";
+        const heldLogout = async (route: Route) => {
+          started.release();
+          await gate.promise;
+          await route.fulfill(
+            action === "account" || action === "header"
+              ? {
+                  status: 401,
+                  json: { error: "synthetic old session has ended" },
+                }
+              : { status: 204 },
+          );
+        };
+        await page.route(`**${path}`, heldLogout);
+        await page.evaluate(() =>
+          Reflect.set(window, "__staleRemovalLogouts", 0),
+        );
+        if (action === "header") {
+          await page.locator("[data-header-account]").click();
+          await page
+            .getByRole("button", { name: "Log out", exact: false })
+            .click();
+        } else {
+          if (action !== "account")
+            page.once("dialog", (confirmation) => void confirmation.accept());
+          await page
+            .locator(
+              action === "all"
+                ? "#sign-out-all"
+                : action === "others"
+                  ? "#sign-out-others"
+                  : "#sign-out",
+            )
+            .click();
+        }
+        await started.promise;
+        fixtureAccountId = `replacement-after-${action}-logout`;
+        await page.evaluate(() =>
+          window.dispatchEvent(new Event("yap:account-changed")),
+        );
+        await page.getByText("Account ready.", { exact: true }).waitFor();
+        const oldReply = page.waitForResponse(
+          (response) => new URL(response.url()).pathname === path,
+        );
+        gate.release();
+        await oldReply;
+        await page.evaluate(
+          () =>
+            new Promise<void>((done) =>
+              requestAnimationFrame(() => requestAnimationFrame(() => done())),
+            ),
+        );
+        assert.equal(await page.locator("#signed-in").isVisible(), true);
+        assert.equal(
+          await page.locator("[data-header-member]").isVisible(),
+          true,
+        );
+        assert.equal(
+          await page.evaluate(() =>
+            Reflect.get(window, "__staleRemovalLogouts"),
+          ),
+          0,
+        );
+        assert.equal(
+          await page.locator("#account-notice").textContent(),
+          "Account ready.",
+        );
+        await page.unroute(`**${path}`, heldLogout);
+      }
+      checks.push(
+        `${name}: delayed default, header, all-session and other-session logout replies cannot clear or relabel a replacement account or invoke provider logout`,
+      );
     }
     const oldAccountReads = deferred(),
       oldAccountReadsArrived = deferred(),

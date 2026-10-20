@@ -64,12 +64,14 @@ async function api<T = void>(
   path: string,
   method = "GET",
   body?: unknown,
+  signal?: AbortSignal,
 ): Promise<T> {
   const response = await fetch(path, {
     method,
     credentials: "same-origin",
     headers: body === undefined ? {} : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
   });
   if (response.status === 204) return null as T;
   const json = response.headers
@@ -351,15 +353,22 @@ for (const button of signOutButtons)
     const button = event.currentTarget as HTMLButtonElement;
     if (signOutPending || button.disabled) return;
     signOutPending = true;
+    const version = accountVersion;
     for (const control of signOutButtons) control.disabled = true;
     let expired = false;
     try {
       try {
-        await api("/api/auth/logout", "POST");
+        await api(
+          "/api/auth/logout",
+          "POST",
+          undefined,
+          AbortSignal.timeout(10000),
+        );
       } catch (error) {
         if ((error as AccountError).status !== 401) throw error;
         expired = true;
       }
+      if (version !== accountVersion) return;
       window.dispatchEvent(
         new CustomEvent("yap:provider-logout", { detail: expired }),
       );
@@ -371,7 +380,7 @@ for (const button of signOutButtons)
       }
       document.querySelector<HTMLButtonElement>("#wallet-login")?.focus();
     } catch (error) {
-      say((error as AccountError).message);
+      if (version === accountVersion) say((error as AccountError).message);
     } finally {
       signOutPending = false;
       for (const control of signOutButtons) control.disabled = false;

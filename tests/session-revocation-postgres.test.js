@@ -185,7 +185,7 @@ describe(
       assert.equal((await me(appA, a)).status, 200);
       const result = await post(appA, "logout-all", a);
       assert.equal(result.status, 204);
-      assert.match(result.headers["set-cookie"][0], /^__Host-session=;/);
+      assert.equal(result.headers["set-cookie"], undefined);
       for (const instance of [appA, appB])
         for (const oldCookie of [a, b])
           assert.equal((await me(instance, oldCookie)).status, 401);

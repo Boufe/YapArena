@@ -388,7 +388,6 @@ export function createAuthRouter({
       });
     const token = request.cookies[cookie.name];
     if (!token) {
-      response.clearCookie(cookie.name, cookie.options);
       return response.status(401).json({
         error:
           "this session has ended; sign in again to sign out other devices",
@@ -400,7 +399,6 @@ export function createAuthRouter({
         localRevocation: true,
       });
       if (!user) {
-        response.clearCookie(cookie.name, cookie.options);
         return response.status(401).json({
           error:
             "this session has ended; sign in again to sign out other devices",
@@ -415,7 +413,6 @@ export function createAuthRouter({
               .catch(() => recordAuth("provider_revocation_retry"));
         } catch (error) {
           if (!(error instanceof SessionUnavailableError)) throw error;
-          response.clearCookie(cookie.name, cookie.options);
           return response.status(401).json({
             error:
               "this session ended before sign-out-all completed; sign in again to end other sessions",
@@ -424,7 +421,8 @@ export function createAuthRouter({
       }
     }
 
-    response.clearCookie(cookie.name, cookie.options);
+    // Revocation is authoritative in PostgreSQL. Do not delete the shared cookie
+    // in a delayed response: another tab may have established a newer session.
     return response.status(204).end();
   });
 
@@ -467,7 +465,6 @@ export function createAuthRouter({
         );
         if (!removed)
           return response.status(404).json({ error: "session unavailable" });
-        if (removed.current) response.clearCookie(cookie.name, cookie.options);
         return response.json(removed);
       } catch (error) {
         if (error instanceof SessionUnavailableError)
@@ -511,7 +508,6 @@ export function createAuthRouter({
               .json({ error: "authentication required" });
           throw error;
         }
-        if (!retainCurrent) response.clearCookie(cookie.name, cookie.options);
         return response.status(204).end();
       },
     );

@@ -428,12 +428,16 @@ if (header) {
     .querySelector<HTMLButtonElement>("[data-header-logout]")!
     .addEventListener("click", async (event) => {
       const button = event.currentTarget as HTMLButtonElement;
+      if (button.disabled) return;
+      const logoutVersion = version;
       button.disabled = true;
       try {
         const response = await fetch("/api/auth/logout", {
           method: "POST",
           credentials: "same-origin",
+          signal: AbortSignal.timeout(10000),
         });
+        if (logoutVersion !== version) return;
         if (!response.ok && response.status !== 401)
           throw new Error("logout unavailable");
         clearAccount();
@@ -447,7 +451,8 @@ if (header) {
         channel?.postMessage("changed");
         guest.querySelector<HTMLAnchorElement>("a")?.focus();
       } catch {
-        status.textContent = "Log out could not complete. Please try again.";
+        if (logoutVersion === version)
+          status.textContent = "Log out could not complete. Please try again.";
       } finally {
         button.disabled = false;
       }

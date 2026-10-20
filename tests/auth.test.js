@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
+import express from "express";
 import request from "../scripts/test-http-request.ts";
 
 import { createApp } from "../dist/app.js";
@@ -193,7 +194,7 @@ describe("authentication API", () => {
     }
   });
 
-  it("normal sign out revokes all account sessions and clears the cookie", async () => {
+  it("normal sign out revokes all account sessions without deleting a potentially newer cookie", async () => {
     const sessions = {
       create: async () => ({}),
       findUserByTokenHash: mock.fn(async () => publicUser),
@@ -213,10 +214,10 @@ describe("authentication API", () => {
     assert.deepEqual(sessions.findUserByTokenHash.mock.calls[0].arguments[1], {
       localRevocation: true,
     });
-    assert.match(response.headers["set-cookie"][0], /^session=;/);
+    assert.equal(response.headers["set-cookie"], undefined);
   });
 
-  it("clears an absent cookie without claiming account-wide revocation", async () => {
+  it("rejects an absent cookie without claiming revocation or deleting a potentially newer cookie", async () => {
     const { app, sessions } = createAuthenticationApp();
     const response = await request(app).post("/api/auth/logout");
 
@@ -225,7 +226,7 @@ describe("authentication API", () => {
       response.body.error,
       /sign in again to sign out other devices/,
     );
-    assert.match(response.headers["set-cookie"][0], /^session=;/);
+    assert.equal(response.headers["set-cookie"], undefined);
     assert.equal(sessions.deleteByTokenHash.mock.callCount(), 0);
   });
   it("does not claim other devices ended when the sign-out cookie is expired or loses authorization while waiting", async () => {
@@ -244,7 +245,126 @@ describe("authentication API", () => {
         .set("Cookie", "session=synthetic-ended-session");
       assert.equal(response.status, 401);
       assert.match(response.body.error, /sign in again/);
-      assert.match(response.headers["set-cookie"][0], /^session=;/);
+      assert.equal(response.headers["set-cookie"], undefined);
+    }
+  });
+  it("preserves a replacement HTTP cookie jar when older successful or rejected revocation responses arrive", async () => {
+    for (const scenario of [
+      "logout",
+      "logout-all",
+      "current-session",
+      "expired",
+      "absent",
+      "authorization-ended",
+    ]) {
+      const live = new Map();
+      let nextUserId = 0,
+        release,
+        arrived,
+        revocations = 0;
+      const gate = new Promise((resolve) => (release = resolve)),
+        started = new Promise((resolve) => (arrived = resolve));
+      const sessions = {
+        create: async (userId, tokenHash) => {
+          live.set(tokenHash, { ...publicUser, id: userId });
+        },
+        findUserByTokenHash: async (tokenHash) => live.get(tokenHash) ?? null,
+        revoke: async (userId) => {
+          if (scenario === "authorization-ended")
+            throw new SessionUnavailableError();
+          revocations++;
+          for (const [hash, user] of live)
+            if (user.id === userId) live.delete(hash);
+        },
+        revokeSession: async (userId) => {
+          revocations++;
+          for (const [hash, user] of live)
+            if (user.id === userId) live.delete(hash);
+          return { current: true };
+        },
+      };
+      const { app } = createAuthenticationApp({
+        users: {
+          create: async (email) => ({
+            ...publicUser,
+            id: String(++nextUserId),
+            email,
+            authGeneration: "0",
+          }),
+        },
+        sessions,
+      });
+      const outer = express(),
+        path =
+          scenario === "current-session"
+            ? "/api/auth/sessions/1"
+            : scenario === "logout-all"
+              ? "/api/auth/logout-all"
+              : "/api/auth/logout";
+      outer.use(async (r, _s, next) => {
+        if (r.path === path && r.method !== "GET") {
+          arrived();
+          await gate;
+        }
+        next();
+      });
+      outer.use(app);
+      const browser = request.agent(outer);
+      let oldCookie;
+      if (scenario !== "absent") {
+        const original = await browser.post("/api/auth/register").send({
+          email: "original-cookie-fixture@example.invalid",
+          password: "synthetic cookie fixture passphrase",
+        });
+        assert.equal(original.status, 201);
+        oldCookie = original.headers["set-cookie"][0].split(";")[0];
+      }
+      if (scenario === "expired") live.clear();
+      const pending = (
+        scenario === "current-session"
+          ? browser.delete(path)
+          : browser.post(path)
+      ).then((response) => response);
+      await started;
+      try {
+        const replacement = await browser.post("/api/auth/register").send({
+          email: "replacement-cookie-fixture@example.invalid",
+          password: "synthetic cookie fixture passphrase",
+        });
+        assert.equal(replacement.status, 201);
+        release();
+        const previous = await pending;
+        assert.equal(
+          previous.status,
+          scenario === "current-session"
+            ? 200
+            : ["expired", "absent", "authorization-ended"].includes(scenario)
+              ? 401
+              : 204,
+          scenario,
+        );
+        assert.equal(previous.headers["set-cookie"], undefined, scenario);
+        const current = await browser.get("/api/auth/me");
+        assert.equal(current.status, 200, scenario);
+        assert.equal(current.body.user.id, replacement.body.user.id, scenario);
+        assert.equal(
+          revocations,
+          ["expired", "absent", "authorization-ended"].includes(scenario)
+            ? 0
+            : 1,
+          scenario,
+        );
+        if (oldCookie && scenario !== "authorization-ended")
+          assert.equal(
+            (await request(outer).get("/api/auth/me").set("Cookie", oldCookie))
+              .status,
+            401,
+            scenario,
+          );
+      } finally {
+        release();
+        await pending;
+      }
     }
   });
   it("rejects browser account selectors on normal account-wide sign out", async () => {

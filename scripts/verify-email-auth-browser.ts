@@ -7,7 +7,7 @@ import express from "express";
 import helmet from "helmet";
 import { chromium } from "playwright-core";
 import axe from "axe-core";
-import { renderAccount } from "../dist/features/discovery/web.js";
+import { renderAccount, renderAbout } from "../dist/features/discovery/web.js";
 import { createEmailAuthSecurity } from "../dist/platform/auth/browser-security.js";
 
 // Local UI evidence only: real installed Privy SDK and public configuration,
@@ -40,7 +40,7 @@ const directory = resolve(
 await mkdir(directory, { recursive: true });
 const app = express();
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use("/account", createEmailAuthSecurity("test"));
+app.use(createEmailAuthSecurity("test"));
 app.get("/test/axe.js", (_request, response) =>
   response.type("js").send(axe.source),
 );
@@ -53,8 +53,19 @@ app.get("/account", (request, response) =>
     ),
   ),
 );
+app.get("/test/entry", (_request, response) =>
+  response.send(
+    renderAbout(base)
+      .replace('<html lang="en">', '<html lang="en" data-email-first>')
+      .replace("</head>", '<script defer src="/test/axe.js"></script></head>')
+      .replace(
+        "</main>",
+        '<a class="button" id="participate-login" href="/account?next=%2Ftest%2Fentry">Log in to participate</a><a id="reports-login" href="/account/moderation?view=open#appeals">My reports and appeals</a></main>',
+      ),
+  ),
+);
 app.get("/test/debate", (_request, response) =>
-  response.send(`<!doctype html><html lang="en" data-email-first><head><title>Auth return fixture</title><link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/arena.css"><script defer src="/test/axe.js"></script></head><body>
+  response.send(`<!doctype html><html lang="en" data-email-first><head><title>Auth return fixture</title><link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/arena.css"><link rel="stylesheet" href="/assets/site-header.css"><script defer src="/test/axe.js"></script></head><body>
   <main><a href="/account?next=%2Ftest%2Fdebate" id="return-link">Sign in to participate</a>
   <a href="/account#account-wallet" data-wallet-progress-open>Yap Coins balance</a></main>
   <script defer src="/assets/site.js"></script><script defer src="/assets/account-balance.js"></script></body></html>`),
@@ -64,6 +75,24 @@ app.get("/api/auth/provider", (_request, response) =>
 );
 app.get("/api/auth/me", (_request, response) =>
   response.status(401).json({ error: "authentication required" }),
+);
+app.get("/api/auth/methods", (_request, response) =>
+  response.json({
+    provider: { email: "synthetic@example.invalid", methods: ["email"] },
+    legacyPassword: false,
+  }),
+);
+app.get("/api/me/profile", (_request, response) =>
+  response.status(404).json({ error: "profile not found" }),
+);
+app.get("/api/auth/wallets", (_request, response) =>
+  response.json({ wallets: [] }),
+);
+app.get(["/api/me/follows", "/api/me/activity"], (_request, response) =>
+  response.json({ items: [], pagination: { hasMore: false } }),
+);
+app.get("/api/matching/notifications", (_request, response) =>
+  response.json({ notifications: [] }),
 );
 app.get("/api/account-wallet", (_request, response) =>
   response.json({
@@ -319,12 +348,31 @@ try {
     const walletToggle = page.getByLabel("Yap Coins balance and actions", {
       exact: true,
     });
+    await page.getByRole("link", { name: "Log in", exact: true }).waitFor();
+    assert.equal(
+      await walletToggle.isVisible(),
+      false,
+      "no signed-out balance or account icon",
+    );
+    assert.equal(
+      await page.locator("[data-header-account]").isVisible(),
+      false,
+    );
+    let appSignedIn = true;
+    await page.route("**/api/auth/me", (route) =>
+      route.fulfill(
+        appSignedIn
+          ? { json: { user: { id: "fixture", email: null } } }
+          : { status: 401, json: { error: "authentication required" } },
+      ),
+    );
+    await page.reload();
+    await walletToggle.waitFor({ state: "visible" });
     await walletToggle.press("Enter");
-    await page
-      .getByText("Available for withdrawal: 1250 YC", { exact: true })
-      .first()
-      .waitFor();
     const walletPanel = page.locator(".arena-wallet-popover");
+    await walletPanel
+      .getByText("Available for withdrawal: 1250 YC", { exact: true })
+      .waitFor();
     assert.deepEqual(
       await walletPanel
         .locator("progress")
@@ -404,7 +452,6 @@ try {
     );
     // A YapArena application session may outlive the SDK's browser session.
     // Settings must use methods verified for that app account, not SDK state.
-    let appSignedIn = true;
     await page.route("**/api/auth/me", (route) =>
       route.fulfill(
         appSignedIn
@@ -555,6 +602,231 @@ try {
     );
     checks.push(
       `${name}: server-owned authentication methods, profile create/publish with permanent handle, other/all-session sign-out controls, account/dialog automated WCAG tags, no account overflow and unused wallet directory disabled`,
+    );
+    requests.length = 0;
+    await page.goto(`${base}/test/entry?round=42#commit`);
+    const login = page.getByRole("link", { name: "Log in", exact: true });
+    await login.waitFor();
+    assert.equal(
+      requests.some((entry) => entry.path.endsWith("account-auth.bundle.js")),
+      false,
+      "public browsing does not load the provider bundle",
+    );
+    assert.equal(await page.locator("[data-header-member]").isVisible(), false);
+    await page.screenshot({
+      path: resolve(directory, `header-guest-${name}.png`),
+      fullPage: false,
+    });
+    await login.click();
+    const authModal = page.locator("#site-auth-dialog");
+    await authModal
+      .getByRole("heading", { name: "Welcome back.", exact: true })
+      .waitFor();
+    await page.waitForFunction(
+      () => document.activeElement?.id === "auth-email",
+    );
+    assert.equal(await page.locator("#email-auth").count(), 1);
+    assert.equal(new URL(page.url()).pathname, "/test/entry");
+    assert.equal(
+      await page.locator("#email-auth").getAttribute("data-auth-return"),
+      "/test/entry?round=42#commit",
+    );
+    await authModal
+      .getByRole("button", { name: "Sign up", exact: true })
+      .click();
+    await authModal
+      .getByRole("heading", { name: "Join YapArena.", exact: true })
+      .waitFor();
+    await page.waitForFunction(() => Boolean(window.axe));
+    assert.deepEqual(
+      await page.evaluate(async () =>
+        (
+          await window.axe.run("#site-auth-dialog", {
+            runOnly: {
+              type: "tag",
+              values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"],
+            },
+          })
+        ).violations.map((entry) => ({ id: entry.id, impact: entry.impact })),
+      ),
+      [],
+    );
+    await page.screenshot({
+      path: resolve(directory, `signup-popup-${name}.png`),
+      fullPage: false,
+    });
+    await page.keyboard.press("Escape");
+    await authModal.waitFor({ state: "hidden" });
+    await page.waitForFunction(
+      () => document.activeElement?.getAttribute("data-auth-open") === "login",
+    );
+    await login.click();
+    await authModal
+      .getByLabel("Email address", { exact: true })
+      .fill("synthetic@example.invalid");
+    await authModal
+      .getByRole("button", { name: "Continue with email" })
+      .click();
+    await authModal.getByLabel("Verification code", { exact: true }).waitFor();
+    await page.screenshot({
+      path: resolve(directory, `code-popup-${name}.png`),
+      fullPage: false,
+    });
+    await page.keyboard.press("Escape");
+    await authModal.waitFor({ state: "hidden" });
+    await page.locator("#participate-login").click();
+    await authModal.waitFor({ state: "visible" });
+    await page.waitForFunction(
+      () => document.activeElement?.id === "auth-email",
+    );
+    assert.equal(
+      await authModal.getByLabel("Email address", { exact: true }).inputValue(),
+      "",
+      "dismissal clears email and code",
+    );
+    await page.goBack();
+    await authModal.waitFor({ state: "hidden" });
+    await page.locator("#reports-login").click();
+    await authModal.waitFor({ state: "visible" });
+    assert.equal(
+      await page.locator("#email-auth").getAttribute("data-auth-return"),
+      "/account/moderation?view=open#appeals",
+      "protected account subpages use the popup and retain their destination",
+    );
+    await authModal.getByRole("link", { name: "Keep exploring" }).click();
+    await authModal.waitFor({ state: "hidden" });
+    await page.waitForFunction(
+      () => !(history.state && history.state.yapAuthDialog),
+    );
+    appSignedIn = true;
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
+    await page.getByRole("button", { name: "Deposit", exact: true }).waitFor();
+    await page.waitForFunction(
+      () =>
+        document.querySelector("[data-header-balance]")?.textContent ===
+        "1250 YC",
+    );
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({
+      path: resolve(directory, `header-member-${name}.png`),
+      fullPage: false,
+    });
+    await page.getByRole("button", { name: "Deposit", exact: true }).click();
+    await page
+      .getByRole("heading", { name: "Add Yap Coins", exact: true })
+      .waitFor();
+    await page
+      .getByText("Deposits are not open yet.", { exact: false })
+      .waitFor();
+    await page.keyboard.press("Escape");
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Deposit", exact: true })
+        .evaluate((node) => node === document.activeElement),
+      true,
+    );
+    await page.locator("[data-header-account]").click();
+    await page
+      .getByRole("link", { name: "Account settings", exact: true })
+      .waitFor();
+    const otherTab = await context.newPage();
+    otherTab.on("pageerror", (error) => errors.push(error.message));
+    await otherTab.route("**/api/auth/me", (route) =>
+      route.fulfill(
+        appSignedIn
+          ? { json: { user: { id: "fixture", email: null } } }
+          : { status: 401, json: { error: "authentication required" } },
+      ),
+    );
+    await otherTab.goto(`${base}/test/entry`);
+    await otherTab
+      .getByRole("button", { name: "Deposit", exact: true })
+      .waitFor();
+    await page.route("**/api/auth/logout", (route) => {
+      appSignedIn = false;
+      return route.fulfill({ status: 204 });
+    });
+    await page.getByRole("button", { name: "Log out", exact: false }).click();
+    await login.waitFor();
+    assert.equal(await page.locator("[data-header-member]").isVisible(), false);
+    await otherTab.getByRole("link", { name: "Log in", exact: true }).waitFor();
+    assert.equal(
+      await otherTab.locator("[data-header-member]").isVisible(),
+      false,
+      "logout removes member controls in another tab",
+    );
+    await otherTab.close();
+    await page.route(
+      "**/api/auth/me",
+      (route) =>
+        route.fulfill({ status: 503, json: { error: "temporary outage" } }),
+      { times: 1 },
+    );
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
+    await page
+      .getByRole("button", { name: "Retry account", exact: true })
+      .waitFor();
+    assert.equal(
+      await login.isVisible(),
+      false,
+      "an outage is not presented as a signed-out session",
+    );
+    await page
+      .getByRole("button", { name: "Retry account", exact: true })
+      .click();
+    await login.waitFor();
+    let releaseWallet: (() => void) | undefined;
+    let walletStarted: (() => void) | undefined;
+    const heldWallet = new Promise<void>((resolve) => {
+      releaseWallet = resolve;
+    });
+    const requestedWallet = new Promise<void>((resolve) => {
+      walletStarted = resolve;
+    });
+    await page.route(
+      "**/api/account-wallet",
+      async (route) => {
+        walletStarted?.();
+        await heldWallet;
+        await route.fulfill({ json: { available: "999999", reserved: "0" } });
+      },
+      { times: 1 },
+    );
+    appSignedIn = true;
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
+    await requestedWallet;
+    appSignedIn = false;
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
+    await login.waitFor();
+    const oldWalletResponse = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === "/api/account-wallet",
+    );
+    releaseWallet?.();
+    await oldWalletResponse;
+    await page.waitForFunction(
+      () =>
+        document.querySelector("[data-header-balance]")?.textContent === "—",
+    );
+    assert.equal(
+      await page.locator("[data-header-member]").isVisible(),
+      false,
+      "a pre-logout response cannot restore another account's balance",
+    );
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+    checks.push(
+      `${name}: anonymous controls only, lazy SDK, unified login/signup/protected-action popup, exact return path, cancellation clears credentials, Back/Escape/focus restoration, server-session-only member balance/deposit/user menu, honest funding gate, cross-tab logout, outage recovery, stale balance rejection and modal WCAG tags`,
     );
     await context.close();
   }

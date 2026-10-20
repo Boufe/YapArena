@@ -33,6 +33,20 @@ import {
 } from "./community-state.js";
 const reasons = ["harassment", "hate", "threat", "spam", "privacy", "other"];
 
+function requestAuthentication(error: DeliveryError) {
+  if (error.status !== 401) return;
+  const returnTo = location.pathname + location.search + location.hash;
+  if (
+    window.dispatchEvent(
+      new CustomEvent("yap:request-auth", {
+        cancelable: true,
+        detail: { returnTo },
+      }),
+    )
+  )
+    location.assign(`/account?next=${encodeURIComponent(returnTo)}`);
+}
+
 function element<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   text?: string | null,
@@ -93,6 +107,7 @@ async function submit(
     await action();
   } catch (error) {
     status.textContent = (error as DeliveryError).message;
+    requestAuthentication(error as DeliveryError);
   } finally {
     button.disabled = false;
   }
@@ -502,6 +517,11 @@ function initEvent(root: HTMLElement) {
         }
         updateLocal(record!);
         sendStatus.textContent = `${record.state === "unconfirmed" ? "Delivery unconfirmed. The message may have arrived." : record.state === "cooldown" ? "Posting allowance reached." : "Message rejected."} ${(error as DeliveryError).message} Use the message’s retry or draft recovery actions.`;
+        if ((error as DeliveryError).status === 401) {
+          const login = element("a", "Log in to continue");
+          login.href = `/account?next=${encodeURIComponent(location.pathname + location.search + location.hash)}`;
+          sendStatus.append(" ", login);
+        }
       }
     } finally {
       if (streamHealthy) scheduleReconciliation();
@@ -920,7 +940,7 @@ function initEvent(root: HTMLElement) {
     })
     .catch(() => {
       signedIn = false;
-      like.title = "Sign in to like this event";
+      like.title = "Log in to like this event";
     });
   stream.start();
   root
@@ -996,6 +1016,7 @@ function initEvent(root: HTMLElement) {
       })
       .catch((error: unknown) => {
         status.textContent = (error as DeliveryError).message;
+        requestAuthentication(error as DeliveryError);
       })
       .finally(() => {
         like.disabled = publicUnavailable;

@@ -25,6 +25,46 @@
 #ya-market-v4 * {
   box-sizing: border-box;
 }
+#ya-market-v4 .ya-discovery-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0 0 18px;
+}
+#ya-market-v4 .ya-view-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--ya-line);
+  border-radius: 11px;
+  background: var(--ya-panel);
+}
+#ya-market-v4 .ya-view-tabs button {
+  padding: 10px 15px;
+  border-radius: 8px;
+  min-height: 44px;
+  color: #a3b9c9;
+  font-weight: 600;
+  cursor: pointer;
+}
+#ya-market-v4 .ya-view-tabs button[aria-pressed="true"] {
+  background: #17382f;
+  color: var(--ya-accent);
+}
+#ya-market-v4 .ya-idea-search {
+  flex: 0 1 310px;
+}
+#ya-market-v4 .ya-idea-search input {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 1px solid #375363;
+  border-radius: 10px;
+  color: var(--ya-text);
+  background: #0d1e2a;
+}
 #ya-market-v4 button,
 #ya-market-v4 input,
 #ya-market-v4 select {

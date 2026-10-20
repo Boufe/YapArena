@@ -197,7 +197,28 @@ export function createApp({
         })
       : helmet(),
   );
-  if (authProvider) app.use("/account", createEmailAuthSecurity(environment));
+  if (authProvider)
+    app.use(
+      createEmailAuthSecurity(
+        environment,
+        mediaProvider
+          ? {
+              connect: [
+                mediaUrl!.origin,
+                mediaHttpOrigin!,
+                ...(mediaProvider.playbackOrigins ?? [
+                  mediaProvider.playbackOrigin,
+                ]),
+              ],
+              playback: [
+                ...(mediaProvider.playbackOrigins ?? [
+                  mediaProvider.playbackOrigin,
+                ]),
+              ],
+            }
+          : undefined,
+      ),
+    );
   const liveRead = (request: Request) =>
     request.method === "GET" &&
     /^\/api\/community\/events\/[0-9a-f-]{36}(?:\/my-like|\/chat\/sync|\/updates)?$/i.test(
@@ -388,6 +409,7 @@ export function createApp({
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",
         recordProductAction,
         streams: communityStreams,
+        emailFirst: Boolean(authProvider),
       }),
     );
   }
@@ -399,6 +421,7 @@ export function createApp({
         identity,
         requireAuth: createRequireAuthentication({ sessions, environment }),
         environment,
+        emailFirst: Boolean(authProvider),
       }),
     );
   }

@@ -67,7 +67,7 @@ movement/reconciliation and payout webhooks are **not implemented**.
 Official documentation checked 2026-10-19; locked versions:
 `@privy-io/node` 0.36.0, `@privy-io/react-auth` 3.50.0, Redis client 6.3.0.
 
-- [Custom UI](https://docs.privy.io/authentication/user-authentication/whitelabel): supported React hooks in an account-page island within existing server-rendered TypeScript. Hosted anonymous loading observations are recorded below; population and end-to-end signup latency remain unverified.
+- [Custom UI](https://docs.privy.io/authentication/user-authentication/whitelabel): supported React hooks in a focused island within existing server-rendered TypeScript, loaded on the account page or on demand by the shared header popup. Hosted anonymous loading observations are recorded below; population and end-to-end signup latency remain unverified.
 - [Core JS](https://docs.privy.io/recipes/core-js): provider requests consultation for low-level integration; use the supported React workflow.
 - [Tokens](https://docs.privy.io/authentication/user-authentication/access-tokens): supported signature, issuer, audience and expiry verification. Browser email/account/wallet ownership claims are never authoritative.
 - [Freeze/unfreeze](https://docs.privy.io/user-management/users/managing-users/freezing-users): freeze revokes refresh sessions; unfreeze does not restore them. Issued JWTs still need the local fence below. Selected-app behavior requires a hosted trial.
@@ -319,6 +319,25 @@ cumulative provider-session exchange count is now two; this did not create an
 additional account and is not a captured returning-user or revocation trial.
 No additional reset was performed for the UI rollout.
 
+## Shared navigation and popup
+
+The [shared-header change](evidence/shared-header/README.md) uses Live's navigation
+on all ordinary pages. Visitors see Log in / Sign up; a verified YapArena session
+reveals the YC balance, Deposit and account menu. Existing account and protected
+action links open the same custom email popup. It preserves safe initiating URLs,
+keyboard/focus behavior and browser Back, and clears submitted fields on dismissal.
+Successful authentication navigates back to initialize protected page controllers.
+The account page reuses its existing authentication root; other pages download
+the provider bundle only when authentication is opened.
+
+Header session authority stays on the server. Outage/retry, cross-tab logout and
+late balance responses are covered locally; legacy A4 balance events cannot set
+the financial header. CSP now supports the lazy popup site-wide while retaining
+configured media origins. OAuth credential parameters are excluded from return
+paths and HTTP request logs. The Deposit button explains that funding is not yet
+available. No provider identity, wallet, money journal or financial adapter is
+created by this UI change. Optional-method and financial acceptance remain gated.
+
 ## Evidence
 
 The refreshed complete local gate passed **524 tests, no skips**, with 93.92%
@@ -331,7 +350,8 @@ no image/volume/cache pruning was performed.
 
 Locked-install audit reports 10 moderate, zero high/critical findings in the
 Privy wallet dependency tree. A forced SDK downgrade is not an accepted fix.
-The approximately 5.6 MB minified provider bundle is account-page-only. The
+The approximately 5.6 MB minified provider bundle loads on the account page or
+on demand from the shared login/signup popup. The
 hosted compressed transfer and initial readiness observations above do not
 establish a population latency budget, isolated decode cost or end-to-end
 signup completion performance.

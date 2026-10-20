@@ -1010,7 +1010,7 @@ try {
   assert.ok(plain.url().endsWith("/debates/published-debate"));
   assert.equal(await plain.locator("[data-media-event]").count(), 1);
   await plain.goto(base);
-  await plain.getByRole("link", { name: "Your account", exact: true }).click();
+  await plain.getByRole("link", { name: "Log in", exact: true }).click();
   assert.equal(await plain.locator("#wallet-login").count(), 1);
   await nojs.close();
   checks.serverRenderedNoJavaScriptFallback = true;

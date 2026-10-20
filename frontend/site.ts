@@ -27,86 +27,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-const headerBalance = document.querySelector<HTMLElement>(
-  "[data-header-balance]",
-)!;
-if (headerBalance) {
-  const reserved = document.querySelector<HTMLElement>(
-    "[data-header-reserved]",
-  )!;
-  const avatar = document.querySelector<HTMLElement>("[data-header-account]")!;
-  const coins = (value: string) => {
-    const n = BigInt(value);
-    return `${n / 1000000n}.${String(n % 1000000n)
-      .padStart(6, "0")
-      .slice(0, 2)} YC`;
-  };
-  function showBalance(value: HeaderBalance | null) {
-    headerBalance.textContent = value ? coins(value.available) : "Yap Coins";
-    reserved.textContent = value
-      ? `${value.scope} · reserved ${coins(value.reserved)}`
-      : "Sign in to view balances.";
-  }
-  async function refreshHeader() {
-    try {
-      const auth = await fetch("/api/auth/me", {
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (!auth.ok) {
-        showBalance(null);
-        avatar.textContent = "↗";
-        return;
-      }
-      avatar.textContent = "You";
-      const profileResponse = await fetch("/api/me/profile", {
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (profileResponse.ok) {
-        const { profile }: { profile: { displayName: string } | null } =
-          await profileResponse.json();
-        if (profile?.displayName)
-          avatar.textContent = profile.displayName
-            .trim()
-            .split(/\s+/)
-            .slice(0, 2)
-            .map((part) => part[0])
-            .join("")
-            .toUpperCase();
-      }
-      avatar.setAttribute("aria-label", "Your signed-in account");
-      if (document.querySelector("[data-a4-inline]")) return;
-      const response = await fetch("/api/a4/wallet", {
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        showBalance(null);
-        return;
-      }
-      const result: { balances: { kind: string; amount: string }[] } =
-        await response.json();
-      showBalance({
-        available:
-          result.balances.find((b) => b.kind === "available")?.amount ?? "0",
-        reserved:
-          result.balances.find((b) => b.kind === "reserved")?.amount ?? "0",
-        scope: "Ordinary balance",
-      });
-    } catch {
-      showBalance(null);
-    }
-  }
-  window.addEventListener("yap:balance", (event) => showBalance(event.detail));
-  window.addEventListener("yap:account-changed", refreshHeader);
-  window.addEventListener("focus", refreshHeader);
-  setInterval(() => {
-    if (!document.hidden) void refreshHeader();
-  }, 45000);
-  void refreshHeader();
-}
-
 // One shared follow controller handles initial and progressively inserted controls.
 const followReads = new Map<string, Promise<boolean>>();
 const initializedFollows = new WeakMap<
@@ -176,9 +96,21 @@ function initializeFollows(scope: ParentNode = document) {
           credentials: "same-origin",
         });
         if (response.status === 401) {
-          window.location.assign(
-            `/account?next=${encodeURIComponent(window.location.pathname + window.location.search + window.location.hash)}`,
-          );
+          const returnTo =
+            window.location.pathname +
+            window.location.search +
+            window.location.hash;
+          if (
+            window.dispatchEvent(
+              new CustomEvent("yap:request-auth", {
+                cancelable: true,
+                detail: { returnTo },
+              }),
+            )
+          )
+            window.location.assign(
+              `/account?next=${encodeURIComponent(returnTo)}`,
+            );
           return;
         }
         if (!response.ok) {

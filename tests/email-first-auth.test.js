@@ -16,6 +16,33 @@ import {
   grantProgress,
 } from "../dist/features/account-wallet/repository.js";
 import { safeAuthReturn } from "../frontend/auth-return.ts";
+import { createEmailAuthSecurity } from "../dist/platform/auth/browser-security.js";
+
+it("admits lazy authentication while preserving media CSP and frame isolation", async () => {
+  const app = express()
+    .use(
+      createEmailAuthSecurity("production", {
+        connect: [
+          "wss://live.example",
+          "https://live.example",
+          "https://replay.example",
+        ],
+        playback: ["https://replay.example"],
+      }),
+    )
+    .get("/live", (_req, res) => res.send("public fixture"));
+  const response = await request(app).get("/live");
+  const policy = response.headers["content-security-policy"];
+  assert.match(
+    policy,
+    /connect-src[^;]*https:\/\/auth\.privy\.io[^;]*wss:\/\/live\.example/,
+  );
+  assert.match(policy, /media-src 'self' blob: https:\/\/replay\.example/);
+  assert.match(policy, /worker-src 'self' blob:/);
+  assert.match(policy, /frame-ancestors 'none'/);
+  assert.match(policy, /upgrade-insecure-requests/);
+  assert.doesNotMatch(policy, /walletconnect|unsafe-eval/);
+});
 
 const appId = "synthetic-app";
 const { publicKey, privateKey } = generateKeyPairSync("ec", {
@@ -254,6 +281,13 @@ describe("configuration and exact platform-currency presentation", () => {
     const origin = "https://arena.example";
     assert.equal(
       safeAuthReturn("/debates/test?round=1#commit", origin),
+      "/debates/test?round=1#commit",
+    );
+    assert.equal(
+      safeAuthReturn(
+        "/debates/test?round=1&%70rivy_oauth_code=synthetic-secret&privy_oauth_state=synthetic-state#commit",
+        origin,
+      ),
       "/debates/test?round=1#commit",
     );
     for (const path of [

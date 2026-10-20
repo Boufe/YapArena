@@ -51,9 +51,13 @@ export function createHttpLogger(logger: Logger) {
     serializers: {
       req(request) {
         const record = pino.stdSerializers.req(request);
-        // OAuth redirects carry single-use credentials in the account URL.
+        // Lazy authentication can return to any public page after OAuth.
         // Keep the route useful for operations without persisting query values.
-        if (/^\/account(?:[/?]|$)/.test(record.url ?? "")) {
+        const query = new URLSearchParams((record.url ?? "").split("?")[1]);
+        if (
+          /^\/account(?:[/?]|$)/.test(record.url ?? "") ||
+          [...query.keys()].some((key) => key.startsWith("privy_"))
+        ) {
           record.url = record.url.replace(/\?.*$/, "");
           record.query = {};
         }

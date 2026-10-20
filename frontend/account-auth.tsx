@@ -9,6 +9,7 @@ import {
   useLoginWithPasskey,
 } from "@privy-io/react-auth";
 import { safeAuthReturn } from "./auth-return.js";
+import type { AuthMode } from "./auth-events.js";
 
 type Config = {
   enabled: boolean;
@@ -45,6 +46,13 @@ function announceSession() {
 }
 
 function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
+  const [intent, setIntent] = useState<AuthMode | null>(
+    root?.dataset.authMode === "signup"
+      ? "signup"
+      : root?.dataset.authMode === "login"
+        ? "login"
+        : null,
+  );
   const { ready, authenticated, getAccessToken, logout } = usePrivy();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -67,12 +75,12 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
   });
   const { initOAuth } = useLoginWithOAuth({
     onComplete: () => {
-      void complete();
+      if (!cancelled.current) void complete();
     },
   });
   const { loginWithPasskey } = useLoginWithPasskey({
     onComplete: () => {
-      void complete();
+      if (!cancelled.current) void complete();
     },
   });
   useEffect(() => {
@@ -95,6 +103,31 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
     window.addEventListener("yap:provider-logout", end);
     return () => window.removeEventListener("yap:provider-logout", end);
   }, [logout]);
+  useEffect(() => {
+    const mode = (event: CustomEvent<AuthMode | null>) =>
+      setIntent(event.detail);
+    const dismiss = () => {
+      cancelled.current = true;
+      if (journeyStart.current !== null) measure("cancelled");
+      journeyStart.current = null;
+      setCode("");
+      setEmail("");
+      setStep("email");
+      setMessage(
+        "One account for the ideas you follow. No password to remember.",
+      );
+    };
+    window.addEventListener("yap:auth-mode", mode);
+    window.addEventListener("yap:auth-dismissed", dismiss);
+    return () => {
+      window.removeEventListener("yap:auth-mode", mode);
+      window.removeEventListener("yap:auth-dismissed", dismiss);
+    };
+  }, []);
+  useEffect(() => {
+    if (ready && intent && root?.closest<HTMLDialogElement>("dialog")?.open)
+      emailInput.current?.focus();
+  }, [ready, intent]);
 
   async function run(action: () => Promise<void>, failure: string) {
     if (pending.current || completing.current) return;
@@ -121,7 +154,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
   }
   const completing = useRef(false);
   async function complete() {
-    if (completing.current) return;
+    if (completing.current || cancelled.current) return;
     completing.current = true;
     setExchanging(true);
     setMessage("Verified. Opening your YapArena account…");
@@ -131,7 +164,9 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         cache: "no-store",
       });
       if (current.status !== 200) {
+        if (cancelled.current) return;
         const token = await getAccessToken();
+        if (cancelled.current) return;
         if (!token) throw new Error("no provider token");
         const response = await fetch("/api/auth/privy/exchange", {
           method: "POST",
@@ -158,6 +193,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         }
       }
       announceSession();
+      if (cancelled.current) return;
       if (journeyStart.current !== null) {
         measure(
           "completed",
@@ -166,9 +202,16 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         journeyStart.current = null;
       }
       const target = safeAuthReturn(
-        new URLSearchParams(location.search).get("next"),
+        root?.dataset.authReturn ??
+          new URLSearchParams(location.search).get("next"),
         location.origin,
       );
+      try {
+        sessionStorage.removeItem("yaparena-auth-return");
+      } catch {
+        /* Optional navigation state only. */
+      }
+      window.dispatchEvent(new Event("yap:auth-complete"));
       if (target) location.assign(target);
       else setMessage("You’re signed in. Your profile is optional.");
     } catch {
@@ -184,6 +227,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
     await run(async () => {
       if (authenticated) await logout();
       await sendCode({ email: email.trim() });
+      if (cancelled.current) return;
       measure(step === "code" ? "code_resent" : "code_sent");
       setCode("");
       setStep("code");
@@ -224,7 +268,15 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         <span />
       </div>
       <span className="eyebrow accent">WELCOME TO YAPARENA</span>
-      <h2>{step === "email" ? "Make yourself heard." : "Check your inbox."}</h2>
+      <h2>
+        {step === "email"
+          ? intent === "login"
+            ? "Welcome back."
+            : intent === "signup"
+              ? "Join YapArena."
+              : "Make yourself heard."
+          : "Check your inbox."}
+      </h2>
       <p className="auth-description">
         {step === "email" ? (
           "Your email is all you need to get started."
@@ -348,7 +400,31 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
             onClick={() =>
               void run(async () => {
                 if (authenticated) await logout();
-                await initOAuth({ provider: "google" });
+                if (root?.dataset.authSurface === "modal") {
+                  const next = safeAuthReturn(
+                    root.dataset.authReturn ?? null,
+                    location.origin,
+                  );
+                  if (next)
+                    try {
+                      sessionStorage.setItem(
+                        "yaparena-auth-return",
+                        JSON.stringify({ next }),
+                      );
+                    } catch {
+                      /* Email does not need navigation storage. */
+                    }
+                }
+                try {
+                  await initOAuth({ provider: "google" });
+                } catch (error) {
+                  try {
+                    sessionStorage.removeItem("yaparena-auth-return");
+                  } catch {
+                    /* Optional navigation state only. */
+                  }
+                  throw error;
+                }
               }, "Google sign-in was cancelled or unavailable. You can try email instead.")
             }
           >
@@ -395,9 +471,33 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
           Retry account sign-in
         </button>
       )}
+      <p className="auth-intent-switch">
+        {intent === "signup"
+          ? "Already have an account? "
+          : "New to YapArena? "}
+        <button
+          type="button"
+          data-auth-open={intent === "signup" ? "login" : "signup"}
+        >
+          {intent === "signup" ? "Log in" : "Sign up"}
+        </button>
+      </p>
+      <a
+        className="auth-legacy-link"
+        data-auth-fallback
+        href={`/account?next=${encodeURIComponent(root?.dataset.authReturn ?? "/debates")}`}
+      >
+        Use a wallet or existing password account →
+      </a>
       <p className="form-note">
         Just watching?{" "}
         <a
+          onClick={(event) => {
+            if (root?.dataset.authSurface === "modal") {
+              event.preventDefault();
+              root.closest<HTMLDialogElement>("dialog")?.close();
+            }
+          }}
           href={
             safeAuthReturn(
               new URLSearchParams(location.search).get("next"),

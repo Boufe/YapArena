@@ -493,16 +493,33 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
             credentials: "same-origin",
           });
           if (!check.ok) {
-            if (response.status === 403) {
+            const failure: unknown = await response.json().catch(() => null);
+            const code =
+              failure &&
+              typeof failure === "object" &&
+              "code" in failure &&
+              typeof failure.code === "string"
+                ? failure.code
+                : null;
+            if (code === "provider_credentials_changed") {
               setReconciliationToken(token);
               return;
             }
             setMessage(
-              response.status === 403
-                ? "Account access changed. Ownership verification is required before signing in again."
-                : response.status === 503
-                  ? "Sign-in is temporarily unavailable. Try again shortly."
-                  : "This sign-in could not be completed. Start a new sign-in.",
+              code === "provider_reset_pending"
+                ? "Your previous sign-out is still being completed. Wait a moment, then start a new sign-in."
+                : code === "provider_reset_review_required"
+                  ? "Your previous sign-out could not be confirmed with the sign-in provider. Account access needs a security review before you can sign in again. You do not need to add or replace a passkey to resolve this."
+                  : code === "provider_identity_retired"
+                    ? "This sign-in was replaced and no longer opens the earlier YapArena account. Use the replacement sign-in."
+                    : code === "provider_access_review_required" ||
+                        response.status === 403
+                      ? "Account access needs a security review before signing in again. No sign-in method has been accepted or replaced."
+                      : code === "provider_session_revoked"
+                        ? "This sign-in session has ended. Start a new sign-in."
+                        : response.status === 503
+                          ? "Sign-in is temporarily unavailable. Try again shortly."
+                          : "This sign-in could not be completed. Start a new sign-in.",
             );
             return;
           }

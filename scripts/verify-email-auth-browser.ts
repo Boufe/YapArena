@@ -350,11 +350,244 @@ async function capture(page: Page, name: string, fullPage: boolean) {
     await badge.evaluate((element) => element.remove());
   }
 }
+async function verifyExchangeFailureClassification(
+  name: string,
+  viewport: { width: number; height: number },
+) {
+  const scenarios = [
+    {
+      code: "provider_reset_review_required",
+      status: 403,
+      notice:
+        "Your previous sign-out could not be confirmed with the sign-in provider.",
+      reconciliation: false,
+    },
+    {
+      code: "provider_reset_pending",
+      status: 503,
+      notice: "Your previous sign-out is still being completed.",
+      reconciliation: false,
+    },
+    {
+      code: "synthetic_unknown_denial",
+      status: 403,
+      notice: "Account access needs a security review before signing in again.",
+      reconciliation: false,
+    },
+    {
+      code: "provider_credentials_changed",
+      status: 403,
+      notice: "Review sign-in changes",
+      reconciliation: true,
+    },
+  ];
+  for (const scenario of scenarios) {
+    const context = await browser.newContext({ viewport });
+    try {
+      await context.addInitScript(() => {
+        if (window === window.top)
+          localStorage.setItem("yaparena-measurement-declined", "1");
+      });
+      const page = await context.newPage();
+      page.on("pageerror", (error) => errors.push(error.message));
+      let exchanges = 0;
+      let candidates = 0;
+      const unexpectedProviderPaths: string[] = [];
+      const now = Math.floor(Date.now() / 1000);
+      const token = [
+        Buffer.from(JSON.stringify({ alg: "ES256", typ: "JWT" })).toString(
+          "base64url",
+        ),
+        Buffer.from(
+          JSON.stringify({
+            iss: "privy.io",
+            aud: appId,
+            sub: "did:privy:synthetic-exchange-classification",
+            sid: "synthetic-exchange-classification",
+            iat: now,
+            exp: now + 600,
+          }),
+        ).toString("base64url"),
+        "synthetic-signature-never-server-verified",
+      ].join(".");
+      const user = {
+        id: "did:privy:synthetic-exchange-classification",
+        is_guest: false,
+        created_at: now - 100,
+        has_accepted_terms: true,
+        mfa_methods: [],
+        linked_accounts: [
+          {
+            type: "email",
+            address: "unchanged-classification@example.invalid",
+            verified_at: now,
+            first_verified_at: now - 100,
+            latest_verified_at: now,
+          },
+        ],
+      };
+      const providerSession = {
+        user,
+        token,
+        privy_access_token: token,
+        refresh_token: "synthetic-refresh-never-sent-to-provider",
+        is_new_user: false,
+        session_update_action: "set",
+      };
+      await context.route(
+        (url) =>
+          url.origin === "https://auth.privy.io" &&
+          url.pathname.startsWith("/api/"),
+        (route) => {
+          const path = new URL(route.request().url()).pathname;
+          const headers = {
+            "access-control-allow-origin": base,
+            "access-control-allow-credentials": "true",
+            "access-control-allow-methods": "GET, POST, OPTIONS",
+            "access-control-allow-headers":
+              route.request().headers()["access-control-request-headers"] ??
+              "authorization, content-type, privy-app-id",
+          };
+          if (route.request().method() === "OPTIONS")
+            return route.fulfill({ status: 204, headers });
+          if (path === `/api/v1/apps/${appId}`)
+            return route.fulfill({
+              headers,
+              json: {
+                ...providerSettings,
+                captcha_enabled: false,
+                enabled_captcha_provider: null,
+              },
+            });
+          if (path === "/api/v1/passwordless/init")
+            return route.fulfill({ headers, json: { success: true } });
+          if (
+            path === "/api/v1/passwordless/authenticate" ||
+            path === "/api/v1/sessions"
+          )
+            return route.fulfill({ headers, json: providerSession });
+          if (path === "/api/v1/users/me")
+            return route.fulfill({ headers, json: { user } });
+          if (
+            path === "/api/v1/analytics_events" ||
+            path === "/api/v1/sessions/logout"
+          )
+            return route.fulfill({ headers, json: { success: true } });
+          unexpectedProviderPaths.push(path);
+          return route.abort();
+        },
+      );
+      await page.route("**/api/auth/me", (route) =>
+        route.fulfill({
+          status: 401,
+          json: { error: "authentication required" },
+        }),
+      );
+      await page.route("**/api/auth/privy/exchange", (route) => {
+        exchanges++;
+        return route.fulfill({
+          status: scenario.status,
+          headers:
+            scenario.code === "provider_reset_pending"
+              ? { "retry-after": "5" }
+              : {},
+          json: { error: "Synthetic classified denial", code: scenario.code },
+        });
+      });
+      await page.route(
+        "**/api/auth/security/access/reconciliation/candidate",
+        (route) => {
+          candidates++;
+          return route.fulfill({
+            json: {
+              before: [
+                {
+                  type: "email",
+                  id: "unchanged-classification@example.invalid",
+                },
+              ],
+              after: [
+                {
+                  type: "email",
+                  id: scenario.reconciliation
+                    ? "changed-classification@example.invalid"
+                    : "unchanged-classification@example.invalid",
+                },
+              ],
+              passkeys: [],
+              wallets: [],
+              legacyPassword: scenario.reconciliation,
+            },
+          });
+        },
+      );
+      await page.goto(`${base}/account`);
+      const auth = page.locator("#email-auth");
+      await page.waitForFunction(
+        () =>
+          document.querySelector<HTMLButtonElement>(
+            '#email-auth button[type="submit"]',
+          )?.disabled === false,
+      );
+      await auth
+        .getByLabel("Email address", { exact: true })
+        .fill("unchanged-classification@example.invalid");
+      await auth.getByRole("button", { name: /Continue with email/ }).click();
+      await auth
+        .getByLabel("Verification code", { exact: true })
+        .fill("123456");
+      await auth.getByRole("button", { name: "Verify and continue" }).click();
+      await page.getByText(scenario.notice, { exact: false }).waitFor();
+      assert.equal(exchanges, 1);
+      assert.equal(candidates, scenario.reconciliation ? 1 : 0);
+      assert.equal(
+        await page
+          .getByRole("heading", { name: "Review sign-in changes", exact: true })
+          .count(),
+        scenario.reconciliation ? 1 : 0,
+      );
+      if (scenario.reconciliation) {
+        await page.getByLabel("Verify with a retained method").waitFor();
+        assert.equal(
+          await page.getByRole("option", { name: "Current password" }).count(),
+          1,
+        );
+        await page
+          .getByText("Email: changed-classification@example.invalid", {
+            exact: true,
+          })
+          .waitFor();
+      } else {
+        assert.equal(
+          await page.getByLabel("Verify with a retained method").count(),
+          0,
+        );
+        assert.equal(
+          await page
+            .getByText("No retained security method is available.", {
+              exact: false,
+            })
+            .count(),
+          0,
+        );
+      }
+      assert.equal(await page.locator("#signed-in").isVisible(), false);
+      assert.deepEqual(unexpectedProviderPaths, []);
+      await capture(page, `exchange-${scenario.code}-${name}.png`, true);
+      checks.push(
+        `${name}: ${scenario.code} keeps denied app access and ${scenario.reconciliation ? "opens exact changed-method review with its retained password" : "shows its classified notice without an empty sign-in-method reconciliation"}; synthetic SDK success only`,
+      );
+    } finally {
+      await context.close();
+    }
+  }
+}
 try {
   for (const [name, viewport] of [
     ["desktop", { width: 1440, height: 1000 }],
     ["mobile", { width: 390, height: 844 }],
   ] as const) {
+    await verifyExchangeFailureClassification(name, viewport);
     const context = await browser.newContext({
       viewport,
       reducedMotion: "reduce",

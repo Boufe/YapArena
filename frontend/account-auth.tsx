@@ -231,6 +231,14 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
       setBusy(false);
     }
   }
+  function finishJourney() {
+    if (journeyStart.current === null) return;
+    measure(
+      "completed",
+      Math.min(600, (performance.now() - journeyStart.current) / 1000),
+    );
+    journeyStart.current = null;
+  }
   const completing = useRef(false);
   async function complete() {
     if (completing.current || cancelled.current) return;
@@ -252,6 +260,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         const token = await getAccessToken();
         if (!token || cancelled.current) return;
         await window.yapLinkProviderIdentity(token);
+        finishJourney();
         linkIntent.current = false;
         rememberLink(false);
         announceSession();
@@ -294,13 +303,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
       }
       announceSession();
       if (cancelled.current) return;
-      if (journeyStart.current !== null) {
-        measure(
-          "completed",
-          Math.min(600, (performance.now() - journeyStart.current) / 1000),
-        );
-        journeyStart.current = null;
-      }
+      finishJourney();
       const target = safeAuthReturn(
         root?.dataset.authReturn ??
           new URLSearchParams(location.search).get("next"),
@@ -355,6 +358,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
           `access/login/${encodeURIComponent(challenge.id)}/complete`,
           { authentication },
         );
+        finishJourney();
         announceSession();
         window.dispatchEvent(new Event("yap:auth-complete"));
         const target = safeAuthReturn(
@@ -723,7 +727,19 @@ function Reconciliation({
 }) {
   const dialog = useRef<HTMLDialogElement>(null),
     title = useRef<HTMLHeadingElement>(null),
-    locked = useRef(false);
+    locked = useRef(false),
+    recoveryStart = useRef(performance.now());
+  function recoveryOutcome(event: string) {
+    measure(
+      event,
+      Math.min(600, (performance.now() - recoveryStart.current) / 1000),
+    );
+  }
+  function cancelRecovery() {
+    recoveryOutcome("recovery_cancelled");
+    setPassword("");
+    onClose();
+  }
   const [candidate, setCandidate] = useState<RecoveryCandidate | null>(null),
     [selected, setSelected] = useState(""),
     [password, setPassword] = useState(""),
@@ -760,12 +776,14 @@ function Reconciliation({
         );
       })
       .catch((error) => {
-        if (!cancelled)
+        if (!cancelled) {
+          recoveryOutcome("recovery_failed");
           setMessage(
             error instanceof Error
               ? error.message
               : "Ownership review is required.",
           );
+        }
       });
     return () => {
       cancelled = true;
@@ -846,9 +864,10 @@ function Reconciliation({
         { approval },
         token,
       );
-      measure("recovery_completed");
+      recoveryOutcome("recovery_completed");
       onComplete();
     } catch (error) {
+      recoveryOutcome("recovery_failed");
       setPassword("");
       setMessage(
         error instanceof Error
@@ -868,8 +887,7 @@ function Reconciliation({
       onCancel={(event) => {
         event.preventDefault();
         if (!busy) {
-          setPassword("");
-          onClose();
+          cancelRecovery();
         }
       }}
     >
@@ -960,8 +978,7 @@ function Reconciliation({
           type="button"
           disabled={busy}
           onClick={() => {
-            setPassword("");
-            onClose();
+            cancelRecovery();
           }}
         >
           Cancel

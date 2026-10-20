@@ -196,6 +196,8 @@ export function createAuthRouter({
       "provider_error",
       "recovery_started",
       "recovery_completed",
+      "recovery_failed",
+      "recovery_cancelled",
       "cancelled",
     ]);
     const { event, seconds } = request.body ?? {};

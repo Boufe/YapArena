@@ -527,18 +527,27 @@ describe("provider exchange API", () => {
     }
   });
   it("allows only bounded aggregate telemetry fields", async () => {
-    assert.equal(
-      (
-        await request(setup())
-          .post("/api/auth/journey")
-          .send({ event: "code_resent" })
-      ).status,
-      204,
-    );
+    for (const event of [
+      "code_resent",
+      "recovery_started",
+      "recovery_completed",
+      "recovery_failed",
+      "recovery_cancelled",
+    ])
+      assert.equal(
+        (
+          await request(setup())
+            .post("/api/auth/journey")
+            .send({ event, seconds: 1.25 })
+        ).status,
+        204,
+      );
     for (const body of [
       { event: "code", code: "secret" },
       { event: "code_sent", email: "private@example.test" },
       { event: "code_sent", seconds: 601 },
+      { event: "recovery_failed", error: "private provider response" },
+      { event: "recovery_completed", signature: "private proof" },
     ])
       assert.equal(
         (await request(setup()).post("/api/auth/journey").send(body)).status,

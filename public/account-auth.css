@@ -23,10 +23,15 @@
   margin-left: auto;
   max-width: 100%;
 }
-#coin-sandbox [data-coin-reports] > li {
+#coin-sandbox [data-coin-reports] > li,
+#coin-sandbox [data-coin-receipts] > li {
   display: block;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+#coin-sandbox [data-coin-receipts] > li > button {
+  display: block;
+  margin-top: 8px;
 }
 .account-back {
   color: #a3b4c5;

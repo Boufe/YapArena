@@ -94,8 +94,10 @@ the local stack intentionally does not send them.
 The in-progress [email-first account operating contract](email-first-accounts.md)
 lists Privy/Redis runtime variables, provider-session fences, financial gates and
 the explicit guarded staging-reset command. Provision/migrate as a separate owner
-process; web and worker processes must keep runtime credentials only. The reset
-has not been executed and must never run at startup or from a migration.
+process; web and worker processes must keep runtime credentials only. The narrowed
+four-account staging reset was executed after backup and rehearsal; retained
+accounts and the later manual signup must remain. The guarded reset command must
+never run at startup or from a migration. Do not repeat the reset for acceptance.
 
 Use Node.js 24 and locked dependencies. The complete source quality gate needs explicit
 disposable A4, wallet and revocation PostgreSQL identities; without them those suites skip
@@ -106,12 +108,17 @@ the identities, applies migrations, runs runtime-role journeys, and supplies all
 A4_QUALITY=true npm run verify:database-isolation
 # Native alternative: PostgreSQL 17/18 tools on PATH, non-root user:
 LC_ALL=C LANG=C DATABASE_TEST_MODE=host A4_QUALITY=true npm run verify:database-isolation
+# Include the expanded account/security/coin/media PostgreSQL regression suites:
+LC_ALL=C LANG=C DATABASE_TEST_MODE=host ACCOUNT_SECURITY_VERIFY=true A4_QUALITY=true npm run verify:database-isolation
 ```
 
 `A4_QUALITY=true` runs the full `npm run check` once against the fresh database.
 Add `A4_VERIFY=true` to run the focused A4 PostgreSQL suite separately in both fresh and
 upgrade scenarios. Native initdb explicitly uses UTF-8; the harness verifies server/client
-encoding and C locale when requested. Every run removes its disposable cluster on exit.
+encoding and C locale when requested. Account-security verification runs its focused
+suites on fresh and upgrade paths. The account-security and full-quality modes also
+create separate Base Sepolia treasury fixture databases; these never change the
+simulation rail used by the general suites. Every run removes its disposable cluster on exit.
 No application process should load the combined operator `.env` or receive owner credentials.
 
 For browser changes, `npm run verify:browser` coordinates the full database-backed quality
@@ -132,9 +139,13 @@ is separate from hosted acceptance.
 
 Use the [account session revocation procedure](security/account-session-revocation.md) for
 owner logout-all/logout-others, wallet compromise and operator password credential updates.
-It defines account-first transaction locks, audit and generation checks. These operations
-allow a fresh sign-in with a retained credential; they are not account suspension. Existing
-LiveKit grants and connections need separate provider containment.
+It defines account-first transaction locks, audit and generation checks. Normal
+**Sign out** retires all YapArena sessions. Explicit individual-session and
+other-session controls remain available. These operations allow a fresh sign-in
+with a retained credential; they are not account suspension. The integrated media
+revocation queue disconnects tracked speakers separately and retries provider failures.
+Cloud token rejection, legacy-grant drainage and hosted acceptance retain the
+separate gates documented in that procedure.
 
 Deploy the auth fixes with a coordinated restart. The additive F03 migration signs out all
 legacy sessions and consumes pending challenges. Its schema guards must stay installed

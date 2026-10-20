@@ -10,12 +10,12 @@ Email verification codes are primary. Google and passkeys are optional. Public
 discovery/watching stay public; initial profiles are optional. Financial
 eligibility is collected at the financial boundary, not ordinary signup.
 
-| Phase | Scope                                                 | Current boundary                                                                                                       |
-| ----- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| A     | Privy, onboarding, stable accounts, sessions/settings | Genuine hosted email signup verified; recovery/linking, optional methods and device acceptance outstanding             |
-| B     | Shared Redis controls and justified caches            | Local multi-client/outage checks passed; staging protected request passed its Redis control                            |
-| C     | Redeemable YC, sandbox funding/redemption             | Ledger foundation/read-only balances; no financial adapter or usable money workflow                                    |
-| D     | Authorized reset and final acceptance                 | Selected IDs 1–4 deleted after backup/rehearsal; three retained accounts and the founder's new manual signup preserved |
+| Phase | Scope                                                 | Current boundary                                                                                                                                                  |
+| ----- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A     | Privy, onboarding, stable accounts, sessions/settings | Operation-bound security keys, recovery/linking and session controls implemented; genuine hosted returning/recovery/device acceptance outstanding                 |
+| B     | Shared Redis controls and justified caches            | Local multi-client/outage checks passed; staging protected request passed its Redis control                                                                       |
+| C     | Redeemable YC, sandbox funding/redemption             | Persistent simulated workflows and YES/NO source accounting implemented; actual Base Sepolia funding/payout reconciled through isolated app ledger; live disabled |
+| D     | Authorized reset and final acceptance                 | Selected IDs 1–4 deleted after backup/rehearsal; three retained accounts and the founder's new manual signup preserved                                            |
 
 These phases preserve the combined [pre-funds gates](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds).
 Unresolved financial decisions do not block independent authentication work.
@@ -24,43 +24,53 @@ Unresolved financial decisions do not block independent authentication work.
 
 Latest founder decisions supersede earlier CAD/bank/PayPal instructions.
 
-| Term                       | Confirmed decision / unresolved detail                                                                                                                                       |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Meaning / representation   | YapArena-issued platform currency held as internal account balances; no ERC-20 or confidential-chain requirement                                                             |
-| Value                      | **100 YC = 1 USDC**; six-decimal USDC atomic integers, 10,000 atomic units per YC                                                                                            |
-| Region                     | Canada initially; founder requested CRSHMARKET's 18+ and legally permitted access baseline. Provincial/provider eligibility and retention still require review               |
-| Purchases                  | Supported crypto only for now, quoted conversion into USDC before crediting YC; cards deferred by founder while this is a personal project                                   |
-| Requested deposit networks | Ethereum, Base, Solana, BNB Smart Chain and Bitcoin; routes/input assets still require provider verification                                                                 |
-| Withdrawal                 | External crypto wallet, **USDC only**; no bank/PayPal payout                                                                                                                 |
-| Bitcoin / BNB              | Input-conversion routes; never assume native USDC support on those networks                                                                                                  |
-| Welcome                    | 2,500 YC, grant principal permanently spend-only                                                                                                                             |
-| Daily                      | 500 YC once per Toronto calendar day; each grant requires fresh net profit earned using that grant                                                                           |
-| Qualification              | Welcome lot needs 2,500 YC net profit; each daily lot needs its own 500 YC. Receipt is not profit, does not raise the welcome target, and cannot reuse prior profit          |
-| Example                    | Welcome 2,500 + qualifying profit 2,500 = 5,000 balance; only 2,500 profit withdrawable                                                                                      |
-| Promotional backing        | Initial 50 USDC treasury budget approved for qualified grant profits, separate from purchased-user backing; allocation and caps not yet implemented                          |
-| Spending / losses          | Oldest grant first, then purchased coins; mixed-source profit/loss allocated proportionally. Once a grant qualifies, it stays qualified after subsequent losses              |
-| Purchased value            | No grant-profit qualification requirement for purchased coins; standard operation authorization and applicable provider/eligibility checks still apply                       |
-| Limits / timing            | 5 USDC withdrawal minimum, 100 USDC per account per day maximum, user pays displayed network fee, manual review initially; payout timing commitment unresolved               |
-| Transfers / corrections    | No user-to-user transfers initially; unused purchases refunded via original route where supported; failed-payout reserves release only after reconciliation proves no payout |
-| Operator status            | Personal project for now; no company registration or provider eligibility assumed                                                                                            |
-| Custody / reserves         | Recommend provider-held user backing separated from fees/operations, with YapArena ledger reconciliation; provider support, custody, signers and reserve caps need approval  |
-| A4                         | Existing `YAP` is **nonredeemable play money**, including starter/refill/bot grants; economics preserved. Redeemable use requires reviewed terms and all gates               |
+| Term                       | Confirmed decision / unresolved detail                                                                                                                                                                                                                                                                      |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Meaning / representation   | YapArena-issued platform currency held as internal account balances; no ERC-20 or confidential-chain requirement                                                                                                                                                                                            |
+| Value                      | **100 YC = 1 USDC**; six-decimal USDC atomic integers, 10,000 atomic units per YC                                                                                                                                                                                                                           |
+| Region                     | Canada initially, subject to activity-specific provincial/provider age, identity and retention review. Every live province remains disabled; no universal 18-year threshold is assumed.                                                                                                                     |
+| Purchases                  | Supported crypto only for now, quoted conversion into USDC before crediting YC; cards deferred by founder while this is a personal project                                                                                                                                                                  |
+| Requested deposit networks | Ethereum, Base, Solana, BNB Smart Chain and Bitcoin; routes/input assets still require provider verification                                                                                                                                                                                                |
+| Withdrawal                 | External crypto wallet, **USDC only**; no bank/PayPal payout                                                                                                                                                                                                                                                |
+| Bitcoin / BNB              | Input-conversion routes; never assume native USDC support on those networks                                                                                                                                                                                                                                 |
+| Welcome                    | 2,500 YC, grant principal permanently spend-only                                                                                                                                                                                                                                                            |
+| Daily                      | 500 YC once per Toronto calendar day; each grant requires fresh net profit earned using that grant                                                                                                                                                                                                          |
+| Qualification              | Welcome lot needs 2,500 YC net profit; each daily lot needs its own 500 YC. Receipt is not profit, does not raise the welcome target, and cannot reuse prior profit                                                                                                                                         |
+| Example                    | Welcome 2,500 + qualifying profit 2,500 = 5,000 balance; only 2,500 profit withdrawable                                                                                                                                                                                                                     |
+| Promotional backing        | Initial 50 USDC treasury budget approved, still unfunded/unallocated. Sandbox reserves maximum new promotional exposure before admission, separately from purchased backing; never cap already-earned backed profit afterward.                                                                              |
+| Spending / losses          | Oldest grant first, then purchased coins; mixed-source profit/loss allocated proportionally. Once a grant qualifies, it stays qualified after subsequent losses                                                                                                                                             |
+| Purchased value            | No grant-profit qualification requirement for purchased coins; standard operation authorization and applicable provider/eligibility checks still apply                                                                                                                                                      |
+| Limits / timing            | Founder update: 5 USDC minimum gross debit, **no daily withdrawal cap**. Displayed network fee comes out of the debit: request 5, fee 0.10, receive 4.90. Manual review target: two Toronto business days excluding Canadian federal holidays; network confirmation is additional.                          |
+| Transfers / corrections    | No user-to-user transfers initially. Founder update: completed purchases use USDC withdrawals only; no original-route unused-purchase refunds. Incorrect/failed deposits require support/reconciliation/corrections. Uncertain payout reserves release only after reconciliation proves no payout.          |
+| Error reports and costs    | Accept reports whenever submitted; review transaction evidence and append auditable corrections. Operator-caused shortfalls/costs use separate operator funds. Quote recovery costs and obtain consent first; ordinary trading losses remain final. Compensation restores only the original balance source. |
+| Settlement order           | Grant qualification follows round closing time, then round UUID for an equal-time tie. Later API request arrival cannot reorder profit before an earlier loss.                                                                                                                                              |
+| Operator status            | Personal project for now; no company registration or provider eligibility assumed                                                                                                                                                                                                                           |
+| Custody / reserves         | Recommend provider-held user backing separated from fees/operations, with YapArena ledger reconciliation; provider support, custody, signers and reserve caps need approval                                                                                                                                 |
+| A4                         | Existing `YAP` is **nonredeemable play money**, including starter/refill/bot grants; economics preserved. Redeemable use requires reviewed terms and all gates                                                                                                                                              |
 
 Paid-product direction is money-backed YC with explicit spend-only promotions.
 Historical play, sandbox simulation and live liabilities stay separate. Old grants
 never acquire cash value. No live funding, redemption or financial promotion is
 enabled; the approved 50 USDC budget has not been funded or allocated.
 
-The ledger foundation enforces balanced postings, exact projections, sealed
-committed journals, exact reversals and environment/asset consistency. Runtime
-has read-only ledger access. Immutable grant lots and profit events support the
-read-only progress display: independent targets, exact net profit and remaining
-amounts, and permanent qualification based on each lot's profit peak. Header
-balance menus and the homepage balance dialog show **Available for withdrawal:
-X YC**; Escape closes them and restores focus. No fabricated grant is issued to
-a real account. Grant spending/profit attribution, funded issuance,
-operation-specific authorization, reservation/redemption orchestration, external
-movement/reconciliation and payout webhooks are **not implemented**.
+The ledger enforces balanced postings, exact projections, sealed committed
+journals, exact reversals and environment/asset consistency. Runtime writes are
+restricted to the isolated sandbox; live financial history is not writable by
+the web role. Immutable grant lots and profit events support independent targets
+and permanent qualification. The existing header/menu projections remain
+separate from explicitly labelled simulation balances; Escape restores focus.
+
+Persistent sandbox workflows now cover confirmed funding, exact source-aware
+grants/spending/results, transactional withdrawal reservations, manual owner
+review, operation-bound authorization, authenticated notification handling and
+external reconciliation. Actual Base Sepolia test USDC was credited and paid
+through a separate isolated application ledger after canonical/finalized receipt
+verification. Conversion quotes in the public sandbox remain deterministic
+simulations. [Recorded evidence](evidence/coin-testnet/ledger/README.md) identifies
+the exact scope; it is not multichain/provider or live-money acceptance. Error
+report/review and source-restoring compensation are implemented under the
+approved policy above; final combined browser/quality acceptance remains open. The [completion matrix](email-first-completion.md)
+tracks final combined and hosted gates.
 
 ## Provider verification and limitations
 
@@ -78,7 +88,7 @@ Official documentation checked 2026-10-19; locked versions:
 - [Crypto deposits](https://docs.privy.io/wallets/funding/crypto-deposits/overview): routes differ from supported assets; dedicated addresses require wallets and app-paid source-chain gas sponsorship. No sponsorship credits purchased.
 - [Pricing](https://www.privy.io/pricing): free below 500 MAU; automatic upgrades need monitoring. Free/low-cost preference; no paid upgrade approved.
 - [Deletion](https://docs.privy.io/user-management/users/managing-users/deleting-users): deletion changes future DID and disassociates wallets. Never delete keys/assets for a fresh-looking signup.
-- [Webhooks](https://docs.privy.io/api-reference/webhooks/overview): development testing is free; the current documentation requires Enterprise for production webhooks. No paid upgrade approved. Provider credential-event handling is not implemented; out-of-band provider changes are checked at exchange, not continuously against already-issued app cookies.
+- [Webhooks](https://docs.privy.io/api-reference/webhooks/overview): development testing is free; the current documentation requires Enterprise for production webhooks. No paid upgrade approved. The selected affordable design instead performs a server-side Privy user inspection on every protected authenticated request. It compares verified credential snapshots and revokes changed accounts; provider outages fail closed. Local logout/revocation and public access bypass that inspection. Production rate capacity remains a release gate.
 
 The selected dashboard reports a development-app limit of 150 users. This is
 distinct from the advertised free production MAU allowance. Sender/branding
@@ -106,22 +116,32 @@ PostgreSQL owns stable bigint IDs, unique provider-DID mappings, account status,
 auth generations, consumed provider sessions and application sessions.
 Provisioning is transactional, DID-locked and idempotent. Matching legacy
 unverified email text never merges accounts. Retained accounts need existing
-credentials and deliberate dual-ownership reconciliation; that linking flow is
-not implemented. Privy mode retires new password registration.
+credentials and deliberate dual-ownership reconciliation. That flow now requires
+proof of the retained account and the verified provider identity; an identity
+already owned by another account fails for manual review. Privy mode retires new
+password registration. Final combined and hosted acceptance is tracked separately
+in the [completion matrix](email-first-completion.md).
 
 The selected app initially had email on, Google/passkeys/CAPTCHA off, no allowed
 origins, and email auto-merging on. On 2026-10-19, automatic merging was disabled
 under **App settings → Basics → Advanced → Account merging**, Turnstile CAPTCHA
 was enabled, and the staging HTTPS origin was added. A supported SDK settings
-read independently confirmed all three changes. Google/passkeys remain off in
-the selected app. The server requires auto-merging off and rechecks before
+read independently confirmed all three changes. During completion work, the
+founder signed into the dashboard and the free development-app Google/passkey
+login options were enabled; public staging configuration independently confirms
+both. Embedded-wallet provisioning remains off. The server requires auto-merging off and rechecks before
 exchange; only enabled optional methods appear. No cached positive ownership
 decision bypasses this check.
 
 The verified credential identifiers are hashed as an enrollment snapshot. A new
 exchange with changed methods is rejected for deliberate ownership reconciliation.
-Self-service email changes, method linking/removal and passkey enrollment remain
-disabled until operation-specific proof and revocation coverage are implemented.
+Email changes and method linking/removal now use retained operation-specific proof
+before provider interaction and exact verified credential-delta reconciliation
+afterward. Provider-side ownership rules still apply. Separate YapArena security
+passkeys provide server-verifiable fresh authorization and returning access; they
+do not mint Privy tokens or replace provider email verification. First-key setup
+requires a valid account session, no prior strong method and no financial history;
+existing password/wallet accounts approve setup with that retained method.
 
 Each Privy `sid` can issue at most one YapArena session. Token refresh/replay
 cannot recreate an expired/revoked app session. Exchange requires exact Origin,
@@ -130,25 +150,35 @@ Production `__Host-session` is Secure, HttpOnly, host-only, SameSite Strict.
 Safe return retains the initiating local path, query and fragment. Account-page
 OAuth query strings are omitted from HTTP logs.
 
-Current logout, logout-others and logout-all retain their PostgreSQL semantics.
+Normal **Sign out** now revokes all YapArena sessions by founder decision.
+Explicit owned-session and logout-others controls retain their targeted semantics.
 Generation changes enqueue durable provider-revocation work in the transaction.
 The local fence commits before external calls. After a confirmed provider freeze,
 the worker unfreezes active accounts and advances the mapping with an issuance
 bound strictly after the freeze. This bound works only after old refresh sessions
 were revoked; `iat` alone is not fresh authentication. Failures retain the fence
-and retry after a lease. Independently pre-frozen accounts require operator
-review. Resume after suspension still requires reviewed reconciliation.
+and retry after a lease. Uncertain mutations and independently pre-frozen accounts
+require operator review; provider incident handling requires a single writer
+because the provider has no conditional ownership API for freeze/unfreeze.
+Resume after suspension still requires reviewed reconciliation.
 
-Sensitive backend changes retain operation-bound password/SIWE proof. New
-provider-only wallet linking, email change, credential removal, financial
-recovery, payout destination and redemption remain gated until backend-verifiable
-expiring proof binds account, generation, operation, nonce, expiry and financial
-terms where applicable. Browser MFA flags and token refresh are insufficient.
+Sensitive backend changes retain operation-bound password/SIWE proof and add
+separate YapArena security passkeys. Provider-only first-wallet linking also
+requires target-wallet SIWE ownership. Expiring single-use proof binds account,
+session/generation, operation, nonce, expiry and exact financial terms where
+applicable. The sandbox withdrawal reserves funds and consumes that proof in one
+transaction. Browser MFA flags and token refresh are insufficient.
 Weaker email recovery cannot replace stronger wallet authorization.
+If every retained security passkey, trusted wallet and password is lost, ordinary
+email access may continue but financial access remains locked until recovery is
+approved with the selected identity provider. This boundary does not imply an
+implemented manual identity-verification service.
 
 Already-open media connections, outstanding grants and in-flight feature writes
 retain their documented [revocation boundary](security/account-session-revocation.md#external-and-in-flight-boundaries).
-The Privy outbox does not revoke LiveKit/media grants.
+The Privy outbox does not revoke LiveKit/media grants. A separate tracked-speaker
+queue now handles session expiry/revocation and suspension with durable retries;
+Cloud token rejection and legacy-grant rollout require separate hosted acceptance.
 
 ## Redis, configuration and measurements
 

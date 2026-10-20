@@ -13,9 +13,14 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 ## Current implementation and evidence
 
 Email-first account work is tracked in the [implementation and financial decision
-record](email-first-accounts.md). Baseline was fetched main `fd60543`; the branch
-adds Privy/session and Redis foundations, read-only USDC-denominated balances and
-an explicit staging-reset operator. The selected staging deletion removed IDs
+record](email-first-accounts.md) and the detailed
+[completion matrix](email-first-completion.md). Baseline was fetched main
+`fd60543`; the existing feature branch preserves the hosted Privy implementation
+and adds operation-bound security passkeys, retained-credential account management,
+provider-change monitoring, session controls, speaker revocation and an isolated
+coin sandbox with persistent funding, source accounting, manual withdrawals and
+YES/NO A4 participation. These additions are under combined release verification;
+source implementation is not hosted or production acceptance. The selected staging deletion removed IDs
 1–4 after encrypted backup and restore/concurrency rehearsal, preserving the
 three accounts the founder explicitly retained. The feature revision is live
 with shared Redis connectivity and ordinary signup enabled. The founder completed
@@ -25,7 +30,10 @@ adds focused authentication, an account dashboard and clearer withdrawal progres
 The [shared header and authentication popup](evidence/shared-header/README.md)
 unify account entry points and navigation, hide member controls until the app
 session is verified, and load the provider bundle on demand from public pages.
-Recovery, money movement and full account acceptance remain open. Existing A4 remains nonredeemable
+Current free development-app Google/passkey login options are enabled; genuine
+returning/linking/recovery journeys and final account acceptance remain open.
+Real Base Sepolia test-USDC receipt evidence is separate from labelled conversion
+simulations. No live financial routes are enabled. Existing A4 remains nonredeemable
 play money; the new 100 YC/USDC direction does not convert historical grants or
 satisfy the combined paid-release gates.
 

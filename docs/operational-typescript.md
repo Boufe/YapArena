@@ -19,10 +19,31 @@ New email-first automation is also strict TypeScript: `reset-test-accounts` and
 is never imported by runtime or migrations. See [scope and limits](email-first-accounts.md).
 
 `coin-sandbox-operator.ts` is also checked in the database-tools project. It is an
-explicit owner-only, sandbox-only command, with no `.env` loading, HTTP listener,
-signing or broadcasting. Its inbox drain and reconciliation run separately from
+explicit owner-only, sandbox-only command, with no `.env` loading or HTTP listener.
+Its optional fixed Base Sepolia signing/broadcast commands require the isolated
+testnet rail and persist the nonce and exact transaction before submission.
+Its inbox drain and reconciliation run separately from
 runtime. See [the sandbox operating guide](coin-sandbox-operations.md) for command
 schemas, secret variable names, physical rail isolation and release boundaries.
+
+`verify-coin-testnet.ts` and `verify-coin-testnet-ledger.ts` are checked in the same
+project. Their fixed Base Sepolia/Circle test-asset paths use private disposable
+operator keys and distinguish standalone chain receipts from integrated
+application-ledger acceptance. `verify-security-passkey-browser.ts`,
+`verify-coin-sandbox-browser.ts`, `verify-session-coordination-browser.ts` and
+`verify-media-cloud-revocation.ts` are checked
+in browser automation. The first two use isolated real application backends with
+virtual browser devices; the last requires an explicitly authorized bounded
+hosted LiveKit trial. None substitutes for physical-device or screen-reader
+acceptance. See the [completion matrix](email-first-completion.md) for current
+commands, tested revisions and limits.
+
+`verify-account-staging.ts` performs a read-only, strict-TLS catalog/account
+preflight. `release-account-staging.ts` is a separate guarded owner command for
+encrypted backup, isolated restore/migration rehearsal and exact reviewed
+additive migrations. It requires independently stopped writers and passed
+release gates; its environment assertions alone do not establish either.
+Neither command resets accounts or enables live financial activity.
 
 These former JavaScript files retain their names with a `.ts` extension:
 

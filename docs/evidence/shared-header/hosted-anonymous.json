@@ -1,7 +1,8 @@
 {
-  "at": "2026-10-20T00:30:09.993Z",
+  "nativeIdeaSearchWithoutJavaScript": true,
+  "at": "2026-10-20T00:44:12.805Z",
   "origin": "https://yaparena-staging-web.onrender.com",
-  "revision": "c1f2c3fc1dab0f673b87083e899217e4b2074108",
+  "revision": "f942dc6290e5794395c380612abc826ea7952b16",
   "topLevelCspViolations": 0,
   "observations": [
     {
@@ -16,9 +17,9 @@
         "/coins"
       ],
       "initialProviderRequests": 0,
-      "popupReadyMs": 2115,
+      "popupReadyMs": 2036,
       "authBundle": {
-        "durationMs": 1149,
+        "durationMs": 933,
         "transferBytes": 1721094,
         "encodedBytes": 1720794
       },
@@ -40,11 +41,11 @@
         "/coins"
       ],
       "initialProviderRequests": 0,
-      "popupReadyMs": 1337,
+      "popupReadyMs": 1344,
       "authBundle": {
-        "durationMs": 590,
-        "transferBytes": 1721499,
-        "encodedBytes": 1721199
+        "durationMs": 512,
+        "transferBytes": 1721138,
+        "encodedBytes": 1720838
       },
       "captchaFrames": 2,
       "pageErrors": 0,

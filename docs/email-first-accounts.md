@@ -338,7 +338,7 @@ paths and HTTP request logs. The Deposit button explains that funding is not yet
 available. No provider identity, wallet, money journal or financial adapter is
 created by this UI change. Responsive container queries support 200% header
 reflow; a desktop/mobile comparison verifies shared geometry and typography
-without the debate stylesheet. The final UI revision `c1f2c3f` is deployed and
+without the debate stylesheet. The final UI revision `f942dc6` is deployed and
 verified anonymously on staging; real popup signup, optional-method and financial
 acceptance remain gated as described in the linked evidence.
 

@@ -105,7 +105,7 @@ geometry, typography and colors without depending on the debate stylesheet.
 ## Hosted observations
 
 The [deployment report](hosted-deployment.json) records final UI revision
-`c1f2c3f` live at 2026-10-20 00:27:25 UTC, healthy public routes and anonymous
+`f942dc6` live at 2026-10-20 00:42:04 UTC, healthy public routes and anonymous
 session denial. No database
 reset, financial enablement, automatic deployment change or worker revision change
 is part of this rollout.
@@ -116,7 +116,8 @@ with no interception. The [hosted browser report](hosted-anonymous.json) checks
 the shared header on seven public pages, zero provider requests before opening
 authentication, real provider/CAPTCHA initialization, exact initiating URLs and
 Back/Escape/Keep exploring dismissal with focus restoration, plus hosted 200%
-header reflow. It records measured
+header reflow. Native Enter-to-search without JavaScript is also verified on
+staging. It records measured
 readiness and compressed transfer size; these workstation observations are not
 population-performance, successful login, inbox, physical-device or WCAG acceptance.
 The first hosted check matched both a header link and a hidden popup button;
@@ -130,7 +131,7 @@ rollout. Three consumed provider-session exchanges map to the same account.
 These mutable counts changed during independent activity; they are not a
 captured returning-user/logout journey. No automation acceptance identity was created.
 
-The final shared-source CI run is [39347465148](https://github.com/Boufe/YapArena/actions/runs/39347465148).
+All five checks passed on the shared-style source revision `c1f2c3f` in [39347465148](https://github.com/Boufe/YapArena/actions/runs/39347465148).
 Follow [PR #42](https://github.com/Boufe/YapArena/pull/42) for the latest checks.
 The earlier failed zoom run remains historical failure evidence; full WCAG,
 physical-device, recovery and financial acceptance remain open.

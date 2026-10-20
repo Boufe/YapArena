@@ -1,8 +1,8 @@
 {
-  "at": "2026-10-20T06:23:25.866Z",
+  "at": "2026-10-20T06:52:09.571Z",
   "phase": "preflight",
   "passed": true,
-  "revision": "979281c4f04ce2972f2dd13e04c27fdb24da4aee",
+  "revision": "d259a56481439675e133aa683d10aa1cff4b71de",
   "helperSha256": "ae7c98963a09d4dafe0572c887a60011092bbf8d7dcd12f486e5b94cbafad012",
   "projectRef": "ypteqfmjietdqjzyvgtk",
   "targetVerified": true,
@@ -58,7 +58,8 @@
       "1792426006500_add-sandbox-treasury-funding",
       "1792426007000_add-account-access-reconciliation",
       "1792426008000_bind-media-replacement-intent",
-      "1792426009000_add-sandbox-error-reports"
+      "1792426009000_add-sandbox-error-reports",
+      "1792426010000_enforce-sandbox-withdrawal-operator-boundary"
     ],
     "unknownApplied": []
   },

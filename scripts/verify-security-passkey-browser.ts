@@ -179,7 +179,7 @@ try {
   );
   app.get("/", (_request, response) =>
     response.send(
-      `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>YapArena security browser acceptance</title><link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/arena.css"><link rel="stylesheet" href="/assets/account-auth.css"><script defer src="/axe.js"></script></head><body><main class="container"><h1>Account security</h1><p>LOCAL REAL BACKEND · Synthetic account · Chrome virtual authenticator · No physical device or provider login</p><section id="account-security-passkeys" class="information-card account-card"></section></main><script type="module" src="/assets/account-security.bundle.js"></script></body></html>`,
+      `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>YapArena security browser acceptance</title><link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/arena.css"><link rel="stylesheet" href="/assets/account-auth.css"><script defer src="/assets/session-coordination.js"></script><script defer src="/axe.js"></script></head><body><main class="container"><h1>Account security</h1><p>LOCAL REAL BACKEND · Synthetic account · Chrome virtual authenticator · No physical device or provider login</p><section id="account-security-passkeys" class="information-card account-card"></section></main><script type="module" src="/assets/account-security.bundle.js"></script></body></html>`,
     ),
   );
   const authenticated = createRequireAuthentication({
@@ -514,6 +514,11 @@ try {
             [
               "scripts/verify-security-passkey-browser.ts",
               "public/account-security.bundle.js",
+              "public/session-coordination.js",
+              "public/account-auth.css",
+              "frontend/account-security.ts",
+              "frontend/session-coordination.ts",
+              "frontend/auth-events.ts",
               "src/platform/auth/security-passkeys.ts",
               "src/platform/auth/security-router.ts",
               "src/platform/auth/account-operations.ts",

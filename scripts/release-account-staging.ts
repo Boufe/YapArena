@@ -52,6 +52,7 @@ const reviewedPending = [
   "1792426007000_add-account-access-reconciliation",
   "1792426008000_bind-media-replacement-intent",
   "1792426009000_add-sandbox-error-reports",
+  "1792426010000_enforce-sandbox-withdrawal-operator-boundary",
 ];
 const exec = promisify(execFile),
   sha = (value: Buffer | string) =>

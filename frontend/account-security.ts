@@ -43,6 +43,15 @@ type SecurityCredential =
   | { type: "wallet"; walletId: string }
   | { type: "passkey"; keyId: string };
 class SecurityResponseError extends Error {}
+function displayUsdc(atomic: string | undefined) {
+  if (!atomic || !/^(0|[1-9][0-9]{0,35})$/.test(atomic))
+    throw new Error("Sandbox quote amount is invalid. Refresh the quote.");
+  const amount = BigInt(atomic),
+    fraction = String(amount % 1000000n)
+      .padStart(6, "0")
+      .replace(/0+$/, "");
+  return `${amount / 1000000n}${fraction ? `.${fraction}` : ""} USDC`;
+}
 
 const mount = document.querySelector<HTMLElement>("#account-security-passkeys");
 if (mount) {
@@ -245,13 +254,7 @@ if (mount) {
     if (purpose === "provider.credentials.change")
       description.textContent = `Approve ${terms.action} for ${terms.method}: ${terms.target}. Privy will verify the new method. You will then review the exact changes and verify again before YapArena accepts them.`;
     if (purpose === "withdrawal.request")
-      description.textContent = `Sandbox only. Verify every term before approving: ${Object.entries(
-        terms,
-      )
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(
-          "; ",
-        )}. This authorization is for this exact request and does not sign a live transaction.`;
+      description.textContent = `Sandbox only — ${terms.rail === "simulation" ? "deterministic simulation" : "Base Sepolia test USDC"}. Deduct ${displayUsdc(terms.gross)} from your sandbox balance, including a ${displayUsdc(terms.fee)} network fee. The destination receives ${displayUsdc(terms.net)}. Destination: ${terms.destination}. Network: ${terms.network}. This approves this exact request and does not sign a live transaction.`;
     label.textContent = "Approve with ";
     label.append(select);
     passwordLabel.textContent = "Current password ";
@@ -653,7 +656,17 @@ if (mount) {
               value.error ?? "Sandbox withdrawal approval unavailable.",
             );
           }
-          return response.json();
+          const operation: Operation & { terms: Record<string, string> } =
+            await response.json();
+          const normalize = (record: Record<string, string>) =>
+            JSON.stringify(
+              Object.entries(record).sort(([a], [b]) => a.localeCompare(b)),
+            );
+          if (normalize(operation.terms) !== normalize(terms))
+            throw new Error(
+              "Sandbox withdrawal terms changed. Refresh the quote and review it again.",
+            );
+          return operation;
         },
       );
     } finally {

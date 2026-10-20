@@ -22,6 +22,7 @@ sideMap.setAttribute("role", "status");
 sideMap.textContent = "Choose a published topic to see its side mapping.";
 topicSlugInput.closest("label")!.after(sideMap);
 let currentUser: { id: string } | null = null;
+let accountEpoch = 0;
 
 function say(message: string) {
   notice.textContent = message;
@@ -106,6 +107,7 @@ topicSlugInput.addEventListener("change", () =>
 );
 
 async function refresh() {
+  const epoch = accountEpoch;
   const [topics, requests, queue, events, notifications] = await Promise.all([
     api<{ topics: MatchingTopic[] }>("/api/matching/topics/mine"),
     api<{ requests: MatchingRequest[] }>("/api/matching/requests"),
@@ -115,6 +117,7 @@ async function refresh() {
       "/api/matching/notifications",
     ),
   ]);
+  if (epoch !== accountEpoch || !currentUser) return;
   fill("#my-topics", topics.topics, (topic) => {
     const item = row(
       `${topic.title} · ${topic.publicationState}`,
@@ -266,12 +269,32 @@ requestForm.addEventListener("submit", async (event) => {
 });
 
 async function initialize() {
+  const epoch = ++accountEpoch;
+  currentUser = null;
+  document.querySelector<HTMLElement>("#match-signed-in")!.hidden = true;
+  document.querySelector<HTMLElement>("#match-signed-out")!.hidden = true;
+  for (const id of [
+    "my-topics",
+    "my-requests",
+    "open-queue",
+    "my-events",
+    "match-notifications",
+  ])
+    document.querySelector<HTMLElement>(`#${id}`)!.replaceChildren();
+  say("Checking your account…");
   try {
-    currentUser = (await api<{ user: { id: string } }>("/api/auth/me")).user;
+    const user = (await api<{ user: { id: string } }>("/api/auth/me")).user;
+    if (epoch !== accountEpoch) return;
+    currentUser = user;
+    document.querySelector<HTMLElement>("#match-signed-out")!.hidden = true;
     document.querySelector<HTMLElement>("#match-signed-in")!.hidden = false;
     await refresh();
-    say("Matching ready.");
+    if (epoch === accountEpoch)
+      say("Matching ready. Review your request before submitting.");
   } catch (error) {
+    if (epoch !== accountEpoch) return;
+    currentUser = null;
+    document.querySelector<HTMLElement>("#match-signed-in")!.hidden = true;
     if ((error as Error).message === "authentication required") {
       document.querySelector<HTMLElement>("#match-signed-out")!.hidden = false;
       say("Sign in to create topics and arrange debates.");
@@ -279,4 +302,5 @@ async function initialize() {
   }
 }
 
+window.addEventListener("yap:account-changed", () => void initialize());
 initialize();

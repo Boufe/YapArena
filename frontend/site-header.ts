@@ -1,4 +1,10 @@
-import { safeAuthReturn } from "./auth-return.js";
+import {
+  captureAuthReturn,
+  clearAuthReturn,
+  readAuthReturn,
+  safeAuthReturn,
+  type AuthResumeAction,
+} from "./auth-return.js";
 import type { AuthMode, AuthRequest } from "./auth-events.js";
 
 const header = document.querySelector<HTMLElement>("[data-site-header]");
@@ -22,6 +28,7 @@ if (header) {
       : null;
   let version = 0;
   let endedSessionNotice = "";
+  let resumeNotice = "";
   function clearAccount() {
     balance.textContent = "—";
     reserved.textContent = "Checking balance…";
@@ -72,7 +79,8 @@ if (header) {
       window.yapRememberSessionAccount?.(identity.user.id);
       endedSessionNotice = "";
       session("member");
-      status.textContent = "";
+      status.textContent = resumeNotice;
+      resumeConfirmedAction();
       const [profileResponse, walletResponse] = await Promise.all([
         fetch("/api/me/profile", {
           credentials: "same-origin",
@@ -148,11 +156,16 @@ if (header) {
       legacyBalance(event.detail);
   });
   window.addEventListener("yap:account-changed", () => {
+    resumeNotice = "";
     clearAccount();
     session("checking");
     void refresh();
   });
   window.addEventListener("yap:provider-logout", (event) => {
+    clearAuthReturn();
+    cancelResume?.();
+    resumeOpener = null;
+    resumeNotice = "";
     ++version;
     const expired: unknown =
       event instanceof CustomEvent ? event.detail : false;
@@ -201,6 +214,8 @@ if (header) {
   let scriptLoad: Promise<void> | undefined;
   let closingFromHistory = false;
   let completed = false;
+  let resumeOpener: HTMLElement | null = null;
+  let cancelResume: (() => void) | undefined;
   // A reload discards the dialog but retains history.state. Bind entries to
   // this document so Back cannot mistake an older dialog entry for this one.
   const authHistoryId = crypto.randomUUID();
@@ -213,6 +228,139 @@ if (header) {
       ) ??
       undefined
     );
+  }
+  function resumeAction(source: HTMLElement | null): AuthResumeAction {
+    const follow = source?.closest<HTMLElement>(".follow-button");
+    if (
+      follow &&
+      (follow.dataset.followType === "topics" ||
+        follow.dataset.followType === "people") &&
+      /^[a-z0-9][a-z0-9-]{2,79}$/.test(follow.dataset.followSlug ?? "")
+    )
+      return {
+        kind: "follow",
+        type: follow.dataset.followType,
+        slug: follow.dataset.followSlug!,
+      };
+    if (source?.closest("[data-community-like]"))
+      return { kind: "community-like" };
+    if (
+      source?.closest("[data-community-chat-form],[data-community-send-status]")
+    )
+      return { kind: "community-chat" };
+    if (source?.closest("[data-community-report-form]"))
+      return { kind: "community-report" };
+    if (source?.closest("#match-signed-out,#match-signed-in"))
+      return { kind: "matching" };
+    if (source?.closest("[data-a4]")) return { kind: "a4" };
+    if (source?.closest("[data-a4-inline]")) return { kind: "inline-a4" };
+    return { kind: "page" };
+  }
+  function focusable(node: HTMLElement | null): node is HTMLElement {
+    return Boolean(
+      node?.isConnected &&
+      node !== document.body &&
+      node !== document.documentElement &&
+      node.getClientRects().length &&
+      getComputedStyle(node).visibility !== "hidden" &&
+      !node.matches(":disabled,[aria-disabled='true']"),
+    );
+  }
+  function actionControl(action: AuthResumeAction): HTMLElement | null {
+    if (action.kind === "follow")
+      return (
+        [...document.querySelectorAll<HTMLElement>(".follow-button")].find(
+          (node) =>
+            node.dataset.followType === action.type &&
+            node.dataset.followSlug === action.slug,
+        ) ?? null
+      );
+    if (action.kind === "page" && location.hash)
+      try {
+        const fragment = document.getElementById(
+          decodeURIComponent(location.hash.slice(1)),
+        );
+        if (focusable(fragment)) return fragment;
+      } catch {
+        // An invalid fragment cannot select a different action.
+      }
+    const selectors = {
+      page: "[data-header-account]",
+      "community-chat": "[data-community-chat-form] textarea",
+      "community-like": "[data-community-like]",
+      "community-report": "[data-community-report-form] select",
+      matching: "#request-create input",
+      a4: "[data-a4-create] select",
+      "inline-a4": "[data-inline-form] select,[data-inline-setup] summary",
+    };
+    return document.querySelector<HTMLElement>(selectors[action.kind]);
+  }
+  function resumeConfirmedAction() {
+    if (
+      authDialog.open ||
+      document.hidden ||
+      header!.dataset.session !== "member"
+    )
+      return;
+    const intent = readAuthReturn();
+    if (
+      (intent && (intent.phase === "oauth" || intent.next !== returnPath())) ||
+      (!intent && !resumeOpener)
+    )
+      return;
+    const action = intent?.action ?? resumeAction(resumeOpener);
+    cancelResume?.();
+    const original = resumeOpener;
+    const stop = () => {
+      observer.disconnect();
+      clearTimeout(timer);
+      document.removeEventListener("pointerdown", stop);
+      document.removeEventListener("keydown", stop);
+      cancelResume = undefined;
+      resumeOpener = null;
+      clearAuthReturn();
+    };
+    const focus = () => {
+      if (authDialog.open || header!.dataset.session !== "member") return;
+      const source =
+        original instanceof HTMLFormElement
+          ? original.querySelector<HTMLElement>("input,textarea,select,button")
+          : original;
+      const loginLink =
+        source instanceof HTMLAnchorElement &&
+        new URL(source.href, location.origin).pathname.startsWith("/account");
+      const control =
+        focusable(source) && !(loginLink && action.kind !== "page")
+          ? source
+          : actionControl(action);
+      if (!focusable(control)) return;
+      resumeNotice =
+        "You’re signed in. Review the action, then confirm when you’re ready.";
+      status.textContent = resumeNotice;
+      if (
+        !control.matches(
+          "a[href],button,input,textarea,select,summary,[tabindex],[contenteditable]",
+        )
+      )
+        control.tabIndex = -1;
+      control.focus({ preventScroll: control === source });
+      stop();
+    };
+    const observer = new MutationObserver(focus);
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["hidden", "disabled", "aria-disabled", "class"],
+    });
+    const timer = window.setTimeout(() => {
+      if (focusable(avatar)) avatar.focus({ preventScroll: true });
+      stop();
+    }, 12000);
+    cancelResume = stop;
+    document.addEventListener("pointerdown", stop, { once: true });
+    document.addEventListener("keydown", stop, { once: true });
+    focus();
   }
   function loadProvider() {
     if (accountRoot) return Promise.resolve();
@@ -238,7 +386,12 @@ if (header) {
     });
     return scriptLoad;
   }
-  function openAuth(mode: AuthMode, next?: string, push = true) {
+  function openAuth(
+    mode: AuthMode,
+    next?: string,
+    push = true,
+    source?: HTMLElement,
+  ) {
     if (!emailFirst) return false;
     if (!authRoot) {
       authRoot = document.createElement("div");
@@ -250,10 +403,17 @@ if (header) {
       authRoot.append(loading);
     }
     if (!authDialog.open) {
+      cancelResume?.();
+      completed = false;
+      resumeOpener = null;
+      resumeNotice = "";
       opener =
-        document.activeElement instanceof HTMLElement
+        source ??
+        (document.activeElement instanceof HTMLElement
           ? document.activeElement
-          : null;
+          : null);
+      if (push)
+        captureAuthReturn(returnPath(next) ?? null, resumeAction(opener));
       if (accountRoot) {
         marker = document.createComment("Account auth panel");
         accountRoot.before(marker);
@@ -326,19 +486,16 @@ if (header) {
       delete accountRoot.dataset.authMode;
       window.dispatchEvent(new CustomEvent("yap:auth-mode", { detail: null }));
     }
-    if (!completed)
-      try {
-        sessionStorage.removeItem("yaparena-auth-return");
-      } catch {
-        /* Navigation storage is optional. */
-      }
+    if (!completed) clearAuthReturn();
     if (isAuthHistory() && !closingFromHistory) {
       if (completed) history.replaceState(null, "", location.href);
       else history.back();
     }
     closingFromHistory = false;
+    const resume = completed;
     completed = false;
-    if (opener?.isConnected) opener.focus({ preventScroll: true });
+    if (resume) resumeConfirmedAction();
+    else if (focusable(opener)) opener.focus({ preventScroll: true });
   });
   window.addEventListener("popstate", () => {
     if (authDialog.open && !isAuthHistory()) {
@@ -346,14 +503,25 @@ if (header) {
       authDialog.close();
     }
   });
-  window.addEventListener("yap:auth-complete", () => {
+  window.addEventListener("yap:auth-complete", (event) => {
     completed = true;
+    resumeOpener = opener;
+    if (event instanceof CustomEvent && event.detail?.returnTo === returnPath())
+      event.preventDefault();
     if (authDialog.open) authDialog.close();
+    else resumeConfirmedAction();
   });
   window.addEventListener(
     "yap:request-auth",
     (event: CustomEvent<AuthRequest>) => {
-      if (openAuth(event.detail.mode ?? "login", event.detail.returnTo))
+      if (
+        openAuth(
+          event.detail.mode ?? "login",
+          event.detail.returnTo,
+          true,
+          event.detail.source,
+        )
+      )
         event.preventDefault();
     },
   );
@@ -410,23 +578,15 @@ if (header) {
       destination.pathname === location.pathname
         ? undefined
         : (candidate ?? undefined);
-    if (openAuth(mode, next)) event.preventDefault();
+    if (openAuth(mode, next, true, control)) event.preventDefault();
   });
-  try {
-    const raw = sessionStorage.getItem("yaparena-auth-return");
-    if (raw && !accountRoot) {
-      const pending: unknown = JSON.parse(raw);
-      if (
-        pending &&
-        typeof pending === "object" &&
-        "next" in pending &&
-        typeof pending.next === "string"
-      )
-        openAuth("login", returnPath(pending.next), false);
-    }
-  } catch {
-    /* Storage is optional; ordinary email sign-in remains available. */
-  }
+  const pendingReturn = readAuthReturn();
+  if (
+    pendingReturn?.phase === "oauth" &&
+    pendingReturn.next === returnPath() &&
+    !accountRoot
+  )
+    openAuth("login", pendingReturn.next, false);
 
   header
     .querySelector<HTMLButtonElement>("[data-header-logout]")!

@@ -80,6 +80,8 @@ if (root) {
     historyChoice = false,
     sharedTimer: ReturnType<typeof setInterval>,
     sharedBusy = false;
+  let accessEpoch = 0;
+  let accessRefreshPending = false;
   const sharedAbort = new AbortController();
   const selectRound = (item: RoundPoint) =>
     act(async () => {
@@ -100,7 +102,7 @@ if (root) {
   const chart = createRoundChart(root, selectRound, (point) => {
     prices.show(point ?? defaultPrice);
   });
-  function clearPrivate() {
+  function clearPrivate(preserveDraft = false) {
     userId = null;
     run = null;
     pending = null;
@@ -108,8 +110,10 @@ if (root) {
     selectedRound = null;
     listSignature = undefined;
     el("runs").replaceChildren(new Option("Choose a round", ""));
-    el("argument").value = "";
+    if (!preserveDraft) el("argument").value = "";
     el("review").close();
+    el("terms").textContent = "";
+    el("review-status").textContent = "";
     el("access").hidden = true;
     el("receipt").textContent = "Sign in to view your commitments.";
     ui("history").textContent = "Sign in to view your history.";
@@ -139,6 +143,7 @@ if (root) {
     body?: unknown,
     key?: string,
   ): Promise<T> {
+    const epoch = accessEpoch;
     const response = await fetch(`/api/${path}`, {
       method: body ? "POST" : "GET",
       credentials: "same-origin",
@@ -152,6 +157,10 @@ if (root) {
       body: body ? JSON.stringify(body) : undefined,
     });
     const result: T & { error?: string } = await response.json();
+    if (epoch !== accessEpoch)
+      throw new Error(
+        "Account changed. Review the current account before continuing.",
+      );
     if (!response.ok) {
       if (response.status === 401) clearPrivate();
       if (
@@ -178,9 +187,11 @@ if (root) {
   async function act(work: () => Promise<unknown>) {
     if (busy) return;
     busy = true;
+    const epoch = accessEpoch;
     try {
       await work();
     } catch (error) {
+      if (epoch !== accessEpoch) return;
       status((error as Error).message);
       ui("sync").textContent =
         shared?.items.length && !userId
@@ -188,12 +199,18 @@ if (root) {
           : "Connection interrupted · retrying";
     } finally {
       busy = false;
+      if (accessRefreshPending) {
+        accessRefreshPending = false;
+        void act(refreshAccess);
+      }
     }
   }
   async function list(selected?: string) {
+    const owner = userId;
     const data = await api<Runs>(
       `a4/runs?debateId=${encodeURIComponent(root.dataset.a4Inline!)}`,
     );
+    if (owner !== userId) return;
     const next = populateRuns(data, selected);
     run = next ? { id: next } : null;
   }
@@ -355,9 +372,11 @@ if (root) {
         : "Choose 1–100 contracts.";
   }
   async function refresh() {
+    const owner = userId;
     const data = await api<Workspace>(
       `a4/debates/${root.dataset.a4Inline}/workspace${run ? `?runId=${encodeURIComponent(run.id)}` : ""}`,
     );
+    if (owner !== userId) return;
     if (data.accountId !== userId) {
       clearPrivate();
       throw new Error("Account changed. Reload before reviewing a commitment.");
@@ -425,6 +444,7 @@ if (root) {
   el("bots").addEventListener("click", () => act(() => create("mixed")));
   el("publish").addEventListener("change", () =>
     act(async () => {
+      const epoch = accessEpoch;
       try {
         const result = await api<Publication>("a4/publication", {
           published: el("publish").checked,
@@ -432,7 +452,8 @@ if (root) {
         el("publish").checked = result.published;
         await loadShared();
       } catch (error) {
-        el("publish").checked = !el("publish").checked;
+        if (epoch === accessEpoch)
+          el("publish").checked = !el("publish").checked;
         throw error;
       }
     }),
@@ -495,28 +516,35 @@ if (root) {
   el("cancel").addEventListener("click", () => el("review").close());
   el("commit").addEventListener("click", async () => {
     if (!pending || busy) return;
+    const epoch = accessEpoch,
+      commitment = pending;
     busy = true;
     el("commit").disabled = true;
     try {
       const auth = await api<Auth>("auth/me");
-      if (auth.user.id !== pending.body.accountId) {
+      if (auth.user.id !== commitment.body.accountId) {
         clearPrivate();
         throw new Error("Account changed. Reload and review again.");
       }
       await api(
-        `a4/rounds/${pending.roundId}/submit`,
-        pending.body,
-        pending.key,
+        `a4/rounds/${commitment.roundId}/submit`,
+        commitment.body,
+        commitment.key,
       );
       pending = null;
       el("review").close();
       await refresh();
     } catch (error) {
-      el("review-status").textContent =
-        `${(error as Error).message}. Retry preserves your request key.`;
+      if (epoch === accessEpoch)
+        el("review-status").textContent =
+          `${(error as Error).message}. Retry preserves your request key.`;
     } finally {
       busy = false;
       el("commit").disabled = false;
+      if (accessRefreshPending) {
+        accessRefreshPending = false;
+        void act(refreshAccess);
+      }
     }
   });
   function renderShared() {
@@ -662,17 +690,38 @@ if (root) {
   );
   access.setAttribute("aria-busy", "true");
   for (const { control } of startupControls) control.disabled = true;
-  act(async () => {
-    userId = (await api<Auth>("auth/me")).user.id;
+  async function refreshAccess() {
+    const epoch = accessEpoch;
+    const auth = await api<Auth>("auth/me");
+    if (epoch !== accessEpoch) return;
+    if (userId === auth.user.id) {
+      await refresh();
+      return;
+    }
+    if (userId) clearPrivate();
+    userId = auth.user.id;
     el("access").hidden = false;
     ui("signin").hidden = true;
     const publication = await api<Publication>("a4/publication").catch(() => ({
       published: false,
     }));
+    if (epoch !== accessEpoch) return;
     el("publish").checked = publication.published;
     await list();
+    if (epoch !== accessEpoch) return;
     await refresh();
-  }).finally(() => {
+  }
+  window.addEventListener("yap:account-changed", () => {
+    ++accessEpoch;
+    clearPrivate(true);
+    status("Checking your account. Review the action before confirming.");
+    accessRefreshPending = true;
+    if (!busy) {
+      accessRefreshPending = false;
+      void act(refreshAccess);
+    }
+  });
+  act(refreshAccess).finally(() => {
     // act has released its busy guard, so visible controls can now accept input.
     for (const { control, disabled } of startupControls)
       control.disabled = disabled;

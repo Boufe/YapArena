@@ -18,7 +18,14 @@ import {
   createAccountWallet,
   grantProgress,
 } from "../dist/features/account-wallet/repository.js";
-import { safeAuthReturn } from "../frontend/auth-return.ts";
+import {
+  captureAuthReturn,
+  completeAuthReturn,
+  parseAuthReturnIntent,
+  readAuthReturn,
+  rememberAuthReturn,
+  safeAuthReturn,
+} from "../frontend/auth-return.ts";
 import { createEmailAuthSecurity } from "../dist/platform/auth/browser-security.js";
 
 it("admits lazy authentication while preserving media CSP and frame isolation", async () => {
@@ -170,6 +177,31 @@ describe("verified provider evidence", () => {
       ).email,
       null,
     );
+  });
+  it("keeps same-contact Google and newly verified email identities distinct", async () => {
+    const address = "same@example.test";
+    const google = await verifier({
+      id: claims.sub,
+      is_guest: false,
+      linked_accounts: [
+        { type: "google_oauth", subject: "synthetic-google", email: address },
+      ],
+    }).verify(jwt());
+    const replacementSubject = "did:privy:replacement-email";
+    const email = await verifier({
+      id: replacementSubject,
+      is_guest: false,
+      linked_accounts: [{ type: "email", address }],
+    }).verify(jwt({ sub: replacementSubject }));
+    assert.equal(google.email, null);
+    assert.deepEqual(google.methods, ["google_oauth"]);
+    assert.deepEqual(google.credentials, [
+      { type: "google_oauth", id: "synthetic-google" },
+    ]);
+    assert.equal(email.email, address);
+    assert.deepEqual(email.methods, ["email"]);
+    assert.notEqual(email.subject, google.subject);
+    assert.notEqual(email.credentialsDigest, google.credentialsDigest);
   });
   it("rejects wrong audience/issuer, expired, malformed and altered tokens", async () => {
     for (const token of [
@@ -328,6 +360,122 @@ describe("configuration and exact platform-currency presentation", () => {
       "/\n/evil.example",
     ])
       assert.equal(safeAuthReturn(path, origin), null);
+  });
+  it("keeps only expiring local confirmation intent and public action locators", () => {
+    const origin = "https://arena.example",
+      now = 1000000,
+      intent = {
+        version: 1,
+        next: "/debates/test?round=4#commit",
+        expiresAt: now + 15 * 60 * 1000,
+        phase: "oauth",
+        action: { kind: "follow", type: "topics", slug: "test-topic" },
+      },
+      parse = (value) =>
+        parseAuthReturnIntent(JSON.stringify(value), origin, now);
+    assert.deepEqual(parse(intent), intent);
+    assert.deepEqual(
+      parse({
+        ...intent,
+        next: "/debates/test?round=4&privy_oauth_code=synthetic-private#commit",
+      }),
+      intent,
+    );
+    for (const patch of [
+      { version: 2 },
+      { expiresAt: now },
+      { expiresAt: now + 15 * 60 * 1000 + 1 },
+      { expiresAt: Infinity },
+      { phase: "submit" },
+      { next: "//elsewhere.example" },
+      { next: "/account?next=/debates/test" },
+      { action: { kind: "submit", selector: "form" } },
+      { action: { kind: "follow", type: "wallets", slug: "test-topic" } },
+      { action: { kind: "follow", type: "topics", slug: "../private" } },
+      { action: { kind: "page", amount: "5000000" } },
+      { credentials: "must-not-be-stored" },
+    ])
+      assert.equal(parse({ ...intent, ...patch }), null);
+    for (const value of [null, "{", "[]", "x".repeat(4097)])
+      assert.equal(parseAuthReturnIntent(value, origin, now), null);
+    assert.equal(
+      parseAuthReturnIntent(JSON.stringify(intent), origin, intent.expiresAt),
+      null,
+    );
+  });
+  it("offers same-page completion to the controller without navigation or another action", () => {
+    const stored = new Map(),
+      navigation = [],
+      historyUpdates = [],
+      events = new EventTarget(),
+      completion = [],
+      fixtures = {
+        location: {
+          origin: "https://arena.example",
+          pathname: "/debates/test",
+          search: "?round=4&privy_oauth_code=synthetic-callback",
+          hash: "#commit",
+          assign: (value) => navigation.push(value),
+        },
+        history: {
+          state: { dialog: "retained" },
+          replaceState: (...args) => historyUpdates.push(args),
+        },
+        window: events,
+        sessionStorage: {
+          getItem: (key) => stored.get(key) ?? null,
+          setItem: (key, value) => stored.set(key, value),
+          removeItem: (key) => stored.delete(key),
+        },
+      },
+      descriptors = new Map(
+        Object.keys(fixtures).map((key) => [
+          key,
+          Object.getOwnPropertyDescriptor(globalThis, key),
+        ]),
+      );
+    try {
+      for (const [key, value] of Object.entries(fixtures))
+        Object.defineProperty(globalThis, key, { value, configurable: true });
+      const listener = (event) => {
+        completion.push(event.detail);
+        event.preventDefault();
+      };
+      events.addEventListener("yap:auth-complete", listener);
+      captureAuthReturn("/debates/test?round=4#commit", {
+        kind: "community-chat",
+      });
+      rememberAuthReturn("/debates/test?round=4#commit");
+      assert.equal(readAuthReturn().phase, "oauth");
+      assert.equal(completeAuthReturn("/debates/test?round=4#commit"), true);
+      assert.deepEqual(navigation, []);
+      assert.deepEqual(historyUpdates, [
+        [{ dialog: "retained" }, "", "/debates/test?round=4#commit"],
+      ]);
+      assert.deepEqual(completion, [
+        { returnTo: "/debates/test?round=4#commit" },
+      ]);
+      assert.deepEqual(readAuthReturn().action, { kind: "community-chat" });
+      assert.equal(readAuthReturn().phase, "confirmed");
+      assert.deepEqual(
+        Object.keys(JSON.parse(stored.get("yaparena-auth-return"))).sort(),
+        ["action", "expiresAt", "next", "phase", "version"],
+      );
+      events.removeEventListener("yap:auth-complete", listener);
+      fixtures.location.pathname = "/account";
+      fixtures.location.search = "";
+      fixtures.location.hash = "";
+      assert.equal(completeAuthReturn("/debates/test?round=4#commit"), true);
+      assert.deepEqual(navigation, ["/debates/test?round=4#commit"]);
+      assert.equal(readAuthReturn().phase, "confirmed");
+      assert.equal(completeAuthReturn("//elsewhere.example"), false);
+      assert.deepEqual(navigation, ["/debates/test?round=4#commit"]);
+      assert.equal(readAuthReturn(), null);
+    } finally {
+      for (const [key, descriptor] of descriptors)
+        if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+        else Reflect.deleteProperty(globalThis, key);
+    }
   });
 });
 

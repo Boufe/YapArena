@@ -9,7 +9,11 @@ import express from "express";
 import helmet from "helmet";
 import { chromium, type Page, type Route } from "playwright-core";
 import axe from "axe-core";
-import { renderAccount, renderAbout } from "../dist/features/discovery/web.js";
+import {
+  renderAccount,
+  renderAbout,
+  renderMatchmaking,
+} from "../dist/features/discovery/web.js";
 import { createEmailAuthSecurity } from "../dist/platform/auth/browser-security.js";
 
 // Local UI evidence only: real installed Privy SDK and public configuration,
@@ -55,6 +59,7 @@ const assetFiles = [
   "account-sessions.js",
   "account.js",
   "site-header.js",
+  "auth-return.js",
   "site.js",
   "account-auth.css",
   "site-header.css",
@@ -130,6 +135,25 @@ app.get("/test/header-only", (_request, response) =>
     renderAbout(base)
       .replace('<html lang="en">', '<html lang="en" data-email-first>')
       .replace(/<link rel="stylesheet" href="\/assets\/arena\.css[^"]*">/, ""),
+  ),
+);
+app.get("/test/action-return", (_request, response) =>
+  response.send(
+    renderAbout(base)
+      .replace('<html lang="en">', '<html lang="en" data-email-first>')
+      .replace("</head>", '<script defer src="/test/axe.js"></script></head>')
+      .replace(
+        "</main>",
+        '<section class="container information-card"><h2>Confirmation fixture</h2><form data-community-chat-form id="resume-chat"><label>Draft message<textarea name="body" id="resume-draft"></textarea></label><button type="submit" id="resume-review">Review message</button></form><button type="button" class="follow-button button-secondary" data-follow-type="topics" data-follow-slug="return-topic">Follow topic</button><span role="status"></span></section></main>',
+      ),
+  ),
+);
+app.get("/match", (_request, response) =>
+  response.send(
+    renderMatchmaking(base).replace(
+      '<html lang="en">',
+      '<html lang="en" data-email-first>',
+    ),
   ),
 );
 app.get("/test/debate", (_request, response) =>
@@ -1978,6 +2002,591 @@ try {
     checks.push(
       `${name}: interrupted provider-bundle download is announced and close/reopen retries the real installed SDK successfully`,
     );
+    if (phase === "after") {
+      let followWrites = 0;
+      await page.route("**/api/me/follows/topics/return-topic", (route) => {
+        if (route.request().method() === "GET")
+          return route.fulfill(
+            appSignedIn
+              ? { json: { following: false } }
+              : { status: 401, json: { error: "authentication required" } },
+          );
+        followWrites++;
+        return route.fulfill({
+          status: 401,
+          json: { error: "authentication required" },
+        });
+      });
+      appSignedIn = false;
+      await page.goto(`${base}/test/action-return?round=42#confirm`);
+      await page.locator('[data-site-header][data-session="guest"]').waitFor();
+      const draft = page.locator("#resume-draft"),
+        follow = page.locator(".follow-button");
+      await draft.fill("Private draft stays in this document only.");
+      await page.evaluate(() => {
+        Reflect.set(window, "__resumeDocument", "original-document");
+        Reflect.set(window, "__resumeSubmissions", 0);
+        document
+          .querySelector<HTMLFormElement>("#resume-chat")!
+          .addEventListener("submit", (event) => {
+            event.preventDefault();
+            Reflect.set(
+              window,
+              "__resumeSubmissions",
+              1 + Number(Reflect.get(window, "__resumeSubmissions")),
+            );
+            window.dispatchEvent(
+              new CustomEvent("yap:request-auth", {
+                cancelable: true,
+                detail: {
+                  returnTo: location.pathname + location.search + location.hash,
+                  source: event.currentTarget,
+                },
+              }),
+            );
+          });
+      });
+      await page.locator("#resume-review").click();
+      await authModal.waitFor({ state: "visible" });
+      assert.equal(
+        (
+          await page.evaluate(() =>
+            sessionStorage.getItem("yaparena-auth-return"),
+          )
+        )?.includes("Private draft"),
+        false,
+      );
+      const actionUrl = page.url();
+      appSignedIn = true;
+      await page.evaluate(async () => {
+        window.dispatchEvent(new Event("yap:account-changed"));
+        const url = "/assets/auth-return.js",
+          helper: { completeAuthReturn(value: string | null): boolean } =
+            await import(url);
+        helper.completeAuthReturn(
+          location.pathname + location.search + location.hash,
+        );
+      });
+      await authModal.waitFor({ state: "hidden" });
+      await page.waitForFunction(
+        () => document.activeElement?.id === "resume-draft",
+      );
+      assert.equal(page.url(), actionUrl);
+      assert.equal(
+        await draft.inputValue(),
+        "Private draft stays in this document only.",
+      );
+      assert.deepEqual(
+        await page.evaluate(() => [
+          Reflect.get(window, "__resumeDocument"),
+          Reflect.get(window, "__resumeSubmissions"),
+        ]),
+        ["original-document", 1],
+      );
+      assert.equal(followWrites, 0);
+      await capture(page, `auth-return-confirmation-${name}.png`, false);
+      checks.push(
+        `${name}: same-page confirmed-session completion preserves the exact document, URL and private draft, restores the initiating form, and does not submit again`,
+      );
+
+      appSignedIn = false;
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("yap:account-changed")),
+      );
+      await page.locator('[data-site-header][data-session="guest"]').waitFor();
+      await follow.click();
+      await authModal.waitFor({ state: "visible" });
+      assert.equal(followWrites, 1);
+      await page.evaluate(async () => {
+        const url = "/assets/auth-return.js",
+          helper: { rememberAuthReturn(value: string | null): void } =
+            await import(url);
+        helper.rememberAuthReturn(
+          location.pathname + location.search + location.hash,
+        );
+      });
+      await page.reload();
+      await authModal.waitFor({ state: "visible" });
+      assert.equal(await draft.inputValue(), "");
+      appSignedIn = true;
+      await page.evaluate(async () => {
+        const target = location.pathname + location.search + location.hash;
+        history.replaceState(
+          history.state,
+          "",
+          location.pathname +
+            "?round=42&privy_oauth_code=synthetic-callback#confirm",
+        );
+        window.dispatchEvent(new Event("yap:account-changed"));
+        const url = "/assets/auth-return.js",
+          helper: { completeAuthReturn(value: string | null): boolean } =
+            await import(url);
+        helper.completeAuthReturn(target);
+      });
+      await authModal.waitFor({ state: "hidden" });
+      await page.waitForFunction(() =>
+        document.activeElement?.matches(".follow-button"),
+      );
+      assert.equal(page.url(), actionUrl);
+      assert.equal(
+        followWrites,
+        1,
+        "OAuth-style return does not retry the initiating PUT",
+      );
+      assert.equal(
+        await page.evaluate(() =>
+          sessionStorage.getItem("yaparena-auth-return"),
+        ),
+        null,
+      );
+      checks.push(
+        `${name}: OAuth-style document replacement resumes only the expiring public action locator, clears callback parameters, focuses Follow for confirmation and performs no automatic PUT`,
+      );
+
+      appSignedIn = false;
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("yap:account-changed")),
+      );
+      await page.locator('[data-site-header][data-session="guest"]').waitFor();
+      await follow.click();
+      await authModal.waitFor({ state: "visible" });
+      await page.goto(
+        `${base}/account?next=${encodeURIComponent("/test/action-return?round=42#confirm")}`,
+      );
+      appSignedIn = true;
+      await page.evaluate(async () => {
+        const url = "/assets/auth-return.js",
+          helper: { completeAuthReturn(value: string | null): boolean } =
+            await import(url);
+        helper.completeAuthReturn(
+          new URLSearchParams(location.search).get("next"),
+        );
+      });
+      await page.waitForURL(actionUrl);
+      await page.waitForFunction(() =>
+        document.activeElement?.matches(".follow-button"),
+      );
+      assert.equal(
+        followWrites,
+        2,
+        "full-page return does not retry the initiating PUT",
+      );
+      checks.push(
+        `${name}: full-page account return navigates to the exact safe URL and restores the original public action for a new explicit confirmation without copying draft values`,
+      );
+
+      const oldFollow = deferred(),
+        oldFollowStarted = deferred();
+      await page.route(
+        "**/api/me/follows/topics/return-topic",
+        async (route) => {
+          if (route.request().method() === "GET") return route.fallback();
+          followWrites++;
+          oldFollowStarted.release();
+          await oldFollow.promise;
+          await route.fulfill({ json: { following: true } });
+        },
+      );
+      await follow.click();
+      await oldFollowStarted.promise;
+      fixtureAccountId = "replacement-action-account";
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("yap:account-changed")),
+      );
+      oldFollow.release();
+      await page.waitForFunction(
+        () =>
+          !document.querySelector<HTMLButtonElement>(".follow-button")
+            ?.disabled,
+      );
+      assert.equal(await follow.getAttribute("aria-pressed"), "false");
+      assert.equal(followWrites, 3);
+      assert.equal(await authModal.isVisible(), false);
+      checks.push(
+        `${name}: an old account's held Follow response cannot apply its state or open sign-in for a replacement account; the new account gets a fresh read only`,
+      );
+
+      let matchingWrites = 0;
+      await page.route("**/api/matching/**", (route) => {
+        if (route.request().method() !== "GET") matchingWrites++;
+        return route.fulfill({
+          json: {
+            topics: [
+              {
+                slug: "private-draft",
+                title: "Private result before refresh",
+                publicationState: "draft",
+              },
+            ],
+            requests: [],
+            events: [],
+            notifications: [],
+          },
+        });
+      });
+      await page.goto(`${base}/match?topic=context#request-create`);
+      await page
+        .getByText("Matching ready. Review your request before submitting.", {
+          exact: true,
+        })
+        .waitFor();
+      const proposition = page.locator(
+        '#request-create input[name="proposition"]',
+      );
+      await proposition.fill("Keep this proposed debate for confirmation.");
+      const identityGate = deferred(),
+        identityStarted = deferred();
+      await page.route("**/api/auth/me", async (route) => {
+        identityStarted.release();
+        await identityGate.promise;
+        return route.fallback();
+      });
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("yap:account-changed")),
+      );
+      await identityStarted.promise;
+      assert.equal(await page.locator("#match-signed-in").isVisible(), false);
+      assert.equal(await page.locator("#my-topics").textContent(), "");
+      identityGate.release();
+      await page
+        .getByText("Matching ready. Review your request before submitting.", {
+          exact: true,
+        })
+        .waitFor();
+      assert.equal(
+        await proposition.inputValue(),
+        "Keep this proposed debate for confirmation.",
+      );
+      assert.equal(matchingWrites, 0);
+      checks.push(
+        `${name}: matching clears private result lists during permission refresh, preserves its draft fields and never opens a request automatically`,
+      );
+
+      let ordinaryExchanges = 0;
+      const recoveryTelemetry: string[] = [];
+      await page.route("**/api/auth/privy/exchange", (route) => {
+        ordinaryExchanges++;
+        return route.fulfill({
+          status: 500,
+          json: { error: "unexpected ordinary exchange" },
+        });
+      });
+      await page.route("**/api/auth/journey", (route) => {
+        const body: { event: string; seconds?: number } = route
+          .request()
+          .postDataJSON();
+        assert.ok(
+          Object.keys(body).every(
+            (key) => key === "event" || key === "seconds",
+          ),
+        );
+        assert.ok(typeof body.event === "string" && body.event.length < 40);
+        if (body.seconds !== undefined)
+          assert.ok(
+            Number.isFinite(body.seconds) &&
+              body.seconds >= 0 &&
+              body.seconds <= 600,
+          );
+        if (body.event.startsWith("recovery_"))
+          recoveryTelemetry.push(body.event);
+        return route.fulfill({ status: 204 });
+      });
+      await page.goto(`${base}/account`);
+      await page.getByText("Account ready.", { exact: true }).waitFor();
+      await page
+        .getByRole("button", {
+          name: "Lost this sign-in? Replace it using your YapArena security passkey",
+          exact: true,
+        })
+        .click();
+      await authModal
+        .getByRole("heading", { name: "Recover your sign-in.", exact: true })
+        .waitFor();
+      const recoveryRaw = await page.evaluate(() =>
+        localStorage.getItem("yaparena-provider-recovery"),
+      );
+      assert.ok(recoveryRaw);
+      const recovery: {
+        id: string;
+        accountId: string;
+        expiresAt: number;
+        status: string;
+      } = JSON.parse(recoveryRaw);
+      assert.deepEqual(Object.keys(recovery).sort(), [
+        "accountId",
+        "expiresAt",
+        "id",
+        "status",
+      ]);
+      assert.equal(recovery.accountId, fixtureAccountId);
+      assert.equal(recovery.status, "pending");
+      assert.equal(
+        await authModal
+          .getByRole("button", { name: "Continue with Google", exact: true })
+          .count(),
+        0,
+      );
+      const recoverySends = sends;
+      await authModal
+        .getByLabel("Email address", { exact: true })
+        .fill("new-recovery@example.invalid");
+      await authModal
+        .getByRole("button", { name: "Continue with email", exact: false })
+        .click();
+      await authModal
+        .getByLabel("Verification code", { exact: true })
+        .waitFor();
+      assert.equal(sends, recoverySends + 1);
+      const recoveryVerifications = verifications;
+      await authModal
+        .getByLabel("Verification code", { exact: true })
+        .fill("654321");
+      await authModal
+        .getByRole("button", { name: "Verify and continue", exact: false })
+        .click();
+      await page.waitForFunction(
+        () =>
+          !document.querySelector<HTMLButtonElement>(
+            '#email-auth button[type="submit"]',
+          )?.disabled,
+      );
+      assert.equal(verifications, recoveryVerifications + 1);
+      assert.equal(ordinaryExchanges, 0);
+      assert.equal(
+        await page.evaluate(() =>
+          localStorage.getItem("yaparena-provider-recovery"),
+        ),
+        recoveryRaw,
+      );
+      await page.reload();
+      await page.getByText("Account ready.", { exact: true }).waitFor();
+      assert.equal(
+        await page.evaluate(() =>
+          localStorage.getItem("yaparena-provider-recovery"),
+        ),
+        recoveryRaw,
+      );
+      await page.evaluate(() =>
+        window.dispatchEvent(
+          new CustomEvent("yap:request-auth", { detail: { mode: "login" } }),
+        ),
+      );
+      await authModal
+        .getByRole("heading", { name: "Recover your sign-in.", exact: true })
+        .waitFor();
+      checks.push(
+        `${name}: installed SDK starts retained-key recovery with a private expiring comparison marker, sends a new-email OTP only through the SDK, retains recovery across refresh and does not ordinarily exchange an invalid candidate`,
+      );
+
+      const markerTab = await context.newPage();
+      await markerTab.goto(`${base}/test/header-only`);
+      await markerTab.evaluate(
+        (value) =>
+          localStorage.setItem(
+            "yaparena-provider-recovery",
+            JSON.stringify({ ...value, status: "cancelled" }),
+          ),
+        recovery,
+      );
+      await authModal
+        .getByRole("heading", { name: "Recovery cancelled.", exact: true })
+        .waitFor();
+      await authModal
+        .getByRole("button", {
+          name: "Start ordinary email sign-in",
+          exact: false,
+        })
+        .waitFor();
+      await markerTab.evaluate(
+        (value) =>
+          localStorage.setItem(
+            "yaparena-provider-recovery",
+            JSON.stringify({ ...value, expiresAt: Date.now() - 1 }),
+          ),
+        recovery,
+      );
+      await authModal
+        .getByRole("heading", { name: "Recover your sign-in.", exact: true })
+        .waitFor();
+      await authModal
+        .getByLabel("Email address", { exact: true })
+        .fill("expired-recovery@example.invalid");
+      await authModal
+        .getByRole("button", { name: "Continue with email", exact: false })
+        .click();
+      await authModal
+        .getByText(
+          "Recovery expired or its browser state is unavailable. Cancel recovery first, or restart it from the correct account settings. No new account was created.",
+          { exact: true },
+        )
+        .waitFor();
+      assert.equal(sends, recoverySends + 1);
+      assert.equal(ordinaryExchanges, 0);
+      await authModal
+        .getByRole("button", { name: "Cancel recovery", exact: true })
+        .click();
+      await authModal
+        .getByRole("heading", { name: "Recovery cancelled.", exact: true })
+        .waitFor();
+      await authModal
+        .getByRole("button", {
+          name: "Start ordinary email sign-in",
+          exact: false,
+        })
+        .waitFor();
+      const cancelledRaw = await page.evaluate(() =>
+        localStorage.getItem("yaparena-provider-recovery"),
+      );
+      assert.ok(cancelledRaw);
+      const cancelled: { status: string } = JSON.parse(cancelledRaw);
+      assert.equal(cancelled.status, "cancelled");
+      assert.equal(sends, recoverySends + 1);
+      await authModal
+        .getByLabel("Email address", { exact: true })
+        .fill("ordinary-restart@example.invalid");
+      await authModal
+        .getByRole("button", {
+          name: "Start ordinary email sign-in",
+          exact: false,
+        })
+        .click();
+      await authModal
+        .getByLabel("Verification code", { exact: true })
+        .waitFor();
+      assert.equal(sends, recoverySends + 2);
+      assert.equal(
+        await page.evaluate(() =>
+          localStorage.getItem("yaparena-provider-recovery"),
+        ),
+        null,
+      );
+      assert.equal(ordinaryExchanges, 0);
+      await markerTab.close();
+      assert.ok(recoveryTelemetry.includes("recovery_started"));
+      assert.ok(recoveryTelemetry.includes("recovery_cancelled"));
+      assert.equal(recoveryTelemetry.includes("recovery_completed"), false);
+      checks.push(
+        `${name}: a cooperating tab changes the recovery marker, expired recovery blocks new OTPs with an actionable notice, cancellation retains its fence and shows the explicit ordinary-restart action; telemetry contains bounded outcomes only`,
+      );
+      await page.goto(`${base}/account`);
+      await page.getByText("Account ready.", { exact: true }).waitFor();
+      const settingsOpener = page.getByRole("button", {
+        name: "Lost this sign-in? Replace it using your YapArena security passkey",
+        exact: true,
+      });
+      await settingsOpener.focus();
+      await page.evaluate(() =>
+        window.dispatchEvent(
+          new CustomEvent("yap:request-auth", { detail: { mode: "login" } }),
+        ),
+      );
+      await authModal.waitFor({ state: "visible" });
+      await page.evaluate(async () => {
+        const url = "/assets/auth-return.js",
+          helper: { completeAuthReturn(value: string | null): boolean } =
+            await import(url);
+        helper.completeAuthReturn(null);
+      });
+      await authModal.waitFor({ state: "hidden" });
+      assert.equal(
+        await settingsOpener.evaluate(
+          (node) => document.activeElement === node,
+        ),
+        true,
+      );
+      checks.push(
+        `${name}: settings completion without a return URL restores its in-memory opener without navigation`,
+      );
+
+      await page.addInitScript(() => {
+        const mode = new URL(location.href).searchParams.get("storage-denied");
+        if (mode !== "read" && mode !== "write") return;
+        const get = Storage.prototype.getItem,
+          set = Storage.prototype.setItem;
+        Object.defineProperty(Storage.prototype, "getItem", {
+          configurable: true,
+          value: function (this: Storage, key: string) {
+            if (
+              this === localStorage &&
+              key.startsWith("yaparena-provider-recovery") &&
+              mode === "read"
+            )
+              throw new DOMException(
+                "Synthetic storage read denied",
+                "SecurityError",
+              );
+            return get.call(this, key);
+          },
+        });
+        Object.defineProperty(Storage.prototype, "setItem", {
+          configurable: true,
+          value: function (this: Storage, key: string, value: string) {
+            if (
+              this === localStorage &&
+              key.startsWith("yaparena-provider-recovery") &&
+              mode === "write"
+            )
+              throw new DOMException(
+                "Synthetic storage write denied",
+                "QuotaExceededError",
+              );
+            return set.call(this, key, value);
+          },
+        });
+      });
+      for (const denial of ["read", "write"] as const) {
+        await page.goto(`${base}/account?storage-denied=${denial}`);
+        await page.getByText("Account ready.", { exact: true }).waitFor();
+        await settingsOpener.click();
+        await authModal.waitFor({ state: "visible" });
+        await authModal
+          .getByText(
+            "Browser storage is required to safely recover sign-in. Allow storage, then try again. No account was changed.",
+            { exact: true },
+          )
+          .waitFor();
+        const beforeDeniedSend: number = sends;
+        await authModal
+          .getByLabel("Email address", { exact: true })
+          .fill("storage-denied@example.invalid");
+        await authModal
+          .getByRole("button", { name: "Continue with email", exact: false })
+          .click();
+        await authModal
+          .getByText(
+            "Browser storage is required to safely finish sign-in. Allow storage, then restart sign-in. Sign-in is paused and no new YapArena account was created.",
+            { exact: true },
+          )
+          .waitFor();
+        assert.equal(sends, beforeDeniedSend);
+        assert.equal(ordinaryExchanges, 0);
+        await page.reload();
+        await page.getByText("Account ready.", { exact: true }).waitFor();
+        await page.evaluate(() =>
+          window.dispatchEvent(
+            new CustomEvent("yap:request-auth", { detail: { mode: "login" } }),
+          ),
+        );
+        await authModal.waitFor({ state: "visible" });
+        await authModal
+          .getByLabel("Email address", { exact: true })
+          .fill("still-denied@example.invalid");
+        await authModal
+          .getByRole("button", { name: "Continue with email", exact: false })
+          .click();
+        await authModal
+          .getByText(
+            "Browser storage is required to safely finish sign-in. Allow storage, then restart sign-in. Sign-in is paused and no new YapArena account was created.",
+            { exact: true },
+          )
+          .waitFor();
+        assert.equal(sends, beforeDeniedSend);
+        assert.equal(ordinaryExchanges, 0);
+      }
+      checks.push(
+        `${name}: denied shared-marker reads and writes fail closed before OTP/exchange with actionable notices, including failed recovery start followed by refresh and an ordinary-send attempt`,
+      );
+    }
     await context.close();
   }
   assert.deepEqual(errors, []);

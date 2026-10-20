@@ -33,6 +33,8 @@ const initializedFollows = new WeakMap<
   Element,
   { set(value: boolean): void }
 >();
+const refreshingFollows = new WeakSet<HTMLButtonElement>();
+let followAccountEpoch = 0;
 const followKey = (type: string, slug: string) => `${type}/${slug}`;
 function readFollow(type: string, slug: string) {
   const key = followKey(type, slug);
@@ -76,8 +78,10 @@ function initializeFollows(scope: ParentNode = document) {
           : "+ Follow"
         : `${following ? "Following" : "Follow"} ${type === "topics" ? "topic" : "person"}`;
     }
+    const readEpoch = followAccountEpoch;
     readFollow(type, slug)
       .then((value) => {
+        if (readEpoch !== followAccountEpoch) return;
         following = value;
         label();
       })
@@ -89,12 +93,14 @@ function initializeFollows(scope: ParentNode = document) {
       },
     });
     button.addEventListener("click", async () => {
+      const epoch = followAccountEpoch;
       button.disabled = true;
       try {
         const response = await fetch(endpoint, {
           method: following ? "DELETE" : "PUT",
           credentials: "same-origin",
         });
+        if (epoch !== followAccountEpoch) return;
         if (response.status === 401) {
           const returnTo =
             window.location.pathname +
@@ -104,7 +110,7 @@ function initializeFollows(scope: ParentNode = document) {
             window.dispatchEvent(
               new CustomEvent("yap:request-auth", {
                 cancelable: true,
-                detail: { returnTo },
+                detail: { returnTo, source: button },
               }),
             )
           )
@@ -127,9 +133,12 @@ function initializeFollows(scope: ParentNode = document) {
           new CustomEvent("yap:follow", { detail: { type, slug, following } }),
         );
       } catch (error) {
-        message.textContent = (error as Error).message;
+        if (epoch === followAccountEpoch)
+          message.textContent = (error as Error).message;
       } finally {
         button.disabled = false;
+        if (epoch !== followAccountEpoch)
+          refreshFollowButton(button, followAccountEpoch);
       }
     });
   }
@@ -147,6 +156,34 @@ window.addEventListener("yap:follow", (event) => {
 });
 window.yapFollows = { initialize: initializeFollows, read: readFollow };
 initializeFollows();
+function refreshFollowButton(button: HTMLButtonElement, epoch: number) {
+  if (button.disabled && !refreshingFollows.has(button)) return;
+  refreshingFollows.add(button);
+  button.disabled = true;
+  void readFollow(button.dataset.followType!, button.dataset.followSlug!)
+    .then((following) => {
+      if (epoch === followAccountEpoch)
+        initializedFollows.get(button)?.set(following);
+    })
+    .catch(() => {})
+    .finally(() => {
+      if (epoch === followAccountEpoch) {
+        refreshingFollows.delete(button);
+        button.disabled = false;
+      }
+    });
+}
+window.addEventListener("yap:account-changed", () => {
+  const epoch = ++followAccountEpoch;
+  followReads.clear();
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    ".follow-button",
+  )) {
+    initializedFollows.get(button)?.set(false);
+    if (button.nextElementSibling) button.nextElementSibling.textContent = "";
+    refreshFollowButton(button, epoch);
+  }
+});
 
 // Retain the current round/action when this page's sign-in link returns here.
 document.addEventListener("click", (event) => {

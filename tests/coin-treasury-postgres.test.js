@@ -2,11 +2,17 @@ import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { before, after, describe, it } from "node:test";
 import pg from "pg";
+import { encodeFunctionData, erc20Abi, keccak256 } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import {
   createCoinSandboxOperatorRepository,
   createCoinSandboxRepository,
 } from "../dist/features/account-wallet/sandbox-repository.js";
 import { hashPassword } from "../dist/platform/auth/passwords.js";
+import { createSessionRepository } from "../dist/platform/auth/sessions.js";
+import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
+import { createAccountOperationRepository } from "../dist/platform/auth/account-operations.js";
+import { baseSepoliaAsset } from "../dist/features/account-wallet/base-sepolia.js";
 import { runCoinSandboxOperator } from "../scripts/coin-sandbox-operator.ts";
 
 const ownerUrl = process.env.COIN_TREASURY_TEST_OWNER_DATABASE_URL,
@@ -88,6 +94,159 @@ describe(
         ).rows[0]?.balance ?? "0"
       );
     }
+    it("reserves only owner-admitted signed payout identities and fences duplicate sender nonces", async () => {
+      // Offline generated test key only: no RPC, token movement or broadcast.
+      const signer = privateKeyToAccount(generatePrivateKey()),
+        userId = await actor(),
+        generation = (
+          await owner.query("SELECT auth_generation FROM users WHERE id=$1", [
+            userId,
+          ])
+        ).rows[0].auth_generation,
+        token = createSessionToken(),
+        origin = "http://localhost:53024",
+        localConfig = {
+          rail: "base-sepolia",
+          depositDestination: signer.address,
+          withdrawalFee: "0",
+        },
+        repo = createCoinSandboxRepository(runtime, localConfig),
+        ownerRepo = createCoinSandboxOperatorRepository(owner, localConfig),
+        operations = createAccountOperationRepository(runtime);
+      await createSessionRepository(runtime).create(
+        userId,
+        token.tokenHash,
+        new Date(Date.now() + 600000),
+        { authGeneration: generation },
+      );
+      const context = { userId, sessionTokenHash: token.tokenHash },
+        incoming = await repo.quoteFunding(context, {
+          amount: "10000000",
+          idempotencyKey: randomUUID(),
+        });
+      await ownerRepo.confirmFunding({
+        userId,
+        requestId: incoming.id,
+        // Synthetic authoritative receipt tests repository accounting only.
+        receipt: evidence("10000000"),
+      });
+      let first;
+      for (let index = 0; index < 2; index++) {
+        const destination = `0x${(index ? "44" : "33").repeat(20)}`,
+          quote = await repo.quoteWithdrawal(context, {
+            gross: "5000000",
+            destination,
+            idempotencyKey: randomUUID(),
+          }),
+          operation = await operations.create({
+            ...context,
+            purpose: "withdrawal.request",
+            terms: quote.terms,
+            credential: { type: "password" },
+            origin,
+          }),
+          approval = await operations.prepare({
+            ...context,
+            purpose: "withdrawal.request",
+            terms: quote.terms,
+            id: operation.id,
+            password: "synthetic treasury fixture passphrase",
+            origin,
+            rpcUrls: {},
+          });
+        await repo.requestWithdrawal(context, {
+          requestId: quote.id,
+          approval,
+        });
+        await ownerRepo.review({
+          userId,
+          requestId: quote.id,
+          decision: "approve",
+          idempotencyKey: randomUUID(),
+        });
+        const signed = await signer.signTransaction({
+            type: "eip1559",
+            chainId: 84532,
+            to: baseSepoliaAsset.token,
+            nonce: 0,
+            gas: 100000n,
+            maxFeePerGas: 1n,
+            maxPriorityFeePerGas: 1n,
+            value: 0n,
+            data: encodeFunctionData({
+              abi: erc20Abi,
+              functionName: "transfer",
+              args: [destination, 5000000n],
+            }),
+          }),
+          prepared = {
+            environment: "sandbox",
+            chainId: 84532,
+            token: baseSepoliaAsset.token,
+            from: signer.address,
+            to: destination,
+            amount: 5000000n,
+            operationId: quote.id,
+            nonce: 0,
+            serializedTransaction: signed,
+            hash: keccak256(signed),
+          };
+        await assert.rejects(
+          runtime.query(
+            "INSERT INTO coin_nonce_reservations(request_id,network,sender,nonce,transaction_id,signed_bytes) VALUES($1,$2,$3,0,$4,$5)",
+            [
+              quote.id,
+              network,
+              signer.address.toLowerCase(),
+              prepared.hash,
+              signed,
+            ],
+          ),
+          (error) => error.code === "42501",
+        );
+        if (!index) {
+          first = { quote, prepared };
+          assert.equal(
+            (
+              await ownerRepo.reserveSignedPayout({
+                userId,
+                requestId: quote.id,
+                prepared,
+              })
+            ).created,
+            true,
+          );
+          assert.equal(
+            (
+              await ownerRepo.reserveSignedPayout({
+                userId,
+                requestId: quote.id,
+                prepared,
+              })
+            ).created,
+            false,
+          );
+        } else
+          await assert.rejects(
+            ownerRepo.reserveSignedPayout({
+              userId,
+              requestId: quote.id,
+              prepared,
+            }),
+            (error) => error.code === "23505",
+          );
+      }
+      assert.deepEqual(
+        (
+          await owner.query(
+            "SELECT request_id AS request,transaction_id AS hash,nonce::text FROM coin_nonce_reservations WHERE sender=$1",
+            [signer.address.toLowerCase()],
+          )
+        ).rows,
+        [{ request: first.quote.id, hash: first.prepared.hash, nonce: "0" }],
+      );
+      assert.equal((await repo.summary(context)).balances.pending, "10000000");
+    });
     it("credits only separately identified system treasury buckets without issuing purchased coins, grants or cash to the audit account", async () => {
       const userId = await actor(),
         historical = (

@@ -180,6 +180,127 @@ describe(
         )
       ).rows[0];
     }
+    it("enforces withdrawal operator status and audit authority with real runtime SQL privileges", async () => {
+      const context = await fixture();
+      await fund(context);
+      const quote = await repo.quoteWithdrawal(context, {
+        idempotencyKey: randomUUID(),
+        gross: "5000000",
+        destination: "synthetic-operator-boundary-destination",
+      });
+      const denied = (promise) =>
+        assert.rejects(promise, (error) => error.code === "42501");
+      for (const status of [
+        "review",
+        "reserved",
+        "approved",
+        "pending",
+        "executed",
+        "completed",
+        "settled",
+        "failed",
+        "uncertain",
+        "void",
+      ]) {
+        await denied(
+          a.query(
+            "INSERT INTO coin_sandbox_requests(id,user_id,kind,reference,terms_digest,terms,status) VALUES($1,$2,'withdrawal',$3,$4,$5,$6)",
+            [
+              randomUUID(),
+              context.userId,
+              digest(randomUUID()),
+              quote.termsDigest,
+              quote.terms,
+              status,
+            ],
+          ),
+        );
+        if (status !== "review")
+          await denied(
+            a.query("UPDATE coin_sandbox_requests SET status=$2 WHERE id=$1", [
+              quote.id,
+              status,
+            ]),
+          );
+      }
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT status FROM coin_sandbox_requests WHERE id=$1",
+            [quote.id],
+          )
+        ).rows[0].status,
+        "quoted",
+      );
+      await repo.requestWithdrawal(context, {
+        requestId: quote.id,
+        approval: await proof(context, quote),
+      });
+      const before = await repo.summary(context);
+      for (const status of [
+        "quoted",
+        "reserved",
+        "approved",
+        "pending",
+        "executed",
+        "completed",
+        "settled",
+        "failed",
+        "uncertain",
+        "void",
+      ])
+        await denied(
+          a.query("UPDATE coin_sandbox_requests SET status=$2 WHERE id=$1", [
+            quote.id,
+            status,
+          ]),
+        );
+      for (const kind of [
+        "withdrawal.approved",
+        "withdrawal.rejected",
+        "withdrawal.signed",
+        "withdrawal.external.pending",
+        "withdrawal.external.completed",
+        "withdrawal.external.failed",
+        "withdrawal.external.uncertain",
+      ]) {
+        const client = await a.connect();
+        try {
+          await client.query("BEGIN");
+          const snapshot = await lockSandboxBook(client, context.userId);
+          await denied(
+            appendSandboxBookEvent(client, {
+              userId: context.userId,
+              snapshot,
+              book: snapshot.book,
+              kind,
+              reference: digest(randomUUID()),
+              termsDigest: quote.termsDigest,
+              requestId: quote.id,
+              metadata: { actorRole: "yaparena_owner" },
+            }),
+          );
+        } finally {
+          await client.query("ROLLBACK");
+          client.release();
+        }
+      }
+      const unchanged = await repo.summary(context);
+      assert.deepEqual(unchanged.book, before.book);
+      assert.deepEqual(unchanged.balances, before.balances);
+      assert.equal(unchanged.version, before.version);
+      assert.equal((await approve(context, quote)).status, "approved");
+      assert.equal((await repo.summary(context)).balances.pending, "5000000");
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int AS n FROM coin_sandbox_events WHERE request_id=$1 AND kind='withdrawal.approved'",
+            [quote.id],
+          )
+        ).rows[0].n,
+        1,
+      );
+    });
     it("refuses new payout approval after suspension or loss of stronger credentials while permitting safe rejection", async () => {
       for (const state of ["suspended", "no-strong-method"]) {
         const actor = await fixture();

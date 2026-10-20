@@ -27,6 +27,18 @@ promotional profits use promotional clearing. Receipt/event provenance preserves
 the actual source, and aggregate custody cash must reconcile against aggregate
 cash liabilities. Historical A4/YAP remains isolated and nonredeemable.
 
+Sandbox debate results affect each grant's net profit and permanent qualification
+peak in round-closing order, with round UUID as the fixed tie-breaker. Opening a
+successor round and maintenance advancement use the same ordered batch (20
+rounds by default). A target outside that bounded batch stays open until earlier
+obligations are processed; an API caller cannot move its later gain ahead of an
+earlier loss. The batch locks every participating account and prepares all books,
+buckets and cash/promotional ledger rows before posting any result. This prevents
+a later account lock from deadlocking funding or payout reconciliation. An API
+caller must have a current session at admission and again before commit, including
+an idempotent or existing-round return; workers can settle existing obligations
+without a user session.
+
 ## Rail and credential separation
 
 `coin_sandbox_controls` pins the physical database to `simulation` or

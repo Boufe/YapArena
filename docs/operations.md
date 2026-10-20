@@ -147,6 +147,38 @@ revocation queue disconnects tracked speakers separately and retries provider fa
 Cloud token rejection, legacy-grant drainage and hosted acceptance retain the
 separate gates documented in that procedure.
 
+New passkeys are enrolled through Privy in Account settings. Sensitive operations
+verify the same key using an application-issued, expiring, one-use WebAuthn
+challenge. Previously enrolled independent application keys remain retained
+credentials. Do not repair a failed first setup by deleting credential history,
+changing its provenance or clearing session-generation fences. The approved
+restart applies only to an account with no financial or prior strong-method
+history and requires fresh provider login plus native passkey verification.
+See [the current passkey contract](security/account-session-revocation.md#one-privy-passkey).
+
+An uncertain provider freeze/unfreeze requires evidence review. The explicit
+owner-only `scripts/retry-account-provider-reset.ts` modes separate an ordinary
+retry, a single reviewed delayed-freeze reconciliation and read-only-provider
+finalization after a delayed unfreeze confirmation. Finalization can make only
+provider GET requests and requires the exact audit event, review-file hash,
+generation, unchanged credential digest and explicit null freeze timestamp.
+Never repeat an unfreeze merely because its immediate read lagged. The
+[recorded repair](evidence/account-completion-baseline/provider-reset-repair/README.md)
+documents the concrete evidence and limitations. The operator inspection and
+repair processes must not run in the web or worker process.
+
+Staging migration release uses `scripts/release-account-staging.ts` explicitly:
+stop and independently verify all writers, pass the exact-revision release gates,
+then run `prepare` for encrypted backup/restore rehearsal before `migrate`.
+`ACCOUNT_STAGING_WRITERS_STOPPED` and
+`ACCOUNT_STAGING_RELEASE_GATES_PASSED` are operator assertions, not proof. Its
+reviewed pending migration list is exact. Preserve earlier release evidence and
+verify retained/manual account counts, runtime-role grants and zero live history
+afterward. Runtime configuration uses `PRIVY_APP_ID`, `PRIVY_APP_SECRET`,
+`REDIS_SECURITY_URL`, `REDIS_NAMESPACE` and `REDIS_KEY_SECRET` as documented in the
+[configuration inventory](email-first-accounts.md#redis-configuration-and-measurements);
+owner credentials and private backup material are never runtime variables.
+
 Deploy the auth fixes with a coordinated restart. The additive F03 migration signs out all
 legacy sessions and consumes pending challenges. Its schema guards must stay installed
 through application rollback; restored session rows must be retired before reopening traffic.

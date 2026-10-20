@@ -1,6 +1,8 @@
 # Account-completion browser baseline
 
 Later acceptance is recorded separately in the
+[exact-revision CI results](ci-release/README.md),
+[guarded staging release](staging-release.md),
 [739-test integrated gate](final-integrated-release-gate/README.md),
 [PostgreSQL 18 compatibility run](pg18-auth-compatibility/README.md),
 [70-group return/loading/error browser run](auth-return-browser/README.md),

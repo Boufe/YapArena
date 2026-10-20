@@ -74,7 +74,51 @@ freeze/unfreeze sequence (up to 20 seconds). A concurrent local revocation may
 wait for that sequence. Per-request provider inspection holds no such lock or
 checked-out connection while awaiting Privy.
 
-The approved lost-login replacement has a separate authority boundary: a new
+An inspection failure during the matching pending/running provider reset, or
+its uncertain manual outcome, denies protected access temporarily. It must not
+mistake the application's own freeze for another credential incident and revoke
+the deliberately rotated session again. A valid observation of changed
+credentials or changed accepted public-key material still triggers revocation.
+
+## One Privy passkey
+
+New enrollment uses Privy from Account settings, and sign-in offers one passkey
+option. YapArena obtains the credential ID and COSE public key from its trusted
+server-side Privy read, then verifies an application-issued native assertion
+with required user verification, exact origin/RP and a one-use challenge. This
+second ceremony uses the same credential; it does not register a second key.
+The accepted credential's provenance, provider subject and public-key fingerprint
+remain bound to the internal account. Future operation proofs check current
+provider evidence and bind the exact application session, generation and terms.
+Neither token refresh nor a frontend MFA flag substitutes for that proof.
+
+The original enrollment intent lasts at most five minutes. Its original cookie
+can finish the exact pending addition through narrowly scoped routes while
+ordinary protected reads stay unavailable. A refresh stores only the intent ID;
+passwords, signatures and approval proofs stay in memory. Resumed strong
+approvals are still consumed with the key adoption transaction. Account/provider
+changes abort queued application requests and the application's native assertion.
+The installed Privy registration hook exposes no public abort option for an
+already-started registration; its continuation is fenced instead.
+
+The founder also approved restarting unfinished first setup after expiry. It
+requires a fresh unconsumed Privy session, the same provider identity, the exact
+old baseline plus one current provider key, a new short-lived native UV challenge
+and no financial or previously accepted stronger-method history. A captured
+original key must match exactly; when no key was captured, the explicitly
+approved fallback accepts the sole current added key. It cannot prove an
+unrecorded historical key was never replaced. Existing reset, minimum-token-time,
+SID and generation fences still apply. The expired original challenge is never
+extended or reused. Established accounts and financial access require retained
+strong proof; email alone cannot reset it.
+
+Previously enrolled independent application keys remain retained credentials.
+Only those legacy keys can use the older direct application-key login and
+new-provider-identity replacement below. A new Privy passkey instead signs into
+its existing Privy identity, after which retained-proof settings can verify a new
+email and remove an unavailable Google method without changing account ownership.
+
+The retained legacy lost-login replacement has a separate authority boundary: a new
 Privy-verified email identifies the replacement provider user, while a retained
 YapArena security passkey authorizes replacing the existing account's sole email
 or Google binding. A refreshed token or email match does not supply that

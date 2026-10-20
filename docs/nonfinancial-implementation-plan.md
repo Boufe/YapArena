@@ -16,20 +16,31 @@ Email-first account work is tracked in the [implementation and financial decisio
 record](email-first-accounts.md) and the detailed
 [completion matrix](email-first-completion.md). Baseline was fetched main
 `fd60543`; the existing feature branch preserves the hosted Privy implementation
-and adds operation-bound security passkeys, retained-credential account management,
+and adds operation-bound passkey proofs, retained-credential account management,
 provider-change monitoring, session controls, speaker revocation and an isolated
 coin sandbox with persistent funding, source accounting, manual withdrawals and
-YES/NO A4 participation. The [integrated local release gate](evidence/account-completion-baseline/final-integrated-release-gate/README.md)
-passed 739 tests with fresh/upgrade database and core browser acceptance.
-Final CI and hosted rollout remain separate gates.
-Retained-key recovery also replaces a lost sole email or Google identity without
-changing the account or merging by email. Authentication returns to the initiating
+YES/NO A4 participation. The current corrective implementation uses one Privy
+passkey, enrolled in Account settings and verified again against a server-issued
+challenge for sensitive actions. First setup can resume after interruption only
+under the approved no-financial-history/no-prior-strong-method policy. The latest
+integrated local gate passed 798 tests with no skips, 198 focused PostgreSQL cases
+on each fresh and upgraded database, and the core browser journeys. The earlier
+[integrated release evidence](evidence/account-completion-baseline/final-integrated-release-gate/README.md)
+records 739 tests for its own revision.
+All five [required CI checks](evidence/account-completion-baseline/ci-release/README.md)
+also passed for `9395242`. The [staging release](evidence/account-completion-baseline/staging-release.md)
+applied all 13 additive migrations after encrypted backup and isolated rehearsal,
+and the named web service is live on that exact revision.
+Retained legacy application-key recovery can replace a lost sole email or Google
+identity without changing the account or merging by email. New Privy keys sign
+into the existing provider identity; retained-proof settings handle its credential
+changes. Authentication returns to the initiating
 action for confirmation. Source implementation is not hosted or production
 acceptance. The selected staging deletion removed IDs
 1–4 after encrypted backup and restore/concurrency rehearsal, preserving the
-three accounts the founder explicitly retained. The earlier hosted feature revision
-`f942dc6` has shared Redis connectivity and ordinary signup enabled; the newer
-security and financial sandbox changes have not yet been deployed. The founder completed
+three accounts the founder explicitly retained. The new release preserves those
+accounts and the genuine manual signup, with no live financial history.
+The web service now enables only the deterministic coin sandbox. The founder completed
 genuine hosted email signup; backend inspection confirmed one new account and
 provider mapping. The [account visual refresh](evidence/account-refresh/README.md)
 adds focused authentication, an account dashboard and clearer withdrawal progress.
@@ -38,6 +49,9 @@ unify account entry points and navigation, hide member controls until the app
 session is verified, and load the provider bundle on demand from public pages.
 Current free development-app Google/passkey login options are enabled; genuine
 returning/linking/recovery journeys and final account acceptance remain open.
+The reviewed delayed provider-reset repair is complete, preserving revocation
+cutoffs and all retained accounts. The Privy-only corrections are not yet the
+hosted revision; see the completion matrix for deployment and acceptance status.
 Real Base Sepolia test-USDC receipt evidence is separate from labelled conversion
 simulations. No live financial routes are enabled. Existing A4 remains nonredeemable
 play money; the new 100 YC/USDC direction does not convert historical grants or

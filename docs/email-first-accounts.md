@@ -4,6 +4,26 @@ Baseline: clean shared checkout at `fd60543`, equal to fetched `origin/main`
 on 2026-10-19. Branch: `feat/email-first-accounts`; no unrelated edits present.
 This record distinguishes implementation from acceptance; it is not paid-release approval.
 
+Current staging web revision is `9395242`, deployed on 2026-10-20 after all five
+[required CI checks](evidence/account-completion-baseline/ci-release/README.md)
+passed. The [guarded release record](evidence/account-completion-baseline/staging-release.md)
+documents encrypted backup, isolated restore/rehearsal, 13 additive migrations
+and preservation of the three retained accounts plus the manual signup.
+Only the deterministic coin sandbox is enabled. Genuine hosted identity
+ceremonies, device/screen-reader acceptance and live financial approval remain
+separate requirements; older revision-specific observations below are historical.
+
+Current corrective work is tracked in the [completion log](email-first-completion.md).
+The genuine returning-user trial exposed an uncertain provider-session reset
+mislabelled as a sign-in-method change; unchanged email ownership does not
+authorize bypassing that reset. The founder also superseded the separate
+YapArena passkey design: use only Privy enrollment in Account settings and one
+passkey login option. The same credential's server-verifiable operation proof
+is implemented locally, with 798 quality tests, 198 fresh/upgrade PostgreSQL
+cases and 18 native passkey browser groups passing. The final SDK suite, exact
+corrective CI, deployment and genuine provider acceptance remain separate.
+Earlier separate-key descriptions and trials retain their recorded scope.
+
 ## Direction and phases
 
 Email verification codes are primary. Google and passkeys are optional. Public
@@ -71,7 +91,7 @@ the exact scope; it is not multichain/provider or live-money acceptance. Error
 report/review and source-restoring compensation are implemented under the
 approved policy above. The [integrated local browser/quality gate](evidence/account-completion-baseline/final-integrated-release-gate/README.md)
 passed 739 tests at its recorded revision. The [completion matrix](email-first-completion.md)
-tracks final CI, hosted and external gates separately.
+tracks actual CI, hosted and external gates separately.
 
 ## Provider verification and limitations
 
@@ -138,16 +158,32 @@ The verified credential identifiers are hashed as an enrollment snapshot. A new
 exchange with changed methods is rejected for deliberate ownership reconciliation.
 Email changes and method linking/removal now use retained operation-specific proof
 before provider interaction and exact verified credential-delta reconciliation
-afterward. Provider-side ownership rules still apply. Separate YapArena security
-passkeys provide server-verifiable fresh authorization and returning access; they
-do not mint Privy tokens or replace provider email verification. First-key setup
-requires a valid account session, no prior strong method and no financial history;
-existing password/wallet accounts approve setup with that retained method.
+afterward. Provider-side ownership rules still apply. New passkeys are enrolled
+through Privy in Account settings. The same credential approves a server-issued
+WebAuthn challenge for sensitive operations. First-key setup requires a valid
+account session, no prior strong method and no financial history; existing
+password/wallet accounts approve setup with that retained method. The application
+accepts only credential material read directly from Privy and a fresh native
+assertion, never a browser claim that MFA succeeded.
 
-The founder also approved replacement of a lost sole email or Google login when
-a YapArena security passkey is retained. This is a replacement of the local
+An interrupted first setup can restart after fresh login to the same provider
+identity, only while there is no financial or accepted strong-method history.
+The recorded original key must match exactly. If its details never reached
+YapArena, the founder approved verifying the single current added Privy key.
+Restart issues a new short-lived, one-use challenge, preserves provider-reset and
+session-generation fences, and requires native user verification. Email alone
+cannot finish setup.
+
+The earlier independent-key implementation supports replacement of a lost sole
+email or Google login when a retained legacy YapArena security passkey exists.
+Those records and their authorization boundary remain supported; new enrollment
+does not create independent YapArena keys. A new Privy passkey instead signs into
+the same Privy identity, from which retained-proof settings can change email or
+Google methods. The legacy recovery below is a replacement of the local
 provider binding, not recovery or modification of the original Privy user.
-The user first opens the existing account with the retained key, verifies a new
+This is retained backend compatibility, not a second visible passkey sign-in
+choice in the current UI. The protocol first opens the existing account with
+the retained independent key, verifies a new
 email through Privy's normal code flow, reviews the replacement and approves an
 exact one-use security-key challenge. An already-bound replacement identity
 requires review; it never triggers an automatic account merge.
@@ -193,17 +229,21 @@ require operator review; provider incident handling requires a single writer
 because the provider has no conditional ownership API for freeze/unfreeze.
 Resume after suspension still requires reviewed reconciliation.
 
-Sensitive backend changes retain operation-bound password/SIWE proof and add
-separate YapArena security passkeys. Provider-only first-wallet linking also
+Sensitive backend changes retain operation-bound password/SIWE proof and reuse
+the same Privy passkey for an application-issued, server-verified WebAuthn
+challenge. New enrollment and the single passkey login option belong to Privy;
+previous independent application keys remain usable as retained credentials.
+Provider-only first-wallet linking also
 requires target-wallet SIWE ownership. Expiring single-use proof binds account,
 session/generation, operation, nonce, expiry and exact financial terms where
 applicable. The sandbox withdrawal reserves funds and consumes that proof in one
 transaction. Browser MFA flags and token refresh are insufficient.
 Weaker email recovery cannot replace stronger wallet authorization.
-If every retained security passkey, trusted wallet and password is lost, ordinary
-email access may continue but financial access remains locked until recovery is
-approved with the selected identity provider. This boundary does not imply an
-implemented manual identity-verification service.
+If every retained passkey, trusted wallet and password is lost, ordinary email
+access may continue, while actions requiring strong proof remain unavailable.
+Physical loss is not automatically detectable and does not create an automatic
+account-wide hold. Email cannot reset an accepted stronger method; a complete
+provider-approved recovery service remains pending.
 
 Already-open media connections, outstanding grants and in-flight feature writes
 retain their documented [revocation boundary](security/account-session-revocation.md#external-and-in-flight-boundaries).
@@ -370,8 +410,9 @@ desktop/mobile [browser observations](evidence/account-refresh/hosted-anonymous.
 found no page errors, overflow or top-level CSP violations. The email form became
 ready in 2.275 and 2.296 seconds in these workstation runs; the provider bundle
 transferred about 1.72 MB compressed. CAPTCHA frames loaded, but this check did
-not submit email or validate CAPTCHA. The optional Google/passkey buttons shown
-in local fixtures remain disabled in the selected app.
+not submit email or validate CAPTCHA. At that recorded revision, optional
+Google/passkey buttons shown in local fixtures were disabled in the selected app.
+They have since been enabled as documented above.
 
 [Read-only account postflight](evidence/account-refresh/hosted-accounts.json)
 confirmed the three retained accounts and the founder's one manual account,
@@ -387,7 +428,9 @@ on all ordinary pages. Visitors see Log in / Sign up; a verified YapArena sessio
 reveals the YC balance, Deposit and account menu. Existing account and protected
 action links open the same custom email popup. It preserves safe initiating URLs,
 keyboard/focus behavior and browser Back, and clears submitted fields on dismissal.
-Successful authentication navigates back to initialize protected page controllers.
+Successful same-page authentication preserves the document and draft inputs,
+refreshes protected controllers, and returns focus/action context for confirmation.
+A redirect returns to the exact safe initiating URL; it does not submit the action.
 The account page reuses its existing authentication root; other pages download
 the provider bundle only when authentication is opened.
 
@@ -399,11 +442,12 @@ paths and HTTP request logs. The Deposit button explains that funding is not yet
 available. No provider identity, wallet, money journal or financial adapter is
 created by this UI change. Responsive container queries support 200% header
 reflow; a desktop/mobile comparison verifies shared geometry and typography
-without the debate stylesheet. The final UI revision `f942dc6` is deployed and
-verified anonymously on staging; real popup signup, optional-method and financial
-acceptance remain gated as described in the linked evidence.
+without the debate stylesheet. That earlier UI revision `f942dc6` was deployed and
+verified anonymously on staging. It is superseded by the `9395242` release above;
+real popup signup, optional-method and financial acceptance remain distinct
+from anonymous observations.
 
-## Evidence
+## Earlier foundation evidence
 
 The refreshed complete local gate passed **524 tests, no skips**, with 93.92%
 lines, 92.75% branches and 95.30% functions; fresh/upgrade database isolation and

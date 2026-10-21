@@ -29,7 +29,11 @@ import { createProviderIdentityRecovery } from "../dist/platform/auth/provider-i
 import { createProviderRevocation } from "../dist/platform/auth/provider-revocation.js";
 import { createProviderSessionMonitor } from "../dist/platform/auth/provider-session-monitor.js";
 import { providerCredentialsDigest } from "../dist/platform/auth/provider-credentials.js";
-import type { ProviderIdentity } from "../dist/platform/auth/privy.js";
+import {
+  ProviderCredentialChangedError,
+  ProviderUnavailableError,
+  type ProviderIdentity,
+} from "../dist/platform/auth/privy.js";
 import { createIdentityRepository } from "../dist/features/identity/repository.js";
 import { createCoinSandboxRepository } from "../dist/features/account-wallet/sandbox-repository.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
@@ -232,6 +236,38 @@ try {
   });
   const providerIdentities = new Map<string, ProviderIdentity>();
   const providerTokens = new Map<string, ProviderIdentity>();
+  const syntheticFrozenAt = new Map<string, number | null>();
+  const normalControlCalls: string[] = [];
+  // The minimal backend does not start src/server.ts's external worker. Use
+  // the real durable worker with explicitly synthetic provider controls, and
+  // synchronize it as a separate fixture step before asserting refreshed UI.
+  const normalRevocation = createProviderRevocation(runtimePool, {
+    async state(subject) {
+      return { frozenAt: syntheticFrozenAt.get(subject) ?? null };
+    },
+    async freeze(subject) {
+      normalControlCalls.push("freeze");
+      syntheticFrozenAt.set(subject, Math.floor(Date.now() / 1000));
+    },
+    async unfreeze(subject) {
+      normalControlCalls.push("unfreeze");
+      syntheticFrozenAt.set(subject, null);
+    },
+  });
+  async function drainNormalReset(userId: string) {
+    await normalRevocation.synchronize(userId);
+    assert.equal(
+      (
+        await runtimePool.query<{ complete: boolean }>(
+          `SELECT j.state='complete' AND j.control_phase='done' AND p.auth_generation=u.auth_generation AS complete
+         FROM users u JOIN provider_identities p ON p.user_id=u.id
+         JOIN provider_revocation_jobs j ON j.user_id=u.id AND j.generation=u.auth_generation WHERE u.id=$1`,
+          [userId],
+        )
+      ).rows[0]?.complete,
+      true,
+    );
+  }
   const verifier = {
     async configuration() {
       return { google: true, passkeys: true };
@@ -242,6 +278,10 @@ try {
       return identity;
     },
     async inspect(subject: string) {
+      if (syntheticFrozenAt.get(subject))
+        throw new ProviderCredentialChangedError(
+          "synthetic owned provider freeze",
+        );
       const identity = providerIdentities.get(subject);
       assert.ok(identity, "synthetic provider identity not configured");
       return identity;
@@ -380,6 +420,10 @@ try {
       _next: express.NextFunction,
     ) => {
       void _next;
+      if (error instanceof ProviderUnavailableError)
+        return response
+          .status(503)
+          .json({ error: "provider verification is awaiting confirmation" });
       errors.push(
         error instanceof Error ? error.name : "unclassified backend error",
       );
@@ -743,6 +787,13 @@ try {
       path: resolve(evidenceDirectory, `provider-${name}-before.png`),
       fullPage: true,
     });
+    const activationFinished = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname.includes("/provider/passkeys/") &&
+        new URL(response.url()).pathname.endsWith("/complete") &&
+        response.status() === 200,
+    );
     if (name === "desktop") {
       phase = `${name}: installed SDK native provider registration`;
       await page
@@ -754,6 +805,16 @@ try {
         .getByRole("button", { name: "Finish passkey setup", exact: true })
         .click();
     }
+    await activationFinished;
+    const controlsBefore = normalControlCalls.length;
+    await drainNormalReset(account.id);
+    assert.deepEqual(normalControlCalls.slice(controlsBefore), [
+      "freeze",
+      "unfreeze",
+    ]);
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
     phase = `${name}: real provider-key bridge completion notice`;
     await page
       .getByText(
@@ -1044,6 +1105,7 @@ try {
       });
       assert.equal(completed.status(), 200);
       completions.push({ path, body });
+      await drainNormalReset(identity.userId);
       await page.evaluate(() =>
         window.dispatchEvent(new Event("yap:account-changed")),
       );
@@ -1207,6 +1269,10 @@ try {
     assert.equal((await passkeys.list(identity.userId)).length, 1);
     checks.push(
       `${name}: fixture-only native two-key protocol preserves legacy enrollment acceptance; generated current UI authorizes retained-key removal and cancellation preserves credentials/focus`,
+    );
+    await drainNormalReset(identity.userId);
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
     );
     phase = `${name}: final-key, origin and accessibility checks`;
     await root

@@ -150,7 +150,7 @@ async function fixture(backing: AbuseStore, environment = namespace) {
   app.post("/passkey/:purpose/:subject", async (request, response) => {
     const purpose = request.params.purpose;
     if (
-      (purpose !== "link" && purpose !== "restart") ||
+      (purpose !== "link" && purpose !== "restart" && purpose !== "wallet") ||
       !/^[1-9][0-9]*$/.test(request.params.subject)
     ) {
       response.sendStatus(400);
@@ -160,7 +160,11 @@ async function fixture(backing: AbuseStore, environment = namespace) {
     // account from server-verified provider evidence before this attempt limit.
     const outcome = await accountAttempt(
       request.params.subject,
-      purpose === "link" ? "provider.passkey.link" : "provider.passkey.restart",
+      purpose === "link"
+        ? "provider.passkey.link"
+        : purpose === "restart"
+          ? "provider.passkey.restart"
+          : "embedded.wallet.retry",
     );
     response.sendStatus(
       outcome === "allowed" ? 204 : outcome === "throttled" ? 429 : 503,
@@ -389,7 +393,7 @@ try {
   checks.push(
     "two separate Node HTTP worker processes enforce one Redis IP/account budget under concurrent requests",
   );
-  for (const purpose of ["link", "restart"]) {
+  for (const purpose of ["link", "restart", "wallet"]) {
     const attemptResponses = await Promise.all(
       Array.from({ length: 20 }, (_, index) =>
         (index % 2 ? processA : processB)(`/passkey/${purpose}/910001`),
@@ -411,22 +415,22 @@ try {
   const attemptKeys = await admin.keys(
     `${namespace}-process:security:limit:recovery:*`,
   );
-  assert.equal(attemptKeys.length, 4);
+  assert.equal(attemptKeys.length, 6);
   for (const key of attemptKeys) {
     assert.match(
       key,
       /^rv-[a-f0-9]{24}-process:security:limit:recovery:[a-f0-9]{64}$/,
     );
     assert.ok(
-      !["910001", "910002", "provider.passkey", secret].some((value) =>
-        key.includes(value),
+      !["910001", "910002", "provider.passkey", "embedded.wallet", secret].some(
+        (value) => key.includes(value),
       ),
     );
     const ttl = await admin.pTTL(key);
     assert.ok(ttl > 0 && ttl <= 60_000);
   }
   checks.push(
-    "two separate Node HTTP workers atomically share provider.passkey.link and provider.passkey.restart attempt budgets; purpose, account and environment stay separate; stored keys are opaque HMACs with bounded TTL",
+    "two separate Node HTTP workers atomically share provider.passkey.link, provider.passkey.restart and embedded.wallet.retry attempt budgets; purpose, account and environment stay separate; stored keys are opaque HMACs with bounded TTL",
   );
 
   const unavailable = store("redis://127.0.0.1:1");
@@ -457,6 +461,7 @@ try {
   assert.equal((await outage("/auth")).status, 503);
   assert.equal((await outage("/passkey/link/910001")).status, 503);
   assert.equal((await outage("/passkey/restart/910001")).status, 503);
+  assert.equal((await outage("/passkey/wallet/910001")).status, 503);
   assert.equal((await outage("/watch", "GET")).status, 204);
   checks.push(
     "closed-port and accepted-but-stalled handshake bounded; backoff fails immediately; protected mutation fails closed while public read works",

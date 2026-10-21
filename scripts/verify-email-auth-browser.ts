@@ -101,6 +101,9 @@ const sourceHashes = Object.fromEntries(
       "dist/features/discovery/web.js",
       "dist/features/discovery/account-web.js",
       "dist/features/discovery/debate-web.js",
+      "frontend/embedded-wallet.tsx",
+      "src/platform/auth/embedded-wallet-provisioning.ts",
+      "src/platform/auth/embedded-wallet-provider.ts",
     ].map(async (file) => [
       file,
       createHash("sha256")
@@ -220,6 +223,7 @@ app.get("/api/auth/me", (_request, response) =>
 );
 app.get("/api/auth/methods", (_request, response) =>
   response.json({
+    accountId: "fixture",
     provider: { email: "synthetic@example.invalid", methods: ["email"] },
     legacyPassword: false,
   }),
@@ -229,6 +233,9 @@ app.get("/api/me/profile", (_request, response) =>
 );
 app.get("/api/auth/wallets", (_request, response) =>
   response.json({ wallets: [] }),
+);
+app.get("/api/auth/embedded-wallet", (_request, response) =>
+  response.status(401).json({ error: "authentication required" }),
 );
 app.get("/api/auth/security/passkeys", (_request, response) =>
   response.json({ passkeys: [] }),
@@ -915,6 +922,7 @@ async function verifyPrivyPasskeySetup(
             }
           : {
               json: {
+                accountId: fixtureAccount,
                 provider: {
                   subject: replacementActor
                     ? "did:privy:synthetic-replacement"
@@ -1962,6 +1970,499 @@ async function verifyPrivyPasskeySetup(
     await context.close();
   }
 }
+async function verifyEmbeddedWalletStatus(
+  name: string,
+  viewport: { width: number; height: number },
+) {
+  const context = await browser.newContext({ viewport });
+  let stage = "initialize";
+  const providerWalletRequests: string[] = [];
+  let retryCalls = 0;
+  try {
+    await context.addInitScript(() => {
+      if (window === window.top)
+        localStorage.setItem("yaparena-measurement-declined", "1");
+    });
+    const page = await context.newPage();
+    page.on("pageerror", (error) => errors.push(error.message));
+    const now = Math.floor(Date.now() / 1000);
+    let account = "synthetic-wallet-A",
+      subject = "did:privy:synthetic-wallet-A",
+      email = "wallet-A@example.invalid",
+      signedIn = false;
+    const addressA = `0x${"1".repeat(40)}`,
+      addressB = `0x${"2".repeat(40)}`,
+      addressC = `0x${"3".repeat(40)}`;
+    type WalletStatus = {
+      accountId: string;
+      subject: string | null;
+      state:
+        | "pending"
+        | "provisioning"
+        | "ready"
+        | "retry_wait"
+        | "review_required"
+        | "unavailable";
+      chain: "ethereum";
+      address: string | null;
+      canRetry: boolean;
+      retryAt: string | null;
+    };
+    let status: WalletStatus["state"] = "pending",
+      address: string | null = null,
+      canRetry = true,
+      failStatus = false,
+      holdGet = false,
+      holdPost = false;
+    let gate = deferred(),
+      arrived = deferred(),
+      finished = deferred();
+    const projection = (): WalletStatus => ({
+      accountId: account,
+      subject,
+      state: status,
+      chain: "ethereum",
+      address,
+      canRetry,
+      retryAt: null,
+    });
+    const user = () => ({
+      id: subject,
+      is_guest: false,
+      created_at: now - 100,
+      has_accepted_terms: true,
+      mfa_methods: [],
+      linked_accounts: [
+        {
+          type: "email",
+          address: email,
+          verified_at: now,
+          first_verified_at: now - 100,
+          latest_verified_at: now,
+        },
+      ],
+    });
+    const session = () => {
+      const token = [
+        Buffer.from(JSON.stringify({ alg: "ES256", typ: "JWT" })).toString(
+          "base64url",
+        ),
+        Buffer.from(
+          JSON.stringify({
+            iss: "privy.io",
+            aud: appId,
+            sub: subject,
+            sid: `synthetic-${account}`,
+            iat: now,
+            exp: now + 600,
+          }),
+        ).toString("base64url"),
+        "synthetic-signature-never-server-verified",
+      ].join(".");
+      return {
+        user: user(),
+        token,
+        privy_access_token: token,
+        refresh_token: "synthetic-refresh-never-sent-to-provider",
+        is_new_user: true,
+        session_update_action: "set",
+      };
+    };
+    await context.route(
+      (url) =>
+        (url.hostname === "privy.io" || url.hostname.endsWith(".privy.io")) &&
+        (url.origin !== "https://auth.privy.io" ||
+          url.pathname.startsWith("/api/")),
+      (route) => {
+        const request = route.request(),
+          path = new URL(request.url()).pathname,
+          headers = {
+            "access-control-allow-origin": base,
+            "access-control-allow-credentials": "true",
+            "access-control-allow-methods": "GET, POST, OPTIONS",
+            "access-control-allow-headers":
+              request.headers()["access-control-request-headers"] ??
+              "authorization, content-type, privy-app-id",
+          };
+        if (new URL(request.url()).origin !== "https://auth.privy.io") {
+          providerWalletRequests.push(path);
+          return route.abort();
+        }
+        if (request.method() === "OPTIONS")
+          return route.fulfill({ status: 204, headers });
+        if (path === `/api/v1/apps/${appId}`)
+          return route.fulfill({
+            headers,
+            json: {
+              ...providerSettings,
+              captcha_enabled: false,
+              enabled_captcha_provider: null,
+            },
+          });
+        if (
+          path === "/api/v1/passwordless/init" ||
+          path === "/api/v1/analytics_events" ||
+          path === "/api/v1/sessions/logout"
+        )
+          return route.fulfill({ headers, json: { success: true } });
+        if (
+          path === "/api/v1/passwordless/authenticate" ||
+          path === "/api/v1/sessions"
+        )
+          return route.fulfill({ headers, json: session() });
+        if (path === "/api/v1/users/me")
+          return route.fulfill({ headers, json: { user: user() } });
+        providerWalletRequests.push(path);
+        return route.abort();
+      },
+    );
+    await page.route("**/api/auth/me", (route) =>
+      route.fulfill(
+        signedIn
+          ? { json: { user: { id: account, email } } }
+          : { status: 401, json: { error: "authentication required" } },
+      ),
+    );
+    await page.route("**/api/auth/methods", (route) =>
+      route.fulfill(
+        signedIn
+          ? {
+              json: {
+                accountId: account,
+                provider: {
+                  subject,
+                  email,
+                  methods: ["email"],
+                  credentials: [{ type: "email", id: email }],
+                },
+                legacyPassword: false,
+              },
+            }
+          : { status: 401, json: { error: "authentication required" } },
+      ),
+    );
+    await page.route("**/api/auth/privy/exchange", (route) => {
+      signedIn = true;
+      return route.fulfill({ status: 204 });
+    });
+    await page.route("**/api/auth/embedded-wallet", async (route) => {
+      if (!signedIn)
+        return route.fulfill({
+          status: 401,
+          json: { error: "authentication required" },
+        });
+      const posting = route.request().method() === "POST";
+      if (posting) {
+        retryCalls++;
+        assert.deepEqual(route.request().postDataJSON(), {});
+        assert.equal(
+          route.request().headers()["x-yaparena-expected-account"],
+          account,
+        );
+      } else assert.equal(route.request().method(), "GET");
+      const saved = projection(),
+        held = posting ? holdPost : holdGet;
+      if (held) {
+        arrived.release();
+        await gate.promise;
+      }
+      try {
+        await route.fulfill(
+          failStatus && !posting
+            ? {
+                status: 503,
+                json: { error: "synthetic wallet provider unavailable" },
+              }
+            : { json: saved },
+        );
+      } finally {
+        if (held) finished.release();
+      }
+    });
+    await page.goto(`${base}/account`);
+    const auth = page.locator("#email-auth"),
+      wallet = page.locator("#account-embedded-wallet"),
+      check = wallet.getByRole("button", {
+        name: "Check wallet status",
+        exact: true,
+      });
+    async function login(next?: "B" | "C") {
+      const emailField = auth.getByLabel("Email address", { exact: true });
+      if (next) {
+        signedIn = false;
+        account = `synthetic-wallet-${next}`;
+        subject = `did:privy:synthetic-wallet-${next}`;
+        email = `wallet-${next}@example.invalid`;
+        await page.evaluate(() => {
+          window.dispatchEvent(new Event("yap:provider-logout"));
+          window.dispatchEvent(new Event("yap:account-changed"));
+          window.dispatchEvent(
+            new CustomEvent("yap:request-auth", { detail: { mode: "login" } }),
+          );
+        });
+      }
+      await page.waitForFunction(
+        () =>
+          document.querySelector<HTMLButtonElement>(
+            '#email-auth button[type="submit"]',
+          )?.disabled === false,
+      );
+      if (!(await emailField.isVisible()))
+        await auth
+          .getByRole("button", { name: "Change email", exact: true })
+          .click();
+      await emailField.fill(email);
+      await auth
+        .getByRole("button", { name: "Continue with email", exact: false })
+        .click();
+      await auth
+        .getByLabel("Verification code", { exact: true })
+        .fill("123456");
+      await auth
+        .getByRole("button", { name: "Verify and continue", exact: false })
+        .click();
+      await page.waitForFunction(
+        (current) => window.yapCurrentSessionAccount?.() === current,
+        account,
+      );
+      await wallet.waitFor();
+    }
+    async function waitGate(promise: Promise<void>) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          promise,
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(
+              () => reject(new Error(`Wallet fixture gate missing: ${stage}`)),
+              10000,
+            );
+          }),
+        ]);
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    async function settleWalletResponse() {
+      await page.evaluate(
+        () =>
+          new Promise<void>((done) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => done())),
+          ),
+      );
+    }
+    stage = "pending wallet does not block synthetic SDK email login";
+    await login();
+    await wallet
+      .getByText("Setting up your wallet. You can keep using your account.", {
+        exact: true,
+      })
+      .waitFor();
+    assert.equal(retryCalls, 0, "a status read cannot create a retry request");
+    assert.equal(await page.locator("#sign-out").isEnabled(), true);
+    assert.equal(await page.locator("#link-wallet").count(), 0);
+    await capture(page, `embedded-wallet-pending-${name}.png`, true);
+    checks.push(
+      `${name}: installed SDK synthetic email login finishes while the durable wallet job remains pending, with account/logout available and no external-wallet linking control or automatic retry POST`,
+    );
+    stage = "explicit retry is one scoped empty-body request";
+    gate = deferred();
+    arrived = deferred();
+    finished = deferred();
+    holdPost = true;
+    const retry = wallet.getByRole("button", {
+      name: "Retry wallet setup",
+      exact: true,
+    });
+    await retry.click();
+    await waitGate(arrived.promise);
+    status = "provisioning";
+    canRetry = false;
+    assert.equal(await retry.isDisabled(), true);
+    assert.equal(await check.isDisabled(), true);
+    gate.release();
+    await waitGate(finished.promise);
+    holdPost = false;
+    await wallet
+      .getByText("Setting up your wallet. You can keep using your account.", {
+        exact: true,
+      })
+      .waitFor();
+    assert.equal(retryCalls, 1);
+    await retry.waitFor({ state: "detached" });
+    await check.waitFor();
+    await page.waitForFunction(
+      () =>
+        document.querySelector<HTMLButtonElement>("#embedded-wallet button")
+          ?.disabled === false,
+    );
+    await settleWalletResponse();
+    const beforeTab = await page.evaluate(() => ({
+      tag: document.activeElement?.tagName ?? null,
+      id: document.activeElement?.id ?? null,
+      inWallet: Boolean(document.activeElement?.closest("#embedded-wallet")),
+    }));
+    if (!beforeTab.inWallet) await page.keyboard.press("Tab");
+    const afterTab = await page.evaluate(() => ({
+      tag: document.activeElement?.tagName ?? null,
+      id: document.activeElement?.id ?? null,
+      inWallet: Boolean(document.activeElement?.closest("#embedded-wallet")),
+    }));
+    await writeFile(
+      resolve(directory, `embedded-wallet-retry-focus-${name}.json`),
+      JSON.stringify({ beforeTab, afterTab }, null, 2) + "\n",
+    );
+    assert.equal(
+      afterTab.inWallet,
+      true,
+      "keyboard focus must remain at the wallet action after its retry control is removed",
+    );
+    status = "ready";
+    address = addressA;
+    await check.click();
+    await wallet.getByText(addressA, { exact: true }).waitFor();
+    await wallet.getByText("Your wallet is ready.", { exact: true }).waitFor();
+    assert.equal(await wallet.locator('[role="status"]:visible').count(), 1);
+    assert.equal(
+      await wallet
+        .getByText("Checking your wallet…", { exact: true })
+        .isVisible(),
+      false,
+      "the SSR fallback must be hidden after the React status mounts",
+    );
+    assert.equal(
+      await wallet.getByRole("button", { name: /Retry/ }).count(),
+      0,
+    );
+    await capture(page, `embedded-wallet-ready-${name}.png`, true);
+    checks.push(
+      `${name}: explicit wallet retry sends exactly one account-compared POST with an empty body, blocks duplicate controls while pending, and displays only the server-confirmed ready address without a provider wallet/signing call`,
+    );
+    stage = "unavailable and ownership review keep private wallet hidden";
+    failStatus = true;
+    await check.click();
+    await wallet
+      .getByText(
+        "Wallet status is temporarily unavailable. Your account is still available.",
+        { exact: true },
+      )
+      .waitFor();
+    assert.equal(await wallet.locator("code").count(), 0);
+    assert.equal(await page.locator("#sign-out").isEnabled(), true);
+    failStatus = false;
+    status = "review_required";
+    address = null;
+    await check.click();
+    await wallet
+      .getByText(
+        "Wallet access needs an ownership review. Your existing wallet will not be replaced automatically.",
+        { exact: true },
+      )
+      .waitFor();
+    assert.equal(await wallet.locator("code").count(), 0);
+    assert.equal(
+      await wallet.getByRole("button", { name: /Retry/ }).count(),
+      0,
+    );
+    assert.equal(retryCalls, 1);
+    checks.push(
+      `${name}: unavailable provider status and an ownership-review state hide the address, preserve account/logout access, and cannot silently replace a wallet or submit another creation/retry`,
+    );
+    stage =
+      "held original wallet read cannot reveal old address after SDK switch";
+    status = "ready";
+    address = addressA;
+    gate = deferred();
+    arrived = deferred();
+    finished = deferred();
+    holdGet = true;
+    await check.click();
+    await waitGate(arrived.promise);
+    holdGet = false;
+    address = addressB;
+    await login("B");
+    await wallet.getByText(addressB, { exact: true }).waitFor();
+    gate.release();
+    await waitGate(finished.promise);
+    await settleWalletResponse();
+    assert.equal(await wallet.getByText(addressA, { exact: true }).count(), 0);
+    await wallet.getByText(addressB, { exact: true }).waitFor();
+    checks.push(
+      `${name}: a held original-account wallet GET cannot repaint its address after a replacement installed-SDK login; the new address remains paired with its own verified account/provider response`,
+    );
+    stage = "held original retry cannot overwrite replacement wallet";
+    status = "retry_wait";
+    address = null;
+    canRetry = true;
+    await check.click();
+    await retry.waitFor();
+    status = "ready";
+    address = addressB;
+    canRetry = false;
+    gate = deferred();
+    arrived = deferred();
+    finished = deferred();
+    holdPost = true;
+    await retry.click();
+    await waitGate(arrived.promise);
+    holdPost = false;
+    address = addressC;
+    await login("C");
+    await wallet.getByText(addressC, { exact: true }).waitFor();
+    gate.release();
+    await waitGate(finished.promise);
+    await settleWalletResponse();
+    assert.equal(await wallet.getByText(addressB, { exact: true }).count(), 0);
+    await wallet.getByText(addressC, { exact: true }).waitFor();
+    assert.equal(await check.isEnabled(), true);
+    assert.equal(retryCalls, 2);
+    assert.deepEqual(providerWalletRequests, []);
+    await capture(page, `embedded-wallet-replacement-${name}.png`, true);
+    checks.push(
+      `${name}: a held original-account retry response cannot restore its address or busy state over a later SDK account; retry requests remain scoped and no browser provider wallet creation, signing, transfer or funding endpoint is called`,
+    );
+    stage = "logout removes private wallet output";
+    signedIn = false;
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("yap:provider-logout"));
+      window.dispatchEvent(new Event("yap:account-changed"));
+    });
+    await page.waitForFunction(
+      () => document.querySelectorAll("#embedded-wallet code").length === 0,
+    );
+    assert.equal(await page.locator("#signed-in").isVisible(), false);
+    assert.equal(retryCalls, 2);
+    assert.deepEqual(providerWalletRequests, []);
+    checks.push(
+      `${name}: a logout/account-invalidation notification clears the wallet's private DOM output and stops stale continuations; all provider wallet responses in this fixture are absent, not claimed as genuine creation acceptance`,
+    );
+  } catch (error) {
+    const page = context.pages()[0];
+    if (page) await capture(page, `embedded-wallet-failure-${name}.png`, true);
+    await writeFile(
+      resolve(directory, `embedded-wallet-failure-${name}.json`),
+      JSON.stringify(
+        {
+          revision,
+          assetHashes,
+          sourceHashes,
+          stage,
+          retryCalls,
+          providerWalletRequests,
+          wallet: await page
+            ?.locator("#embedded-wallet")
+            .innerText()
+            .catch(() => null),
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    throw error;
+  } finally {
+    await context.close();
+  }
+}
 try {
   for (const [name, viewport] of [
     ["desktop", { width: 1440, height: 1000 }],
@@ -1969,6 +2470,7 @@ try {
   ] as const) {
     await verifyExchangeFailureClassification(name, viewport);
     await verifyPrivyPasskeySetup(name, viewport);
+    await verifyEmbeddedWalletStatus(name, viewport);
     if (name === "desktop")
       await verifyPrivyPasskeySetup("desktop-expired-restart", viewport, true);
     if (name === "desktop")
@@ -2494,6 +2996,7 @@ try {
     await page.route("**/api/auth/methods", (route) =>
       route.fulfill({
         json: {
+          accountId: fixtureAccountId,
           provider: { email: "synthetic@example.invalid", methods: ["email"] },
           legacyPassword: false,
         },
@@ -2783,6 +3286,7 @@ try {
       const passwordMethods = (route: Route) =>
         route.fulfill({
           json: {
+            accountId: fixtureAccountId,
             provider: {
               email: "synthetic@example.invalid",
               methods: ["email"],
@@ -4621,7 +5125,7 @@ try {
         errors,
         requirementFailures,
         scope:
-          "Local SSR fixture and installed Privy SDK; public provider metadata fetched live with CAPTCHA explicitly disabled in the fixture response only. OTP/passkey provider endpoints and application responses are synthetic. Real Chromium virtual-authenticator ceremonies exercise native passkey creation/assertion; real PostgreSQL acceptance is recorded separately. No real CAPTCHA validation, email delivery, genuine provider login/link, hosted session, physical device or complete WCAG conformance evidence.",
+          "Local SSR fixture and installed Privy SDK; public provider metadata fetched live with CAPTCHA explicitly disabled in the fixture response only. OTP/passkey provider endpoints and application responses, including durable wallet status/retry projections, are synthetic. Wallet fixtures assert no browser provider creation, signing, funding or transfer call. Real Chromium virtual-authenticator ceremonies exercise native passkey creation/assertion; real PostgreSQL acceptance is recorded separately. No real CAPTCHA validation, email delivery, genuine provider login/link/wallet creation, hosted session, physical device or complete WCAG conformance evidence.",
       },
       null,
       2,

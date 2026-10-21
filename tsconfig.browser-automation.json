@@ -23,6 +23,7 @@
     "scripts/verify-session-coordination-browser.ts",
     "scripts/verify-media-cloud-revocation.ts",
     "scripts/verify-coin-sandbox-browser.ts",
+    "scripts/verify-wallet-browser.ts",
     "scripts/migration-exports.d.ts",
     "scripts/verify-a4-browser.ts",
     "scripts/verify-arena-browser.ts",

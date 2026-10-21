@@ -203,6 +203,45 @@ function authReturn() {
   );
 }
 
+// Use the SDK error wire codes: its type declarations expose an enum that the
+// installed browser entry point does not export at runtime.
+function passkeySignInFailure(error: unknown) {
+  const details = error !== null && typeof error === "object" ? error : null;
+  const code =
+    details && "privyErrorCode" in details ? details.privyErrorCode : undefined;
+  const status =
+    details && "status" in details && typeof details.status === "number"
+      ? details.status
+      : undefined;
+  if (code === "passkey_not_allowed" || code === "exited_auth_flow")
+    return "Passkey sign-in was cancelled or no matching passkey was found. Try email.";
+  if (code === "too_many_requests" || status === 429)
+    return "Too many sign-in attempts. Wait a moment, then try again.";
+  if (status === 401 || status === 403)
+    return "The sign-in provider could not accept this login. If you just signed out, wait a moment and try again. You can also try email.";
+  if (status !== undefined && status >= 500)
+    return "Secure sign-in is temporarily unavailable. Try again shortly.";
+  if (
+    code === "client_request_timeout" ||
+    (details &&
+      "type" in details &&
+      details.type === "api_error" &&
+      "status" in details &&
+      details.status === null)
+  )
+    return "The connection to secure sign-in was interrupted. Reconnect and try again.";
+  if (code === "not_supported")
+    return "Passkey sign-in is not supported here. Try a different browser or use email.";
+  if (code === "disallowed_login_method")
+    return "Passkey sign-in is unavailable for this app. Use email to sign in.";
+  if (
+    code === "missing_or_invalid_privy_app_id" ||
+    code === "missing_or_invalid_privy_account_id"
+  )
+    return "Secure sign-in is not ready. Reload and try again.";
+  return "Passkey sign-in could not be completed. Try again, or use email.";
+}
+
 function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
   const [intent, setIntent] = useState<AuthMode | null>(
     root?.dataset.authMode === "signup"
@@ -381,7 +420,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
 
   async function run(
     action: () => Promise<void>,
-    failure: string,
+    failure: string | ((error: unknown) => string),
     detail = false,
   ) {
     if (pending.current || completing.current) return;
@@ -403,7 +442,9 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
           ? (detail || error instanceof RecoveryStateError) &&
             error instanceof Error
             ? error.message
-            : failure
+            : typeof failure === "function"
+              ? failure(error)
+              : failure
           : "You’re offline. Reconnect, then try again.",
       );
     } finally {
@@ -806,7 +847,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
               void run(async () => {
                 if (authenticated) await logout();
                 await loginWithPasskey();
-              }, "Passkey sign-in was cancelled or no matching passkey was found. Try email.")
+              }, passkeySignInFailure)
             }
           >
             <svg

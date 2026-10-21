@@ -101,6 +101,7 @@ const sourceHashes = Object.fromEntries(
       "dist/features/discovery/web.js",
       "dist/features/discovery/account-web.js",
       "dist/features/discovery/debate-web.js",
+      "frontend/account-auth.tsx",
       "frontend/embedded-wallet.tsx",
       "src/platform/auth/embedded-wallet-provisioning.ts",
       "src/platform/auth/embedded-wallet-provider.ts",
@@ -608,6 +609,246 @@ async function verifyExchangeFailureClassification(
       await capture(page, `exchange-${scenario.code}-${name}.png`, true);
       checks.push(
         `${name}: ${scenario.code} keeps denied app access and ${scenario.reconciliation ? "opens exact changed-method review with its retained password" : "shows its classified notice without an empty sign-in-method reconciliation"}; synthetic SDK success only`,
+      );
+    } finally {
+      await context.close();
+    }
+  }
+}
+async function verifyPasskeyFailureClassification(
+  name: string,
+  viewport: { width: number; height: number },
+) {
+  const fixtureOrigin = new URL(base);
+  fixtureOrigin.hostname = "localhost";
+  const origin = fixtureOrigin.origin;
+  const scenarios = [
+    {
+      id: "provider-denied",
+      status: 403,
+      code: "synthetic_provider_denial",
+      expectedInitCalls: 1,
+      notice: "The sign-in provider could not accept this login.",
+    },
+    {
+      id: "provider-unavailable",
+      status: 503,
+      code: "synthetic_provider_unavailable",
+      expectedInitCalls: 4,
+      notice: "Secure sign-in is temporarily unavailable.",
+    },
+    {
+      id: "provider-rate-limit",
+      status: 429,
+      code: "too_many_requests",
+      expectedInitCalls: 1,
+      notice: "Too many sign-in attempts.",
+    },
+    {
+      id: "provider-initialization",
+      status: 400,
+      code: "missing_or_invalid_privy_app_id",
+      expectedInitCalls: 1,
+      notice: "Secure sign-in is not ready.",
+    },
+    {
+      id: "provider-unknown",
+      status: 400,
+      code: "synthetic_unclassified_failure",
+      expectedInitCalls: 1,
+      notice: "Passkey sign-in could not be completed.",
+    },
+    {
+      id: "provider-network",
+      status: 0,
+      code: "synthetic_network_failure",
+      expectedInitCalls: 4,
+      notice: "The connection to secure sign-in was interrupted.",
+    },
+    {
+      id: "native-no-match",
+      status: 200,
+      code: "synthetic_native_no_match",
+      expectedInitCalls: 1,
+      notice: "Passkey sign-in was cancelled or no matching passkey was found.",
+    },
+  ];
+  for (const scenario of scenarios) {
+    const context = await browser.newContext({ viewport });
+    try {
+      await context.addInitScript(() => {
+        if (window === window.top)
+          localStorage.setItem("yaparena-measurement-declined", "1");
+      });
+      const page = await context.newPage();
+      page.on("pageerror", (error) => errors.push(error.message));
+      const cdp = await context.newCDPSession(page);
+      await cdp.send("WebAuthn.enable");
+      await cdp.send("WebAuthn.addVirtualAuthenticator", {
+        options: {
+          protocol: "ctap2",
+          transport: "internal",
+          hasResidentKey: true,
+          hasUserVerification: true,
+          isUserVerified: true,
+          automaticPresenceSimulation: true,
+        },
+      });
+      let initCalls = 0;
+      let authenticateCalls = 0;
+      let exchanges = 0;
+      const unexpected: string[] = [];
+      await context.route(
+        (url) =>
+          url.origin === "https://auth.privy.io" &&
+          url.pathname.startsWith("/api/"),
+        (route) => {
+          const path = new URL(route.request().url()).pathname;
+          const headers = {
+            "access-control-allow-origin": origin,
+            "access-control-allow-credentials": "true",
+            "access-control-allow-methods": "GET, POST, OPTIONS",
+            "access-control-allow-headers":
+              route.request().headers()["access-control-request-headers"] ??
+              "authorization, content-type, privy-app-id",
+          };
+          if (route.request().method() === "OPTIONS")
+            return route.fulfill({ status: 204, headers });
+          if (path === `/api/v1/apps/${appId}`)
+            return route.fulfill({
+              headers,
+              json: {
+                ...providerSettings,
+                captcha_enabled: false,
+                enabled_captcha_provider: null,
+              },
+            });
+          if (path === "/api/v1/passkeys/authenticate/init") {
+            initCalls++;
+            if (scenario.status === 0) return route.abort("failed");
+            if (scenario.status !== 200)
+              return route.fulfill({
+                status: scenario.status,
+                headers,
+                json: {
+                  type: "authentication_error",
+                  code: scenario.code,
+                  error: "SYNTHETIC_PRIVATE_PROVIDER_DETAIL_MUST_NOT_APPEAR",
+                },
+              });
+            return route.fulfill({
+              headers,
+              json: {
+                relying_party: origin,
+                options: {
+                  challenge: Buffer.from(
+                    "synthetic-no-match-challenge",
+                  ).toString("base64url"),
+                  rp_id: "localhost",
+                  allow_credentials: [
+                    {
+                      id: Buffer.from("synthetic-unenrolled-passkey").toString(
+                        "base64url",
+                      ),
+                      type: "public-key",
+                    },
+                  ],
+                  timeout: 1000,
+                  user_verification: "required",
+                },
+              },
+            });
+          }
+          if (path === "/api/v1/passkeys/authenticate") {
+            authenticateCalls++;
+            return route.abort();
+          }
+          if (path === "/api/v1/analytics_events")
+            return route.fulfill({ headers, json: { success: true } });
+          unexpected.push(path);
+          return route.abort();
+        },
+      );
+      await page.route("**/api/auth/me", (route) =>
+        route.fulfill({
+          status: 401,
+          json: { error: "authentication required" },
+        }),
+      );
+      await page.route("**/api/auth/privy/exchange", (route) => {
+        exchanges++;
+        return route.abort();
+      });
+      await page.goto(`${origin}/account`);
+      const auth = page.locator("#email-auth");
+      const button = auth.getByRole("button", {
+        name: "Use a passkey",
+        exact: true,
+      });
+      await page.waitForFunction(
+        () =>
+          document.querySelector<HTMLButtonElement>(
+            '#email-auth button[type="submit"]',
+          )?.disabled === false,
+      );
+      await button.click();
+      await auth
+        .getByText(scenario.notice, { exact: false })
+        .waitFor()
+        .catch(async (error: unknown) => {
+          await capture(
+            page,
+            `signin-passkey-${scenario.id}-${name}.png`,
+            true,
+          );
+          await writeFile(
+            resolve(directory, `signin-passkey-${scenario.id}-${name}.json`),
+            JSON.stringify({
+              phase: `returning passkey ${scenario.id} before SDK completion`,
+              initCalls,
+              authenticateCalls,
+              exchanges,
+              cancellationNoticeVisible: await auth
+                .getByText(
+                  "Passkey sign-in was cancelled or no matching passkey",
+                  { exact: false },
+                )
+                .isVisible(),
+              expectedNoticeVisible: await auth
+                .getByText(scenario.notice, { exact: false })
+                .isVisible(),
+            }) + "\n",
+          );
+          throw error;
+        });
+      // The installed SDK retries network errors and 503 three times. Other
+      // fixture statuses are not in its retryStatusCodes; keep exact counts.
+      assert.equal(initCalls, scenario.expectedInitCalls);
+      assert.equal(authenticateCalls, 0);
+      assert.equal(exchanges, 0);
+      assert.equal(await button.isEnabled(), true);
+      assert.equal(await page.locator("#signed-in").isVisible(), false);
+      assert.equal(
+        await page
+          .getByText("SYNTHETIC_PRIVATE_PROVIDER_DETAIL_MUST_NOT_APPEAR", {
+            exact: false,
+          })
+          .count(),
+        0,
+      );
+      if (scenario.id !== "native-no-match")
+        assert.equal(
+          await auth
+            .getByText("Passkey sign-in was cancelled or no matching passkey", {
+              exact: false,
+            })
+            .count(),
+          0,
+        );
+      assert.deepEqual(unexpected, []);
+      await capture(page, `signin-passkey-${scenario.id}-${name}.png`, true);
+      checks.push(
+        `${name}: ${scenario.id} before SDK completion shows its bounded notice, re-enables retry, issues no app exchange and exposes no provider detail; ${scenario.id === "native-no-match" ? "actual Chromium virtual authenticator has no matching credential, not a physical-device trial" : "provider response is synthetic"}`,
       );
     } finally {
       await context.close();
@@ -2469,6 +2710,7 @@ try {
     ["mobile", { width: 390, height: 844 }],
   ] as const) {
     await verifyExchangeFailureClassification(name, viewport);
+    await verifyPasskeyFailureClassification(name, viewport);
     await verifyPrivyPasskeySetup(name, viewport);
     await verifyEmbeddedWalletStatus(name, viewport);
     if (name === "desktop")

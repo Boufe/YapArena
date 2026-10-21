@@ -1,0 +1,103 @@
+{
+  "result": "FAIL",
+  "runId": 39673300122,
+  "runAttempt": 1,
+  "url": "https://github.com/Boufe/YapArena/actions/runs/39673300122",
+  "branchRevision": "a9706ccb55ae342c4f11366145b1896d17656931",
+  "testedMergeCommit": "345ebcb02b83034511fa2d8a826bbf1aa3927d85",
+  "mergeParents": [
+    "fd60543b5f6d8f0b65fe1f93807252064d9317f2",
+    "a9706ccb55ae342c4f11366145b1896d17656931"
+  ],
+  "testedTree": "ba22cb58e56f07dd8824b057195c2c394d8b7412",
+  "branchTree": "ba22cb58e56f07dd8824b057195c2c394d8b7412",
+  "allFiveCheckoutLogsVerified": true,
+  "quality": {
+    "tests": 854,
+    "passed": 854,
+    "skipped": 0,
+    "coverage": {
+      "lines": 95.31,
+      "branches": 91.19,
+      "functions": 95.35
+    },
+    "eachFreshAndUpgrade": {
+      "accountSecurityLedger": 235,
+      "treasury": 5
+    }
+  },
+  "integration": {
+    "result": "failure",
+    "phase": "retained-wallet proof negatives",
+    "freshAccountSecurityLedger": 235,
+    "freshA4": 17,
+    "treasuryEachFreshAndUpgrade": 5,
+    "coreUpgradeReached": false,
+    "downstreamCommunitySmokeAndBackup": "skipped"
+  },
+  "artifact": {
+    "id": 12382266306,
+    "name": "core-browser-evidence",
+    "sha256": "49a5e37f2b9bb7c27d525c90c142ae54ea3953675b0652243e8071d56dc8ad07",
+    "privateDownload": true
+  },
+  "jobs": [
+    {
+      "id": 119476515866,
+      "name": "deployment",
+      "conclusion": "success",
+      "checkout": "345ebcb02b83034511fa2d8a826bbf1aa3927d85",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39673300122/job/119476515866",
+      "rawLogSha256": "d2e3583847a99a84b0f9745ee273b8fa7e8585a9381f8cca5ca66f6d9ef9aa86",
+      "rawLogBytes": 14874,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119476516302,
+      "name": "monitoring",
+      "conclusion": "success",
+      "checkout": "345ebcb02b83034511fa2d8a826bbf1aa3927d85",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39673300122/job/119476516302",
+      "rawLogSha256": "485e596232e63d4d022ca21efe6808dda42eac962da29bd951f3cba915338bce",
+      "rawLogBytes": 18371,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119476516359,
+      "name": "quality / check",
+      "conclusion": "success",
+      "checkout": "345ebcb02b83034511fa2d8a826bbf1aa3927d85",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39673300122/job/119476516359",
+      "rawLogSha256": "50dc03ced2e858806adebec224535e3c0483abcfe2cadeb9de88e07e167aff9a",
+      "rawLogBytes": 107729,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119479398308,
+      "name": "integration",
+      "conclusion": "failure",
+      "checkout": "345ebcb02b83034511fa2d8a826bbf1aa3927d85",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39673300122/job/119479398308",
+      "rawLogSha256": "7f5a799d6977b1b5e697d49888b71b815dfb565ee3fa360008776e462b7fff42",
+      "rawLogBytes": 156042,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119479398375,
+      "name": "container",
+      "conclusion": "success",
+      "checkout": "345ebcb02b83034511fa2d8a826bbf1aa3927d85",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39673300122/job/119479398375",
+      "rawLogSha256": "1a2042dd4b3676a68c8f43230cc415a5c70dd8753a3b5d93e801f90b96c33e20",
+      "rawLogBytes": 1231454,
+      "rawLogPrivateMode": "0600"
+    }
+  ],
+  "limitations": [
+    "Failed CI is preserved, not acceptance of the branch or the later correction.",
+    "The original child catch withheld the exact failed assertion and no failure screenshot was captured.",
+    "Artifacts establish completion of negative proof stages through the pre-final mobile screenshot; deterministic refresh reproduction is separate.",
+    "Runner-local synthetic provider/browser/media and disposable databases; no hosted provider or physical-device acceptance.",
+    "Raw logs and zip remain private; only allowlisted aggregate excerpts and synthetic screenshots are archived."
+  ]
+}

@@ -92,3 +92,45 @@ passed 5/5 on each. The integrated browser release gate also passed. These are
 the lead-executed local results inspected by this reviewer, not a second
 independent execution or a hosted/provider propagation trial. The selector and
 phase fingerprints in the same-day follow-up remain unchanged.
+
+## Accepted-credential wallet wake follow-up
+
+After the r5/a970 boundary, the wallet retry-budget issue required a narrow
+normal-reset completion hook. This reviewer inspected the new source at
+`11935ce851d67589258032a8033c2db871491cfc703c75107669d5cef6937a3f`
+and phase tests at
+`8a344febfeaec90b27f389e19aa4b2323ec632409bd6835a40872e0ea0432865`.
+
+The hook runs only after confirmed unfreeze, nonnull accepted digest, the exact
+mapping generation/cutoff update and job completion, inside the same account
+transaction. The wallet helper independently matches active owner, DID,
+generation and digest and can only rearm the parked verification state, without
+resetting its retry budget. It does not accept provider credential changes or
+weaken the reset fence. Wallet claims commit their row lock before acquiring the
+account checkpoint, so this account-to-job hook adds no opposing lock order.
+
+The new twelfth case uses actual signed same-key activation, observes the
+generation mismatch/park, completes the normal reset, then races two wallet
+workers and requires exactly one create with preserved ownership/provenance.
+No blocking source issue was identified. Execution of that new case belongs to
+the next lead-run PG/combined gate; the earlier 11-case and 854-test results must
+not be relabelled as its acceptance.
+
+## Dated wake-hook execution inspected — 2026-10-21
+
+The pending execution boundary above is preserved. The reviewer then read the
+actual new fresh and upgrade account logs under
+[`wallet-verification-pause/integrated/database`](../wallet-verification-pause/integrated/database/fresh-account-security.log).
+Both pass **239/239** with zero skips, including all **12 phase cases** and the
+real signed activation → parked wallet → confirmed normal reset → two-worker
+single-create case. The combined local gate passes **858/858** with zero skips
+and the new native run passes **18 groups**, errors empty.
+
+All eight supplementary source/compiled fingerprints and all 62 copied artifact
+hashes were independently recomputed against the archive manifest. No mismatch
+was found; formatted/raw JSON copies were also checked for semantic equality.
+The five files in commit `2efc95cff5f112653a392ba4e8edbaf9ef2ec557` match the
+frozen correction hashes, including this phase hook and its tests. These are
+inspected lead-executed local runs, not a second PG execution by the reviewer or
+genuine provider propagation acceptance. New exact-source CI/release remains a
+separate requirement; the failed earlier a970 CI is preserved.

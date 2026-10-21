@@ -202,3 +202,83 @@ experimental transform-types warning. No real inspection was run by this
 reviewer. Strict operational compilation and any actual staged read-only
 inspection are separate lead-owned evidence; the helper's existence and offline
 PASS do not establish genuine provider wallet acceptance.
+
+## Retry-budget follow-up after a970 CI started
+
+The earlier review and local PASS did not detect a subsequently identified
+availability defect: an unaccepted credential or pending account generation
+could consume repeated wallet attempts and eventually enter permanent review
+before the user finished first-key setup. Release was paused without applying
+the two pending staging migrations. The a970 results remain evidence for their
+recorded source, not acceptance of this correction.
+
+The reviewer independently read the correction and all 15 wallet PG cases.
+Before a create is attempted, a verification wait refunds only the current
+claim and parks the job outside the automatic selector. Previous actual
+provider failures remain counted. After a create is attempted, its count and
+uncertain creation marker remain; an eighth actual attempt or expired eighth
+crashed lease still requires review. No uncertain external outcome is erased.
+
+Rearming requires the same immutable DID, an active matching account/mapping
+generation and the exact accepted digest. A missing/stale digest or changed DID
+cannot rearm parked work, and the helper does not reset its external reference,
+attempt key or accumulated budget. Ordinary verified exchange and protected
+explicit retry use this exact contract. The central normal-reset completion
+also wakes the job after first-key activation, avoiding dependence on another
+login or manual retry when the existing app cookie remains valid.
+
+The reviewed tests drain parked work more than eight times without further
+provider polls, retain earlier failure budgets, refuse stale rearm inputs,
+reconcile an already attempted create without creating again, and preserve
+exhaustion. The phase test uses real signed key activation, verifies its pending
+generation mismatch, confirms normal reset and races two workers to one create.
+No blocking source or lock-order defect was found. Actual new PG/combined
+acceptance remains pending the lead's next run at this review boundary.
+
+| File                                                  | Correction SHA-256                                                 |
+| ----------------------------------------------------- | ------------------------------------------------------------------ |
+| `src/platform/auth/embedded-wallet-provisioning.ts`   | `afadf4f70fc737d033320cb9e6172073282f512dcb845aff8fdb058a9ef325ba` |
+| `tests/embedded-wallet-provisioning-postgres.test.js` | `b4a72d35de3870ea1dfadebbe15a73fb36dde1354d37de8d37830b22b63898c0` |
+| `src/platform/auth/provider-accounts.ts`              | `a87ccaba271a9c4f30fa712e81f5759fa488749d2224611b61f6b8adeec286e1` |
+| `src/platform/auth/provider-control-phases.ts`        | `11935ce851d67589258032a8033c2db871491cfc703c75107669d5cef6937a3f` |
+| `tests/provider-control-phases-postgres.test.js`      | `8a344febfeaec90b27f389e19aa4b2323ec632409bd6835a40872e0ea0432865` |
+
+## Dated correction acceptance — 2026-10-21
+
+The earlier pending paragraph is preserved. The reviewer subsequently inspected
+the actual new [integrated output](../wallet-verification-pause/integrated/run.log)
+and [native result](../wallet-verification-pause/native/results.json). The local
+combined gate passed **858/858**, zero skips, coverage **95.32/91.22/95.35%**;
+each fresh/upgrade path passed **239 account/security/ledger, 17 A4 and five
+treasury** cases. The actual new parking, retained-budget, uncertain-create and
+signed-activation/reset wake cases pass in both paths. The native run passed
+**18 groups**, errors empty, with synthetic provider responses and real runtime
+PostgreSQL/native virtual assertions.
+
+The reviewer independently recomputed all **62 archived artifact hashes**, all
+**eight supplementary source/compiled hashes** and all **35 native report
+hashes**, with no mismatch. All five formatted/raw JSON pairs have identical
+parsed data. The 23 files of the restored earlier native leaf were compared
+against the a970 committed bytes; all matched. Thus the prior report remains
+historical rather than being silently overwritten by the new run.
+
+Commit `2efc95cff5f112653a392ba4e8edbaf9ef2ec557` contains exactly the three
+reviewed backend files and two PG test files at their frozen hashes. The source
+and test fingerprints in the correction table match those commit blobs and the
+current files. Base-commit metadata in the working-tree results is not used to
+pretend a970 already contained the correction.
+
+The integrated retained-wallet child used its earlier verifier. The separate
+[controlled RED/GREEN](../wallet-phase-ci/retained-refresh/README.md) executed by
+this reviewer verifies the new bounded refresh fixture: the old immediate
+visibility assumption fails with an actual committed removal/hidden account
+state, and the corrected fixture passes all four groups with identical app
+bytes and complete disposable cleanup. Commit
+`ce85b4abf9487f28147f2036cd801c6c8d4ea420` contains only that exact verified
+fixture. No application code was changed for that browser race.
+
+The original [a970 CI failure](../wallet-phase-ci/a9706cc/README.md) remains
+archived. Exact new-source CI and guarded staging release are still pending at
+this addendum. No genuine provider wallet creation/default recovery, hosted
+credential journey, physical device or live financial acceptance is inferred
+from these successful local results.

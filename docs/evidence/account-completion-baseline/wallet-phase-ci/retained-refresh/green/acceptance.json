@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "revision": "2efc95cff5f112653a392ba4e8edbaf9ef2ec557",
+  "testedAt": "2026-10-21T21:17:45.592Z",
+  "environment": "explicit disposable loopback PostgreSQL; real runtime HTTP; synthetic legacy wallet signers; no external provider or chain",
+  "checks": [
+    "new external linking absent; empty retained section hidden; password rejects wrong proof and removes a retained wallet",
+    "retained proof rejects wrong account, wrong chain, cancelled signature, expiry and synthetic service outage; committed mobile removal keeps private account data hidden during a held refresh, then restores the confirmed session and notification",
+    "consumed wallet-removal proof cannot replay",
+    "existing wallet-only identity signs in; last retained method cannot be removed"
+  ],
+  "errors": [],
+  "sourceHashes": {
+    "scripts/verify-wallet-browser.ts": "3720a754856057a21398c2995a0fdb7733a258814aeea6d9ead66a07f2774287",
+    "frontend/account.ts": "d74175e48bd4260b7e866cd37b4370647cf6ddb548a6be8f395cfe9f893ba916",
+    "src/features/discovery/account-web.ts": "9e081acb1c4bf1ca46925253ee0bf974ea05b0193dd8a6ef21a634346695f6df",
+    "src/features/discovery/web.ts": "8c297c47c7a153bbb0541942f1d4c538b5ba9f62c68899a22ad9d53609a6db0a",
+    "public/account.js": "bce87601d7c0f8aa764fdb988cb19f04e0d28d3974ac09f2496c7f012dc3d516"
+  },
+  "limitations": [
+    "No genuine embedded wallet creation, hosted provider or physical device acceptance"
+  ]
+}

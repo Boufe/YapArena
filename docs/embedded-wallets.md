@@ -92,6 +92,16 @@ exhausted or ambiguous ownership moves to review. An expired final lease also
 moves to review, rather than leaving the user indefinitely in provisioning.
 Explicit retry cannot reset attempt counts or bypass backoff/review.
 
+Waiting for account authorization is separate from provider failure. If accepted
+credentials or generation do not match, the worker parks the job and stops
+automatic provider requests. An attempt that has not called create is refunded;
+an actual create remains counted, including an uncertain response. The same
+accepted identity and credential digest can rearm the parked job during a
+verified account exchange, authenticated retry or final synchronized
+provider-session reset. None of these paths clears previous provider failures,
+creation history, an exhausted budget or an ownership-review state. The status
+projection shows no scheduled automatic check while work is parked.
+
 Provider wallet records are excluded from sign-in methods and the accepted
 credential digest only when the trusted server response positively identifies a
 Privy embedded, user-signable Ethereum/Solana wallet. Unknown external wallets,

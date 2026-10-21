@@ -1,0 +1,183 @@
+{
+  "base": "isolated loopback web runtime",
+  "viewport": [
+    1440,
+    1000,
+    390,
+    844
+  ],
+  "account": "synthetic email registration",
+  "population": 500,
+  "humanParticipants": 1,
+  "repetitions": 2,
+  "outcomes": [
+    {
+      "name": "execution",
+      "repetition": 1,
+      "branch": "targeted",
+      "offer": {
+        "d": "922337203685477580800",
+        "n": "211411757063649478847"
+      },
+      "receipt": {
+        "side": "NO",
+        "limit": "0.220000",
+        "quantity": 10,
+        "status": "settled",
+        "reserved": "10000000",
+        "accepted": true,
+        "executed": true,
+        "premium": "7707870",
+        "fee": "0",
+        "released": "2292130",
+        "payout": "9001996",
+        "net": "1294126",
+        "premiumDust": {
+          "d": "288230376151711744",
+          "n": "248735281581622155"
+        },
+        "payoutDust": {
+          "d": "501",
+          "n": "4"
+        }
+      },
+      "available": "1001294126",
+      "reserved": "0"
+    },
+    {
+      "name": "no-trade",
+      "repetition": 1,
+      "branch": "exploratory",
+      "offer": {
+        "d": "36893488147419103232",
+        "n": "26206439567801318193"
+      },
+      "receipt": {
+        "side": "NO",
+        "limit": "0.220000",
+        "quantity": 10,
+        "status": "no_opposite",
+        "reserved": "10000000",
+        "accepted": true,
+        "executed": false,
+        "premium": "0",
+        "fee": "0",
+        "released": "10000000",
+        "payout": "0",
+        "net": "0",
+        "premiumDust": {
+          "d": "1",
+          "n": "0"
+        },
+        "payoutDust": {
+          "d": "1",
+          "n": "0"
+        }
+      },
+      "available": "1000000000",
+      "reserved": "0"
+    },
+    {
+      "name": "execution",
+      "repetition": 2,
+      "branch": "targeted",
+      "offer": {
+        "d": "922337203685477580800",
+        "n": "211411757063649478847"
+      },
+      "receipt": {
+        "side": "NO",
+        "limit": "0.220000",
+        "quantity": 10,
+        "status": "settled",
+        "reserved": "10000000",
+        "accepted": true,
+        "executed": true,
+        "premium": "7707870",
+        "fee": "0",
+        "released": "2292130",
+        "payout": "9001996",
+        "net": "1294126",
+        "premiumDust": {
+          "d": "288230376151711744",
+          "n": "248735281581622155"
+        },
+        "payoutDust": {
+          "d": "501",
+          "n": "4"
+        }
+      },
+      "available": "1001294126",
+      "reserved": "0"
+    },
+    {
+      "name": "no-trade",
+      "repetition": 2,
+      "branch": "exploratory",
+      "offer": {
+        "d": "36893488147419103232",
+        "n": "26206439567801318193"
+      },
+      "receipt": {
+        "side": "NO",
+        "limit": "0.220000",
+        "quantity": 10,
+        "status": "no_opposite",
+        "reserved": "10000000",
+        "accepted": true,
+        "executed": false,
+        "premium": "0",
+        "fee": "0",
+        "released": "10000000",
+        "payout": "0",
+        "net": "0",
+        "premiumDust": {
+          "d": "1",
+          "n": "0"
+        },
+        "payoutDust": {
+          "d": "1",
+          "n": "0"
+        }
+      },
+      "available": "1000000000",
+      "reserved": "0"
+    }
+  ],
+  "initializationReadiness": {
+    "pendingControlsDisabled": true,
+    "creationRequests": 1,
+    "createdRuns": 1,
+    "openRounds": 1,
+    "formVisible": true
+  },
+  "checks": [
+    "starter coins",
+    "NO conversion review",
+    "keyboard dialog focus",
+    "binding submit",
+    "reload receipt",
+    "pause/run/step/speed",
+    "sealed response",
+    "worker settlement",
+    "deterministic execution and exploratory no-trade",
+    "exact balances and reservation release",
+    "paginated revealed diagnostics",
+    "bot-only observer",
+    "archive/reset isolation",
+    "mobile overflow",
+    "axe WCAG A/AA"
+  ],
+  "accessibility": [],
+  "errors": [],
+  "screenshots": [
+    "inline-initializing.png",
+    "inline-debate-desktop.png",
+    "execution-1-commitment.png",
+    "no-trade-1-commitment.png",
+    "execution-2-commitment.png",
+    "no-trade-2-commitment.png",
+    "settled-desktop.png",
+    "settled-mobile.png"
+  ]
+}

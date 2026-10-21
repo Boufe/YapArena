@@ -75,6 +75,15 @@ and individual reports bind those local results to their source and asset hashes
 The current source includes durable user-only wallet provisioning and acknowledged
 provider-reset confirmation; the named staging site still serves `d6e2d35` until
 its separate guarded release. Genuine provider and physical acceptance remain open.
+The next credential-wait correction parks wallet work without spending creation
+attempts while verification is unfinished. Its complete local gate passed
+**858 tests with zero skips**, **239 focused cases on each fresh/upgrade path**,
+17 A4 and five treasury cases per path, all core browser gates and a separate
+18-group native passkey rerun. The
+[new hash-scoped evidence](evidence/account-completion-baseline/wallet-verification-pause/README.md)
+does not inherit a new genuine provider or SDK result. The earlier four-of-five
+CI result includes a failed retained-wallet mobile refresh fixture; its
+deterministic correction and exact-revision CI must pass before release.
 Real Base Sepolia test-USDC receipt evidence is separate from labelled conversion
 simulations. No live financial routes are enabled. Existing A4 remains nonredeemable
 play money; the new 100 YC/USDC direction does not convert historical grants or

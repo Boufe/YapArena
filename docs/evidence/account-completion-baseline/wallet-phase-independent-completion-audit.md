@@ -154,3 +154,52 @@ five-network provider, Canadian eligibility, funding/treasury, all-strong-lost
 recovery and provider-specific cost recovery cannot be manufactured from local
 PASS results. They must stay visibly open. No live money movement, additional
 account deletion, paid plan or transaction signing is authorized by this audit.
+
+## Same-day post-a970 finding
+
+After this pre-release audit and the a970 CI launch, the lead identified a wallet
+retry-budget gap: waiting for accepted credentials could exhaust attempts before
+first-key setup completed. Release was paused; no staged provider/migration
+mutation was performed for that release. The earlier no-finding statement above
+remains the observation at its recorded source, not a claim that this later
+finding never existed.
+
+The correction and the central confirmed-reset wake hook were independently
+reviewed, with exact new hashes and source/test reasoning appended to the
+[wallet review](embedded-wallet-review/README.md) and
+[phase review](provider-control-phase-review/README.md). No blocking issue was
+found in that narrow source pass; new PG/integrated execution and exact-source
+CI are pending at this addendum. R10/R15/R17/R43/R44/R50/R51 must use those new
+results before their next release claim. Unchanged served frontend assets retain
+their earlier UI evidence; changed backend fingerprints cannot inherit an old
+executed-backend PASS without appropriate new verification. Genuine provider,
+device, live eligibility and funding gates remain open throughout.
+
+## Dated post-correction local acceptance — 2026-10-21
+
+The reviewer has now inspected actual [new combined/native evidence](wallet-verification-pause/README.md):
+**858/858**, zero skips, coverage **95.32/91.22/95.35%**; **239/17/5** on each
+fresh and upgrade path, **15 wallet** and **12 phase** cases, and a new
+**18-group native** pass. The 62 archive hashes, eight supplementary
+source/compiled hashes, 35 native hashes and all five raw/formatted JSON semantic
+pairs were independently verified. The previous 23-file native leaf remains
+byte-identical to its earlier a970 snapshot.
+
+Commit `2efc95cff5f112653a392ba4e8edbaf9ef2ec557` matches the exact three
+backend/two-test correction files. Commit
+`ce85b4abf9487f28147f2036cd801c6c8d4ea420` matches the new retained-wallet
+verifier tested separately by this reviewer in controlled RED/GREEN isolated
+clusters. The original failing assertion assumption is deterministically false
+while account refresh is held; the corrected verifier passes its unchanged four
+groups after actual refresh. The integrated run's earlier verifier hash is
+explicitly retained rather than attributed to that focused result.
+
+The previous **a970 CI failed integration** while its other four jobs passed;
+[its exact merge/branch tree and failure evidence](wallet-phase-ci/a9706cc/README.md)
+are preserved. The suppressed original error line is not invented. A new
+exact-tree five-job CI run, guarded staging release and provider/public
+postflight are still required. The SDK111 and coin22 frontend assets remain
+unchanged; their original records are not relabelled as new runs. No open genuine
+provider, device, eligibility, custody, route, funding or live-release criterion
+is closed by this local addendum. R10/R15/R17/R43/R44/R50/R51 now have the new
+local correction evidence; their external and release boundaries remain open.

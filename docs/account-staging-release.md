@@ -6,6 +6,14 @@ production release. The [completion matrix](email-first-completion.md) and
 [independent helper review](evidence/account-completion-baseline/release-helper-review/README.md)
 record the acceptance boundaries.
 
+The current release is an additive **43 → 45** update from deployed web
+`d6e2d35` to the reviewed `a9706cc` source, not a repeat of the original account
+release. The [current release evidence](evidence/account-completion-baseline/embedded-wallet-release/README.md)
+and [hash-scoped source review](evidence/account-completion-baseline/embedded-wallet-release/auth-release-source-review.md)
+record its scope and outstanding gates. **Migration and deployment have not yet
+been performed.** If a correction changes the selected source, refresh its
+review and exact-revision CI evidence before proceeding.
+
 Use Node 24 and local PostgreSQL 17/18 tools. Keep the existing private operator
 configuration and backup key outside the repository. The commands load neither
 `.env` nor owner credentials into a runtime process. `ACCOUNT_STAGING_CA_PATH`
@@ -27,12 +35,29 @@ node scripts/verify-media-cloud-revocation.ts --inspect
 ```
 
 The read-only database inspection requires verified TLS, separate owner/runtime
-roles, preserved retained/manual accounts and no live financial history.
-The media inspection creates no room or participant and prints only a count.
-If rooms exist, review their legacy speaker inventory before proceeding; do not
-delete rooms or disconnect viewers. Legacy issued JWTs at `f942dc6` have a
-15-minute lifetime. Record the last possible old issuance and drain that lifetime
-after stopping the old web process. Existing connected speakers require explicit
+roles, preserved retained/manual accounts and no live financial history. The
+[current preflight](evidence/account-completion-baseline/embedded-wallet-release/staging-database-preflight.json)
+found all four expected accounts, including three retained accounts and the
+genuine manual signup, zero live financial history, 43 applied migrations and
+exactly these two pending migrations:
+
+- `1792426014000_add-embedded-wallet-provisioning`
+- `1792426015000_add-provider-control-phases`
+
+The [current Render inspection](evidence/account-completion-baseline/embedded-wallet-release/render-account-inspect.json)
+found automatic deployment disabled for both services, web revision `d6e2d35`
+and unchanged replay-worker revision `fd60543`. The separate
+[room inspection](evidence/account-completion-baseline/embedded-wallet-release/media-room-inspect.json)
+found zero rooms without creating a room or participant. These are point-in-time
+observations, not proof that writers are stopped.
+
+The original `f942dc6` legacy issuer's 15-minute JWT drain and separate room/seat
+checks were [completed during the earlier release](evidence/account-completion-baseline/staging-release.md#acceptance-boundaries).
+The current `d6e2d35` update does not repeat that completed drain merely because
+the current web process resumes. If a genuinely legacy issuer runs again, record
+its last possible issuance and drain its full token lifetime after stopping it.
+If rooms exist, review their speaker inventory before proceeding; do not delete
+rooms or disconnect viewers. Existing connected speakers require explicit
 containment because token expiry alone does not disconnect a connection.
 
 ## Backup, rehearsal and additive migration
@@ -54,9 +79,10 @@ ACCOUNT_STAGING_WRITERS_STOPPED=true \
 
 Preparation uses one verified session connection on port 5432, exports a
 consistent application-schema snapshot under table locks, encrypts it, restores
-it into a disposable local cluster, compares rows/sequences and rehearses all
-thirteen pending migrations. It is not a full Supabase/provider disaster-recovery
-backup. Require terminal success and preserve the returned private directory.
+it into a disposable local cluster, compares rows/sequences and rehearses the
+two pending migrations listed above, taking the schema from 43 to 45 applied
+migrations. It is not a full Supabase/provider disaster-recovery backup. Require
+terminal success and preserve the returned private directory.
 
 Reinspect suspension and unchanged HEAD. Supply that exact directory through
 `ACCOUNT_STAGING_RELEASE_DIRECTORY`; it contains no secret in its name.
@@ -75,7 +101,10 @@ actual applied history before taking another action.
 
 ## Deploy and verify
 
-While both writers remain suspended, enable only the deterministic web sandbox:
+The deterministic web sandbox is already enabled, and remains disabled on the
+replay worker. Preserve that configuration for this additive release. Only if a
+fresh inspection establishes that the intended deterministic configuration is
+missing, configure it while both writers remain suspended:
 
 ```sh
 ACCOUNT_STAGING_RENDER_ACTION=configure-sandbox \
@@ -100,16 +129,18 @@ reports a conflict while suspended; the API does not document a suspended-deploy
 bypass. Resume, then deploy the exact SHA. Deployment acceptance alone is
 insufficient: inspect until the exact web SHA is terminally live, verify
 readiness, and check that the worker's revision and runtime role remain correct.
-If the old revision resumes before replacement, restart the legacy-token drain
+If a genuinely legacy issuer resumes before replacement, restart its token-drain
 clock from its final stop. Render's [shutdown sequence](https://render.com/docs/deploys#zero-downtime-deploys)
 allows old-instance overlap plus a shutdown grace period after the new instance
 is ready. Account for the actual configured bound, or the documented maximum of
 60 seconds plus 300 seconds on this free service, before beginning the
-15-minute JWT drain. Record eligible-speaker and room inventories before and
-after rollout; zero rooms alone does not rule out an issued token.
-Do not claim speaker containment until the old process has stopped, its token
-lifetime has elapsed and no legacy speaker connection remains. This procedure
-does not itself install a temporary runtime speaker-issuance switch.
+15-minute JWT drain when that legacy condition applies. Record eligible-speaker
+and room inventories before and after rollout; zero rooms alone does not rule
+out an issued token.
+Do not claim containment of a legacy issuer until its process has stopped, its
+token lifetime has elapsed and no legacy speaker connection remains. Preserve
+the current speaker authorization and revocation checks throughout rollout.
+This procedure does not itself install a temporary runtime speaker-issuance switch.
 
 Build the exact deployed revision locally. Set
 `ACCOUNT_HOSTED_EXPECTED_REVISION` to its SHA, then run:

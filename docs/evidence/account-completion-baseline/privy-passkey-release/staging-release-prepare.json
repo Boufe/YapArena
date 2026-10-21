@@ -1,0 +1,27 @@
+{
+  "at": "2026-10-20T20:00:11.366Z",
+  "revision": "d6e2d355da255e03c257802c890c036c4d572a62",
+  "projectRef": "ypteqfmjietdqjzyvgtk",
+  "encryptedBackup": true,
+  "ciphertextSha256": "26789f24ee85ed3eb55391d6078ca566600e5d53b4020fcfd556be6b5e302f79",
+  "tableCount": 83,
+  "sequenceCount": 15,
+  "runtimeNonIdleSessions": 0,
+  "exactRestoredFingerprints": true,
+  "restoredMigrationRehearsal": true,
+  "rehearsedMigrations": [
+    "1792426012000_add-provider-passkey-provenance",
+    "1792426013000_add-provider-passkey-bootstrap"
+  ],
+  "hostedMigrationsApplied": 0,
+  "hostedAccountMutations": 0,
+  "retainedAccounts": 3,
+  "totalAccounts": 4,
+  "liveJournals": 0,
+  "limits": [
+    "Private application schemas only; not a full Supabase/provider/global-role disaster recovery backup.",
+    "Local restore intentionally omits original ACLs; hosted role/catalog boundary is verified separately.",
+    "Runtime-role activity is a point-in-time adjunct to independently verified stopped writers; it does not prevent later connections.",
+    "No deletion rehearsal, provider mutation, live funds, service-state change or deployment."
+  ]
+}

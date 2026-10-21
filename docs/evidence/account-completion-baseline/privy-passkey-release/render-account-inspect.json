@@ -1,7 +1,7 @@
 {
-  "at": "2026-10-20T19:07:24.571Z",
+  "at": "2026-10-20T20:05:27.923Z",
   "mode": "inspect",
-  "revision": "ac59dc0674e367d5afca3dea0992f52a7b926d41",
+  "revision": "d6e2d355da255e03c257802c890c036c4d572a62",
   "helperSha256": "92189db587279f683a13c51e4965610339017f071af2da7bf2c90fa07615695e",
   "mutations": [],
   "services": [
@@ -14,9 +14,9 @@
       "branch": "main",
       "plan": "free",
       "latestDeploy": {
-        "id": "dep-dbbptn8n74is739a7tag",
+        "id": "dep-dbbshb0473hc73ccs24g",
         "status": "live",
-        "commit": "93952425100d15bde110a0b1b38b04e35d653b9b"
+        "commit": "d6e2d355da255e03c257802c890c036c4d572a62"
       },
       "database": {
         "runtimeRole": true,
@@ -44,7 +44,7 @@
       "branch": "main",
       "plan": null,
       "latestDeploy": {
-        "id": "dep-dbbptkvavr4c73dquqpg",
+        "id": "dep-dbbsh75pkucs73ebtjd0",
         "status": "live",
         "commit": "fd60543b5f6d8f0b65fe1f93807252064d9317f2"
       },

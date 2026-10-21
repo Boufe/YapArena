@@ -4,24 +4,28 @@ Baseline: clean shared checkout at `fd60543`, equal to fetched `origin/main`
 on 2026-10-19. Branch: `feat/email-first-accounts`; no unrelated edits present.
 This record distinguishes implementation from acceptance; it is not paid-release approval.
 
-Current staging web revision is `9395242`, deployed on 2026-10-20 after all five
-[required CI checks](evidence/account-completion-baseline/ci-release/README.md)
-passed. The [guarded release record](evidence/account-completion-baseline/staging-release.md)
-documents encrypted backup, isolated restore/rehearsal, 13 additive migrations
-and preservation of the three retained accounts plus the manual signup.
+Current staging web revision is `d6e2d35`, deployed on 2026-10-20 after all five
+[required CI checks](evidence/account-completion-baseline/privy-passkey-ci/README.md)
+passed. The [Privy-only release](evidence/account-completion-baseline/privy-passkey-release/README.md)
+records an encrypted 83-table/15-sequence backup, exact isolated restore/rehearsal,
+two additive migrations and preservation of the three retained accounts plus the
+manual signup. Staging has 43 applied / zero pending migrations. All seven hosted
+guest groups passed with 14 matching assets. The earlier
+[9395242 release](evidence/account-completion-baseline/staging-release.md) is preserved.
 Only the deterministic coin sandbox is enabled. Genuine hosted identity
 ceremonies, device/screen-reader acceptance and live financial approval remain
-separate requirements; older revision-specific observations below are historical.
+separate requirements.
 
 Current corrective work is tracked in the [completion log](email-first-completion.md).
 The genuine returning-user trial exposed an uncertain provider-session reset
-mislabelled as a sign-in-method change; unchanged email ownership does not
-authorize bypassing that reset. The founder also superseded the separate
-YapArena passkey design: use only Privy enrollment in Account settings and one
-passkey login option. The same credential's server-verifiable operation proof
-is implemented locally, with 798 quality tests, 198 fresh/upgrade PostgreSQL
-cases and 18 native passkey browser groups passing. The 92-scenario SDK suite also passed. Exact corrective CI, deployment and
-genuine provider acceptance remain separate.
+mislabelled as a sign-in-method change. Its reviewed repair is complete without
+bypassing the old-token cutoff. The founder superseded the separate YapArena
+passkey design: use only Privy enrollment in Account settings and one passkey
+login option. The same credential's server-verifiable operation proof passed
+798 quality tests, 198 fresh/upgrade PostgreSQL cases, 18 native passkey groups,
+92 SDK scenarios and all five CI checks. Final review found an additional browser
+account-switch race in ordinary provider-method settings; its correction and
+regression release are in progress. Genuine provider acceptance remains separate.
 Earlier separate-key descriptions and trials retain their recorded scope.
 
 ## Direction and phases

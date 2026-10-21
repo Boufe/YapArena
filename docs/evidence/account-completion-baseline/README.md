@@ -1,15 +1,22 @@
 # Account-completion browser baseline
 
-Later acceptance is recorded separately in the
-[exact-revision CI results](ci-release/README.md),
-[guarded staging release](staging-release.md),
-[739-test integrated gate](final-integrated-release-gate/README.md),
-[PostgreSQL 18 compatibility run](pg18-auth-compatibility/README.md),
-[70-group return/loading/error browser run](auth-return-browser/README.md),
-[14 native security/recovery groups](security-passkey-browser/README.md),
-[22 native coin groups](coin-sandbox-browser/README.md) and
-[actual application-to-Cloud logout trial](media-app-cloud-revocation/README.md).
-Their revision and environment boundaries govern those results; this page
+Latest acceptance is recorded in the
+[798-test integrated gate](privy-passkey-integrated/README.md),
+[Privy-only exact-tree CI](privy-passkey-ci/README.md),
+[Privy-only staging release](privy-passkey-release/README.md),
+[92-scenario SDK run](single-privy-passkey-browser/README.md),
+[18 native passkey groups](security-passkey-browser/privy-only/README.md),
+[22 native coin groups](coin-sandbox-browser/README.md),
+[14 cookie issuers](single-privy-passkey-bootstrap-cookie-browser/README.md),
+[ten real Redis groups](../redis-acceptance/privy-passkey-scopes/README.md) and
+[independent requirement audit](independent-completion-audit.md).
+The earlier [CI results](ci-release/README.md),
+[9395242 staging release](staging-release.md),
+[739-test gate](final-integrated-release-gate/README.md),
+[PostgreSQL18 run](pg18-auth-compatibility/README.md) and
+[actual application-to-Cloud logout trial](media-app-cloud-revocation/README.md)
+retain their own source/environment boundaries. Final review found a further
+Settings actor-race correction, which needs its own acceptance. This page
 preserves the original visual baseline.
 
 Captured 2026-10-20 against revision

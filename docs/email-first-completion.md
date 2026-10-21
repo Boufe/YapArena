@@ -5,7 +5,7 @@ Execution baseline: `feat/email-first-accounts` at `03ecffb`, clean on inspectio
 existing draft; all five required checks passed for that baseline. Preserve its
 implementation, retained accounts and genuine manual signup. Recorded staging
 revision `f942dc6` was the pre-release baseline. The named web service now serves
-`9395242`; the guarded release and actual evidence are recorded below. No live financial
+`d6e2d35`; the guarded releases and actual evidence are recorded below. No live financial
 activation, external costs, fund movement or additional account reset authorized.
 
 **Current corrective work (2026-10-20):** genuine returning-user acceptance is
@@ -26,8 +26,9 @@ does not substitute for a genuine returning-login trial. No second unfreeze
 was attempted.
 No account, credential history or revocation fence has been deleted or bypassed.
 The resumed checkout was `c094f44`, 99 commits ahead and none behind fetched
-`origin/main`; staging still serves `9395242`, so these corrections are not yet
-hosted acceptance.
+`origin/main`. The Privy-only release now serves `d6e2d35`, 112 commits ahead
+and none behind freshly fetched main. Its hosted guest result remains separate
+from genuine signed-in acceptance.
 
 The founder's latest instruction is **use the Privy passkey only**. This
 supersedes the separate YapArena passkey enrollment/sign-in choice. Enrollment
@@ -40,8 +41,14 @@ on each path, plus the core browser journeys. See the
 The rebuilt native passkey and coin browser gates passed 18 and 22 groups on
 the final `14bc559` assets; cookie ordering passed 14 issuer paths. The
 92-scenario SDK suite also passed with no browser or requirement failures.
-Exact-revision CI and deployment remain open. A refreshed provider token remains
-insufficient. Earlier local
+All five exact-tree CI checks passed, and guarded staging deployment plus seven
+guest browser groups passed at `d6e2d35`. See the
+[corrective release](evidence/account-completion-baseline/privy-passkey-release/README.md)
+and [CI evidence](evidence/account-completion-baseline/privy-passkey-ci/README.md).
+The final review then found a browser account-switch race in ordinary provider
+settings: delayed approvals/callbacks must not continue under another account.
+That follow-up correction, regression and release are in progress. A refreshed
+provider token remains insufficient. Earlier local
 separate-key recovery/financial results are historical evidence for that
 architecture, not acceptance of the replacement. Existing credential records
 must be preserved.
@@ -51,6 +58,24 @@ earlier foundation exists. Agent reports require independent integration checks.
 Owners: lead = integration/financial implementation; auth = account security;
 provider = provider/eligibility research; Redis = shared-abuse acceptance;
 review = independent reviewer assigned after integration.
+
+On 2026-10-21, the founder **superseded embedded-wallets-off and new external
+wallet linking**: automatically create one user-controlled Privy EVM wallet per
+account, use default Privy recovery and give YapArena no delegated signing
+authority. Remove new external-wallet linking from the product; preserve
+retained wallet ownership records and security methods. Signup/access must remain
+available if wallet creation fails. This does not change internal YC, the five
+requested input routes or the live-money gates. Implementation and actual
+provider acceptance are in progress.
+
+The genuine hosted passkey trial saved one Privy passkey with an exported COSE
+public key that passes the parser, but local activation never captured it. The
+subsequent recorded event was logout-all, followed by the current uncertain
+provider freeze. An independent two-session pending-setup monitor bug is also
+being corrected; it is not established as the cause of this genuine failure.
+A reviewed first-setup reset-only repair must preserve the accepted credential
+snapshot and all old-token fences; only fresh provider login plus native key
+verification may activate the key.
 
 ## Shared engineering contracts
 
@@ -76,10 +101,10 @@ review = independent reviewer assigned after integration.
 
 | ID  | Requirement / acceptance criteria                                                    | Owner         | Dependencies                                    | Status / evidence                                                                                                                                                                                                                  | Remaining blocker                                                                                             |
 | --- | ------------------------------------------------------------------------------------ | ------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| R01 | Establish checkout, fetch, PR and deployed revision; preserve existing work          | lead          | access                                          | Verified resumed c094f44,99 ahead/0 behind fetched main; current corrective work preserves existing PR and dirty shared work; staging observed9395242                                                                              | New corrective revision still needs exact CI and deployment                                                   |
+| R01 | Establish checkout, fetch, PR and deployed revision; preserve existing work          | lead          | access                                          | Verified d6e2d35, 112 ahead/0 behind fetched main; exact-tree five-check CI, LIVE inventory and seven hosted guest groups passed; existing PR/shared work preserved                                                                | Follow-up Settings actor-race correction and exact revised release                                            |
 | R02 | Read governing PRD, plans, security, operations and recorded evidence                | all           | repository                                      | Governing PRD/plans, A4, financial/security/Redis/operations guides read                                                                                                                                                           | Keep later changes consistent with governing sources                                                          |
 | R03 | Maintain checklist, decision log, coordinated contracts and ownership                | lead          | none                                            | This document; three parallel workstreams assigned                                                                                                                                                                                 | Update throughout execution                                                                                   |
-| R04 | Preserve public discovery/watch, theme/header and signed-in controls                 | lead          | UI baseline                                     | Theme/header preserved; core browser gate PASS; guest939 screenshots/assets preserved separately                                                                                                                                   | Updated guest visual check and genuine hosted signed-in journey                                               |
+| R04 | Preserve public discovery/watch, theme/header and signed-in controls                 | lead          | UI baseline                                     | Theme/header preserved; core browser gate PASS; exact d6 hosted desktop/mobile screenshots and 14 asset matches; prior 9395242 images preserved                                                                                    | Genuine hosted signed-in journey; follow-up actor regression                                                  |
 | R05 | Genuine Privy primary email-code signup and returning login                          | auth/lead     | provider app                                    | Prior genuine signup report; existing UI                                                                                                                                                                                           | Current hosted returning journey                                                                              |
 | R06 | Code lifecycle, paste/autofill, resend, cancellation, errors, delayed delivery       | lead          | Privy capabilities                              | Provider-owned code lifecycle; SDK fixture checks cover code/resend/cancel/network states; 92 final SDK scenarios passed                                                                                                           | Genuine hosted delayed/expired code and delivery acceptance                                                   |
 | R07 | Refresh/back/multi-tab/network/initialization and duplicate-submit handling          | lead          | browser                                         | Refresh/back/network/initialization fixture coverage; native HTTP cookie ordering passed for 14 issuer paths; actor/logout aborts implemented                                                                                      | Genuine hosted interrupted/cross-tab provider ceremony                                                        |
@@ -90,7 +115,7 @@ review = independent reviewer assigned after integration.
 | R12 | Retained legacy dual-ownership reconciliation, no email-only merge                   | auth          | fresh proofs                                    | Explicit dual-ownership reconciliation implemented; cross-account/no-merge negative PostgreSQL cases passed                                                                                                                        | Genuine hosted retained-account linking trial                                                                 |
 | R13 | Linked-wallet management preserves retained and final-method protections             | auth          | existing F02                                    | Retained/final-method SIWE protections and provider-first wallet proofs passed in combined PostgreSQL gate                                                                                                                         | Genuine hosted/physical wallet ceremony                                                                       |
 | R14 | Cookie/domain/sender/branding/provider limits/pricing verified                       | auth/provider | official docs/settings                          | Actual Free DEV app inspected; 150-user cap; pricing/domain/sender sources recorded                                                                                                                                                | Production app numeric rate capacity/custom sender entitlement unverified                                     |
-| R15 | Embedded wallets off; ordinary signup independent of provisioning                    | auth          | provider settings                               | Actual app automatic Ethereum/Solana wallets OFF; current public hosted metadata reconfirmed; signup independent                                                                                                                   | None; no embedded-wallet enablement authorized                                                                |
+| R15 | Automatic user-controlled EVM wallet; signup independent of provisioning             | auth          | provider settings                               | Oct21 founder supersedes prior off decision: one automatic user-controlled Privy EVM wallet, default recovery, no app signer; linking UI removal and implementation underway; staging still off                                    | New auto-wallet implementation, free-tier configuration and genuine provider acceptance                       |
 | R16 | Expiring replay-resistant operation proofs bound to exact sensitive terms            | auth/lead     | supported authenticators                        | Five-minute term-bound one-use proofs; same provider key verified through native assertion and fresh trusted key read; 198 fresh/upgrade cases and 18 rebuilt native browser groups passed                                         | Genuine hosted ceremony                                                                                       |
 | R17 | Logout current/others/all, suspension, credential revocation and stale-token fence   | auth          | PostgreSQL/provider                             | Default Sign out revokes all; local generations/SID fence/outbox implemented. Reviewed delayed provider reset finalized with unchanged credentials and preserved cutoff                                                            | Updated hosted sign-out/provider reset trial; final cross-instance acceptance                                 |
 | R18 | Provider-side credential changes invalidate existing application cookies             | auth          | supported affordable mechanism                  | Privy GET on each protected request; current key fingerprint/digest checked, own pending freeze returns 503, missing key material returns 503; 198 PostgreSQL cases passed                                                         | Free production rate allowance and genuine hosted credential-change trial                                     |
@@ -114,18 +139,18 @@ review = independent reviewer assigned after integration.
 | R36 | Clearly label deterministic/provider sandbox/live evidence; keep live disabled       | all           | release gates                                   | Live routes absent; simulation UI labelled; separate testnet adapter; only deterministic web sandbox enabled on staging                                                                                                            | External live-release gates remain open                                                                       |
 | R37 | Redis multi-instance atomic IP/account/operation limits and privacy namespaces       | Redis         | isolated Redis                                  | Real Redis two-process atomic/privacy/namespace acceptance; new link/restart scopes passed 798-gate unit coverage and the ten-group real two-process Redis trial                                                                   | Hosted single service does not establish hosted cross-instance capacity                                       |
 | R38 | Redis timeout/retry/outage and logout/revocation availability                        | Redis/auth    | isolated instances                              | Real isolated outage/OOM/restart and fail-closed/provider/local revocation checks passed; combined local and CI gates passed                                                                                                       | No hosted outage drill performed; do not infer hosted outage behavior from local tests                        |
-| R39 | Redis restart/eviction/memory/availability and latency/error/throttle metrics        | Redis         | isolated Redis                                  | Isolated noeviction/restart/latency evidence; hosted Valkey configuration plus code-enforced policy/Lua probe passed on939                                                                                                         | Hosted raw INFO denied; no hosted outage or capacity claim                                                    |
+| R39 | Redis restart/eviction/memory/availability and latency/error/throttle metrics        | Redis         | isolated Redis                                  | Isolated noeviction/restart/latency evidence; d6 hosted code-enforced policy/Lua probe returned 410 and incremented success/latency once                                                                                           | Hosted raw INFO denied; no hosted outage or capacity claim                                                    |
 | R40 | Preserve narrowed four-account reset, retained/manual accounts and guarded tooling   | lead          | reset reports                                   | Post-migration read-only inspection confirms three retained plus manual signup, selected IDs absent, zero live financial history                                                                                                   | None; no further deletion authorized                                                                          |
 | R41 | Reject pre-reset credentials and delayed callbacks                                   | auth/lead     | original credentials or disposable reproduction | Disposable real-signed delayed-callback/password/wallet/cookie reproduction passed; allowed fallback explicitly identified                                                                                                         | Original hosted browser credentials unavailable; approved reproduction does not become original hosted replay |
 | R42 | Clean only explicitly created automated acceptance identities                        | lead          | exact identity ledger                           | No new hosted identities created; disposable local clusters self-clean                                                                                                                                                             | Track any future genuine acceptance identities before scoped cleanup                                          |
-| R43 | Combined quality, coverage, database isolation and browser release gates             | lead          | merged implementation                           | Latest combined local gate: 798/798, zero skips; 198 PostgreSQL, 17 A4 and five treasury cases on each fresh/upgrade path; isolation and core browser passed                                                                       | Exact corrective CI pending; hosted/device acceptance separate                                                |
+| R43 | Combined quality, coverage, database isolation and browser release gates             | lead          | merged implementation                           | Local 798/798 zero skips; 198 PostgreSQL, 17 A4, five treasury each fresh/upgrade; all five d6 CI jobs passed with 95.29/91.23/95.19 coverage                                                                                      | Follow-up actor correction needs integrated verification; hosted/device separate                              |
 | R44 | Auth/financial/security/concurrency/provider failure acceptance coverage             | lead/review   | workflows                                       | Same-key bridge/restart, fail-closed monitor, races and source-aware financial suites passed 798 tests and 198 PostgreSQL cases per fresh/upgrade path; final native18/coin22 passed; testnet and Cloud evidence scoped separately | Genuine provider journeys                                                                                     |
 | R45 | WCAG 2.2 AA checks, keyboard/focus/announcements/mobile/200% zoom                    | lead          | changed journeys                                | Core gate, 92 SDK scenarios, 18 native and 22 coin groups passed; exact cancellation focus, desktop/mobile/zoom/axe covered                                                                                                        | Full WCAG and physical assistive-technology acceptance unverified                                             |
 | R46 | Screen-reader and physical-device trials distinct from automation                    | lead          | human/device access                             | Automated checks recorded separately; screen-reader attempt explicitly incomplete and physical-device trial unverified                                                                                                             | Native screen-reader test blocked; physical device/human acceptance needed                                    |
 | R47 | Privacy-preserving signup/auth/resend/provider/recovery measurement                  | lead/auth     | journeys                                        | Bounded signup/auth/resend/recovery metrics and private log redaction passed combined tests and review                                                                                                                             | Genuine provider delivery/conversion measurements need hosted journeys                                        |
-| R48 | Runtime vs owner separation; no secret/private-data exposure                         | all/review    | deployment/config                               | TLS/owner-runtime separation, encrypted rehearsal and private boundaries verified; provider repair reports contain counts only                                                                                                     | Final new release backup/rehearsal/postflight and evidence/source scan                                        |
-| R49 | Focused commits, PR #42 update, screenshots, results/config/docs/status              | lead          | integration                                     | Focused corrective commits preserve PR42; first939release/CI/guest evidence archived separately; current docs and completion matrix maintained                                                                                     | Commit remaining corrective integration, exact CI, update PR and deploy reviewed revision                     |
-| R50 | Independent security/financial and full-prompt completion audit                      | review/lead   | integrated revision                             | Independent full-contract audit plus security/financial reviews; current corrective audit being updated against actual sources/results                                                                                             | Final independent exact-CI/hosted audit; external acceptance remains explicitly incomplete                    |
+| R48 | Runtime vs owner separation; no secret/private-data exposure                         | all/review    | deployment/config                               | Strict TLS/role separation; 83-table/15-sequence encrypted restore/rehearsal; 43 applied / zero pending; four accounts preserved, zero live history; private evidence allowlisted                                                  | Final follow-up evidence/source scan; Supabase advisors denied access                                         |
+| R49 | Focused commits, PR #42 update, screenshots, results/config/docs/status              | lead          | integration                                     | Focused commits/PR #42 preserved; d6 five-check CI, guarded release, seven hosted guest groups archived separately from 9395242; docs/matrix updated                                                                               | Commit/test/deploy actor correction; refresh PR and final evidence                                            |
+| R50 | Independent security/financial and full-prompt completion audit                      | review/lead   | integrated revision                             | Independent full 50-requirement audit inspected actual CI/source/artifacts; final auth review identified actionable Settings actor race                                                                                            | Fix/review actor race; final integrated audit; external acceptance incomplete                                 |
 
 ## Approved decisions (do not ask again)
 
@@ -265,8 +290,11 @@ These record the founder's clarifications and supersede earlier proposals.
 | Sign out and speaking                    | Normal Sign out revokes all YapArena sessions. Assigned active speakers alone receive publishing access; logout/suspension disconnect speakers through a durable retry queue. Public watching remains available.                                                                                                                                                                                         |
 
 The current branch includes fetched `origin/main` (`fd60543`) without dropping
-the existing PR. The independently inspected hosted web revision is now `9395242`, first observed
-live at 17:10:25.767 UTC on 2026-10-20; its five required CI checks passed. The
+the existing PR. The independently inspected hosted web revision is now `d6e2d35`, first observed
+live at 20:05:27.923 UTC on 2026-10-20; its five required CI checks passed. The
+[Privy-only release](evidence/account-completion-baseline/privy-passkey-release/README.md)
+records the two additional migrations, exact assets and hosted guest acceptance.
+The earlier `9395242` release first went live at 17:10:25.767 UTC. The
 [guarded release record](evidence/account-completion-baseline/staging-release.md)
 links the actual backup, rehearsal, migration and deployment evidence. Actual free development-app
 settings and public staging flags now enable optional Google and provider
@@ -303,7 +331,13 @@ external reconciliation and evidence-reviewed original-source corrections.
 The [integrated local gate](evidence/account-completion-baseline/final-integrated-release-gate/README.md)
 passed 739/739 with unchanged coverage thresholds, fresh/upgrade isolation and
 core browsers. All five [required CI checks](evidence/account-completion-baseline/ci-release/README.md)
-also passed for deployed revision `9395242`. The deployed guest checks remain
+also passed for `9395242`. The later Privy-only gate passed 798 tests; all five
+[corrective CI checks](evidence/account-completion-baseline/privy-passkey-ci/README.md)
+and seven hosted guest groups passed for deployed `d6e2d35`. After the second
+encrypted backup/rehearsal, only migrations 12000/13000 were applied, bringing
+staging to 43 applied / zero pending with the same four accounts and zero live
+history. The final Settings actor-race correction needs its own acceptance.
+The deployed guest checks remain
 separate from genuine hosted identity and production acceptance.
 
 The [Base Sepolia application-ledger trial](evidence/coin-testnet/ledger/README.md)

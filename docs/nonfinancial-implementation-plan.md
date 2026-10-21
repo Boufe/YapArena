@@ -27,10 +27,13 @@ integrated local gate passed 798 tests with no skips, 198 focused PostgreSQL cas
 on each fresh and upgraded database, and the core browser journeys. The earlier
 [integrated release evidence](evidence/account-completion-baseline/final-integrated-release-gate/README.md)
 records 739 tests for its own revision.
-All five [required CI checks](evidence/account-completion-baseline/ci-release/README.md)
-also passed for `9395242`. The [staging release](evidence/account-completion-baseline/staging-release.md)
-applied all 13 additive migrations after encrypted backup and isolated rehearsal,
-and the named web service is live on that exact revision.
+All five [required CI checks](evidence/account-completion-baseline/privy-passkey-ci/README.md)
+passed for `d6e2d35`. The [Privy-only staging release](evidence/account-completion-baseline/privy-passkey-release/README.md)
+applied its two additive migrations after encrypted 83-table/15-sequence backup
+and exact isolated rehearsal. The named web service is live at that revision;
+seven hosted guest groups and all 14 served asset matches passed. Staging has
+43 applied / zero pending migrations. The earlier 13-migration/739-test release
+at `9395242` retains its separate historical evidence.
 Retained legacy application-key recovery can replace a lost sole email or Google
 identity without changing the account or merging by email. New Privy keys sign
 into the existing provider identity; retained-proof settings handle its credential
@@ -50,8 +53,9 @@ session is verified, and load the provider bundle on demand from public pages.
 Current free development-app Google/passkey login options are enabled; genuine
 returning/linking/recovery journeys and final account acceptance remain open.
 The reviewed delayed provider-reset repair is complete, preserving revocation
-cutoffs and all retained accounts. The Privy-only corrections are not yet the
-hosted revision; see the completion matrix for deployment and acceptance status.
+cutoffs and all retained accounts. The Privy-only corrections are hosted. Final review then identified an additional
+account-switch race in ordinary provider settings; its correction, regression and
+release are in progress. See the completion matrix for exact acceptance status.
 Real Base Sepolia test-USDC receipt evidence is separate from labelled conversion
 simulations. No live financial routes are enabled. Existing A4 remains nonredeemable
 play money; the new 100 YC/USDC direction does not convert historical grants or

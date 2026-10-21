@@ -107,7 +107,6 @@
       "guestAccountOrProviderMutations": 0
     },
     "requiredOpenGates": [
-      "Publish the final documentary commit/PR/archive record; runtime/source acceptance remains pinned to verified eba1dc5. Report the later PR-header check result separately when actually observed, without inventing success or a self-referential runtime CI/commit cycle.",
       "Genuine returning email, Google, same-Privy-key activation/returning/native proof, recovery and user-controlled wallet creation/default recovery.",
       "Physical-device/screen-reader and full WCAG acceptance.",
       "Actual activity/provider custody/signing/five-network eligibility and Canadian province/age/identity/retention review.",
@@ -3077,7 +3076,7 @@
       ],
       "remainingBlockers": [],
       "limitations": [
-        "Focused implementation commits are already pushed in PR42; current local documentation/screenshots/acceptance archives and formatting/strict-source checks are prepared/reviewed. The final documentary publication itself has not yet been recorded."
+        "Focused implementation commits and the reviewed documentation/screenshots/acceptance archive are published in PR42, including archive commit 1bec989 and the description updated at 22:24:50 UTC. Later documentation-head checks remain visible on the PR and do not relabel deployed-source CI or genuine acceptance."
       ]
     },
     {

@@ -176,9 +176,9 @@ that scanner. Current empty-form hosted screenshots and recorded artifacts were
 reviewed separately. Supabase advisors access remained denied; no clean advisor
 result is claimed. The scan output and later fixed-text completion/PR metadata
 are explicitly added after that scan.
-Focused source commits, final documentation/screenshots/archives and local checks
-are prepared/reviewed. The lead still must publish the final documentary commit
-and PR/archive body. Runtime CI and staging remain pinned to exact `eba1dc5`;
+Focused source commits and the reviewed documentation/screenshots/archives are
+published in PR #42, including archive `1bec989` and its description refreshed
+at 22:24:50 UTC. Runtime CI and staging remain pinned to exact `eba1dc5`;
 future PR-header check results are reported only when observed, without an
 invented future success or a self-referential runtime commit/CI cycle. The
 independent whole-contract source/release review and final two-document

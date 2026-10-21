@@ -8,6 +8,10 @@ import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { hashSessionToken } from "../dist/platform/auth/session-tokens.js";
 import { createProviderSessionMonitor } from "../dist/platform/auth/provider-session-monitor.js";
 import { ProviderUnavailableError } from "../dist/platform/auth/privy.js";
+import { createProviderPasskeys } from "../dist/platform/auth/provider-passkeys.js";
+import { providerCredentialsDigest } from "../dist/platform/auth/provider-credentials.js";
+import { createEmbeddedWalletProvisioning } from "../dist/platform/auth/embedded-wallet-provisioning.js";
+import { providerPasskeyFixture } from "./provider-passkey-fixture.js";
 const ownerUrl = process.env.A4_TEST_OWNER_URL;
 const runtimeUrl = process.env.A4_TEST_DATABASE_URL;
 async function bounded(promise, message, milliseconds = 5000) {
@@ -99,6 +103,133 @@ describe(
         },
       };
     }
+    it("rearms a parked wallet only after real accepted-passkey activation and confirmed reset, preserving ownership and retry budget", async () => {
+      const origin = "http://localhost:53024";
+      const tokenHash = hashSessionToken(randomUUID());
+      const credentials = [
+        { type: "email", id: `${randomUUID()}@example.invalid` },
+      ];
+      let identity = {
+        subject: `did:privy:${randomUUID()}`,
+        sessionId: randomUUID(),
+        email: credentials[0].id,
+        methods: ["email"],
+        credentials,
+        credentialsDigest: providerCredentialsDigest(credentials),
+        issuedAt: Math.floor(Date.now() / 1000),
+      };
+      const { user } = await createProviderAccounts(a).exchange(
+        identity,
+        tokenHash,
+        new Date(Date.now() + 600000),
+      );
+      const verifier = {
+        verify: async () => structuredClone(identity),
+        inspect: async () => structuredClone(identity),
+      };
+      const passkeys = createProviderPasskeys(a, verifier);
+      const input = { userId: user.id, sessionTokenHash: tokenHash, origin };
+      const intent = await passkeys.begin(input);
+      const key = providerPasskeyFixture(origin);
+      identity = {
+        ...identity,
+        credentials: [
+          ...credentials,
+          { type: "passkey", id: key.credentialId },
+        ],
+        methods: ["email", "passkey"],
+        passkeys: [key.evidence],
+      };
+      identity.credentialsDigest = providerCredentialsDigest(
+        identity.credentials,
+      );
+      let wallet = null,
+        creates = 0,
+        inspections = 0;
+      const adapter = {
+        async inspect({ subject }) {
+          assert.equal(subject, identity.subject);
+          inspections++;
+          return { credentialsDigest: identity.credentialsDigest, wallet };
+        },
+        async create({ subject }) {
+          assert.equal(subject, identity.subject);
+          creates++;
+          wallet = {
+            id: `wallet-${randomUUID()}`,
+            address: "0x1234567890123456789012345678901234567890",
+          };
+        },
+      };
+      const wallets = createEmbeddedWalletProvisioning(a, adapter);
+      const walletRow = async () =>
+        (
+          await owner.query(
+            "SELECT * FROM embedded_wallet_provisioning WHERE user_id=$1",
+            [user.id],
+          )
+        ).rows[0];
+      await wallets.process(1, user.id);
+      const parked = await walletRow();
+      assert.equal(parked.state, "retry_wait");
+      assert.equal(parked.last_failure, "account_verification");
+      assert.equal(parked.attempts, 0);
+      assert.equal(creates, 0);
+      const challenge = await passkeys.activationOptions({
+        ...input,
+        id: intent.id,
+        token: "synthetic-provider-token",
+      });
+      await passkeys.complete({
+        ...input,
+        id: intent.id,
+        token: "synthetic-provider-token",
+        sessionDurationMs: 600000,
+        authentication: key.authentication(challenge.authenticationOptions),
+      });
+      const beforeReset = await job({ userId: user.id });
+      assert.notEqual(
+        beforeReset.mapped_generation,
+        beforeReset.current_generation,
+      );
+      assert.equal((await wallets.process(1, user.id)).processed, 0);
+      assert.equal(inspections, 1);
+      assert.equal(creates, 0);
+      const control = immediate();
+      await createProviderRevocation(a, control).synchronize(user.id);
+      const synchronized = await job({ userId: user.id });
+      assert.equal(synchronized.state, "complete");
+      assert.equal(synchronized.control_phase, "done");
+      assert.equal(
+        synchronized.mapped_generation,
+        synchronized.current_generation,
+      );
+      const rearmed = await walletRow();
+      assert.equal(rearmed.state, "pending");
+      assert.equal(rearmed.last_failure, null);
+      for (const name of [
+        "user_id",
+        "subject",
+        "external_id",
+        "attempt_key",
+        "attempts",
+      ])
+        assert.equal(rearmed[name], parked[name], name);
+      assert.equal(rearmed.subject, identity.subject);
+      await Promise.all([
+        wallets.process(1, user.id),
+        createEmbeddedWalletProvisioning(b, adapter).process(1, user.id),
+      ]);
+      assert.equal(creates, 1);
+      const ready = await walletRow();
+      assert.equal(ready.state, "ready");
+      assert.equal(ready.wallet_id, wallet.id);
+      assert.equal(ready.external_id, parked.external_id);
+      assert.equal(ready.attempts, 1);
+      await createProviderRevocation(b, control).synchronize(user.id);
+      assert.equal((await walletRow()).state, "ready");
+      assert.equal(creates, 1);
+    });
     it("resumes acknowledged freeze and unfreeze GET lag across restarts and instances without repeating either mutation", async () => {
       const f = await fixture();
       let frozenAt = null,

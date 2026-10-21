@@ -33,23 +33,37 @@ type Job = {
   walletId: string | null;
   address: string | null;
   nextAttemptAt: Date;
+  lastFailure:
+    | "provider_unavailable"
+    | "account_verification"
+    | "ownership_review"
+    | "attempts_exhausted"
+    | null;
 };
-const columns = `user_id AS "userId",subject,external_id AS "externalId",state,attempts,attempt_key AS "attemptKey",lease_id AS "leaseId",wallet_id AS "walletId",address,next_attempt_at AS "nextAttemptAt"`;
+const columns = `user_id AS "userId",subject,external_id AS "externalId",state,attempts,attempt_key AS "attemptKey",lease_id AS "leaseId",wallet_id AS "walletId",address,next_attempt_at AS "nextAttemptAt",last_failure AS "lastFailure"`;
 
-// Called inside the account-provisioning transaction, after its trusted DID
-// mapping exists. A new DID cannot replace the original immutable wallet owner.
+// Called inside the account-locked provisioning/accepted-credential transaction.
+// A new DID cannot replace the original immutable wallet owner. Rearming a
+// parked job additionally requires the caller's freshly accepted exact digest.
 export async function enqueueEmbeddedWalletProvisioning(
   client: PoolClient,
   userId: string,
   subject: string,
+  acceptedCredentialsDigest?: string,
 ) {
   await client.query(
     `INSERT INTO embedded_wallet_provisioning(user_id,subject)
      SELECT u.id,p.subject FROM users u JOIN provider_identities p ON p.user_id=u.id
      WHERE u.id=$1 AND p.subject=$2 AND p.provider='privy' AND u.account_status='active'
        AND p.auth_generation=u.auth_generation
-     ON CONFLICT(user_id) DO NOTHING`,
-    [userId, subject],
+       AND ($3::text IS NULL OR p.credentials_digest=$3)
+     ON CONFLICT(user_id) DO UPDATE SET state='pending',last_failure=NULL,
+       next_attempt_at=clock_timestamp(),updated_at=clock_timestamp()
+     WHERE embedded_wallet_provisioning.subject=EXCLUDED.subject
+       AND embedded_wallet_provisioning.state='retry_wait'
+       AND embedded_wallet_provisioning.last_failure='account_verification'
+       AND embedded_wallet_provisioning.attempts<8 AND $3::text IS NOT NULL`,
+    [userId, subject, acceptedCredentialsDigest ?? null],
   );
 }
 
@@ -114,7 +128,9 @@ export function createEmbeddedWalletProvisioning(
         job.attempts < 8 &&
         job.nextAttemptAt.getTime() <= Date.now(),
       retryAt:
-        job.state === "retry_wait" ? job.nextAttemptAt.toISOString() : null,
+        job.state === "retry_wait" && job.lastFailure !== "account_verification"
+          ? job.nextAttemptAt.toISOString()
+          : null,
     };
   }
   async function get(userId: string): Promise<EmbeddedWalletProjection> {
@@ -149,7 +165,12 @@ export function createEmbeddedWalletProvisioning(
         owner.generationMatch &&
         verifiedStoredCredentials(owner)
       ) {
-        await enqueueEmbeddedWalletProvisioning(client, userId, owner.subject);
+        await enqueueEmbeddedWalletProvisioning(
+          client,
+          userId,
+          owner.subject,
+          owner.credentialsDigest,
+        );
         await client.query(
           `UPDATE embedded_wallet_provisioning SET state='pending',updated_at=clock_timestamp()
            WHERE user_id=$1 AND subject=$2 AND state IN ('pending','retry_wait') AND attempts<8 AND next_attempt_at<=clock_timestamp()`,
@@ -179,7 +200,8 @@ export function createEmbeddedWalletProvisioning(
       const selected = (
         await client.query<Job>(
           `SELECT ${columns} FROM embedded_wallet_provisioning
-         WHERE ($1::bigint IS NULL OR user_id=$1) AND attempts<8 AND ((state IN ('pending','retry_wait') AND next_attempt_at<=clock_timestamp())
+         WHERE ($1::bigint IS NULL OR user_id=$1) AND attempts<8 AND ((state IN ('pending','retry_wait')
+           AND last_failure IS DISTINCT FROM 'account_verification' AND next_attempt_at<=clock_timestamp())
            OR (state='running' AND lease_until<clock_timestamp()))
          ORDER BY next_attempt_at,created_at,user_id FOR UPDATE SKIP LOCKED LIMIT 1`,
           [userId ?? null],
@@ -211,6 +233,7 @@ export function createEmbeddedWalletProvisioning(
     digest: string | null,
     action: "check" | "create" | "ready",
     wallet?: EmbeddedWallet,
+    externalAttempted = false,
   ) {
     const client = await database.connect();
     try {
@@ -245,14 +268,19 @@ export function createEmbeddedWalletProvisioning(
         (digest !== null && owner.credentialsDigest !== digest)
       ) {
         await client.query(
-          "UPDATE embedded_wallet_provisioning SET state=CASE WHEN attempts>=8 THEN 'review_required' ELSE 'retry_wait' END,last_failure='account_verification',next_attempt_at=clock_timestamp()+INTERVAL '60 seconds',lease_id=NULL,updated_at=clock_timestamp() WHERE user_id=$1",
-          [job.userId],
+          `UPDATE embedded_wallet_provisioning SET
+           state=CASE WHEN $2::boolean AND attempts>=8 THEN 'review_required' ELSE 'retry_wait' END,
+           attempts=GREATEST(attempts-CASE WHEN $2::boolean THEN 0 ELSE 1 END,0),
+           last_failure=CASE WHEN $2::boolean AND attempts>=8 THEN 'attempts_exhausted' ELSE 'account_verification' END,
+           next_attempt_at=clock_timestamp(),lease_id=NULL,updated_at=clock_timestamp()
+           WHERE user_id=$1`,
+          [job.userId, externalAttempted],
         );
         await client.query("COMMIT");
         return {
           valid: false,
           attemptKey: null,
-          reviewed: current.attempts >= 8,
+          reviewed: externalAttempted && current.attempts >= 8,
         };
       }
       let attemptKey = current.attemptKey;
@@ -339,6 +367,7 @@ export function createEmbeddedWalletProvisioning(
           externalId: job.externalId,
           signal,
         });
+        let externalAttempted = false;
         if (!inspected.wallet) {
           const current = await checkpoint(
             job,
@@ -350,6 +379,7 @@ export function createEmbeddedWalletProvisioning(
             else result.retry++;
             continue;
           }
+          externalAttempted = true;
           await provider.create({
             subject: job.subject,
             externalId: job.externalId,
@@ -369,6 +399,7 @@ export function createEmbeddedWalletProvisioning(
           inspected.credentialsDigest,
           "ready",
           inspected.wallet,
+          externalAttempted,
         );
         if (finished.valid) result.ready++;
         else if (finished.reviewed) result.review++;

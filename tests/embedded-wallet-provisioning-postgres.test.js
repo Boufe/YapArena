@@ -366,6 +366,173 @@ describe(
         "retry_wait",
       );
     });
+    it("parks an unaccepted credential without polling or exhausting attempts, then rearms only through its accepted same-DID exchange", async () => {
+      const f = await fixture(),
+        originalIdentity = { ...f.identity },
+        acceptedCredentials = [
+          ...f.identity.credentials,
+          { type: "passkey", id: `synthetic-provider-key-${randomUUID()}` },
+        ],
+        nextIdentity = {
+          ...f.identity,
+          sessionId: randomUUID(),
+          methods: ["email", "passkey"],
+          credentials: acceptedCredentials,
+          credentialsDigest: providerCredentialsDigest(acceptedCredentials),
+        },
+        originalInspect = f.adapter.inspect,
+        initial = await row(f.userId);
+      f.adapter.inspect = async (input) => ({
+        ...(await originalInspect(input)),
+        credentialsDigest: nextIdentity.credentialsDigest,
+      });
+      assert.deepEqual(await f.repo.process(1, f.userId), {
+        processed: 1,
+        ready: 0,
+        retry: 1,
+        review: 0,
+      });
+      const parked = await row(f.userId);
+      assert.equal(parked.state, "retry_wait");
+      assert.equal(parked.last_failure, "account_verification");
+      assert.equal(parked.attempts, 0);
+      assert.equal(parked.creation_started_at, null);
+      assert.equal((await f.repo.get(f.userId)).retryAt, null);
+      assert.equal((await f.repo.get(f.userId)).canRetry, true);
+      for (let index = 0; index < 12; index++) {
+        await due(f.userId);
+        assert.equal((await f.other.process(1, f.userId)).processed, 0);
+      }
+      assert.equal(f.calls.length, 1, "parked work performs no provider polls");
+      await assert.rejects(
+        createProviderAccounts(a).exchange(
+          nextIdentity,
+          createSessionToken().tokenHash,
+          new Date(Date.now() + 600000),
+        ),
+        { status: 403, code: "provider_credentials_changed" },
+      );
+      // Simulate the accepted-credential transaction. The real reset-phase hook
+      // is covered by its own protocol suite; this fixture never calls Privy.
+      await owner.query(
+        `UPDATE provider_identities SET methods=$2::jsonb,credentials_digest=$3,credentials_snapshot=$4::jsonb
+         WHERE user_id=$1`,
+        [
+          f.userId,
+          JSON.stringify(nextIdentity.methods),
+          nextIdentity.credentialsDigest,
+          JSON.stringify(nextIdentity.credentials),
+        ],
+      );
+      const client = await a.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [
+          f.userId,
+        ]);
+        await enqueueEmbeddedWalletProvisioning(client, f.userId, f.subject);
+        await enqueueEmbeddedWalletProvisioning(
+          client,
+          f.userId,
+          f.subject,
+          originalIdentity.credentialsDigest,
+        );
+        await enqueueEmbeddedWalletProvisioning(
+          client,
+          f.userId,
+          `did:privy:${randomUUID()}`,
+          nextIdentity.credentialsDigest,
+        );
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+      assert.equal((await row(f.userId)).last_failure, "account_verification");
+      await assert.rejects(
+        createProviderAccounts(a).exchange(
+          { ...originalIdentity, sessionId: randomUUID() },
+          createSessionToken().tokenHash,
+          new Date(Date.now() + 600000),
+        ),
+        { status: 403, code: "provider_credentials_changed" },
+      );
+      Object.assign(f.identity, nextIdentity);
+      const exchanged = await createProviderAccounts(a).exchange(
+        f.identity,
+        createSessionToken().tokenHash,
+        new Date(Date.now() + 600000),
+      );
+      assert.equal(exchanged.user.id, f.userId);
+      assert.equal(exchanged.created, false);
+      assert.equal((await row(f.userId)).state, "pending");
+      assert.equal((await row(f.userId)).attempts, 0);
+      assert.equal((await f.other.process(1, f.userId)).ready, 1);
+      assert.equal((await f.repo.process(1, f.userId)).processed, 0);
+      assert.equal(
+        f.calls.filter((call) => call.action === "create").length,
+        1,
+      );
+      assert.equal((await row(f.userId)).external_id, initial.external_id);
+    });
+    it("permits an authenticated retry of parked authorization without resetting earlier failure attempts", async () => {
+      const f = await fixture(),
+        originalInspect = f.adapter.inspect;
+      await owner.query(
+        "UPDATE embedded_wallet_provisioning SET attempts=3 WHERE user_id=$1",
+        [f.userId],
+      );
+      f.adapter.inspect = async (input) => ({
+        ...(await originalInspect(input)),
+        credentialsDigest: "f".repeat(64),
+      });
+      await f.repo.process(1, f.userId);
+      assert.equal((await row(f.userId)).attempts, 3);
+      assert.equal((await row(f.userId)).last_failure, "account_verification");
+      f.adapter.inspect = originalInspect;
+      assert.equal((await f.repo.requestRetry(f.userId)).state, "pending");
+      assert.equal((await row(f.userId)).attempts, 3);
+      assert.equal((await f.other.process(1, f.userId)).ready, 1);
+      assert.equal((await row(f.userId)).attempts, 4);
+    });
+    it("keeps an actual create attempt and uncertain marker when authorization changes before confirmation, then reconciles without a second create", async () => {
+      const f = await fixture(),
+        originalInspect = f.adapter.inspect,
+        originalCreate = f.adapter.create;
+      let changed = false;
+      f.adapter.inspect = async (input) => ({
+        ...(await originalInspect(input)),
+        credentialsDigest: changed
+          ? "f".repeat(64)
+          : f.identity.credentialsDigest,
+      });
+      f.adapter.create = async (input) => {
+        await originalCreate(input);
+        changed = true;
+      };
+      assert.equal((await f.repo.process(1, f.userId)).retry, 1);
+      const parked = await row(f.userId);
+      assert.equal(parked.attempts, 1);
+      assert.ok(parked.creation_started_at);
+      assert.equal(parked.wallet_id, null);
+      for (let index = 0; index < 12; index++)
+        assert.equal((await f.other.process(1, f.userId)).processed, 0);
+      assert.equal(f.calls.length, 3);
+      changed = false;
+      await f.repo.requestRetry(f.userId);
+      assert.equal((await f.other.process(1, f.userId)).ready, 1);
+      assert.equal(
+        f.calls.filter((call) => call.action === "create").length,
+        1,
+      );
+      assert.equal((await row(f.userId)).external_id, parked.external_id);
+      assert.equal(
+        (await row(f.userId)).creation_started_at.getTime(),
+        parked.creation_started_at.getTime(),
+      );
+    });
     it("does not provision a replacement after the account's provider DID is replaced", async () => {
       const f = await fixture();
       await owner.query(
@@ -436,11 +603,68 @@ describe(
         {
           processed: 1,
           ready: 0,
-          retry: 0,
-          review: 1,
+          retry: 1,
+          review: 0,
         },
       );
       assert.equal(verification.calls.length, 0);
+      assert.equal((await row(verification.userId)).attempts, 7);
+      assert.equal(
+        (await row(verification.userId)).last_failure,
+        "account_verification",
+      );
+      assert.equal(
+        (await verification.repo.process(1, verification.userId)).processed,
+        0,
+      );
+      const failed = await fixture();
+      failed.adapter.inspect = async () => {
+        throw new EmbeddedWalletProviderError("unavailable");
+      };
+      for (let index = 0; index < 8; index++) {
+        await due(failed.userId);
+        await failed.repo.process(1, failed.userId);
+      }
+      assert.equal((await row(failed.userId)).attempts, 8);
+      assert.equal((await row(failed.userId)).state, "review_required");
+      assert.equal(
+        (await failed.repo.requestRetry(failed.userId)).canRetry,
+        false,
+      );
+      assert.equal((await failed.repo.process(1, failed.userId)).processed, 0);
+      const created = await fixture(),
+        originalInspect = created.adapter.inspect,
+        originalCreate = created.adapter.create;
+      let changed = false;
+      await owner.query(
+        "UPDATE embedded_wallet_provisioning SET attempts=7 WHERE user_id=$1",
+        [created.userId],
+      );
+      created.adapter.inspect = async (input) => ({
+        ...(await originalInspect(input)),
+        credentialsDigest: changed
+          ? "f".repeat(64)
+          : created.identity.credentialsDigest,
+      });
+      created.adapter.create = async (input) => {
+        await originalCreate(input);
+        changed = true;
+      };
+      assert.equal((await created.repo.process(1, created.userId)).review, 1);
+      assert.equal((await row(created.userId)).attempts, 8);
+      assert.equal(
+        (await row(created.userId)).last_failure,
+        "attempts_exhausted",
+      );
+      assert.ok((await row(created.userId)).creation_started_at);
+      assert.equal(
+        (await created.repo.requestRetry(created.userId)).canRetry,
+        false,
+      );
+      assert.equal(
+        (await created.repo.process(1, created.userId)).processed,
+        0,
+      );
     });
     it("does not let an expired lease's late result overwrite another instance's confirmed wallet", async () => {
       const f = await fixture();

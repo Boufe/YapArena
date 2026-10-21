@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import type { ProviderSessionControl } from "./privy.ts";
+import { enqueueEmbeddedWalletProvisioning } from "./embedded-wallet-provisioning.ts";
 
 type Phase =
   | "legacy"
@@ -293,7 +294,11 @@ export function createProviderControlPhases(
         return intent(client, await freshJob(client, job), "unfreeze");
       }
       if (job.phase === "unfreeze_confirm") {
-        if (frozenAt === null && job.frozenAt !== null) {
+        if (
+          frozenAt === null &&
+          job.frozenAt !== null &&
+          job.controlDigest !== null
+        ) {
           await client.query(
             `UPDATE provider_identities SET auth_generation=$2,minimum_issued_at=GREATEST(minimum_issued_at,$3::bigint+1)
              WHERE user_id=$1 AND subject=$4 AND credentials_digest=$5`,
@@ -309,6 +314,15 @@ export function createProviderControlPhases(
             `UPDATE provider_revocation_jobs SET state='complete',control_phase='done',control_lease_until='-infinity'
              WHERE user_id=$1 AND generation=$2`,
             [job.userId, job.generation],
+          );
+          // A credential change parks wallet creation until its accepted
+          // baseline and provider reset are both synchronized. Wake only that
+          // exact account-owned job, without changing its retry budget.
+          await enqueueEmbeddedWalletProvisioning(
+            client,
+            job.userId,
+            job.subject,
+            job.controlDigest,
           );
         } else if (frozenAt !== null && String(frozenAt) === job.frozenAt)
           await defer(client, job);

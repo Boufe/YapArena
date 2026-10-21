@@ -181,6 +181,7 @@ export function createProviderAccounts(database: Pool) {
           client,
           user.id,
           identity.subject,
+          identity.credentialsDigest,
         );
         await client.query("COMMIT");
         return { user, created };

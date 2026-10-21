@@ -161,7 +161,6 @@ export function createProviderSessionMonitor(
         try {
           pending = await pendingProviderPasskeyAddition(client, {
             userId,
-            sessionTokenHash: tokenHash,
             authGeneration: initial.authGeneration,
             subject: initial.subject,
             beforeDigest: initial.credentialsDigest,
@@ -173,8 +172,9 @@ export function createProviderSessionMonitor(
           );
         }
         if (pending) {
-          // Only the intent's original session can finish this exact addition.
-          // Ordinary protected requests remain denied while setup is pending.
+          // The still-live original session owns activation. Every other valid
+          // session must also remain denied, without destroying that session's
+          // exact in-progress setup through an account-wide incident reset.
           throw new ProviderUnavailableError(
             "finish passkey setup to continue",
           );

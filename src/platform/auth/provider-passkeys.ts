@@ -184,11 +184,13 @@ const intentColumns = `id,user_id AS "userId",session_token_hash AS "sessionToke
   candidate_public_key AS "publicKey",candidate_key_digest AS "publicKeyDigest",
   candidate_session_digest AS "sessionDigest",challenge`;
 
+// This is an account-scoped reason to deny ordinary access temporarily, never
+// authorization. The intent's own session must remain live; activation itself
+// still requires that exact original cookie and its one-use native assertion.
 export async function pendingProviderPasskeyAddition(
   source: Pick<PoolClient, "query">,
   input: {
     userId: string;
-    sessionTokenHash: string;
     authGeneration: string;
     subject: string;
     beforeDigest: string;
@@ -198,22 +200,16 @@ export async function pendingProviderPasskeyAddition(
   if (input.current.subject !== input.subject) return false;
   const intents = await source.query<Intent>(
     `SELECT ${intentColumns} FROM provider_passkey_intents
-     WHERE user_id=$1 AND session_token_hash=$2 AND auth_generation=$3
-       AND provider_subject=$4 AND before_digest=$5
+     WHERE user_id=$1 AND auth_generation=$2
+       AND provider_subject=$3 AND before_digest=$4
        AND intent_mode='addition'
        AND consumed_at IS NULL AND expires_at>clock_timestamp()
        AND EXISTS(SELECT 1 FROM provider_identities p WHERE p.provider='privy'
-         AND p.user_id=$1 AND p.subject=$4 AND p.auth_generation=$3 AND p.credentials_digest=$5)
+         AND p.user_id=$1 AND p.subject=$3 AND p.auth_generation=$2 AND p.credentials_digest=$4)
        AND EXISTS(SELECT 1 FROM sessions s JOIN users u ON u.id=s.user_id
-         WHERE s.user_id=$1 AND s.token_hash=$2 AND s.auth_generation=$3
-           AND u.auth_generation=$3 AND u.account_status='active' AND s.expires_at>clock_timestamp())`,
-    [
-      input.userId,
-      input.sessionTokenHash,
-      input.authGeneration,
-      input.subject,
-      input.beforeDigest,
-    ],
+         WHERE s.user_id=$1 AND s.token_hash=provider_passkey_intents.session_token_hash AND s.auth_generation=$2
+           AND u.auth_generation=$2 AND u.account_status='active' AND s.expires_at>clock_timestamp())`,
+    [input.userId, input.authGeneration, input.subject, input.beforeDigest],
   );
   for (const intent of intents.rows) {
     if (providerCredentialsDigest(intent.before) !== input.beforeDigest)

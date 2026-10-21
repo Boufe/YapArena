@@ -469,7 +469,7 @@ describe(
         ])
       ).rows[0].auth_generation;
       const args = {
-        ...f.f,
+        userId: f.f.userId,
         authGeneration: generation,
         subject: f.identity.subject,
         beforeDigest: begin.terms.beforeDigest,
@@ -479,7 +479,7 @@ describe(
       assert.equal(
         await pendingProviderPasskeyAddition(a, {
           ...args,
-          sessionTokenHash: "0".repeat(64),
+          authGeneration: String(BigInt(generation) + 1n),
         }),
         false,
       );
@@ -792,29 +792,9 @@ describe(
       );
     });
 
-    it("denies ordinary access during only the exact original-session pending addition without revocation", async () => {
+    it("denies both valid sessions during one exact pending addition without letting either monitor revoke the account", async () => {
       const f = await fixture(),
-        begin = await f.repo.begin(f.f),
-        key = providerPasskeyFixture();
-      f.add(key);
-      const before = await securitySnapshot(f),
-        monitor = createProviderSessionMonitor(a, f.verifier);
-      await assert.rejects(
-        monitor(f.f.userId, f.f.sessionTokenHash),
-        ProviderUnavailableError,
-      );
-      assert.deepEqual(await securitySnapshot(f), before);
-      await f.repo.activationOptions({
-        ...f.f,
-        id: begin.id,
-        token: "fixture-provider-token",
-      });
-      await assert.rejects(
-        monitor(f.f.userId, f.f.sessionTokenHash),
-        ProviderUnavailableError,
-      );
-      assert.deepEqual(await securitySnapshot(f), before);
-      const other = createSessionToken();
+        other = createSessionToken();
       const user = (
         await owner.query(
           'SELECT auth_generation AS "authGeneration" FROM users WHERE id=$1',
@@ -827,19 +807,177 @@ describe(
         new Date(Date.now() + 600000),
         user,
       );
-      await assert.rejects(monitor(f.f.userId, other.tokenHash), {
-        status: 403,
+      const begin = await f.repo.begin(f.f),
+        key = providerPasskeyFixture();
+      f.add(key);
+      const before = await securitySnapshot(f),
+        bothInspecting = deferred(),
+        releaseInspection = deferred();
+      let inspections = 0;
+      const inspector = {
+        async inspect(subject) {
+          if (++inspections === 2) bothInspecting.resolve();
+          await releaseInspection.promise;
+          return f.verifier.inspect(subject);
+        },
+      };
+      const monitoring = Promise.allSettled([
+        createProviderSessionMonitor(a, inspector)(
+          f.f.userId,
+          f.f.sessionTokenHash,
+        ),
+        createProviderSessionMonitor(b, inspector)(f.f.userId, other.tokenHash),
+      ]);
+      await bothInspecting.promise;
+      releaseInspection.resolve();
+      const monitored = await monitoring;
+      assert.deepEqual(
+        monitored.map((result) =>
+          result.status === "rejected"
+            ? {
+                result: result.status,
+                category: result.reason.constructor.name,
+                status: result.reason.status ?? null,
+              }
+            : { result: result.status },
+        ),
+        [
+          {
+            result: "rejected",
+            category: "ProviderUnavailableError",
+            status: null,
+          },
+          {
+            result: "rejected",
+            category: "ProviderUnavailableError",
+            status: null,
+          },
+        ],
+      );
+      for (const result of monitored) {
+        assert.equal(result.status, "rejected");
+        assert.ok(result.reason instanceof ProviderUnavailableError);
+      }
+      assert.deepEqual(await securitySnapshot(f), before);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int count FROM provider_revocation_jobs WHERE user_id=$1",
+            [f.f.userId],
+          )
+        ).rows[0].count,
+        0,
+      );
+      const challenge = await f.repo.activationOptions({
+        ...f.f,
+        id: begin.id,
+        token: "fixture-provider-token",
       });
-      const after = await securitySnapshot(f);
-      assert.equal(after.sessions, 0);
-      assert.notEqual(after.generation, before.generation);
+      for (const tokenHash of [f.f.sessionTokenHash, other.tokenHash])
+        await assert.rejects(
+          createProviderSessionMonitor(b, f.verifier)(f.f.userId, tokenHash),
+          ProviderUnavailableError,
+        );
+      assert.deepEqual(await securitySnapshot(f), before);
       await assert.rejects(
         f.repo.activationOptions({
           ...f.f,
           id: begin.id,
+          sessionTokenHash: other.tokenHash,
           token: "fixture-provider-token",
         }),
+        { status: 410 },
       );
+      const result = await f.repo.complete(completion(f, challenge, key));
+      assert.ok(result.keyId);
+      assert.equal(
+        (
+          await createSessionRepository(b).findUserByTokenHash(
+            hashSessionToken(result.token),
+          )
+        ).id,
+        f.f.userId,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int count FROM identity_audit_events WHERE user_id=$1 AND event_type='sessions.incident'",
+            [f.f.userId],
+          )
+        ).rows[0].count,
+        0,
+      );
+    });
+
+    it("still revokes another valid session when the initiating session is gone or the pending delta is not exact", async () => {
+      for (const scenario of [
+        "original-session-ended",
+        "multiple-added-keys",
+        "email-changed-too",
+        "captured-key-changed",
+      ]) {
+        const f = await fixture(),
+          other = createSessionToken();
+        const account = (
+          await owner.query(
+            'SELECT auth_generation AS "authGeneration" FROM users WHERE id=$1',
+            [f.f.userId],
+          )
+        ).rows[0];
+        await createSessionRepository(b).create(
+          f.f.userId,
+          other.tokenHash,
+          new Date(Date.now() + 600000),
+          account,
+        );
+        const begin = await f.repo.begin(f.f),
+          key = providerPasskeyFixture();
+        f.add(key);
+        if (scenario === "original-session-ended")
+          await owner.query("DELETE FROM sessions WHERE token_hash=$1", [
+            f.f.sessionTokenHash,
+          ]);
+        else if (scenario === "multiple-added-keys")
+          f.add(providerPasskeyFixture());
+        else if (scenario === "email-changed-too") {
+          const changedEmail = `${randomUUID()}@example.invalid`,
+            credentials = f.identity.credentials.map((entry) =>
+              entry.type === "email" ? { ...entry, id: changedEmail } : entry,
+            );
+          f.replace({
+            ...f.identity,
+            email: changedEmail,
+            credentials,
+            credentialsDigest: providerCredentialsDigest(credentials),
+          });
+        } else {
+          await f.repo.activationOptions({
+            ...f.f,
+            id: begin.id,
+            token: "fixture-provider-token",
+          });
+          f.replace({
+            ...f.identity,
+            passkeys: [
+              {
+                ...key.evidence,
+                publicKey: providerPasskeyFixture().evidence.publicKey,
+              },
+            ],
+          });
+        }
+        const before = await securitySnapshot(f);
+        await assert.rejects(
+          createProviderSessionMonitor(b, f.verifier)(
+            f.f.userId,
+            other.tokenHash,
+          ),
+          { status: 403 },
+        );
+        const after = await securitySnapshot(f);
+        assert.equal(after.sessions, 0, scenario);
+        assert.notEqual(after.generation, before.generation, scenario);
+      }
     });
 
     it("fails temporarily without revocation when an accepted or pending provider public key is unavailable", async () => {

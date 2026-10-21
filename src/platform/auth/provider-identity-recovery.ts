@@ -29,6 +29,7 @@ type Mapping = {
   methods: string[];
   credentialsDigest: string;
   credentialsSnapshot: ProviderCredential[] | null;
+  hasLocalEmbeddedWallet: boolean;
 };
 
 // This recovers YapArena ownership by replacing a provider binding. It never
@@ -44,13 +45,19 @@ export function createProviderIdentityRecovery(
   ) {
     const row = (
       await source.query<Mapping>(
-        `SELECT p.subject,p.email,p.methods,p.credentials_digest AS "credentialsDigest",p.credentials_snapshot AS "credentialsSnapshot"
+        `SELECT p.subject,p.email,p.methods,p.credentials_digest AS "credentialsDigest",p.credentials_snapshot AS "credentialsSnapshot",
+        EXISTS(SELECT 1 FROM embedded_wallet_provisioning w WHERE w.user_id=u.id
+          AND (w.wallet_id IS NOT NULL OR w.creation_started_at IS NOT NULL)) AS "hasLocalEmbeddedWallet"
         FROM provider_identities p JOIN users u ON u.id=p.user_id
         WHERE p.provider='privy' AND u.id=$1 AND u.account_status='active'`,
         [userId],
       )
     ).rows[0];
-    if (!row) unavailable();
+    // A provider wallet belongs to its original DID. An uncertain creation
+    // already crosses that boundary; replacing the DID cannot recover it.
+    // mapped() is also called under consume's account lock, serializing this
+    // final check with the wallet worker's create checkpoint.
+    if (!row || row.hasLocalEmbeddedWallet) unavailable();
     const credentials = verifiedStoredCredentials(row);
     if (
       credentials?.length !== 1 ||
@@ -84,6 +91,8 @@ export function createProviderIdentityRecovery(
       }),
     ]);
     if (
+      currentOld.hasEmbeddedWallets === true ||
+      identity.hasEmbeddedWallets === true ||
       currentOld.subject !== old.subject ||
       currentOld.credentialsDigest !== old.credentialsDigest ||
       currentOld.methods.length !== 1 ||

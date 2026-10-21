@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Pool } from "pg";
 import type { ProviderIdentity } from "./privy.ts";
+import { enqueueEmbeddedWalletProvisioning } from "./embedded-wallet-provisioning.ts";
 import {
   insertSession,
   lockAccount,
@@ -173,6 +174,13 @@ export function createProviderAccounts(database: Pool) {
           tokenHash,
           expiresAt,
           user.authGeneration,
+        );
+        // Persist the user-owned wallet intent with the verified account. The
+        // provider call runs separately and cannot delay signup or its return.
+        await enqueueEmbeddedWalletProvisioning(
+          client,
+          user.id,
+          identity.subject,
         );
         await client.query("COMMIT");
         return { user, created };

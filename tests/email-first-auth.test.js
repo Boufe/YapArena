@@ -232,6 +232,70 @@ describe("verified provider evidence", () => {
         ProviderCredentialChangedError,
       );
   });
+  it("keeps verified Privy user wallets separate from sign-in credentials and their digest", async () => {
+    const original = await verifier().inspect(claims.sub);
+    assert.equal(original.hasEmbeddedWallets, false);
+    const wallets = [
+      {
+        type: "wallet",
+        chain_type: "ethereum",
+        address: "0x1234567890123456789012345678901234567890",
+        wallet_client_type: "privy",
+        connector_type: "embedded",
+        user_can_sign: true,
+      },
+      {
+        type: "wallet",
+        chain_type: "solana",
+        address: "11111111111111111111111111111111",
+        wallet_client_type: "privy",
+        connector_type: "embedded",
+        user_can_sign: true,
+      },
+    ];
+    for (const selected of [[wallets[0]], [wallets[1]], wallets]) {
+      const state = await verifier({
+        id: claims.sub,
+        is_guest: false,
+        linked_accounts: [
+          { type: "email", address: "verified@example.test" },
+          ...selected,
+        ],
+      }).inspect(claims.sub);
+      assert.equal(state.hasEmbeddedWallets, true);
+      assert.deepEqual({ ...state, hasEmbeddedWallets: false }, original);
+    }
+    for (const changed of [
+      { ...wallets[0], wallet_client_type: "metamask" },
+      { ...wallets[0], wallet_client_type: undefined },
+      { ...wallets[0], connector_type: "injected" },
+      { ...wallets[0], connector_type: undefined },
+      { ...wallets[0], user_can_sign: false },
+      { ...wallets[0], user_can_sign: undefined },
+      { ...wallets[0], address: "unverified-wallet" },
+      { ...wallets[1], address: "0Oinvalid-solana-address" },
+      { ...wallets[1], chain_type: "bitcoin-segwit" },
+    ])
+      await assert.rejects(
+        verifier({
+          id: claims.sub,
+          is_guest: false,
+          linked_accounts: [
+            { type: "email", address: "verified@example.test" },
+            changed,
+          ],
+        }).inspect(claims.sub),
+        ProviderCredentialChangedError,
+      );
+    await assert.rejects(
+      verifier({
+        id: claims.sub,
+        is_guest: false,
+        linked_accounts: wallets,
+      }).inspect(claims.sub),
+      ProviderCredentialChangedError,
+    );
+  });
   it("allows only a read-only operator inspector to inspect a frozen identity without making it authentication evidence", async () => {
     const user = {
       id: claims.sub,
@@ -298,6 +362,7 @@ describe("verified provider evidence", () => {
       email: "verified@example.test",
       methods: ["email"],
       credentials: [{ type: "email", id: "verified@example.test" }],
+      hasEmbeddedWallets: false,
       issuedAt: claims.iat,
       credentialsDigest: createHash("sha256")
         .update(
@@ -668,6 +733,7 @@ describe("provider exchange API", () => {
     active = false,
     configured = true,
     sharedAuthLimiter,
+    providerDetails = null,
   } = {}) {
     const provider = {
       appId,
@@ -679,7 +745,10 @@ describe("provider exchange API", () => {
             created: true,
           };
         },
-        details: async () => null,
+        details: async (accountId) => {
+          assert.equal(accountId, "11");
+          return providerDetails;
+        },
       },
       verifier: verifier(),
     };
@@ -704,6 +773,18 @@ describe("provider exchange API", () => {
       .post("/api/auth/privy/exchange")
       .set("Origin", "https://arena.example")
       .set("Authorization", `Bearer ${jwt()}`);
+  it("pairs the provider mapping with its authenticated account in one response", async () => {
+    const providerDetails = { subject: claims.sub, methods: ["email"] };
+    const response = await request(setup({ active: true, providerDetails }))
+      .get("/api/auth/methods?accountId=attacker-controlled")
+      .set("Cookie", "__Host-session=synthetic");
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body, {
+      accountId: "11",
+      provider: providerDetails,
+      legacyPassword: false,
+    });
+  });
   it("keeps logout and session reads usable when shared abuse protection is unavailable", async () => {
     const app = setup({
       active: true,

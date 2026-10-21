@@ -17,6 +17,8 @@ export type ProviderIdentity = {
   credentialsDigest: string;
   credentials?: ProviderCredential[];
   passkeys?: ProviderPasskeyEvidence[];
+  // Trusted server asset evidence, separate from authentication credentials.
+  hasEmbeddedWallets?: boolean;
 };
 export type IdentityVerifier = {
   verify(token: string): Promise<ProviderIdentity>;
@@ -31,6 +33,7 @@ export type IdentityVerifier = {
       | "credentialsDigest"
       | "credentials"
       | "passkeys"
+      | "hasEmbeddedWallets"
     >
   >;
   configuration(): Promise<{ google: boolean; passkeys: boolean }>;
@@ -102,8 +105,30 @@ function privyVerifier(
         user.frozen_at !== null)
     )
       throw new ProviderCredentialChangedError("provider account unavailable");
-    const email = user.linked_accounts.find((entry) => entry.type === "email");
-    const credentials: ProviderCredential[] = user.linked_accounts
+    // Embedded wallets are user assets, not sign-in credentials. Accept only
+    // positively identified, user-controlled Privy wallets from this trusted
+    // server response; external/unknown wallet records remain unsupported.
+    const authenticationAccounts = user.linked_accounts.filter((entry) => {
+      if (entry.type !== "wallet") return true;
+      if (
+        entry.wallet_client_type === "privy" &&
+        entry.connector_type === "embedded" &&
+        "user_can_sign" in entry &&
+        entry.user_can_sign === true &&
+        ((entry.chain_type === "ethereum" &&
+          /^0x[0-9a-fA-F]{40}$/.test(entry.address)) ||
+          (entry.chain_type === "solana" &&
+            /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(entry.address)))
+      )
+        return false;
+      throw new ProviderCredentialChangedError(
+        "unsupported authentication method",
+      );
+    });
+    const email = authenticationAccounts.find(
+      (entry) => entry.type === "email",
+    );
+    const credentials: ProviderCredential[] = authenticationAccounts
       .map((entry): ProviderCredential => {
         if (entry.type === "email") return { type: "email", id: entry.address };
         if (entry.type === "google_oauth")
@@ -138,10 +163,12 @@ function privyVerifier(
       subject,
       email: email?.type === "email" ? email.address : null,
       methods: [
-        ...new Set(user.linked_accounts.map((entry) => entry.type)),
+        ...new Set(authenticationAccounts.map((entry) => entry.type)),
       ].sort(),
       credentialsDigest: providerCredentialsDigest(credentials),
       credentials,
+      hasEmbeddedWallets:
+        authenticationAccounts.length !== user.linked_accounts.length,
       ...(passkeys.length ? { passkeys } : {}),
     };
   }

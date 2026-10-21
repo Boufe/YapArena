@@ -26,6 +26,7 @@ import { createProviderIdentityRecovery } from "../dist/platform/auth/provider-i
 import { createCoinSandboxRepository } from "../dist/features/account-wallet/sandbox-repository.js";
 import { waitForSiweIssuedAt } from "./siwe-fixture-clock.js";
 import { ProviderUnavailableError } from "../dist/platform/auth/privy.js";
+import { createEmbeddedWalletProvisioning } from "../dist/platform/auth/embedded-wallet-provisioning.js";
 
 const ownerUrl = process.env.WALLET_TEST_OWNER_DATABASE_URL;
 const runtimeUrl = process.env.WALLET_TEST_DATABASE_URL;
@@ -1092,6 +1093,221 @@ describe(
         ).rows[0].user_id,
         f.f.userId,
       );
+    });
+    it("refuses legacy DID replacement when either trusted provider identity owns an embedded wallet", async () => {
+      const f = await recoveryFixture();
+      for (const identity of [f.identity, f.next]) {
+        identity.hasEmbeddedWallets = true;
+        await assert.rejects(recoveryOperation(f), { status: 409 });
+        identity.hasEmbeddedWallets = false;
+      }
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int AS count FROM account_operations WHERE user_id=$1 AND purpose='provider.identity.recover'",
+            [f.f.userId],
+          )
+        ).rows[0].count,
+        0,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT subject FROM provider_identities WHERE user_id=$1",
+            [f.f.userId],
+          )
+        ).rows[0].subject,
+        f.identity.subject,
+      );
+    });
+    it("preserves the original DID after confirmed or uncertain local embedded-wallet creation", async () => {
+      for (const confirmed of [true, false]) {
+        const f = await recoveryFixture();
+        await owner.query(
+          confirmed
+            ? `INSERT INTO embedded_wallet_provisioning(user_id,subject,state,wallet_id,address,completed_at)
+               VALUES($1,$2,'ready','synthetic-confirmed-wallet','0x1234567890123456789012345678901234567890',clock_timestamp())`
+            : `INSERT INTO embedded_wallet_provisioning(user_id,subject,state,creation_started_at)
+               VALUES($1,$2,'retry_wait',clock_timestamp())`,
+          [f.f.userId, f.identity.subject],
+        );
+        await assert.rejects(recoveryOperation(f), { status: 409 });
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT subject FROM provider_identities WHERE user_id=$1",
+              [f.f.userId],
+            )
+          ).rows[0].subject,
+          f.identity.subject,
+        );
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT count(*)::int AS count FROM provider_identity_recoveries WHERE user_id=$1",
+              [f.f.userId],
+            )
+          ).rows[0].count,
+          0,
+        );
+      }
+    });
+    it("allows a never-started pending job without adopting its original DID's wallet reference", async () => {
+      const f = await recoveryFixture();
+      await owner.query(
+        "INSERT INTO embedded_wallet_provisioning(user_id,subject) VALUES($1,$2)",
+        [f.f.userId, f.identity.subject],
+      );
+      const operation = await recoveryOperation(f);
+      await finishRecovery(f, operation);
+      const repository = createEmbeddedWalletProvisioning(a, {
+        async inspect() {
+          assert.fail("A changed DID must not inspect or adopt a wallet");
+        },
+        async create() {
+          assert.fail("A changed DID must not create a replacement wallet");
+        },
+      });
+      assert.deepEqual(await repository.process(1, f.f.userId), {
+        processed: 1,
+        ready: 0,
+        retry: 0,
+        review: 1,
+      });
+      assert.deepEqual(
+        (
+          await owner.query(
+            "SELECT subject,state,wallet_id,creation_started_at FROM embedded_wallet_provisioning WHERE user_id=$1",
+            [f.f.userId],
+          )
+        ).rows[0],
+        {
+          subject: f.identity.subject,
+          state: "review_required",
+          wallet_id: null,
+          creation_started_at: null,
+        },
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT subject FROM provider_identities WHERE user_id=$1",
+            [f.f.userId],
+          )
+        ).rows[0].subject,
+        f.next.subject,
+      );
+    });
+    it("rechecks wallet creation under the account lock and rolls recovery proof consumption back while external creation is in flight", async () => {
+      const f = await recoveryFixture(),
+        operation = await recoveryOperation(f);
+      await owner.query(
+        "INSERT INTO embedded_wallet_provisioning(user_id,subject) VALUES($1,$2)",
+        [f.f.userId, f.identity.subject],
+      );
+      let enterInspection, releaseInspection, enterCreation, releaseCreation;
+      const inspectionEntered = new Promise((resolve) => {
+          enterInspection = resolve;
+        }),
+        inspectionWait = new Promise((resolve) => {
+          releaseInspection = resolve;
+        }),
+        creationEntered = new Promise((resolve) => {
+          enterCreation = resolve;
+        }),
+        creationWait = new Promise((resolve) => {
+          releaseCreation = resolve;
+        });
+      const service = createProviderIdentityRecovery(a, {
+        ...f.verifier,
+        async inspect() {
+          enterInspection();
+          await inspectionWait;
+          return f.identity;
+        },
+      });
+      const heldRecovery = finishRecovery({ ...f, service }, operation);
+      const rejectedRecovery = assert.rejects(heldRecovery, { status: 409 });
+      let wallet = null,
+        worker;
+      const repository = createEmbeddedWalletProvisioning(b, {
+        async inspect(input) {
+          assert.equal(input.subject, f.identity.subject);
+          return { credentialsDigest: f.identity.credentialsDigest, wallet };
+        },
+        async create(input) {
+          assert.equal(input.subject, f.identity.subject);
+          enterCreation();
+          await creationWait;
+          wallet = {
+            id: `synthetic-wallet-${randomUUID()}`,
+            address: "0x1234567890123456789012345678901234567890",
+          };
+        },
+      });
+      async function entry(promise, label) {
+        let timer;
+        try {
+          await Promise.race([
+            promise,
+            new Promise((_, reject) => {
+              timer = setTimeout(
+                () => reject(new Error(`${label} did not start`)),
+                5000,
+              );
+            }),
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+      try {
+        await entry(inspectionEntered, "Recovery provider inspection");
+        worker = repository.process(1, f.f.userId);
+        await entry(creationEntered, "Embedded wallet creation");
+        const inFlight = (
+          await owner.query(
+            "SELECT creation_started_at,wallet_id FROM embedded_wallet_provisioning WHERE user_id=$1",
+            [f.f.userId],
+          )
+        ).rows[0];
+        assert.ok(inFlight.creation_started_at);
+        assert.equal(inFlight.wallet_id, null);
+        releaseInspection();
+        await rejectedRecovery;
+        assert.deepEqual(
+          (
+            await owner.query(
+              `SELECT k.counter,o.consumed_at,p.subject,
+               (SELECT count(*)::int FROM provider_identity_recoveries r WHERE r.user_id=p.user_id) AS recoveries
+               FROM provider_identities p JOIN account_security_keys k ON k.user_id=p.user_id
+               JOIN account_operations o ON o.user_id=p.user_id WHERE p.user_id=$1 AND k.id=$2 AND o.id=$3`,
+              [f.f.userId, f.result.keyId, operation.id],
+            )
+          ).rows[0],
+          {
+            counter: "0",
+            consumed_at: null,
+            subject: f.identity.subject,
+            recoveries: 0,
+          },
+        );
+        releaseCreation();
+        assert.deepEqual(await worker, {
+          processed: 1,
+          ready: 1,
+          retry: 0,
+          review: 0,
+        });
+        assert.equal(
+          (await repository.get(f.f.userId)).subject,
+          f.identity.subject,
+        );
+      } finally {
+        releaseInspection();
+        releaseCreation();
+        await Promise.all([rejectedRecovery, worker]);
+      }
     });
     it("rolls a fresh-key counter and replacement back when a competing provider claim wins, and permits only one concurrent recovery", async () => {
       const f = await recoveryFixture(),

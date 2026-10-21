@@ -804,6 +804,7 @@ if (mount) {
         terms,
         approval: proof,
       });
+      assertGeneration(generation);
     } finally {
       if (generation === logoutGeneration) setBusy(false);
     }

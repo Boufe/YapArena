@@ -1,0 +1,25 @@
+{
+  "stage": "held remove approval cannot continue under replacement provider",
+  "settings": "Sign-in methods\nPassword\nEmail\n\nYour passkey works for sign-in and secure account approvals. Keep another sign-in method available in case you lose access to a device.\n\nNew sign-in email\nChange email\nAdd Google sign-inAdd a passkey\n\nEmail: settings-replacement-1@example.invalid\n\nRemove Email\nReview provider changes or recover access\n\nPasskey ready for sign-in and account approvals. Other sessions were signed out.\n\nKeep at least one provider sign-in method. Changes require a retained security credential. If all stronger methods are lost, ownership review is required; an email code cannot reset them.",
+  "resume": "",
+  "intentRetained": false,
+  "focus": {
+    "tag": "SUMMARY",
+    "button": null
+  },
+  "errors": [],
+  "counters": {
+    "beginCalls": 2,
+    "operationCalls": 1,
+    "resumedOperationCalls": 1,
+    "scopedCandidateCalls": 1,
+    "providerInitCalls": 1,
+    "providerLinkCalls": 1,
+    "completeCalls": 1,
+    "sequence": 1,
+    "staleSdkRequests": 0,
+    "sdkMutations": [
+      "/api/v1/passwordless/unlink"
+    ]
+  }
+}

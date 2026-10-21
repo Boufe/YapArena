@@ -1,0 +1,20 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: replacement actor controls must not stay blocked by the original request
+
+false !== true
+
+    at releaseAndCheck (file:///Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:1652:16)
+    at async verifyPrivyPasskeySetup (file:///Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:1718:9)
+    at async file:///Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:1943:7 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

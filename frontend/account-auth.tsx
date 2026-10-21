@@ -7,7 +7,7 @@ import {
   useLoginWithEmail,
   useLoginWithOAuth,
   useLoginWithPasskey,
-  useLinkAccount,
+  useLinkWithOAuth,
   useLinkWithPasskey,
   useLinkEmail,
   useUpdateEmail,
@@ -1550,6 +1550,9 @@ function Settings({
   const passkeyIntent = useRef(pendingPasskey);
   const passkeyEpoch = useRef(0);
   const activePasskeyActor = useRef<PasskeyActor | null>(null);
+  const completedPasskeySubject = useRef<string | null>(null);
+  const settingsEpoch = useRef(0);
+  const activeSettingsActor = useRef<PasskeyActor | null>(null);
   const [provider, setProvider] = useState<{
     subject?: string;
     methods: string[];
@@ -1562,6 +1565,7 @@ function Settings({
     [pendingEmail, setPendingEmail] = useState<{
       address: string;
       update: boolean;
+      owner: PasskeyActor;
     } | null>(null);
   const { ready, authenticated, user, getAccessToken } = usePrivy(),
     pending = useRef(false),
@@ -1573,6 +1577,88 @@ function Settings({
   });
   liveProvider.current = { ready, authenticated, subject: user?.id ?? null };
   const priorProvider = useRef(liveProvider.current);
+  type GoogleIntent = {
+    id: string;
+    kind: "google_oauth";
+    accountId: string;
+    subject: string;
+    expiresAt: number;
+  };
+  function clearGoogleIntent() {
+    try {
+      sessionStorage.removeItem("yaparena-provider-change");
+    } catch {
+      /* A navigation hint cannot authorize provider or account mutations. */
+    }
+  }
+  function settingsActor(intent?: GoogleIntent): PasskeyActor {
+    const current = liveProvider.current,
+      accountId = window.yapCurrentSessionAccount?.() ?? null;
+    if (
+      !current.ready ||
+      !current.authenticated ||
+      !current.subject ||
+      (intent
+        ? current.subject !== intent.subject ||
+          (accountId !== null && accountId !== intent.accountId) ||
+          intent.expiresAt <= Date.now()
+        : !accountId || current.subject !== provider?.subject)
+    )
+      throw new DOMException("Provider account changed", "AbortError");
+    return {
+      epoch: settingsEpoch.current,
+      accountId,
+      subject: current.subject,
+      abort: new AbortController(),
+    };
+  }
+  function sameSettingsOwner(actor: PasskeyActor) {
+    const current = liveProvider.current;
+    return (
+      !actor.abort.signal.aborted &&
+      actor.epoch === settingsEpoch.current &&
+      actor.accountId === (window.yapCurrentSessionAccount?.() ?? null) &&
+      current.ready &&
+      current.authenticated &&
+      current.subject === actor.subject
+    );
+  }
+  function sameSettingsActor(actor: PasskeyActor) {
+    return activeSettingsActor.current === actor && sameSettingsOwner(actor);
+  }
+  function assertSettingsActor(actor: PasskeyActor) {
+    if (!sameSettingsActor(actor))
+      throw new DOMException("Provider account changed", "AbortError");
+  }
+  function finishSettingsActor(actor: PasskeyActor) {
+    if (activeSettingsActor.current !== actor) return;
+    activeSettingsActor.current = null;
+    pending.current = false;
+    setBusy(false);
+  }
+  function cancelSettingsActor() {
+    settingsEpoch.current++;
+    activeSettingsActor.current?.abort.abort();
+    activeSettingsActor.current = null;
+    refreshVersion.current++;
+    pending.current = false;
+    setBusy(false);
+    setNewEmail("");
+    setEmailCode("");
+    setPendingEmail(null);
+    if (
+      !completedPasskeySubject.current ||
+      completedPasskeySubject.current !== liveProvider.current.subject ||
+      !liveProvider.current.authenticated
+    ) {
+      completedPasskeySubject.current = null;
+      setMessage("");
+    }
+    setProvider(null);
+    setSecurityKeys([]);
+    setMethods([]);
+    clearGoogleIntent();
+  }
   const { linkWithPasskey } = useLinkWithPasskey();
   function passkeyActor(resume = false): PasskeyActor {
     const current = liveProvider.current,
@@ -1639,15 +1725,14 @@ function Settings({
     unlinkEmail = useUnlinkEmail(),
     unlinkOAuth = useUnlinkOAuth(),
     unlinkPasskey = useUnlinkPasskey();
-  async function reconcile() {
+  async function reconcile(actor: PasskeyActor) {
+    assertSettingsActor(actor);
+    setNewEmail("");
     setEmailCode("");
     setPendingEmail(null);
-    try {
-      sessionStorage.removeItem("yaparena-provider-change");
-    } catch {
-      /* Navigation intent only. */
-    }
+    clearGoogleIntent();
     const token = await getAccessToken();
+    assertSettingsActor(actor);
     if (!token)
       throw new Error("Verify your provider sign-in, then review the changes.");
     onReconcile(token);
@@ -1655,29 +1740,11 @@ function Settings({
       "Review the exact provider changes and verify with your retained security credential to finish.",
     );
   }
-  const links = useLinkAccount({
-    onSuccess: ({ linkMethod }) => {
-      if (linkMethod === "passkey") return;
-      void reconcile().catch(() =>
-        setMessage(
-          "Verify your provider sign-in and retry ownership verification.",
-        ),
-      );
-      setBusy(false);
-      pending.current = false;
-    },
-    onError: (_error, details) => {
-      if (details.linkMethod === "passkey") return;
-      setMessage(
-        passkeyIntent.current
-          ? "Passkey setup was interrupted. If your device created the passkey, choose Finish passkey setup. Otherwise wait five minutes before starting again."
-          : "Linking was cancelled or unavailable. Your accepted YapArena methods were not changed.",
-      );
-      setBusy(false);
-      pending.current = false;
-    },
-  });
+  // A per-call promise can be fenced to its initiating actor. The generic
+  // linkAccount error callback supplies no account/flow identity.
+  const links = useLinkWithOAuth();
   function showPasskeyError(error: unknown) {
+    completedPasskeySubject.current = null;
     setMessage(
       error instanceof Error
         ? error.message
@@ -1732,10 +1799,11 @@ function Settings({
     activePasskeyActor.current = null;
     pending.current = false;
     setBusy(false);
+    completedPasskeySubject.current = actor.subject;
+    announceSession();
     setMessage(
       "Passkey ready for sign-in and account approvals. Other sessions were signed out.",
     );
-    announceSession();
   }
   async function addPasskey(
     credentialId?: string,
@@ -1750,6 +1818,8 @@ function Settings({
         : undefined);
     pending.current = true;
     setBusy(true);
+    completedPasskeySubject.current = null;
+    setMessage("");
     let actor: PasskeyActor | undefined;
     try {
       actor = passkeyActor(Boolean(resumeId));
@@ -1805,13 +1875,16 @@ function Settings({
     }
   }
   useEffect(() => {
-    const cancel = () => cancelPasskeyActor();
+    const cancel = () => {
+      cancelPasskeyActor();
+      cancelSettingsActor();
+    };
     window.addEventListener("yap:account-changed", cancel);
     window.addEventListener("yap:provider-logout", cancel);
     return () => {
       window.removeEventListener("yap:account-changed", cancel);
       window.removeEventListener("yap:provider-logout", cancel);
-      cancelPasskeyActor();
+      cancel();
     };
   }, []);
   useEffect(() => {
@@ -1820,31 +1893,50 @@ function Settings({
     priorProvider.current = current;
     if (
       previous.ready &&
-      (activePasskeyActor.current !== null || previous.authenticated) &&
+      (activePasskeyActor.current !== null ||
+        activeSettingsActor.current !== null ||
+        previous.authenticated) &&
       (!ready ||
         previous.authenticated !== authenticated ||
         previous.subject !== current.subject)
-    )
+    ) {
       cancelPasskeyActor();
+      cancelSettingsActor();
+    }
   }, [ready, authenticated, user?.id]);
-  async function change(action: () => Promise<void>) {
+  async function change(
+    action: (actor: PasskeyActor) => Promise<void>,
+    intent?: GoogleIntent,
+  ) {
     if (pending.current) return;
+    let actor: PasskeyActor;
+    try {
+      actor = settingsActor(intent);
+    } catch {
+      return;
+    }
+    activeSettingsActor.current = actor;
+    completedPasskeySubject.current = null;
     pending.current = true;
     setBusy(true);
     try {
-      await action();
+      await action(actor);
+      assertSettingsActor(actor);
     } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "The change could not be confirmed. Verify your provider sign-in to review its current state.",
-      );
+      if (sameSettingsActor(actor)) {
+        clearGoogleIntent();
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "The change could not be confirmed. Verify your provider sign-in to review its current state.",
+        );
+      }
     } finally {
-      pending.current = false;
-      setBusy(false);
+      finishSettingsActor(actor);
     }
   }
-  async function approve(terms: ProviderChange) {
+  async function approve(terms: ProviderChange, actor: PasskeyActor) {
+    assertSettingsActor(actor);
     if (!window.yapApproveProviderChange)
       throw new Error("Load your account security settings before continuing.");
     if (!authenticated || user?.id !== provider?.subject)
@@ -1852,26 +1944,71 @@ function Settings({
         "Sign in with the current provider account before changing its methods.",
       );
     await window.yapApproveProviderChange(terms);
+    assertSettingsActor(actor);
   }
   useEffect(() => {
     if (!ready || !authenticated) return;
-    let kind: string | null = null;
+    let intent: GoogleIntent | null = null;
     try {
-      kind = sessionStorage.getItem("yaparena-provider-change");
+      const raw = sessionStorage.getItem("yaparena-provider-change");
+      if (!raw) return;
+      const value: unknown = JSON.parse(raw);
+      if (
+        !value ||
+        typeof value !== "object" ||
+        !("id" in value) ||
+        typeof value.id !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f-]{27}$/.test(value.id) ||
+        !("kind" in value) ||
+        value.kind !== "google_oauth" ||
+        !("accountId" in value) ||
+        typeof value.accountId !== "string" ||
+        !value.accountId ||
+        value.accountId.length > 128 ||
+        !("subject" in value) ||
+        typeof value.subject !== "string" ||
+        !value.subject ||
+        value.subject.length > 256 ||
+        !("expiresAt" in value) ||
+        typeof value.expiresAt !== "number" ||
+        !Number.isSafeInteger(value.expiresAt) ||
+        value.expiresAt <= Date.now() ||
+        value.expiresAt > Date.now() + 10 * 60_000 ||
+        Object.keys(value).length !== 5
+      ) {
+        clearGoogleIntent();
+        return;
+      }
+      intent = {
+        id: value.id,
+        kind: value.kind,
+        accountId: value.accountId,
+        subject: value.subject,
+        expiresAt: value.expiresAt,
+      };
     } catch {
-      /* Optional redirect recovery. */
+      clearGoogleIntent();
+      return;
     }
-    if (kind && user?.linkedAccounts.some((account) => account.type === kind))
-      void reconcile().catch(() =>
-        setMessage(
-          "Verify your provider sign-in and retry ownership verification.",
-        ),
-      );
+    if (
+      intent.subject !== user?.id ||
+      (window.yapCurrentSessionAccount?.() &&
+        window.yapCurrentSessionAccount?.() !== intent.accountId)
+    ) {
+      clearGoogleIntent();
+      return;
+    }
+    // Redirect recovery may only open the server's read-only candidate review.
+    // A missing comparison hint never permits an SDK credential mutation.
+    if (user.linkedAccounts.some((account) => account.type === intent.kind))
+      void change(reconcile, intent);
   }, [ready, authenticated, user]);
   useEffect(() => {
     async function refresh() {
       const current = ++refreshVersion.current;
       setMethods([]);
+      setProvider(null);
+      setSecurityKeys([]);
       try {
         const response = await fetch("/api/auth/methods", {
           credentials: "same-origin",
@@ -1894,6 +2031,13 @@ function Settings({
           ? await keyResponse.json()
           : null;
         if (current === refreshVersion.current) {
+          if (
+            completedPasskeySubject.current &&
+            completedPasskeySubject.current !== value.provider?.subject
+          ) {
+            completedPasskeySubject.current = null;
+            setMessage("");
+          }
           setProvider(value.provider);
           setSecurityKeys(keyData?.passkeys ?? []);
           setMethods([
@@ -1911,7 +2055,7 @@ function Settings({
       refreshVersion.current++;
       window.removeEventListener("yap:account-changed", refresh);
     };
-  }, []);
+  }, [ready, authenticated, user?.id]);
   const settingsRoot =
     document.querySelector<HTMLElement>("#provider-settings");
   // The settings are rendered into the signed-in account area by a separate
@@ -1992,18 +2136,22 @@ function Settings({
                 className="stack-form"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void change(async () => {
+                  void change(async (actor) => {
                     const address = newEmail.trim(),
                       update = provider.methods.includes("email");
-                    await approve({
-                      action: update ? "update" : "link",
-                      method: "email",
-                      target: address,
-                    });
+                    await approve(
+                      {
+                        action: update ? "update" : "link",
+                        method: "email",
+                        target: address,
+                      },
+                      actor,
+                    );
                     if (update)
                       await updateEmail.sendCode({ newEmailAddress: address });
                     else await linkEmail.sendCode({ email: address });
-                    setPendingEmail({ address, update });
+                    assertSettingsActor(actor);
+                    setPendingEmail({ address, update, owner: actor });
                     setEmailCode("");
                     setMessage(
                       "Privy sent a code to the new email. Enter its newest code below.",
@@ -2042,11 +2190,17 @@ function Settings({
                   className="stack-form"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    void change(async () => {
+                    void change(async (actor) => {
+                      if (!sameSettingsOwner(pendingEmail.owner))
+                        throw new DOMException(
+                          "Provider account changed",
+                          "AbortError",
+                        );
                       if (pendingEmail.update)
                         await updateEmail.verifyCode({ code: emailCode });
                       else await linkEmail.linkWithCode({ code: emailCode });
-                      await reconcile();
+                      assertSettingsActor(actor);
+                      await reconcile(actor);
                     });
                   }}
                 >
@@ -2079,7 +2233,12 @@ function Settings({
                     type="button"
                     disabled={busy}
                     onClick={() =>
-                      void change(async () => {
+                      void change(async (actor) => {
+                        if (!sameSettingsOwner(pendingEmail.owner))
+                          throw new DOMException(
+                            "Provider account changed",
+                            "AbortError",
+                          );
                         if (pendingEmail.update)
                           await updateEmail.sendCode({
                             newEmailAddress: pendingEmail.address,
@@ -2088,6 +2247,7 @@ function Settings({
                           await linkEmail.sendCode({
                             email: pendingEmail.address,
                           });
+                        assertSettingsActor(actor);
                         setEmailCode("");
                         setMessage(
                           "Privy resent the code. Use the newest one.",
@@ -2118,21 +2278,37 @@ function Settings({
                     busy || !authenticated || user?.id !== provider.subject
                   }
                   onClick={() =>
-                    void change(async () => {
-                      await approve({
-                        action: "link",
-                        method: "google_oauth",
-                        target: "provider-verified-google-account",
-                      });
+                    void change(async (actor) => {
+                      await approve(
+                        {
+                          action: "link",
+                          method: "google_oauth",
+                          target: "provider-verified-google-account",
+                        },
+                        actor,
+                      );
+                      if (!actor.accountId)
+                        throw new DOMException(
+                          "Provider account changed",
+                          "AbortError",
+                        );
                       try {
                         sessionStorage.setItem(
                           "yaparena-provider-change",
-                          "google_oauth",
+                          JSON.stringify({
+                            id: crypto.randomUUID(),
+                            kind: "google_oauth",
+                            accountId: actor.accountId,
+                            subject: actor.subject,
+                            expiresAt: Date.now() + 10 * 60_000,
+                          } satisfies GoogleIntent),
                         );
                       } catch {
                         /* Intent only. */
                       }
-                      links.linkGoogle();
+                      assertSettingsActor(actor);
+                      await links.initOAuth({ provider: "google" });
+                      assertSettingsActor(actor);
                     })
                   }
                 >
@@ -2203,12 +2379,15 @@ function Settings({
                         (provider.credentials?.length ?? 0) <= 1
                       }
                       onClick={() =>
-                        void change(async () => {
-                          await approve({
-                            action: "remove",
-                            method: entry.type,
-                            target: entry.id,
-                          });
+                        void change(async (actor) => {
+                          await approve(
+                            {
+                              action: "remove",
+                              method: entry.type,
+                              target: entry.id,
+                            },
+                            actor,
+                          );
                           if (entry.type === "email")
                             await unlinkEmail.unlink({ address: entry.id });
                           else if (entry.type === "google_oauth")
@@ -2220,7 +2399,8 @@ function Settings({
                             await unlinkPasskey.unlink({
                               credentialId: entry.id,
                             });
-                          await reconcile();
+                          assertSettingsActor(actor);
+                          await reconcile(actor);
                         })
                       }
                     >
@@ -2256,7 +2436,10 @@ function Settings({
             </button>
           )}
           <p role="status" aria-live="polite" aria-atomic="true">
-            {message}
+            {completedPasskeySubject.current &&
+            provider?.subject !== completedPasskeySubject.current
+              ? ""
+              : message}
           </p>
           <p className="form-note">
             Keep at least one provider sign-in method. Changes require a

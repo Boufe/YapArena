@@ -612,6 +612,7 @@ async function verifyPrivyPasskeySetup(
   viewport: { width: number; height: number },
   expiredRestart = false,
   queuedCompletion = false,
+  settingsRaces = false,
 ) {
   // WebAuthn accepts localhost for a local secure-context fixture, not an IP RP.
   const fixtureOrigin = new URL(base);
@@ -651,6 +652,8 @@ async function verifyPrivyPasskeySetup(
       keyId = "00000000-0000-4000-8000-000000000013",
       terms = { intentId, subject, beforeDigest: "2".repeat(64) },
       challenge = Buffer.alloc(32, 7).toString("base64url");
+    let sdkSubject = subject,
+      sdkEmail = email;
     const makeToken = (sid: string) =>
       [
         Buffer.from(JSON.stringify({ alg: "ES256", typ: "JWT" })).toString(
@@ -660,7 +663,7 @@ async function verifyPrivyPasskeySetup(
           JSON.stringify({
             iss: "privy.io",
             aud: appId,
-            sub: subject,
+            sub: sdkSubject,
             sid,
             iat: now,
             exp: now + 600,
@@ -703,7 +706,7 @@ async function verifyPrivyPasskeySetup(
       completeCalls,
     });
     const user = () => ({
-      id: subject,
+      id: sdkSubject,
       is_guest: false,
       created_at: now - 100,
       has_accepted_terms: true,
@@ -711,12 +714,12 @@ async function verifyPrivyPasskeySetup(
       linked_accounts: [
         {
           type: "email",
-          address: email,
+          address: sdkEmail,
           verified_at: now,
           first_verified_at: now - 100,
           latest_verified_at: now,
         },
-        ...(credentialId
+        ...(credentialId && sdkSubject === subject
           ? [
               {
                 type: "passkey",
@@ -775,6 +778,31 @@ async function verifyPrivyPasskeySetup(
           return route.fulfill({ headers, json: session() });
         if (path === "/api/v1/users/me")
           return route.fulfill({ headers, json: { user: user() } });
+        if (path === "/api/v1/passkeys/authenticate/init") {
+          assert.ok(settingsRaces && credentialId);
+          return route.fulfill({
+            headers,
+            json: {
+              relying_party: passkeyBase,
+              options: {
+                challenge,
+                rp_id: "localhost",
+                allow_credentials: [{ id: credentialId, type: "public-key" }],
+                timeout: 60000,
+                user_verification: "required",
+              },
+            },
+          });
+        }
+        if (path === "/api/v1/passkeys/authenticate") {
+          assert.ok(settingsRaces && credentialId);
+          const body: { authenticator_response?: { id?: string } } = route
+            .request()
+            .postDataJSON();
+          assert.equal(body.authenticator_response?.id, credentialId);
+          providerLogins++;
+          return route.fulfill({ headers, json: session() });
+        }
         if (path === "/api/v1/passkeys/link/init") {
           providerInitCalls++;
           return route.fulfill({
@@ -837,7 +865,7 @@ async function verifyPrivyPasskeySetup(
                   user: {
                     id: fixtureAccount,
                     username: "Synthetic passkey fixture",
-                    email,
+                    email: sdkEmail,
                     roles: ["participant"],
                   },
                 },
@@ -890,12 +918,15 @@ async function verifyPrivyPasskeySetup(
                 provider: {
                   subject: replacementActor
                     ? "did:privy:synthetic-replacement"
-                    : subject,
-                  email,
-                  methods: credentialId ? ["email", "passkey"] : ["email"],
+                    : sdkSubject,
+                  email: sdkEmail,
+                  methods:
+                    credentialId && sdkSubject === subject
+                      ? ["email", "passkey"]
+                      : ["email"],
                   credentials: [
-                    { type: "email", id: email },
-                    ...(credentialId
+                    { type: "email", id: sdkEmail },
+                    ...(credentialId && sdkSubject === subject
                       ? [{ type: "passkey", id: credentialId }]
                       : []),
                   ],
@@ -916,18 +947,19 @@ async function verifyPrivyPasskeySetup(
               }
             : {
                 json: {
-                  passkeys: activated
-                    ? [
-                        {
-                          id: keyId,
-                          credentialId,
-                          provenance: "privy",
-                          createdAt: new Date(now * 1000).toISOString(),
-                          deviceType: "singleDevice",
-                          backedUp: false,
-                        },
-                      ]
-                    : [],
+                  passkeys:
+                    activated && sdkSubject === subject
+                      ? [
+                          {
+                            id: keyId,
+                            credentialId,
+                            provenance: "privy",
+                            createdAt: new Date(now * 1000).toISOString(),
+                            deviceType: "singleDevice",
+                            backedUp: false,
+                          },
+                        ]
+                      : [],
                 },
               },
       ),
@@ -1469,6 +1501,336 @@ async function verifyPrivyPasskeySetup(
     checks.push(
       `${name}: installed Privy SDK creates one virtual-authenticator passkey through intercepted link endpoints; refresh preserves only its exact intent, keeps protected account data hidden, obtains a new scoped retained proof, and activates the same credential without a second registration`,
     );
+    if (settingsRaces) {
+      let sequence = 0,
+        staleSdkRequests = 0,
+        targetEmail = "",
+        holdChange = false,
+        holdSend = false,
+        holdVerify = false;
+      let gate = deferred(),
+        arrived = deferred(),
+        finished = deferred();
+      const settings = page.locator("#provider-settings");
+      const providerDialog = page.getByRole("dialog", {
+        name: "Change sign-in methods",
+        exact: true,
+      });
+      await page.route("**/api/auth/security/operations", (route) => {
+        const body: { purpose: string; credential: { type: string } } = route
+          .request()
+          .postDataJSON();
+        assert.equal(body.purpose, "provider.credentials.change");
+        assert.deepEqual(body.credential, { type: "password" });
+        return route.fulfill({
+          json: { id: operationId, authorizationMessage: null },
+        });
+      });
+      await page.route(
+        "**/api/auth/security/provider/change",
+        async (route) => {
+          if (holdChange) {
+            arrived.release();
+            await gate.promise;
+          }
+          await route.fulfill({ status: 204 });
+          if (holdChange) finished.release();
+        },
+      );
+      await page.route("**/api/v1/passwordless/init", async (route) => {
+        if (route.request().method() === "OPTIONS") return route.fallback();
+        const changing =
+          route.request().postData()?.includes(targetEmail) &&
+          targetEmail !== "";
+        if (changing) {
+          staleSdkRequests++;
+          if (holdSend) {
+            arrived.release();
+            await gate.promise;
+          }
+        }
+        await route.fulfill({
+          headers: {
+            "access-control-allow-origin": passkeyBase,
+            "access-control-allow-credentials": "true",
+          },
+          json: { success: true },
+        });
+        if (changing && holdSend) finished.release();
+      });
+      await page.route("**/api/v1/passwordless/update", async (route) => {
+        if (route.request().method() === "OPTIONS") return route.fallback();
+        assert.equal(holdVerify, true);
+        arrived.release();
+        await gate.promise;
+        await route.fulfill({
+          status: 503,
+          headers: {
+            "access-control-allow-origin": passkeyBase,
+            "access-control-allow-credentials": "true",
+          },
+          json: { error: "synthetic delayed original-actor provider failure" },
+        });
+        finished.release();
+      });
+      const sdkMutations: string[] = [];
+      const passkeyCounters = counters;
+      counters = () => ({
+        ...passkeyCounters(),
+        sequence,
+        staleSdkRequests,
+        sdkMutations,
+      });
+      async function waitGate(promise: Promise<void>) {
+        let timeout: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([
+            promise,
+            new Promise<never>((_resolve, reject) => {
+              timeout = setTimeout(
+                () =>
+                  reject(new Error(`Fixture gate did not arrive: ${stage}`)),
+                10000,
+              );
+            }),
+          ]);
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
+      page.on("request", (request) => {
+        const path = new URL(request.url()).pathname;
+        if (
+          /\/api\/v1\/(?:oauth\/init|passwordless\/unlink|passkeys\/unlink)$/.test(
+            path,
+          ) &&
+          request.method() !== "OPTIONS"
+        )
+          sdkMutations.push(path);
+      });
+      async function approveSettings() {
+        await providerDialog.waitFor();
+        await providerDialog.getByRole("combobox").selectOption("password");
+        await providerDialog
+          .getByLabel("Current password", { exact: true })
+          .fill("synthetic-retained-passphrase");
+        await providerDialog
+          .getByRole("button", { name: "Approve change", exact: true })
+          .click();
+      }
+      async function replacementLogin(native = false) {
+        sequence++;
+        authenticated = false;
+        sdkSubject = `did:privy:synthetic-settings-replacement-${sequence}`;
+        sdkEmail = `settings-replacement-${sequence}@example.invalid`;
+        fixtureAccount = `settings-replacement-${sequence}`;
+        token = makeToken(`synthetic-settings-session-${sequence}`);
+        await page.evaluate(() => {
+          window.dispatchEvent(new Event("yap:provider-logout"));
+          window.dispatchEvent(new Event("yap:account-changed"));
+          window.dispatchEvent(
+            new CustomEvent("yap:request-auth", { detail: { mode: "login" } }),
+          );
+        });
+        await page.waitForFunction(
+          () =>
+            document.querySelector<HTMLButtonElement>(
+              '#email-auth button[type="submit"]',
+            )?.disabled === false,
+        );
+        if (native) {
+          await auth
+            .getByRole("button", {
+              name: "Use a passkey",
+              exact: true,
+            })
+            .click();
+        } else {
+          await auth
+            .getByLabel("Email address", { exact: true })
+            .fill(sdkEmail);
+          await auth
+            .getByRole("button", { name: "Continue with email", exact: false })
+            .click();
+          await auth
+            .getByLabel("Verification code", { exact: true })
+            .fill("123456");
+          await auth
+            .getByRole("button", { name: "Verify and continue", exact: false })
+            .click();
+        }
+        await page.waitForFunction(
+          (account) => window.yapCurrentSessionAccount?.() === account,
+          fixtureAccount,
+        );
+        await settings
+          .getByLabel("New sign-in email", { exact: true })
+          .waitFor();
+        assert.equal(
+          await settings
+            .getByRole("button", { name: "Verify new email", exact: true })
+            .count(),
+          0,
+        );
+      }
+      async function releaseAndCheck(draft: string) {
+        const field = settings.getByLabel("New sign-in email", { exact: true });
+        const enabledBeforeRelease = await field.isEnabled();
+        if (enabledBeforeRelease) await field.fill(draft);
+        gate.release();
+        await waitGate(finished.promise);
+        await page.evaluate(
+          () =>
+            new Promise<void>((done) =>
+              requestAnimationFrame(() => requestAnimationFrame(() => done())),
+            ),
+        );
+        assert.equal(
+          enabledBeforeRelease,
+          true,
+          "replacement actor controls must not stay blocked by the original request",
+        );
+        assert.equal(
+          await settings
+            .getByLabel("New sign-in email", { exact: true })
+            .inputValue(),
+          draft,
+        );
+        assert.equal(
+          await settings
+            .getByRole("button", { name: "Change email", exact: true })
+            .isEnabled(),
+          true,
+        );
+        assert.equal(
+          await settings
+            .getByRole("button", { name: "Verify new email", exact: true })
+            .count(),
+          0,
+        );
+        assert.equal(
+          await page
+            .getByRole("dialog", {
+              name: "Review sign-in changes",
+              exact: true,
+            })
+            .count(),
+          0,
+        );
+        assert.equal(
+          await page.evaluate(() =>
+            sessionStorage.getItem("yaparena-provider-change"),
+          ),
+          null,
+        );
+      }
+      for (const mutation of ["remove", "google", "email"] as const) {
+        stage = `held ${mutation} approval cannot continue under replacement provider`;
+        gate = deferred();
+        arrived = deferred();
+        finished = deferred();
+        holdChange = true;
+        targetEmail = `stale-${mutation}@example.invalid`;
+        if (mutation === "remove")
+          await settings
+            .getByRole("button", { name: "Remove Email", exact: true })
+            .click();
+        else if (mutation === "google")
+          await settings
+            .getByRole("button", { name: "Add Google sign-in", exact: true })
+            .click();
+        else {
+          await settings
+            .getByLabel("New sign-in email", { exact: true })
+            .fill(targetEmail);
+          await settings
+            .getByRole("button", { name: "Change email", exact: true })
+            .click();
+        }
+        await approveSettings();
+        await waitGate(arrived.promise);
+        const requestsBefore = staleSdkRequests;
+        await replacementLogin();
+        await releaseAndCheck(`replacement-${mutation}-draft@example.invalid`);
+        assert.equal(staleSdkRequests, requestsBefore);
+        assert.deepEqual(sdkMutations, []);
+        holdChange = false;
+        checks.push(
+          `${name}: held original-account ${mutation} authorization response cannot send an email code, launch Google or unlink under the replacement SDK login; private fields clear and the new actor's controls/draft remain usable`,
+        );
+      }
+      stage = "held email-send response cannot restore original private state";
+      gate = deferred();
+      arrived = deferred();
+      finished = deferred();
+      targetEmail = "held-send-original@example.invalid";
+      holdSend = true;
+      await settings
+        .getByLabel("New sign-in email", { exact: true })
+        .fill(targetEmail);
+      await settings
+        .getByRole("button", { name: "Change email", exact: true })
+        .click();
+      await approveSettings();
+      await waitGate(arrived.promise);
+      await replacementLogin(true);
+      await releaseAndCheck("replacement-send-draft@example.invalid");
+      holdSend = false;
+      assert.equal(
+        await settings
+          .getByText(
+            "Privy sent a code to the new email. Enter its newest code below.",
+            { exact: true },
+          )
+          .count(),
+        0,
+      );
+      checks.push(
+        `${name}: an already-started SDK email-send response arriving after replacement login cannot restore the old email/code form or success notice, and cannot reset the new actor's draft`,
+      );
+      stage =
+        "held email-verification failure cannot reconcile a replacement actor";
+      targetEmail = "held-verify-original@example.invalid";
+      await settings
+        .getByLabel("New sign-in email", { exact: true })
+        .fill(targetEmail);
+      await settings
+        .getByRole("button", { name: "Change email", exact: true })
+        .click();
+      await approveSettings();
+      await settings
+        .getByRole("button", { name: "Verify new email", exact: true })
+        .waitFor();
+      await settings
+        .getByLabel(`Code for ${targetEmail}`, { exact: true })
+        .fill("123456");
+      gate = deferred();
+      arrived = deferred();
+      finished = deferred();
+      holdVerify = true;
+      const candidatesBefore = scopedCandidateCalls;
+      await settings
+        .getByRole("button", { name: "Verify new email", exact: true })
+        .click();
+      await waitGate(arrived.promise);
+      await replacementLogin(true);
+      await releaseAndCheck("replacement-verify-draft@example.invalid");
+      assert.equal(scopedCandidateCalls, candidatesBefore);
+      assert.equal(
+        await settings
+          .getByText("synthetic delayed original-actor provider failure", {
+            exact: true,
+          })
+          .count(),
+        0,
+      );
+      await capture(page, `provider-settings-replacement-${name}.png`, true);
+      checks.push(
+        `${name}: a delayed original SDK email-verification failure cannot open reconciliation or disclose its private/error state over the replacement account; already-started provider work is not claimed cancelled`,
+      );
+      assert.deepEqual(unexpectedProviderPaths, []);
+      return;
+    }
     stage = "same passkey cannot approve its removal";
     await page
       .getByRole("button", { name: "Remove Passkey", exact: true })
@@ -1560,6 +1922,9 @@ async function verifyPrivyPasskeySetup(
       resolve(directory, `single-passkey-failure-${name}.json`),
       JSON.stringify(
         {
+          revision,
+          assetHashes,
+          sourceHashes,
           stage,
           settings: await failedPage
             ?.locator("#provider-settings")
@@ -1610,6 +1975,14 @@ try {
       await verifyPrivyPasskeySetup(
         "desktop-queued-completion",
         viewport,
+        false,
+        true,
+      );
+    if (name === "desktop")
+      await verifyPrivyPasskeySetup(
+        "desktop-provider-settings-races",
+        viewport,
+        false,
         false,
         true,
       );

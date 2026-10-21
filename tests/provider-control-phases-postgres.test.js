@@ -1,0 +1,706 @@
+import assert from "node:assert/strict";
+import { before, after, describe, it } from "node:test";
+import { randomUUID } from "node:crypto";
+import pg from "pg";
+import { createProviderAccounts } from "../dist/platform/auth/provider-accounts.js";
+import { createProviderRevocation } from "../dist/platform/auth/provider-revocation.js";
+import { createSessionRepository } from "../dist/platform/auth/sessions.js";
+import { hashSessionToken } from "../dist/platform/auth/session-tokens.js";
+import { createProviderSessionMonitor } from "../dist/platform/auth/provider-session-monitor.js";
+import { ProviderUnavailableError } from "../dist/platform/auth/privy.js";
+const ownerUrl = process.env.A4_TEST_OWNER_URL;
+const runtimeUrl = process.env.A4_TEST_DATABASE_URL;
+async function bounded(promise, message, milliseconds = 5000) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(Error(message)), milliseconds);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+describe(
+  "durable provider control acknowledgement phases in isolated PostgreSQL",
+  { skip: !ownerUrl || !runtimeUrl },
+  () => {
+    let owner, a, b;
+    before(() => {
+      for (const input of [ownerUrl, runtimeUrl]) {
+        const url = new URL(input);
+        assert.ok(["localhost", "127.0.0.1"].includes(url.hostname));
+        assert.match(
+          url.pathname,
+          /^\/revocation_test_(ci|a4_(fresh|upgrade))$/,
+        );
+      }
+      const options = { options: "-c search_path=pg_catalog,yaparena,pg_temp" };
+      owner = new pg.Pool({ ...options, connectionString: ownerUrl });
+      a = new pg.Pool({ ...options, connectionString: runtimeUrl });
+      b = new pg.Pool({ ...options, connectionString: runtimeUrl });
+    });
+    after(async () => {
+      await Promise.all([owner?.end(), a?.end(), b?.end()]);
+    });
+    async function fixture() {
+      const token = randomUUID(),
+        tokenHash = hashSessionToken(token),
+        identity = {
+          subject: `did:privy:${randomUUID()}`,
+          sessionId: randomUUID(),
+          email: "synthetic-phase@example.test",
+          methods: ["email"],
+          credentialsDigest: "a".repeat(64),
+          issuedAt: Math.floor(Date.now() / 1000),
+        };
+      const made = await createProviderAccounts(a).exchange(
+        identity,
+        tokenHash,
+        new Date(Date.now() + 600000),
+      );
+      await createSessionRepository(a).revoke(made.user.id, tokenHash, true);
+      return { userId: made.user.id, tokenHash, identity };
+    }
+    async function job(f) {
+      return (
+        await owner.query(
+          `SELECT j.*,p.auth_generation AS mapped_generation,u.auth_generation AS current_generation,
+      p.minimum_issued_at FROM provider_revocation_jobs j JOIN users u ON u.id=j.user_id
+      JOIN provider_identities p ON p.user_id=u.id WHERE j.user_id=$1 ORDER BY j.generation DESC LIMIT 1`,
+          [f.userId],
+        )
+      ).rows[0];
+    }
+    async function due(f) {
+      await owner.query(
+        "UPDATE provider_revocation_jobs SET control_next_check_at='-infinity',control_lease_until='-infinity' WHERE user_id=$1",
+        [f.userId],
+      );
+    }
+    function immediate() {
+      let frozenAt = null;
+      const calls = [];
+      return {
+        calls,
+        async state() {
+          calls.push("get");
+          return { frozenAt };
+        },
+        async freeze() {
+          calls.push("freeze");
+          frozenAt = Math.floor(Date.now() / 1000);
+        },
+        async unfreeze() {
+          calls.push("unfreeze");
+          frozenAt = null;
+        },
+      };
+    }
+    it("resumes acknowledged freeze and unfreeze GET lag across restarts and instances without repeating either mutation", async () => {
+      const f = await fixture();
+      let frozenAt = null,
+        froze = false,
+        unfroze = false,
+        freezeVisible = false,
+        unfreezeVisible = false;
+      const calls = [];
+      const control = {
+        async state() {
+          calls.push("get");
+          return {
+            frozenAt:
+              !froze || !freezeVisible || (unfroze && unfreezeVisible)
+                ? null
+                : frozenAt,
+          };
+        },
+        async freeze() {
+          calls.push("freeze");
+          froze = true;
+          frozenAt = Math.floor(Date.now() / 1000);
+        },
+        async unfreeze() {
+          calls.push("unfreeze");
+          unfroze = true;
+        },
+      };
+      await createProviderRevocation(a, control).synchronize(f.userId);
+      let current = await job(f);
+      assert.equal(current.control_phase, "freeze_confirm");
+      assert.equal(current.state, "pending");
+      assert.ok(current.freeze_acknowledged_at);
+      assert.equal(current.confirmed_frozen_at, null);
+      assert.notEqual(current.mapped_generation, current.current_generation);
+      await assert.rejects(
+        createProviderSessionMonitor(a, { inspect: async () => f.identity })(
+          f.userId,
+          f.tokenHash,
+        ),
+        ProviderUnavailableError,
+      );
+      const priorReads = calls.length;
+      await createProviderRevocation(b, control).synchronize(f.userId);
+      assert.equal(calls.length, priorReads, "not-yet-due phase does not poll");
+      freezeVisible = true;
+      await due(f);
+      await Promise.all([
+        createProviderRevocation(a, control).synchronize(f.userId),
+        createProviderRevocation(b, control).synchronize(f.userId),
+      ]);
+      current = await job(f);
+      assert.equal(current.control_phase, "unfreeze_confirm");
+      assert.equal(current.state, "pending");
+      assert.ok(current.unfreeze_acknowledged_at);
+      assert.equal(current.confirmed_frozen_at, String(frozenAt));
+      assert.notEqual(current.mapped_generation, current.current_generation);
+      unfreezeVisible = true;
+      await due(f);
+      await createProviderRevocation(b, control).synchronize(f.userId);
+      current = await job(f);
+      assert.equal(current.state, "complete");
+      assert.equal(current.control_phase, "done");
+      assert.equal(current.mapped_generation, current.current_generation);
+      assert.equal(current.minimum_issued_at, String(frozenAt + 1));
+      assert.equal(calls.filter((v) => v === "freeze").length, 1);
+      assert.equal(calls.filter((v) => v === "unfreeze").length, 1);
+      await createProviderSessionMonitor(a, {
+        inspect: async () => f.identity,
+      })(f.userId, f.tokenHash);
+      await assert.rejects(
+        createProviderAccounts(a).exchange(
+          { ...f.identity, sessionId: randomUUID(), issuedAt: frozenAt },
+          hashSessionToken(randomUUID()),
+          new Date(Date.now() + 600000),
+        ),
+        (e) => e.code === "provider_session_revoked",
+      );
+    });
+    it("bounds lagging confirmations by eight reads or a phase deadline and never retries their mutation", async () => {
+      for (const expire of [false, true]) {
+        const f = await fixture();
+        let freezes = 0,
+          gets = 0;
+        const control = {
+          async state() {
+            gets++;
+            return { frozenAt: null };
+          },
+          async freeze() {
+            freezes++;
+          },
+          async unfreeze() {
+            assert.fail("unconfirmed freeze cannot be undone");
+          },
+        };
+        const service = createProviderRevocation(a, control);
+        await service.synchronize(f.userId);
+        if (expire)
+          await owner.query(
+            "UPDATE provider_revocation_jobs SET control_deadline_at=clock_timestamp()-interval '1 second' WHERE user_id=$1",
+            [f.userId],
+          );
+        for (let i = 0; i < 9; i++) {
+          await due(f);
+          await service.synchronize(f.userId);
+        }
+        const current = await job(f);
+        assert.equal(current.state, "manual");
+        assert.equal(current.failure_reason, "uncertain_provider_outcome");
+        assert.equal(current.control_reads, expire ? 1 : 8);
+        assert.equal(
+          gets,
+          expire ? 2 : 9,
+          "one preflight plus bounded confirmation reads",
+        );
+        assert.equal(freezes, 1);
+        assert.notEqual(current.mapped_generation, current.current_generation);
+      }
+    });
+    it("persists intent before a crash and never replays an unacknowledged freeze or unfreeze", async () => {
+      for (const target of [
+        "freeze_intent",
+        "freeze_acknowledged_at",
+        "unfreeze_acknowledged_at",
+      ]) {
+        const f = await fixture(),
+          control = immediate();
+        let injected = false;
+        const wrapped = {
+          query: (...args) => a.query(...args),
+          async connect() {
+            const client = await a.connect();
+            return {
+              async query(sql, values) {
+                if (
+                  !injected &&
+                  target !== "freeze_intent" &&
+                  sql.includes(
+                    `SET control_phase='${target.startsWith("unfreeze") ? "unfreeze_confirm" : "freeze_confirm"}'`,
+                  )
+                ) {
+                  injected = true;
+                  throw Error("synthetic acknowledgement persistence failure");
+                }
+                const result = await client.query(sql, values);
+                if (
+                  !injected &&
+                  target === "freeze_intent" &&
+                  sql === "COMMIT"
+                ) {
+                  const current = await job(f);
+                  if (current.control_phase === "freeze_intent") {
+                    injected = true;
+                    throw Error("synthetic process loss after intent commit");
+                  }
+                }
+                return result;
+              },
+              release: () => client.release(),
+            };
+          },
+        };
+        try {
+          await createProviderRevocation(wrapped, control).synchronize(
+            f.userId,
+          );
+        } catch (error) {
+          assert.match(error.message, /synthetic/);
+        }
+        assert.equal(injected, true);
+        await due(f);
+        await createProviderRevocation(b, control).synchronize(f.userId);
+        const current = await job(f);
+        assert.equal(current.state, "manual");
+        assert.equal(current.failure_reason, "uncertain_provider_outcome");
+        assert.equal(
+          control.calls.filter((v) => v === "freeze").length,
+          target === "freeze_intent" ? 0 : 1,
+        );
+        assert.equal(
+          control.calls.filter((v) => v === "unfreeze").length,
+          target === "unfreeze_acknowledged_at" ? 1 : 0,
+        );
+        assert.notEqual(current.mapped_generation, current.current_generation);
+      }
+    });
+    it("does not hold a connection or account lock during GET and rechecks revocation before any mutation", async () => {
+      const f = await fixture(),
+        entered = Promise.withResolvers(),
+        release = Promise.withResolvers();
+      let mutations = 0;
+      const limited = new pg.Pool({
+        connectionString: runtimeUrl,
+        max: 1,
+        options: "-c search_path=pg_catalog,yaparena,pg_temp",
+      });
+      const processing = createProviderRevocation(limited, {
+        async state() {
+          entered.resolve();
+          await release.promise;
+          return { frozenAt: null };
+        },
+        async freeze() {
+          mutations++;
+        },
+        async unfreeze() {
+          mutations++;
+        },
+      }).synchronize(f.userId);
+      try {
+        await bounded(
+          entered.promise,
+          "phase worker did not enter provider GET",
+        );
+        const logout = createSessionRepository(limited).revoke(
+          f.userId,
+          f.tokenHash,
+          false,
+        );
+        await bounded(logout, "local logout was blocked by provider GET", 1500);
+        release.resolve();
+        await processing;
+        assert.equal(mutations, 0);
+        assert.equal(
+          (
+            await owner.query("SELECT 1 FROM sessions WHERE user_id=$1", [
+              f.userId,
+            ])
+          ).rowCount,
+          0,
+        );
+      } finally {
+        release.resolve();
+        try {
+          await processing;
+        } finally {
+          await limited.end();
+        }
+      }
+    });
+    it("ignores a late GET after another instance owns the lease and finishes the reset", async () => {
+      const f = await fixture(),
+        entered = Promise.withResolvers(),
+        release = Promise.withResolvers(),
+        control = immediate();
+      let first = true;
+      const stale = {
+        ...control,
+        async state() {
+          if (first) {
+            first = false;
+            entered.resolve();
+            await release.promise;
+            return { frozenAt: null };
+          }
+          return control.state();
+        },
+      };
+      const running = createProviderRevocation(a, stale).synchronize(f.userId);
+      try {
+        await bounded(entered.promise, "phase worker did not enter held GET");
+        await due(f);
+        await bounded(
+          createProviderRevocation(b, control).synchronize(f.userId),
+          "new lease owner did not finish",
+        );
+      } finally {
+        release.resolve();
+        await running;
+      }
+      assert.equal((await job(f)).state, "complete");
+      assert.equal(control.calls.filter((v) => v === "freeze").length, 1);
+      assert.equal(control.calls.filter((v) => v === "unfreeze").length, 1);
+    });
+    it("keeps superseding generations, changed baselines and independently changed freezes fenced after acknowledgement", async () => {
+      for (const change of [
+        "generation",
+        "baseline",
+        "outside_window",
+        "independent_after_unfreeze",
+      ]) {
+        const f = await fixture();
+        let frozenAt = null,
+          visible = false,
+          freezes = 0,
+          unfreezes = 0;
+        const control = {
+          async state() {
+            return { frozenAt: visible ? frozenAt : null };
+          },
+          async freeze() {
+            freezes++;
+            frozenAt = Math.floor(Date.now() / 1000);
+          },
+          async unfreeze() {
+            unfreezes++;
+            frozenAt = Math.floor(Date.now() / 1000) + 1;
+          },
+        };
+        await createProviderRevocation(a, control).synchronize(f.userId);
+        if (change === "generation")
+          await owner.query(
+            "UPDATE users SET auth_generation=auth_generation+1 WHERE id=$1",
+            [f.userId],
+          );
+        if (change === "baseline")
+          await owner.query(
+            "UPDATE provider_identities SET credentials_digest=$2 WHERE user_id=$1",
+            [f.userId, "b".repeat(64)],
+          );
+        if (change === "outside_window") frozenAt -= 3600;
+        visible = true;
+        await due(f);
+        await createProviderRevocation(b, control).synchronize(f.userId);
+        const rows = (
+          await owner.query(
+            "SELECT state,failure_reason FROM provider_revocation_jobs WHERE user_id=$1 ORDER BY generation",
+            [f.userId],
+          )
+        ).rows;
+        assert.ok(rows.every((row) => row.state === "manual"));
+        assert.ok(
+          rows.some(
+            (row) => row.failure_reason === "uncertain_provider_outcome",
+          ),
+        );
+        assert.equal(freezes, 1);
+        assert.equal(
+          unfreezes,
+          change === "independent_after_unfreeze" ? 1 : 0,
+        );
+        assert.notEqual(
+          (await job(f)).mapped_generation,
+          (await job(f)).current_generation,
+        );
+      }
+    });
+    it("does not infer acknowledged outcomes for legacy or old-source running claims", async () => {
+      for (const [phase, state, attempts] of [
+        ["legacy", "running", 1],
+        ["legacy", "pending", 1],
+        ["preflight", "running", 1],
+        ["preflight", "pending", 1],
+      ]) {
+        const f = await fixture(),
+          control = immediate();
+        await owner.query(
+          "UPDATE provider_revocation_jobs SET control_phase=$2,state=$3,attempts=$4,lease_until='-infinity' WHERE user_id=$1",
+          [f.userId, phase, state, attempts],
+        );
+        await createProviderRevocation(a, control).synchronize(f.userId);
+        assert.equal((await job(f)).state, "manual");
+        assert.deepEqual(control.calls, []);
+      }
+      const fresh = await fixture(),
+        control = immediate();
+      await owner.query(
+        "UPDATE provider_revocation_jobs SET control_phase='legacy' WHERE user_id=$1",
+        [fresh.userId],
+      );
+      await createProviderRevocation(a, control).synchronize(fresh.userId);
+      assert.equal((await job(fresh)).state, "complete");
+    });
+    it("keeps preflight outages read-only, bounded and recoverable without converting unknown state into an unfrozen assertion", async () => {
+      const f = await fixture(),
+        control = immediate();
+      let outage = true,
+        gets = 0;
+      const state = control.state;
+      control.state = async () => {
+        gets++;
+        if (outage) throw Error("synthetic private provider outage");
+        return state();
+      };
+      await createProviderRevocation(a, control).synchronize(f.userId);
+      assert.equal((await job(f)).state, "pending");
+      assert.equal((await job(f)).control_phase, "preflight");
+      assert.equal(control.calls.length, 0);
+      assert.equal(gets, 1);
+      outage = false;
+      await due(f);
+      await createProviderRevocation(b, control).synchronize(f.userId);
+      assert.equal((await job(f)).state, "complete");
+      assert.equal(control.calls.filter((v) => v === "freeze").length, 1);
+    });
+    it("fences a monitor overlapping a phase transition while still treating a real credential delta as an incident", async () => {
+      const f = await fixture(),
+        entered = Promise.withResolvers(),
+        release = Promise.withResolvers();
+      const checking = createProviderSessionMonitor(a, {
+        async inspect() {
+          entered.resolve();
+          await release.promise;
+          return f.identity;
+        },
+      })(f.userId, f.tokenHash);
+      const denied = assert.rejects(checking, ProviderUnavailableError);
+      try {
+        await bounded(
+          entered.promise,
+          "monitor did not enter provider inspection",
+        );
+        await bounded(
+          createProviderRevocation(b, immediate()).synchronize(f.userId),
+          "phase worker did not finish",
+        );
+      } finally {
+        release.resolve();
+        await denied;
+      }
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT 1 FROM identity_audit_events WHERE user_id=$1 AND event_type='sessions.incident'",
+            [f.userId],
+          )
+        ).rowCount,
+        0,
+      );
+      await createProviderSessionMonitor(a, {
+        inspect: async () => f.identity,
+      })(f.userId, f.tokenHash);
+      const changed = await fixture();
+      await assert.rejects(
+        createProviderSessionMonitor(a, {
+          inspect: async () => ({
+            ...changed.identity,
+            credentialsDigest: "b".repeat(64),
+          }),
+        })(changed.userId, changed.tokenHash),
+        (e) => e.status === 403,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT 1 FROM identity_audit_events WHERE user_id=$1 AND event_type='sessions.incident'",
+            [changed.userId],
+          )
+        ).rowCount,
+        1,
+      );
+      assert.equal(
+        (
+          await owner.query("SELECT 1 FROM sessions WHERE user_id=$1", [
+            changed.userId,
+          ])
+        ).rowCount,
+        0,
+      );
+    });
+    it("does not let the normal phase worker cancel a freshly claimed owner retry with older phase metadata", async () => {
+      const f = await fixture();
+      await createProviderRevocation(a, {
+        state: async () => ({ frozenAt: null }),
+        async freeze() {
+          throw Error("synthetic unknown outcome");
+        },
+        async unfreeze() {
+          assert.fail("no unfreeze");
+        },
+      }).synchronize(f.userId);
+      const failed = await job(f);
+      assert.equal(failed.state, "manual");
+      assert.ok(failed.control_id);
+      await owner.query(
+        "UPDATE provider_revocation_jobs SET lease_until='-infinity' WHERE user_id=$1",
+        [f.userId],
+      );
+      let intercepted = false,
+        competitorCalls = 0;
+      const wrapped = {
+        query: (...args) => owner.query(...args),
+        async connect() {
+          const client = await owner.connect();
+          return {
+            async query(sql, values) {
+              const result = await client.query(sql, values);
+              if (sql === "COMMIT" && !intercepted) {
+                intercepted = true;
+                await createProviderRevocation(b, {
+                  async state() {
+                    competitorCalls++;
+                    return { frozenAt: null };
+                  },
+                  async freeze() {
+                    competitorCalls++;
+                  },
+                  async unfreeze() {
+                    competitorCalls++;
+                  },
+                }).synchronize(f.userId);
+                assert.equal(
+                  (await job(f)).state,
+                  "running",
+                  "owner claim remains running until it performs its own control",
+                );
+              }
+              return result;
+            },
+            release: () => client.release(),
+          };
+        },
+      };
+      const control = immediate();
+      assert.deepEqual(
+        await createProviderRevocation(wrapped, control, {
+          operatorInspector: { inspect: async () => f.identity },
+        }).retryUncertain({ userId: f.userId, requestId: randomUUID() }),
+        { state: "complete" },
+      );
+      assert.equal(intercepted, true);
+      assert.equal(competitorCalls, 0);
+      assert.equal(control.calls.filter((v) => v === "freeze").length, 1);
+      assert.equal(control.calls.filter((v) => v === "unfreeze").length, 1);
+      assert.equal((await job(f)).state, "complete");
+    });
+    it(
+      "skips a reviewed owner retry before taking its account lock while the owner holds a provider GET",
+      { timeout: 15000 },
+      async () => {
+        const f = await fixture();
+        await createProviderRevocation(a, {
+          state: async () => ({ frozenAt: null }),
+          async freeze() {
+            throw Error("synthetic unknown outcome");
+          },
+          async unfreeze() {
+            assert.fail("no unfreeze");
+          },
+        }).synchronize(f.userId);
+        await owner.query(
+          "UPDATE provider_revocation_jobs SET lease_until='-infinity' WHERE user_id=$1",
+          [f.userId],
+        );
+        const entered = Promise.withResolvers(),
+          release = Promise.withResolvers();
+        let reads = 0,
+          competitorCalls = 0,
+          frozenAt = null,
+          timer;
+        const control = {
+          async state() {
+            reads++;
+            if (reads === 2) {
+              entered.resolve();
+              await release.promise;
+            }
+            return { frozenAt };
+          },
+          async freeze() {
+            frozenAt = Math.floor(Date.now() / 1000);
+          },
+          async unfreeze() {
+            frozenAt = null;
+          },
+        };
+        const retry = createProviderRevocation(owner, control, {
+          operatorInspector: { inspect: async () => f.identity },
+        }).retryUncertain({ userId: f.userId, requestId: randomUUID() });
+        try {
+          await Promise.race([
+            entered.promise,
+            new Promise((_, reject) => {
+              timer = setTimeout(
+                () => reject(Error("owner did not reach held GET")),
+                5000,
+              );
+            }),
+          ]);
+          clearTimeout(timer);
+          await Promise.race([
+            createProviderRevocation(b, {
+              async state() {
+                competitorCalls++;
+                return { frozenAt: null };
+              },
+              async freeze() {
+                competitorCalls++;
+              },
+              async unfreeze() {
+                competitorCalls++;
+              },
+            }).synchronize(f.userId),
+            new Promise((_, reject) => {
+              timer = setTimeout(
+                () =>
+                  reject(Error("normal selector waited on owner account lock")),
+                1500,
+              );
+            }),
+          ]);
+          assert.equal(competitorCalls, 0);
+          assert.equal((await job(f)).state, "running");
+        } finally {
+          clearTimeout(timer);
+          release.resolve();
+          await retry;
+        }
+        assert.equal((await job(f)).state, "complete");
+        assert.equal(reads, 4);
+      },
+    );
+  },
+);

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type { Pool, PoolClient } from "pg";
 import type { IdentityVerifier, ProviderSessionControl } from "./privy.ts";
+import { createProviderControlPhases } from "./provider-control-phases.ts";
 
 type RetryStage =
   | "owner"
@@ -279,71 +280,7 @@ export function createProviderRevocation(
       throw error;
     }
   }
-  async function process(userId: string, generation: string) {
-    const client = await database.connect();
-    try {
-      await client.query("BEGIN");
-      const user = (
-        await client.query<{ generation: string }>(
-          "SELECT auth_generation AS generation FROM users WHERE id=$1 FOR UPDATE",
-          [userId],
-        )
-      ).rows[0];
-      const job = (
-        await client.query<{
-          subject: string;
-          attempts: number;
-          available: boolean;
-          state: string;
-        }>(
-          "SELECT subject,attempts,state,lease_until<clock_timestamp() AS available FROM provider_revocation_jobs WHERE user_id=$1 AND generation=$2 FOR UPDATE",
-          [userId, generation],
-        )
-      ).rows[0];
-      if (
-        !user ||
-        !job ||
-        !job.available ||
-        job.state === "complete" ||
-        job.state === "manual"
-      ) {
-        await client.query("ROLLBACK");
-        return;
-      }
-      if (job.state === "running") {
-        await client.query(
-          "UPDATE provider_revocation_jobs SET state='manual',failure_reason='uncertain_provider_outcome' WHERE user_id=$1 AND generation=$2",
-          [userId, generation],
-        );
-        await client.query("COMMIT");
-        return;
-      }
-      if (user.generation !== generation) {
-        await client.query(
-          "UPDATE provider_revocation_jobs SET state='complete' WHERE user_id=$1 AND generation=$2",
-          [userId, generation],
-        );
-        await client.query("COMMIT");
-        return;
-      }
-      await client.query(
-        "UPDATE provider_revocation_jobs SET state='running',attempts=attempts+1,lease_until=clock_timestamp()+interval '30 seconds' WHERE user_id=$1 AND generation=$2",
-        [userId, generation],
-      );
-      await client.query("COMMIT");
-      await performClaimed(client, {
-        userId,
-        generation,
-        subject: job.subject,
-        attempts: job.attempts + 1,
-      });
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
+  const phases = createProviderControlPhases(database, provider);
   async function retrySnapshot(
     connection: Pick<Pool | PoolClient, "query">,
     userId: string,
@@ -1022,11 +959,15 @@ export function createProviderRevocation(
     async synchronize(userId?: string) {
       const jobs = await database.query<{ userId: string; generation: string }>(
         `SELECT user_id AS "userId",generation FROM provider_revocation_jobs
-         WHERE state IN ('pending','running') AND lease_until<clock_timestamp()
+         WHERE state IN ('pending','running')
+           AND NOT(state='running' AND control_attempt IS DISTINCT FROM attempts AND lease_until>=clock_timestamp())
+           AND ((control_phase='legacy' AND lease_until<clock_timestamp())
+             OR (control_phase<>'legacy' AND control_lease_until<clock_timestamp() AND control_next_check_at<=clock_timestamp()))
            AND ($1::bigint IS NULL OR user_id=$1) ORDER BY generation DESC LIMIT 10`,
         [userId ?? null],
       );
-      for (const job of jobs.rows) await process(job.userId, job.generation);
+      for (const job of jobs.rows)
+        await phases.process(job.userId, job.generation);
     },
   };
 }

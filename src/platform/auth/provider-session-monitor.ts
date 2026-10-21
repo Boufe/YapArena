@@ -28,6 +28,7 @@ type MonitorSnapshot = {
   credentialsDigest: string | null;
   providerControl: string | null;
   providerResetActive: boolean;
+  providerPhasePending: boolean;
   acceptedProviderKeys: AcceptedProviderKey[];
 };
 async function snapshot(
@@ -39,11 +40,15 @@ async function snapshot(
     await database.query<MonitorSnapshot>(
       `SELECT s.id::text AS "sessionId",u.auth_generation::text AS "authGeneration",
       p.subject,p.credentials_digest AS "credentialsDigest",
-      (SELECT jsonb_build_array(j.generation::text,j.state,j.attempts)::text
+      (SELECT jsonb_build_array(j.generation::text,j.state,j.attempts,j.control_phase,
+        j.control_id,j.control_lease_id,j.control_reads,j.freeze_acknowledged_at,j.unfreeze_acknowledged_at)::text
         FROM provider_revocation_jobs j WHERE j.user_id=u.id AND j.subject=p.subject ORDER BY j.generation DESC LIMIT 1) AS "providerControl",
       EXISTS(SELECT 1 FROM provider_revocation_jobs j WHERE j.user_id=u.id AND j.subject=p.subject
         AND j.generation=u.auth_generation AND (j.state IN ('pending','running')
           OR (j.state='manual' AND j.failure_reason='uncertain_provider_outcome'))) AS "providerResetActive",
+      EXISTS(SELECT 1 FROM provider_revocation_jobs j WHERE j.user_id=u.id AND j.subject=p.subject
+        AND j.generation=u.auth_generation AND j.state IN ('pending','running')
+        AND j.control_phase<>'legacy') AS "providerPhasePending",
       COALESCE((SELECT jsonb_agg(jsonb_build_object('credentialId',k.credential_id,
         'subject',k.provider_subject,'digest',k.provider_public_key_digest) ORDER BY k.id)
         FROM account_security_keys k WHERE k.user_id=u.id AND k.provenance='privy'
@@ -89,6 +94,7 @@ export function createProviderSessionMonitor(
         current.credentialsDigest !== initial.credentialsDigest ||
         current.providerControl !== initial.providerControl ||
         current.providerResetActive !== initial.providerResetActive ||
+        current.providerPhasePending !== initial.providerPhasePending ||
         JSON.stringify(current.acceptedProviderKeys) !==
           JSON.stringify(initial.acceptedProviderKeys)
       )
@@ -190,6 +196,10 @@ export function createProviderSessionMonitor(
           403,
         );
       }
+      if (current.providerPhasePending)
+        throw new ProviderUnavailableError(
+          "provider session reset is awaiting confirmation; retry shortly",
+        );
       if ("state" in inspection && inspection.state.credentials)
         await client.query(
           "UPDATE provider_identities SET credentials_snapshot=$2::jsonb WHERE user_id=$1 AND credentials_snapshot IS NULL",

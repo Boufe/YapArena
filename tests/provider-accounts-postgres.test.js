@@ -22,6 +22,19 @@ import { createLegacyProviderLink } from "../dist/platform/auth/legacy-provider-
 import { hashPassword } from "../dist/platform/auth/passwords.js";
 const ownerUrl = process.env.A4_TEST_OWNER_URL;
 const runtimeUrl = process.env.A4_TEST_DATABASE_URL;
+async function boundedProviderBarrier(promise, message, milliseconds = 5000) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(Error(message)), milliseconds);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 describe(
   "provider ownership and financial isolation in PostgreSQL",
   { skip: !ownerUrl || !runtimeUrl },
@@ -726,14 +739,23 @@ describe(
         },
       };
       const service = createProviderRevocation(b, control);
-      await assert.rejects(service.synchronize(made.user.id), /outage/);
+      await service.synchronize(made.user.id);
+      assert.deepEqual(
+        (
+          await owner.query(
+            "SELECT state,control_phase,control_reads FROM provider_revocation_jobs WHERE user_id=$1",
+            [made.user.id],
+          )
+        ).rows[0],
+        { state: "pending", control_phase: "preflight", control_reads: 1 },
+      );
       await assert.rejects(
         exchange(repo, { ...id, sessionId: randomUUID() }),
         rejectedExchange("provider_reset_pending", 503),
       );
       await service.synchronize(made.user.id);
       await owner.query(
-        "UPDATE provider_revocation_jobs SET lease_until='-infinity' WHERE user_id=$1",
+        "UPDATE provider_revocation_jobs SET control_next_check_at='-infinity',control_lease_until='-infinity' WHERE user_id=$1",
         [made.user.id],
       );
       fail = false;
@@ -775,10 +797,7 @@ describe(
           frozenAt = null;
         },
       };
-      await assert.rejects(
-        createProviderRevocation(b, control).synchronize(made.user.id),
-        /uncertain response/,
-      );
+      await createProviderRevocation(b, control).synchronize(made.user.id);
       await owner.query(
         "UPDATE users SET auth_generation=auth_generation+1 WHERE id=$1",
         [made.user.id],
@@ -1404,7 +1423,10 @@ describe(
         requestId,
       });
       try {
-        await entered.promise;
+        await boundedProviderBarrier(
+          entered.promise,
+          "owner retry did not reach provider GET",
+        );
         const claimed = (
           await owner.query(
             `SELECT state,attempts,lease_until>clock_timestamp() AS live
@@ -1417,21 +1439,26 @@ describe(
           attempts: 2,
           live: true,
         });
-        await createProviderRevocation(b, {
-          async state() {
-            competitorCalls++;
-            return { frozenAt: null };
-          },
-          async freeze() {
-            competitorCalls++;
-          },
-          async unfreeze() {
-            competitorCalls++;
-          },
-        }).synchronize(f.made.user.id);
+        await boundedProviderBarrier(
+          createProviderRevocation(b, {
+            async state() {
+              competitorCalls++;
+              return { frozenAt: null };
+            },
+            async freeze() {
+              competitorCalls++;
+            },
+            async unfreeze() {
+              competitorCalls++;
+            },
+          }).synchronize(f.made.user.id),
+          "normal worker waited on owner account lock",
+          1500,
+        );
         assert.equal(competitorCalls, 0);
       } finally {
         release.resolve();
+        await retry;
       }
       assert.deepEqual(await retry, { state: "complete" });
       assert.equal(mutations, 2);
@@ -1949,9 +1976,13 @@ describe(
         await revoking;
         c.release();
       }
-      assert.equal(frozenAt, null);
+      assert.ok(Number.isSafeInteger(frozenAt));
       await createProviderRevocation(a, control).synchronize(made.user.id);
-      assert.equal(freezes, 2);
+      assert.equal(
+        freezes,
+        1,
+        "a superseding generation cannot repeat the acknowledged freeze",
+      );
       assert.deepEqual(
         (
           await owner.query(
@@ -1959,7 +1990,7 @@ describe(
             [made.user.id],
           )
         ).rows.map((row) => row.state),
-        ["complete", "complete"],
+        ["manual", "manual"],
       );
     });
     it("never unfreezes suspended accounts or independent provider freezes", async () => {
@@ -1978,7 +2009,7 @@ describe(
           return { frozenAt };
         },
         async freeze() {
-          frozenAt = 12345;
+          frozenAt = Math.floor(Date.now() / 1000);
         },
         async unfreeze() {
           unfreezes++;
@@ -1986,6 +2017,19 @@ describe(
       };
       await createProviderRevocation(b, control).synchronize(made.user.id);
       assert.equal(unfreezes, 0);
+      assert.deepEqual(
+        (
+          await owner.query(
+            "SELECT state,control_phase,confirmed_frozen_at FROM provider_revocation_jobs WHERE user_id=$1",
+            [made.user.id],
+          )
+        ).rows[0],
+        {
+          state: "complete",
+          control_phase: "done",
+          confirmed_frozen_at: String(frozenAt),
+        },
+      );
       const other = await exchange(repo, identity(), randomUUID());
       await owner.query(
         "UPDATE users SET auth_generation=auth_generation+1 WHERE id=$1",

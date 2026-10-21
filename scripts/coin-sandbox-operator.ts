@@ -86,6 +86,24 @@ function limit(value: unknown): number {
   return value;
 }
 
+export function parseCoinSandboxOwnerDatabaseUrl(value: string): URL {
+  const url = new URL(value);
+  const username = decodeURIComponent(url.username);
+  // Supavisor routes custom roles by role.project-ref; the database still must
+  // independently report the exact owner role before any operator transition.
+  const scopedOwner =
+    /^yaparena_owner\.[a-z0-9]{20}$/.test(username) &&
+    /^aws-[0-9]+-[a-z0-9]+(?:-[a-z0-9]+)*\.pooler\.supabase\.com$/.test(
+      url.hostname,
+    );
+  if (
+    !["postgres:", "postgresql:"].includes(url.protocol) ||
+    (username !== "yaparena_owner" && !scopedOwner)
+  )
+    invalid("dedicated owner connection required");
+  return url;
+}
+
 export async function runCoinSandboxOperator(input: {
   command: string;
   body: unknown;
@@ -98,12 +116,7 @@ export async function runCoinSandboxOperator(input: {
     );
   const connectionString = input.environment.COIN_SANDBOX_OWNER_DATABASE_URL;
   if (!connectionString) invalid("COIN_SANDBOX_OWNER_DATABASE_URL is required");
-  const url = new URL(connectionString);
-  if (
-    !["postgres:", "postgresql:"].includes(url.protocol) ||
-    decodeURIComponent(url.username) !== "yaparena_owner"
-  )
-    invalid("dedicated owner connection required");
+  parseCoinSandboxOwnerDatabaseUrl(connectionString);
   const custodyText = input.environment.COIN_SANDBOX_CUSTODY_ADDRESS;
   const custody =
     rail === "base-sepolia" ? getAddress(text(custodyText)) : undefined;

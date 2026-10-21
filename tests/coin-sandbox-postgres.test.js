@@ -20,7 +20,10 @@ import {
   createSandboxErrorReports,
   createSandboxErrorReportOperator,
 } from "../dist/features/account-wallet/sandbox-reports.js";
-import { runCoinSandboxOperator } from "../scripts/coin-sandbox-operator.ts";
+import {
+  parseCoinSandboxOwnerDatabaseUrl,
+  runCoinSandboxOperator,
+} from "../scripts/coin-sandbox-operator.ts";
 import {
   createCoinSandboxRepository,
   createCoinSandboxOperatorRepository,
@@ -39,6 +42,50 @@ const origin = "http://localhost:53024";
 const digest = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const config = { rail: "simulation", withdrawalFee: "100000" };
+it("accepts only the dedicated owner or a documented Supabase pooler-scoped owner URL without connecting", async () => {
+  const project = "abcdefghijklmnopqrst";
+  for (const value of [
+    "postgres://yaparena_owner:synthetic@localhost:5432/revocation_test_ci",
+    "postgresql://yaparena_owner:synthetic@db.example.supabase.co:5432/postgres",
+    `postgresql://yaparena_owner.${project}:synthetic@aws-0-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=verify-full`,
+    `postgres://yaparena_owner%2E${project}:synthetic@aws-1-us-east-2.pooler.supabase.com:6543/postgres`,
+  ]) {
+    const parsed = parseCoinSandboxOwnerDatabaseUrl(value);
+    assert.equal(parsed.href, new URL(value).href);
+  }
+  for (const value of [
+    `postgres://yaparena_runtime.${project}:synthetic@aws-0-ca-central-1.pooler.supabase.com/postgres`,
+    `postgres://postgres.${project}:synthetic@aws-0-ca-central-1.pooler.supabase.com/postgres`,
+    "postgres://yaparena_runtime:synthetic@localhost/revocation_test_ci",
+    "postgres://postgres:synthetic@localhost/revocation_test_ci",
+    `postgres://yaparena_owner.${project}:synthetic@localhost/postgres`,
+    `postgres://yaparena_owner.${project}:synthetic@db.${project}.supabase.co/postgres`,
+    `postgres://yaparena_owner.${project}:synthetic@aws-0-ca-central-1.pooler.supabase.com.example.test/postgres`,
+    `postgres://yaparena_owner.${project}:synthetic@pooler.supabase.com/postgres`,
+    `postgres://yaparena_owner.${project}:synthetic@aws-0-ca-central-1.attacker.pooler.supabase.com/postgres`,
+    "postgres://yaparena_owner.short:synthetic@aws-0-ca-central-1.pooler.supabase.com/postgres",
+    `postgres://yaparena_owner.${project}x:synthetic@aws-0-ca-central-1.pooler.supabase.com/postgres`,
+    `postgres://yaparena_owner.${project.toUpperCase()}:synthetic@aws-0-ca-central-1.pooler.supabase.com/postgres`,
+    `https://yaparena_owner.${project}:synthetic@aws-0-ca-central-1.pooler.supabase.com/postgres`,
+  ]) {
+    assert.throws(
+      () => parseCoinSandboxOwnerDatabaseUrl(value),
+      /dedicated owner connection/,
+    );
+    // The actual command must reject these before constructing its pool.
+    await assert.rejects(
+      runCoinSandboxOperator({
+        command: "review",
+        body: {},
+        environment: {
+          COIN_SANDBOX_RAIL: "simulation",
+          COIN_SANDBOX_OWNER_DATABASE_URL: value,
+        },
+      }),
+      /dedicated owner connection/,
+    );
+  }
+});
 it("requires an explicit isolated rail and exact server fee", () => {
   for (const invalid of [
     {},

@@ -4,9 +4,8 @@ The actual maintained verifier exited **0 with all 18 groups passing and no
 page/backend errors**. See [terminal output](output.txt),
 [the acceptance boundary](acceptance.json) and
 [source, generated-asset and executed-runtime hashes](results.json).
-The latest run completed at **2026-10-20 19:12:17.153 UTC**, with checkout
-`14bc559` and the exact saved source/asset/dist hashes. It ran after the final
-focus/copy rebuild without rebuilding assets during the test.
+The latest run completed at **2026-10-21 15:02:36.654 UTC**, with checkout
+`43cc9a0` and the exact saved source/asset/dist hashes. The application assets stayed frozen throughout; only the operational verifier was corrected. All recorded hashes still matched in [the post-run comparison](source-verification.json).
 
 The desktop journey uses the installed Privy SDK's dedicated linking hook to
 register exactly one Chrome virtual credential. The intercepted synthetic
@@ -66,3 +65,18 @@ expired-first-setup restart endpoint. Its ten real-PG cases, and the own-reset
 monitor failure cases, passed separately in the complete R2 gate (198 account
 cases on each fresh/upgrade path). None of these results is genuine provider,
 hosted, physical-device or screen-reader acceptance.
+
+The current run adds a faithful fixture worker boundary after credential
+rotation. The minimal page does not start the web service's provider drain, so
+the real durable revocation repository now runs as an explicit fixture step
+with synthetic freeze/unfreeze responses. The verifier asserts the completed
+job and synchronized generation, then refreshes through actual authenticated
+requests before retaining every ready-state, proof, replay and cancellation
+assertion. Expected provider-unavailable responses map to 503 as in production.
+No authentication monitor, phase fence or application code was relaxed.
+
+Three nonzero attempts are preserved in
+[the labelled fixture triage](reset-drain-fixture-triage/README.md): missing
+normal reset draining, a verifier barrier expecting 204 where the real route
+returns 200, and the same missing drain after legacy fixture rotations. These
+are local harness failures, not evidence of another genuine Privy failure.

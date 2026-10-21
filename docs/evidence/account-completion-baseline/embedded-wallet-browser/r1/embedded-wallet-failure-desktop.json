@@ -1,0 +1,35 @@
+{
+  "revision": "030b60ea0974b70edecf74b322935dc991a17fb1",
+  "assetHashes": {
+    "session-coordination.js": "30664c91796e6a18fd69569750e5baa8809674572913116c0126b8213166507b",
+    "account-auth.bundle.js": "1d8c47e5a057314073a639e010ff54abf64cbeb1831a8452e0a4a96a67ece36d",
+    "account-security.bundle.js": "f930ea833e8ef511035234e72179b1f84ed03f890accfadabdd3734cc0063bd0",
+    "account-session-list.js": "1e4da048f89dcea314e10483dc10ea046fb4efae47fe9d4069b1f01373bb49c5",
+    "account-sessions.js": "e544082c908e37d08cb5e05d3e2f72a57556770fba72fa7ab33c05e65b283aef",
+    "account.js": "bce87601d7c0f8aa764fdb988cb19f04e0d28d3974ac09f2496c7f012dc3d516",
+    "site-header.js": "5fcf24e395827bc16da0014318da0b998b4f20af5846d45c77cabb98307eebe5",
+    "auth-return.js": "891d6907811a6a507800ddb475ace41786885d69448ac699cb7c435029f0626d",
+    "site.js": "0543de8bf00750b5ca1544f3d24502ed11193f00f9289320d6905cacff692dd8",
+    "matching.js": "abc5751fe076f0e8669e7accc003c7aba353ea968935026684b362327729750e",
+    "a4-inline.js": "625070053237abf10adf576b79dd5ebca45d0643fe54ee855464a683a5f88317",
+    "arena-chart.js": "224103157fb3998d1183189bbf900d2396db2cc6d2fdb75533628f516548e126",
+    "arena-price.js": "8d9bf7e9a7ead29652c66a73931238c4af15fa222e06fc74b028b3471fd38b90",
+    "account-auth.css": "dfa7bfe18baa0a76c45a9974aa24785f868f71ca31497794dfcaf11815c12da7",
+    "site-header.css": "e55326946fef05d5f21a7954ec6fa9d6895a620d3491de52a0c3fdcc42ec6518",
+    "site.css": "c2481b6017fb564fdaff0bf437a18f64f56e6dbb2492f2047199a93f06514bd7",
+    "arena.css": "087928e12c8be4a87d006b22b91f1534a647b44425d1129b1d54c2d3d4dc3cb1"
+  },
+  "sourceHashes": {
+    "scripts/verify-email-auth-browser.ts": "49beb2b73922389f2b4520581a71956d3118d0cc5e1446109d05a096bf97e2c9",
+    "dist/features/discovery/web.js": "c86500ba9fda3704034315ce5b8c60a886f6dc838fb884fe2220c73e85bd06b8",
+    "dist/features/discovery/account-web.js": "3367a69609c4c0a3082792c17146fa21bb2a383965052c80f6297681d158911f",
+    "dist/features/discovery/debate-web.js": "88bf0e55a53e3b89f48c769dd02fbc0bdb3cd74bf09f987f5b8cac778764992d",
+    "frontend/embedded-wallet.tsx": "cffbb9428d31d469327e00a90060972dd11e5dfe27c8451feb33f3ccbd26b0ce",
+    "src/platform/auth/embedded-wallet-provisioning.ts": "dc6da253b9bbab085fd02fe1167efb2e63fc226e2ece12edeb7319af7a20ba4d",
+    "src/platform/auth/embedded-wallet-provider.ts": "3476ec1d15d40e940ee1ec0686a63d34029dc3ebbbf2d14473eeb86410aedc2d"
+  },
+  "stage": "held original wallet read cannot reveal old address after SDK switch",
+  "retryCalls": 1,
+  "providerWalletRequests": [],
+  "wallet": "Checking your wallet…Wallet status is temporarily unavailable. Your account is still available.Check wallet statusCrypto deposits and withdrawals are not available yet. Do not send funds to this address."
+}

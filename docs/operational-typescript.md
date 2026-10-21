@@ -18,6 +18,14 @@ New email-first automation is also strict TypeScript: `reset-test-accounts` and
 `verify-email-auth-browser` is checked in browser automation. The explicit reset
 is never imported by runtime or migrations. See [scope and limits](email-first-accounts.md).
 
+`verify-wallet-browser.ts` is now checked in browser automation. It supersedes the
+historical new-wallet-linking browser trial after external linking was removed
+from the product. The retained-wallet trial requires an explicit disposable
+loopback database and local runtime, seeds only synthetic retained credentials,
+and preserves negative proof/replay/expiry and last-method checks. Existing
+backend wallet-linking regression suites remain. It does not call Privy or a
+chain and does not establish genuine embedded-wallet acceptance.
+
 `coin-sandbox-operator.ts` is also checked in the database-tools project. It is an
 explicit owner-only, sandbox-only command, with no `.env` loading or HTTP listener.
 Its optional fixed Base Sepolia signing/broadcast commands require the isolated
@@ -44,6 +52,12 @@ database-tools project. It reads only the fixed staging owner's TLS snapshot and
 bounded Privy user GETs using the named Render service configuration; output is
 aggregate state/digest comparisons only. It never changes provider or account
 state, loads `.env`, or records private identities or credentials.
+`verify-embedded-wallet-staging.ts` is checked in the same project. It verifies
+the fixed deployed revision, read-only owner snapshots and repeated GET-only
+Privy ownership evidence. It imports exact committed TypeScript source using
+Node 24's explicit `--experimental-transform-types` flag, avoiding stale compiled
+code as an acceptance basis. Its offline self-test makes no network or database
+calls. See [invocation and result boundaries](embedded-wallet-verification.md).
 `retry-account-provider-reset.ts` is the separate fixed-staging owner command,
 checked in the same project. Its `retry-uncertain`, `reconcile-delayed` and
 `finalize-reviewed` commands require the matching `ACCOUNT_STAGING_PROVIDER_ACTION`
@@ -107,13 +121,13 @@ methods consumed by existing fixtures; these changes erase entirely at runtime.
 The remaining handwritten JavaScript scripts are intentionally outside the invoked
 release/database dependency graph:
 
-| Files under `scripts/`                                                                                                                                           | Why retained                                                                                                                           |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `a4-research.js`, `measure-local-journeys.js`, `report-playback.js`                                                                                              | Separate research and manual measurement/reporting tools.                                                                              |
-| `check-media-storage.js`                                                                                                                                         | Optional startup/hosted storage diagnostic; not a provisioning, migration or required release-verifier dependency.                     |
-| `initialize-project.js`                                                                                                                                          | Reusable project initialization utility.                                                                                               |
-| `verify-community-edge.js`, `verify-community-hosted-capacity.js`, `verify-replay-storage.js`, `verify-media-hosted-browser.js`, `verify-media-hosted-replay.js` | Separate manual edge/provider/storage/capacity trials, outside the release coordinators.                                               |
-| `verify-session-controls-browser.js`, `verify-wallet-browser.js`                                                                                                 | Separate manual account/wallet browser trials; required database authentication/security suites remain enforced by the existing tests. |
+| Files under `scripts/`                                                                                                                                           | Why retained                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `a4-research.js`, `measure-local-journeys.js`, `report-playback.js`                                                                                              | Separate research and manual measurement/reporting tools.                                                                      |
+| `check-media-storage.js`                                                                                                                                         | Optional startup/hosted storage diagnostic; not a provisioning, migration or required release-verifier dependency.             |
+| `initialize-project.js`                                                                                                                                          | Reusable project initialization utility.                                                                                       |
+| `verify-community-edge.js`, `verify-community-hosted-capacity.js`, `verify-replay-storage.js`, `verify-media-hosted-browser.js`, `verify-media-hosted-replay.js` | Separate manual edge/provider/storage/capacity trials, outside the release coordinators.                                       |
+| `verify-session-controls-browser.js`                                                                                                                             | Separate manual account browser trial; required database authentication/security suites remain enforced by the existing tests. |
 
 Applied `migrations/*.js`, `tests/*.test.js`, other test helpers and `eslint.config.js`
 also remain in their existing languages; their conversion was not authorized by this

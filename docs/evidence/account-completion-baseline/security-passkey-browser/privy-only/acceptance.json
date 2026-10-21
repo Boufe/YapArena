@@ -1,17 +1,18 @@
 {
   "result": "PASS",
   "processExitCode": 0,
-  "at": "2026-10-20T19:12:17.153Z",
-  "revision": "14bc559ae8c28948299727499e11d01005907d7f",
+  "at": "2026-10-21T15:02:36.654Z",
+  "revision": "43cc9a0d48a23d5bba64a09a0aab48a23bbc5c7c",
   "groups": 18,
   "pageAndBackendErrors": 0,
-  "scriptSha256": "2a35193ba798588a686326d90640a8c8233145316085017efcc3a977102ae657",
-  "logSha256": "5a655b12f1f79d384bdbea8aee3b27798c2ce181866afa59ae899b215e1c7129",
+  "scriptSha256": "f6195d4140aa63bec6310e10ed3a1ae1e80c61b90c59deca620d6e59821f41d8",
+  "logSha256": "ea977d59cce539794d5cc6c70375306468a15228cc43ecc2ea2f4b03a0f12e3d",
   "limitations": [
     "Provider user/token/OTP endpoints are intercepted synthetic fixtures; only public app metadata is read from Privy.",
     "Virtual CTAP2 is not a physical device or screen reader.",
     "Native SDK page is a minimal generated-island fixture, not the complete production account controller. Its session comparison hint is populated only after real cookie-authenticated GET /me.",
     "New expired-first-setup restart is covered by the separate real-PG R2 gate, not this native verifier.",
-    "No genuine selected-app credential export, RP compatibility, returning login, hosted financial action or live funds acceptance."
+    "No genuine selected-app credential export, RP compatibility, returning login, hosted financial action or live funds acceptance.",
+    "Normal reset completion is a distinct deterministic fixture step through the real durable worker with synthetic provider control, followed by an authoritative application refresh; it is not measured real Privy propagation latency."
   ]
 }

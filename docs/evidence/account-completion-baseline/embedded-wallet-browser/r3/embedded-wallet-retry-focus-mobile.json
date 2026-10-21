@@ -1,0 +1,12 @@
+{
+  "beforeTab": {
+    "tag": "BODY",
+    "id": "",
+    "inWallet": false
+  },
+  "afterTab": {
+    "tag": "BUTTON",
+    "id": "",
+    "inWallet": true
+  }
+}

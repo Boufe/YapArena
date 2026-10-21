@@ -22,7 +22,7 @@ coin sandbox with persistent funding, source accounting, manual withdrawals and
 YES/NO A4 participation. The current corrective implementation uses one Privy
 passkey, enrolled in Account settings and verified again against a server-issued
 challenge for sensitive actions. First setup can resume after interruption only
-under the approved no-financial-history/no-prior-strong-method policy. The latest
+under the approved no-financial-history/no-prior-strong-method policy. The earlier Privy-only
 integrated local gate passed 798 tests with no skips, 198 focused PostgreSQL cases
 on each fresh and upgraded database, and the core browser journeys. The earlier
 [integrated release evidence](evidence/account-completion-baseline/final-integrated-release-gate/README.md)
@@ -54,8 +54,27 @@ Current free development-app Google/passkey login options are enabled; genuine
 returning/linking/recovery journeys and final account acceptance remain open.
 The reviewed delayed provider-reset repair is complete, preserving revocation
 cutoffs and all retained accounts. The Privy-only corrections are hosted. Final review then identified an additional
-account-switch race in ordinary provider settings; its correction, regression and
-release are in progress. See the completion matrix for exact acceptance status.
+account-switch race in ordinary provider settings; its correction and 99-scenario
+local SDK regression passed in `f422dfd`, with release pending. The separate
+interrupted first-passkey reset repair completed without adopting a key or creating
+a session; [actual evidence](evidence/account-completion-baseline/first-passkey-reset-repair/README.md)
+records its one mutation, GET-only finalization and preserved revocation fences.
+The founder then approved automatic user-controlled Privy EVM wallets and removal
+of new external-wallet linking. The [durable wallet design](embedded-wallets.md)
+is implemented locally with no app signing authority; combined acceptance and
+staging release remain pending. Unknown external-wallet signup is also disabled
+in email-first mode; retained wallet login/removal stays available. See the
+completion matrix for exact acceptance status.
+The subsequent wallet/reset integration passed **854 tests with zero skips**,
+**235 focused PostgreSQL cases on each fresh/upgrade path**, 17 A4 and five
+treasury cases on each path, and the complete core browser release gate.
+Dedicated final checks passed 111 SDK, 18 native passkey, 22 coin and seven
+cookie-coordination groups (14 issuer paths). The
+[new combined evidence](evidence/account-completion-baseline/wallet-phase-integrated/README.md)
+and individual reports bind those local results to their source and asset hashes.
+The current source includes durable user-only wallet provisioning and acknowledged
+provider-reset confirmation; the named staging site still serves `d6e2d35` until
+its separate guarded release. Genuine provider and physical acceptance remain open.
 Real Base Sepolia test-USDC receipt evidence is separate from labelled conversion
 simulations. No live financial routes are enabled. Existing A4 remains nonredeemable
 play money; the new 100 YC/USDC direction does not convert historical grants or

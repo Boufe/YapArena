@@ -156,6 +156,16 @@ restart applies only to an account with no financial or prior strong-method
 history and requires fresh provider login plus native passkey verification.
 See [the current passkey contract](security/account-session-revocation.md#one-privy-passkey).
 
+Normal provider reset jobs persist intent before the single mutation. Only an
+acknowledged freeze/unfreeze response enables GET-only confirmation across web
+instances and restarts. Each phase permits at most eight reads or 120 seconds,
+scheduled ten seconds apart. Unknown mutation outcomes, independent freezes and
+exhausted budgets remain fenced for review; do not reset their state to pending.
+Read-only propagation checks release database connections. The bounded mutation
+window retains account ordering. These authentication jobs run on the Privy-configured
+web service independently of general `RUN_BACKGROUND_JOBS`; the separate
+maintenance worker does not receive the Privy secret or run this queue.
+
 An uncertain provider freeze/unfreeze requires evidence review. The explicit
 owner-only `scripts/retry-account-provider-reset.ts` modes separate an ordinary
 retry, a single reviewed delayed-freeze reconciliation and read-only-provider
@@ -166,6 +176,27 @@ Never repeat an unfreeze merely because its immediate read lagged. The
 [recorded repair](evidence/account-completion-baseline/provider-reset-repair/README.md)
 documents the concrete evidence and limitations. The operator inspection and
 repair processes must not run in the web or worker process.
+
+The separate `repair-first-passkey` / `finalize-first-passkey` modes cover only
+the reviewed unfinished first-key case: an unchanged valid accepted baseline,
+exactly one trusted new key, no financial or prior strong-method history, exact
+generation/attempt and an independently reviewed own-freeze window. A durable
+review marker precedes the one unfreeze; finalization is GET-only. Neither mode
+adopts the key or creates a session. `ACCOUNT_STAGING_PROVIDER_ACTION` must match
+the explicit mode, and `ACCOUNT_STAGING_CA_PATH` selects the trusted CA file.
+The [actual first-key repair](evidence/account-completion-baseline/first-passkey-reset-repair/README.md)
+is complete and must not be repeated as a routine login workaround.
+
+The [embedded-wallet runbook](embedded-wallets.md) describes the separate durable
+empty-wallet queue, user-only ownership verification, bounded retry/review states
+and original-DID recovery restriction. Its creation job uses existing runtime
+`PRIVY_APP_ID` / `PRIVY_APP_SECRET`, no application signing key or owner database
+credential. Dashboard creation-on-login remains off because the explicit server
+job handles headless email login and survives browser navigation. Creating an
+empty address does not enable crypto funding, signing or redemption.
+After the exact release, use the [read-only wallet verifier](embedded-wallet-verification.md)
+to distinguish actual provider ownership acceptance from pending setup or a
+synthetic transport result. It performs no creation or repair.
 
 Staging migration release uses `scripts/release-account-staging.ts` explicitly:
 stop and independently verify all writers, pass the exact-revision release gates,
@@ -473,9 +504,13 @@ connection values in the local shell/secret store. PostgreSQL tests create uniqu
 accounts; do not point them at shared development, staging or production data. Without the
 explicit URLs those integration suites are skipped; that is not race-safety evidence. CI's
 quality job provisions a disposable PostgreSQL service and includes both suites under coverage.
-The browser trial is `node scripts/verify-wallet-browser.js` with `BROWSER_BASE_URL` and
+The retained-wallet browser trial is `node scripts/verify-wallet-browser.ts` with `BROWSER_BASE_URL` and
 `WALLET_TEST_OWNER_DATABASE_URL` for the same isolated instance. It uses synthetic wallets,
-cleans its fixtures and writes PNG evidence to `BROWSER_ARTIFACT_DIR`.
+seeds disposable retained credentials, cleans only its own fixtures and writes PNG evidence
+to `BROWSER_ARTIFACT_DIR`. It checks retained sign-in/removal, wrong proofs/account/chain,
+rejected signatures, expiry, outage, replay and last-method protection. New external-wallet
+linking is no longer a product control; existing backend link-authorization regression
+tests remain. Embedded-wallet provisioning has separate [contracts and acceptance gates](embedded-wallets.md).
 
 The [operational TypeScript guide](operational-typescript.md) lists the maintained database,
 release and security sources, direct Node 24 commands and explicit quality-gate coverage.

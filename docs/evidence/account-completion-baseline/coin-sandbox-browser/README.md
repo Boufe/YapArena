@@ -109,3 +109,15 @@ before checking the function, without adding an assertion or changing the
 application. The final withdrawal dialog and mobile CSS200% images were also
 visually inspected: the readable exact debit/fee/net/destination remain visible
 and the narrow layout remains within the page width.
+
+The latest frozen-asset rerun completed **2026-10-21 14:54:31.305 UTC**,
+exiting **0 with all 22 groups passing and no browser, accessibility or layout
+errors**. See [the raw terminal output](output.txt), [actual results](results.json)
+and [post-run hash comparison](source-verification.json). The report records
+`030b60e` because the lead committed the already-frozen work afterward; all
+recorded source/asset/dist hashes still match at `43cc9a0`. No rebuild occurred
+during this run. Matching mobile before/after and the exact withdrawal dialog
+were visually inspected. Scope remains the explicitly labelled synthetic,
+deterministic financial sandbox and fixture-only retained legacy key; this
+does not establish hosted, genuine provider, chain, physical-device or
+screen-reader acceptance.

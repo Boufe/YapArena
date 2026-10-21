@@ -18,8 +18,6 @@
     "completeCalls": 1,
     "sequence": 1,
     "staleSdkRequests": 0,
-    "sdkMutations": [
-      "/api/v1/passwordless/unlink"
-    ]
+    "sdkMutations": ["/api/v1/passwordless/unlink"]
   }
 }

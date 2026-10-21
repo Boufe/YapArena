@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "postgres": "host",
+  "quality": "full runtime-backed npm run check",
+  "steps": [
+    {
+      "name": "build",
+      "status": "passed"
+    },
+    {
+      "name": "fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers",
+      "status": "passed"
+    },
+    {
+      "name": "homepage navigation, interactions, responsive layout and accessibility",
+      "status": "passed"
+    },
+    {
+      "name": "Live/replay preview playback and handoff",
+      "status": "passed"
+    }
+  ],
+  "scope": "Disposable local PostgreSQL and synthetic browser/media fixtures; no hosted or physical-device acceptance"
+}

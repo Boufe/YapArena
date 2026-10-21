@@ -28,6 +28,16 @@ account-switch race in ordinary provider-method settings; its correction and
 regression release are in progress. Genuine provider acceptance remains separate.
 Earlier separate-key descriptions and trials retain their recorded scope.
 
+On 2026-10-21, the founder changed the wallet direction: automatically create
+one user-controlled Privy EVM wallet, with default Privy recovery and no
+YapArena signing authority. Remove new external-wallet linking from the product
+while preserving retained wallet credentials. The
+[wallet design](embedded-wallets.md) records supported provisioning,
+recovery and cost boundaries. Creation must survive the post-login redirect
+without blocking ordinary account access. Implementation and genuine provider
+acceptance remain in progress; the five input routes and live financial gates
+are unchanged. Earlier wallets-off observations remain dated configuration facts.
+
 ## Direction and phases
 
 Email verification codes are primary. Google and passkeys are optional. Public
@@ -123,8 +133,10 @@ The screenshot is CRSHMARKET. [Blink](https://www.blink.cash/apps) lists that
 integration; this identifies its passkey deposit option, not a card processor.
 Card/crypto business approval, Canadian/provincial support, commercial terms and
 Bitcoin/BNB conversion routes remain unverified. Privy login/wallet support alone
-does not establish payout eligibility. Embedded-wallet creation is currently off;
-no custody/recovery/export flow is claimed accepted.
+does not establish payout eligibility. The deployed `d6e2d35` has wallet creation
+off; the founder-approved durable EVM provisioning change is implemented locally
+and awaits its separate release and provider acceptance. No custody/export flow
+is claimed accepted.
 
 Provider review concerns support for YapArena's actual activity and flow of
 funds; it is not a blanket assertion that wallet transfers require incorporation.
@@ -154,7 +166,9 @@ was enabled, and the staging HTTPS origin was added. A supported SDK settings
 read independently confirmed all three changes. During completion work, the
 founder signed into the dashboard and the free development-app Google/passkey
 login options were enabled; public staging configuration independently confirms
-both. Embedded-wallet provisioning remains off. The server requires auto-merging off and rechecks before
+both. Dashboard wallet creation-on-login remains off; the new durable server
+provisioning job is a separate, not-yet-released implementation. The server
+requires auto-merging off and rechecks before
 exchange; only enabled optional methods appear. No cached positive ownership
 decision bypasses this check.
 
@@ -227,9 +241,21 @@ Generation changes enqueue durable provider-revocation work in the transaction.
 The local fence commits before external calls. After a confirmed provider freeze,
 the worker unfreezes active accounts and advances the mapping with an issuance
 bound strictly after the freeze. This bound works only after old refresh sessions
-were revoked; `iat` alone is not fresh authentication. Failures retain the fence
-and retry after a lease. Uncertain mutations and independently pre-frozen accounts
-require operator review; provider incident handling requires a single writer
+were revoked; `iat` alone is not fresh authentication. The normal worker durably
+records mutation intent before its one external call. Only positively acknowledged
+freeze/unfreeze responses enter resumable GET-only confirmation phases: ten-second
+checks, at most eight reads or 120 seconds per phase. Read-only propagation checks
+release the pool connection and account lock. The bounded mutation window holds
+account ordering (one five-second RPC for freeze; an exact-state GET plus unfreeze
+may use two such RPCs, under the cumulative twenty-second attempt deadline).
+An intent without a durable acknowledgement, an expired budget, unknown outcome,
+or independently pre-frozen account remains fenced for operator review; mutations
+are never automatically repeated. Legacy jobs retain conservative handling and
+the existing reviewed owner retry remains one-shot. Monitor reads return temporary
+unavailability during owned pending phases; genuine credential changes still revoke
+access. Both authentication queues run on the web service whenever Privy is configured,
+independently of the general background-job setting, with database leases across
+replicas. Provider incident handling requires a single writer
 because the provider has no conditional ownership API for freeze/unfreeze.
 Resume after suspension still requires reviewed reconciliation.
 
@@ -237,8 +263,9 @@ Sensitive backend changes retain operation-bound password/SIWE proof and reuse
 the same Privy passkey for an application-issued, server-verified WebAuthn
 challenge. New enrollment and the single passkey login option belong to Privy;
 previous independent application keys remain usable as retained credentials.
-Provider-only first-wallet linking also
-requires target-wallet SIWE ownership. Expiring single-use proof binds account,
+New external-wallet linking and unknown-wallet signup are disabled when email-first
+authentication is configured. Retained-wallet sign-in and proof-protected removal
+remain available. Expiring single-use proof binds account,
 session/generation, operation, nonce, expiry and exact financial terms where
 applicable. The sandbox withdrawal reserves funds and consumes that proof in one
 transaction. Browser MFA flags and token refresh are insufficient.

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "title": "Email-first account, security and redeemable Yap Coins requirement checklist",
-  "checkedAt": "2026-10-21T22:24:05.180940+00:00",
+  "checkedAt": "2026-10-21T22:25:32.620Z",
   "overallStatus": "incomplete",
   "scopeRule": "Each satisfied status identifies its recorded scope and limitations. Continuing future maintenance/guard duties are limitations, not invented unfinished acceptance. Local success never becomes hosted, genuine provider, physical-device, legal or live-financial acceptance. Overall remains incomplete while required genuine/external/delivery gates are open.",
   "authority": {
@@ -183,7 +183,7 @@
       "requirementsReviewed": 52,
       "newIndependentApplicationSourceGapFound": false,
       "currentScope": "Exact eba source, new CI logs/tree/artifacts, source-pinned local 858/239/native18, separate SDK111/coin22/cookie7-14 scopes and current 52-row checklist. Genuine, hosted, device and financial live-release obligations remain open. Actual migration/security preservation, Render LIVE and guest7/assets14/anonymous-wallet postflight now independently read; genuine provider inspection remains PENDING.",
-      "ongoingReleaseAndDelivery": ["R49"],
+      "ongoingReleaseAndDelivery": [],
       "humanOrGenuineProviderJourneys": [
         "R04",
         "R05",
@@ -295,6 +295,13 @@
       "helperSha256": "2d85829fbb247f88e7d494a9cae37b9b0659d186fd254b62fa2d45e00ecf5b36",
       "evidence": "evidence/account-completion-baseline/embedded-wallet-release/repository-privacy.json",
       "scope": "Current tracked/new-document text and five actual secret forms only; binary pixels/history/unknown obfuscation excluded. Later fixed-text result metadata is outside original scan."
+    },
+    "publishedDocumentation": {
+      "revision": "1bec9898712955043c9298025b639051b2b1ed9e",
+      "pullRequest": "https://github.com/Boufe/YapArena/pull/42",
+      "prBodyUpdatedAt": "2026-10-21T22:24:50Z",
+      "runtimeSourceUnchangedFrom": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "laterDocumentationCi": "Current evidence-only head checks are visible on PR42; they do not replace or relabel exact deployed-source CI39678375965."
     }
   },
   "evidenceCatalog": {
@@ -618,7 +625,7 @@
     },
     "securityPreservation": {
       "path": "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json",
-      "scope": "Actual stopped-writer pre/post comparison43\u219245: all14 account/session/provider/key/wallet security projections unchanged, four accounts/three retained, no mutations by comparison. Later legitimate runtime/user changes are not frozen by this historical comparison.",
+      "scope": "Actual stopped-writer pre/post comparison43→45: all14 account/session/provider/key/wallet security projections unchanged, four accounts/three retained, no mutations by comparison. Later legitimate runtime/user changes are not frozen by this historical comparison.",
       "reviewedAt": "2026-10-21T22:14:32.257574+00:00",
       "executionDateRule": "Actual execution time/revision and limits remain those in the linked sanitized output."
     },
@@ -2983,15 +2990,15 @@
       "requirement": "Focused commits, PR #42 update, screenshots, results/config/docs/status",
       "owner": "lead",
       "dependencies": ["integration"],
-      "implementationStatus": "focused_source_commits_and_final_documents_screenshots_archives_prepared_reviewed_pending_publication",
-      "completionStatus": "deliverables_ready_final_document_commit_and_pr_archive_publication_pending",
+      "implementationStatus": "focused_source_and_reviewed_release_archive_published_in_existing_PR42",
+      "completionStatus": "satisfied_for_recorded_delivery_scope",
       "acceptanceCriteria": [
         "Deliver focused strict-source commits in existing PR42 with implementation/configuration/docs/status and matching screenshots/results.",
         "Use secret variable names only and preserve a reviewable combined diff and exact tested revision/hash evidence.",
         "Update the PR, exact CI and final release/evidence handoff after remaining gates."
       ],
       "verification": {
-        "locallyTested": "source_record_or_research_review_only",
+        "locallyTested": "reviewed_documentation_and_evidence_only_publication_lint_format_passed_runtime_source_unchanged",
         "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
         "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
         "providerSandboxTested": "not_claimed",
@@ -3068,9 +3075,7 @@
           "path": "evidence/account-completion-baseline/embedded-wallet-release/repository-privacy.json"
         }
       ],
-      "remainingBlockers": [
-        "Lead must publish the final documentation/evidence commit and refreshed PR/archive body. Runtime/source CI and staging acceptance remain pinned to exact eba1dc5; report later PR-header check status only when actually observed, without inventing future successes or requiring a self-referential runtime CI/commit cycle."
-      ],
+      "remainingBlockers": [],
       "limitations": [
         "Focused implementation commits are already pushed in PR42; current local documentation/screenshots/acceptance archives and formatting/strict-source checks are prepared/reviewed. The final documentary publication itself has not yet been recorded."
       ]
@@ -3175,7 +3180,7 @@
       ],
       "remainingBlockers": [],
       "limitations": [
-        "The independent second reviewer actually read all52 final rows against source/contract/evidence at Markdown7d364ae5\u2026/JSONf9e0d563\u2026, validated321 references/59catalog entries/49local links/eight source-compiled hashes, and reported PASS with no new blocker. This fixed-text outcome entry records that completed review; it does not create a new runtime/source acceptance claim.",
+        "The independent second reviewer actually read all52 final rows against source/contract/evidence at Markdown7d364ae5…/JSONf9e0d563…, validated321 references/59catalog entries/49local links/eight source-compiled hashes, and reported PASS with no new blocker. This fixed-text outcome entry records that completed review; it does not create a new runtime/source acceptance claim.",
         "Independent authorship limits remain linked; review is not a fresh execution of tests/provider operations. Overall genuine/provider/device/legal/backing requirements remain incomplete."
       ]
     },

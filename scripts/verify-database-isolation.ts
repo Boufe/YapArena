@@ -1292,6 +1292,7 @@ async function scenario(database: string, upgrade: boolean) {
           "tests/account-security-passkeys-postgres.test.js",
           "tests/provider-passkeys-postgres.test.js",
           "tests/provider-passkey-bootstrap-postgres.test.js",
+          "tests/provider-passkey-reset-repair-postgres.test.js",
           "tests/account-security-router-auth.test.js",
           "tests/account-session-management.test.js",
           "tests/provider-accounts-postgres.test.js",

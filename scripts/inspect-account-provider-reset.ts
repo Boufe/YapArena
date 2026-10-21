@@ -4,6 +4,7 @@ import { lstat, readFile, realpath } from "node:fs/promises";
 import { dirname } from "node:path";
 import { APIError, PrivyClient } from "@privy-io/node";
 import pg from "pg";
+import { parseProviderPasskeyPublicKey } from "../dist/platform/auth/provider-passkeys.js";
 import {
   providerCredentialsDigest,
   verifiedStoredCredentials,
@@ -62,6 +63,7 @@ function credentials(value: unknown): ProviderCredential[] | null {
   return result.length ? result : null;
 }
 type Mapping = {
+  userId: string;
   subject: string;
   email: string | null;
   methods: unknown;
@@ -100,6 +102,7 @@ async function main() {
     role.owner.user,
     `yaparena_owner${host.endsWith(".pooler.supabase.com") ? `.${project}` : ""}`,
   );
+  step = "private certificate configuration";
   const ca = await readFile(
     process.env.ACCOUNT_STAGING_CA_PATH ?? string(role.caPath),
     "utf8",
@@ -132,7 +135,7 @@ async function main() {
   assert.equal(identity?.valid, true);
   const mappings = (
     await database.query<Mapping>(
-      `SELECT p.subject,p.email,p.methods,p.credentials_digest AS "credentialsDigest",
+      `SELECT p.user_id::text AS "userId",p.subject,p.email,p.methods,p.credentials_digest AS "credentialsDigest",
        p.credentials_snapshot AS "credentialsSnapshot",
        p.auth_generation=u.auth_generation AS "generationMatch",
        j.state AS "currentJob",j.failure_reason AS "failureReason",
@@ -159,6 +162,171 @@ async function main() {
     )
   ).rows;
   assert.ok(mappings.length <= 4, "fixed staging account bound exceeded");
+  // Raw account/key locators stay inside this process, solely to compare the
+  // authoritative provider evidence with this read-only database snapshot.
+  const userIds = mappings.map((mapping) => mapping.userId);
+  const localKeys = (
+    await database.query<{
+      userId: string;
+      provenance: "yaparena" | "privy";
+      subject: string | null;
+      credentialId: string;
+      publicKeyDigest: string | null;
+      rpId: string | null;
+      revoked: boolean;
+    }>(
+      `SELECT user_id::text AS "userId",provenance,provider_subject AS subject,
+       credential_id AS "credentialId",provider_public_key_digest AS "publicKeyDigest",
+       rp_id AS "rpId",revoked_at IS NOT NULL AS revoked
+       FROM yaparena.account_security_keys WHERE user_id=ANY($1::bigint[])
+       ORDER BY id LIMIT 101`,
+      [userIds],
+    )
+  ).rows;
+  assert.ok(localKeys.length <= 100, "fixed diagnostic key bound exceeded");
+  type SetupCounts = {
+    total: number;
+    consumed: number;
+    unconsumedLive: number;
+    unconsumedExpired: number;
+    candidateCaptured: number;
+    candidateMissing: number;
+    addition: number;
+    existing: number;
+    generationMatch: number;
+    originalSessionActive: number;
+  };
+  const setupIntents = (
+    await database.query<SetupCounts>(
+      `SELECT count(*)::int AS total,
+       count(*) FILTER(WHERE i.consumed_at IS NOT NULL)::int AS consumed,
+       count(*) FILTER(WHERE i.consumed_at IS NULL AND i.expires_at>clock_timestamp())::int AS "unconsumedLive",
+       count(*) FILTER(WHERE i.consumed_at IS NULL AND i.expires_at<=clock_timestamp())::int AS "unconsumedExpired",
+       count(*) FILTER(WHERE i.candidate_digest IS NOT NULL)::int AS "candidateCaptured",
+       count(*) FILTER(WHERE i.candidate_digest IS NULL)::int AS "candidateMissing",
+       count(*) FILTER(WHERE i.intent_mode='addition')::int AS addition,
+       count(*) FILTER(WHERE i.intent_mode='existing')::int AS existing,
+       count(*) FILTER(WHERE i.auth_generation=u.auth_generation)::int AS "generationMatch",
+       count(*) FILTER(WHERE EXISTS(SELECT 1 FROM yaparena.sessions s
+         WHERE s.user_id=i.user_id AND s.token_hash=i.session_token_hash
+           AND s.auth_generation=i.auth_generation AND u.auth_generation=i.auth_generation
+           AND s.expires_at>clock_timestamp()))::int AS "originalSessionActive"
+       FROM yaparena.provider_passkey_intents i JOIN yaparena.users u ON u.id=i.user_id
+       WHERE i.user_id=ANY($1::bigint[])`,
+      [userIds],
+    )
+  ).rows[0];
+  const bootstrapIntents = (
+    await database.query<{
+      total: number;
+      consumed: number;
+      unconsumedLive: number;
+      unconsumedExpired: number;
+      generationMatch: number;
+    }>(
+      `SELECT count(*)::int AS total,
+       count(*) FILTER(WHERE b.consumed_at IS NOT NULL)::int AS consumed,
+       count(*) FILTER(WHERE b.consumed_at IS NULL AND b.expires_at>clock_timestamp())::int AS "unconsumedLive",
+       count(*) FILTER(WHERE b.consumed_at IS NULL AND b.expires_at<=clock_timestamp())::int AS "unconsumedExpired",
+       count(*) FILTER(WHERE b.auth_generation=u.auth_generation)::int AS "generationMatch"
+       FROM yaparena.provider_passkey_bootstraps b JOIN yaparena.users u ON u.id=b.user_id
+       WHERE b.user_id=ANY($1::bigint[])`,
+      [userIds],
+    )
+  ).rows[0];
+  const recentPasskeyAudit = (
+    await database.query<{ eventType: string; count: number }>(
+      `SELECT event_type AS "eventType",count(*)::int AS count
+       FROM yaparena.identity_audit_events
+       WHERE user_id=ANY($1::bigint[]) AND occurred_at>clock_timestamp()-interval '30 minutes'
+         AND event_type=ANY($2::text[]) GROUP BY event_type ORDER BY event_type LIMIT 16`,
+      [
+        userIds,
+        [
+          "provider.passkey.activated",
+          "provider.passkey.bootstrap_completed",
+          "security.passkey.enrolled",
+          "security.passkey.revoked",
+          "provider.credentials.reconciled",
+        ],
+      ],
+    )
+  ).rows;
+  assert.ok(setupIntents && bootstrapIntents);
+  const timelineSetupIntents = (
+    await database.query<{
+      mode: "addition" | "existing";
+      createdAt: string;
+      expiresAt: string;
+      consumedAt: string | null;
+      generationDelta: string;
+      candidateCaptured: boolean;
+    }>(
+      `SELECT i.intent_mode AS mode,i.created_at::text AS "createdAt",i.expires_at::text AS "expiresAt",
+       i.consumed_at::text AS "consumedAt",(i.auth_generation-u.auth_generation)::text AS "generationDelta",
+       i.candidate_digest IS NOT NULL AS "candidateCaptured"
+       FROM yaparena.provider_passkey_intents i JOIN yaparena.users u ON u.id=i.user_id
+       WHERE i.user_id=ANY($1::bigint[]) ORDER BY i.created_at DESC LIMIT 10`,
+      [userIds],
+    )
+  ).rows.reverse();
+  const auditTypes = [
+    "sessions.logout_all",
+    "sessions.logout_others",
+    "sessions.incident",
+    "sessions.logout",
+    "sessions.revoked",
+    "provider.credentials.reconciled",
+    "security.passkey.enrolled",
+    "security.passkey.revoked",
+    "provider.passkey.activated",
+    "provider.passkey.bootstrap_completed",
+    "provider.reset.retry_requested",
+    "provider.reset.reconciliation_requested",
+    "provider.reset.reconciled",
+    "provider.identity.recovered",
+  ];
+  const timelineAudit = (
+    await database.query<{
+      eventType: string;
+      at: string;
+      generationDelta: string | null;
+      outcome: string;
+    }>(
+      `WITH bounds AS(SELECT coalesce(min(created_at)-interval '2 minutes',clock_timestamp()-interval '24 hours') AS since
+         FROM yaparena.provider_passkey_intents WHERE user_id=ANY($1::bigint[]))
+       SELECT e.event_type AS "eventType",e.occurred_at::text AS at,
+       CASE WHEN e.metadata->>'authGeneration' ~ '^[0-9]{1,18}$'
+         THEN ((e.metadata->>'authGeneration')::bigint-u.auth_generation)::text END AS "generationDelta",
+       CASE WHEN e.metadata->>'outcome' IN ('success','failure','uncertain')
+         THEN e.metadata->>'outcome' ELSE 'unavailable' END AS outcome
+       FROM yaparena.identity_audit_events e JOIN yaparena.users u ON u.id=e.user_id CROSS JOIN bounds
+       WHERE e.user_id=ANY($1::bigint[]) AND e.occurred_at>=bounds.since
+         AND e.event_type=ANY($2::text[]) ORDER BY e.occurred_at DESC,e.id DESC LIMIT 30`,
+      [userIds, auditTypes],
+    )
+  ).rows.reverse();
+  const timelineResetJobs = (
+    await database.query<{
+      generationDelta: string;
+      mappedGenerationDelta: string;
+      state: string;
+      failureReason: string | null;
+      attempts: number;
+      leaseUntil: string;
+      confirmedFrozenAt: string | null;
+      currentSubject: boolean;
+    }>(
+      `SELECT (j.generation-u.auth_generation)::text AS "generationDelta",
+       (j.generation-p.auth_generation)::text AS "mappedGenerationDelta",
+       j.state,j.failure_reason AS "failureReason",j.attempts,j.lease_until::text AS "leaseUntil",
+       j.confirmed_frozen_at::text AS "confirmedFrozenAt",j.subject=p.subject AS "currentSubject"
+       FROM yaparena.provider_revocation_jobs j JOIN yaparena.users u ON u.id=j.user_id
+       JOIN yaparena.provider_identities p ON p.user_id=u.id AND p.provider='privy'
+       WHERE j.user_id=ANY($1::bigint[]) ORDER BY j.generation DESC LIMIT 10`,
+      [userIds],
+    )
+  ).rows.reverse();
   await database.query("ROLLBACK");
   await database.end();
   database = undefined;
@@ -227,8 +395,20 @@ async function main() {
     logLevel: "off",
     fetch: readonlyFetch,
   });
+  const providerFrozenAtSeconds: number[] = [];
   const result = {
     activeMappings: mappings.length,
+    resetReviewCandidates: mappings
+      .filter(
+        (mapping) =>
+          mapping.currentJob === "manual" &&
+          mapping.failureReason === "uncertain_provider_outcome" &&
+          mapping.jobAttempts !== null,
+      )
+      .map((mapping) => ({
+        expectedGeneration: mapping.generation,
+        expectedAttempts: Number(mapping.jobAttempts),
+      })),
     generationMatch: 0,
     generationMismatch: 0,
     confirmedCutoffPreserved: mappings.filter(
@@ -261,6 +441,42 @@ async function main() {
       positiveFrozenStatesCompared: 0,
       frozenAtWithinExactAuditLeaseWindow: 0,
       frozenAtWithinSecondResolutionAuditLeaseWindow: 0,
+    },
+    passkeyEvidence: {
+      providerPasskeys: 0,
+      publicKeyPresent: 0,
+      publicKeyMissing: 0,
+      publicKeySupported: 0,
+      publicKeyUnsupported: 0,
+      relyingPartyExpectedHost: 0,
+      relyingPartyExpectedOrigin: 0,
+      relyingPartyMissing: 0,
+      relyingPartyOther: 0,
+      activeLocalProviderKeysMatch: 0,
+      activeLocalProviderKeysMissing: 0,
+      activeLocalProviderKeysMismatch: 0,
+      activeLocalProviderKeysUnverifiable: 0,
+    },
+    localPasskeys: {
+      total: localKeys.length,
+      activePrivy: localKeys.filter(
+        (key) => !key.revoked && key.provenance === "privy",
+      ).length,
+      activeYapArena: localKeys.filter(
+        (key) => !key.revoked && key.provenance === "yaparena",
+      ).length,
+      revoked: localKeys.filter((key) => key.revoked).length,
+    },
+    setupIntents,
+    bootstrapIntents,
+    recentPasskeyAudit,
+    timeline: {
+      scope:
+        "mapped accounts; setup10, allowlisted audit30 since earliest intent minus2minutes, resetjobs10 maximum",
+      setupIntents: timelineSetupIntents,
+      audit: timelineAudit,
+      resetJobs: timelineResetJobs,
+      providerFrozenAtSeconds,
     },
     currentCredentialsValid: 0,
     digestEqual: 0,
@@ -372,12 +588,16 @@ async function main() {
       ) {
         result.frozenAtField.positiveSafeInteger++;
         result.providerFrozen++;
+        result.timeline.providerFrozenAtSeconds.push(frozen);
         if (mapping.confirmedFrozenAt === String(frozen))
           result.confirmedFrozenMatchesProvider++;
         const start = Number(mapping.auditStartedSeconds),
           end = Number(mapping.leaseEndSeconds);
         if (
           mapping.auditPresent &&
+          mapping.auditGeneration === mapping.generation &&
+          mapping.auditAttempts !== null &&
+          mapping.auditAttempts === mapping.jobAttempts &&
           mapping.auditStartedSeconds !== null &&
           mapping.leaseEndSeconds !== null &&
           Number.isFinite(start) &&
@@ -400,6 +620,54 @@ async function main() {
         else if (typeof frozen === "object")
           result.frozenAtField.objectOrArray++;
         else result.frozenAtField.other++;
+      }
+      const trustedKeys = new Map<string, string | null>();
+      for (const linked of user.linked_accounts) {
+        if (linked.type !== "passkey") continue;
+        const evidence = result.passkeyEvidence;
+        evidence.providerPasskeys++;
+        const exported: unknown = Reflect.get(linked, "public_key");
+        let keyDigest: string | null = null;
+        if (typeof exported !== "string" || !exported)
+          evidence.publicKeyMissing++;
+        else {
+          evidence.publicKeyPresent++;
+          try {
+            keyDigest = parseProviderPasskeyPublicKey(exported).publicKeyDigest;
+            evidence.publicKeySupported++;
+          } catch {
+            evidence.publicKeyUnsupported++;
+          }
+        }
+        trustedKeys.set(linked.credential_id, keyDigest);
+        const rp: unknown = Reflect.get(linked, "relying_party");
+        if (rp === "yaparena-staging-web.onrender.com")
+          evidence.relyingPartyExpectedHost++;
+        else if (rp === "https://yaparena-staging-web.onrender.com")
+          evidence.relyingPartyExpectedOrigin++;
+        else if (rp === undefined || rp === null)
+          evidence.relyingPartyMissing++;
+        else evidence.relyingPartyOther++;
+      }
+      for (const local of localKeys) {
+        if (
+          local.userId !== mapping.userId ||
+          local.revoked ||
+          local.provenance !== "privy"
+        )
+          continue;
+        const evidence = result.passkeyEvidence;
+        if (!trustedKeys.has(local.credentialId))
+          evidence.activeLocalProviderKeysMissing++;
+        else if (trustedKeys.get(local.credentialId) === null)
+          evidence.activeLocalProviderKeysUnverifiable++;
+        else if (
+          local.subject === mapping.subject &&
+          local.publicKeyDigest === trustedKeys.get(local.credentialId) &&
+          local.rpId === "yaparena-staging-web.onrender.com"
+        )
+          evidence.activeLocalProviderKeysMatch++;
+        else evidence.activeLocalProviderKeysMismatch++;
       }
       // Same canonical digest utility as the verifier, without treating a frozen
       // identity as authorized. No raw linked-account fields leave this process.
@@ -442,6 +710,20 @@ async function main() {
     JSON.stringify(
       {
         status: "inspected",
+        at: new Date().toISOString(),
+        helperSha256: createHash("sha256")
+          .update(await readFile(new URL(import.meta.url)))
+          .digest("hex"),
+        parserSha256: createHash("sha256")
+          .update(
+            await readFile(
+              new URL(
+                "../dist/platform/auth/provider-passkeys.js",
+                import.meta.url,
+              ),
+            ),
+          )
+          .digest("hex"),
         readOnly: true,
         diagnosticOnly: true,
         ...result,

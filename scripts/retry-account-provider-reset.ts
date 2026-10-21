@@ -12,6 +12,7 @@ import {
   createProviderRevocation,
   ProviderResetRetryError,
 } from "../dist/platform/auth/provider-revocation.js";
+import { createFirstPasskeyResetRepair } from "../dist/platform/auth/provider-passkey-reset-repair.js";
 
 // Explicit fixed-staging operator action. No .env, account selector, browser
 // identity evidence, generation shortcut, secret output or automatic retry.
@@ -220,7 +221,9 @@ async function main() {
   assert.ok(
     mode === "retry-uncertain" ||
       mode === "reconcile-delayed" ||
-      mode === "finalize-reviewed",
+      mode === "finalize-reviewed" ||
+      mode === "repair-first-passkey" ||
+      mode === "finalize-first-passkey",
   );
   assert.equal(process.argv.length, mode === "retry-uncertain" ? 4 : 6);
   assert.equal(process.env.ACCOUNT_STAGING_PROVIDER_ACTION, mode);
@@ -230,6 +233,15 @@ async function main() {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
   );
   let reviewDigest: string | undefined;
+  let firstPasskeyReview:
+    | {
+        evidenceDigest: string;
+        noIndependentFreeze: true;
+        frozenAt: number;
+        expectedGeneration: string;
+        expectedAttempts: number;
+      }
+    | undefined;
   if (mode !== "retry-uncertain") {
     const path = string(process.argv[4]);
     reviewDigest = string(process.argv[5]).toLowerCase();
@@ -247,6 +259,32 @@ async function main() {
     assert.equal(review.requestId, requestId);
     assert.equal(review.noIndependentFreeze, true);
     assert.equal(review.activityReviewed, true);
+    if (mode === "repair-first-passkey" || mode === "finalize-first-passkey") {
+      assert.equal(review.scope, "unfinished-first-Privy-passkey-reset-only");
+      assert.equal(review.preserveAcceptedCredentialSnapshot, true);
+      assert.equal(review.requiresFreshNativePasskeyVerification, true);
+      assert.ok(
+        typeof review.frozenAt === "number" &&
+          Number.isSafeInteger(review.frozenAt) &&
+          review.frozenAt > 0,
+      );
+      assert.ok(
+        typeof review.expectedGeneration === "string" &&
+          /^[1-9][0-9]{0,18}$/.test(review.expectedGeneration),
+      );
+      assert.ok(
+        typeof review.expectedAttempts === "number" &&
+          Number.isSafeInteger(review.expectedAttempts) &&
+          review.expectedAttempts > 0,
+      );
+      firstPasskeyReview = {
+        evidenceDigest: reviewDigest,
+        noIndependentFreeze: true,
+        frozenAt: review.frozenAt,
+        expectedGeneration: review.expectedGeneration,
+        expectedAttempts: review.expectedAttempts,
+      };
+    }
   }
   // The SDK reads this documented setting when its clients are constructed.
   // Disable inherited debug output before either provider factory is called.
@@ -305,22 +343,29 @@ async function main() {
       )
     ).rows[0];
     assert.equal(identity?.valid, true);
+    const firstPasskeyMode =
+      mode === "repair-first-passkey" || mode === "finalize-first-passkey";
     const audit = (
       await connection.query<{ userId: string; subject: string }>(
         `SELECT u.id::text AS "userId",p.subject FROM yaparena.identity_audit_events a
        JOIN yaparena.users u ON u.id=a.user_id
        JOIN yaparena.provider_identities p ON p.user_id=u.id AND p.provider='privy'
-       WHERE a.event_type='provider.reset.retry_requested' AND a.metadata->>'requestId'=$1
+       WHERE a.event_type=$2 AND a.metadata->>'requestId'=$1
          AND u.account_status='active' LIMIT 2`,
-        [requestId],
+        [
+          requestId,
+          firstPasskeyMode
+            ? "provider.passkey.reset_repair_requested"
+            : "provider.reset.retry_requested",
+        ],
       )
     ).rows;
     assert.ok(audit.length <= 1);
     if (audit[0]) selected = audit[0];
     else {
       assert.equal(
-        mode,
-        "retry-uncertain",
+        mode === "retry-uncertain" || mode === "repair-first-passkey",
+        true,
         "reconciliation requires its exact original retry audit",
       );
       const candidates = (
@@ -380,9 +425,9 @@ async function main() {
   const providerFetch = providerTransport(
     selected.subject,
     fetch,
-    mode === "finalize-reviewed"
+    mode === "finalize-reviewed" || mode === "finalize-first-passkey"
       ? "finalize"
-      : mode === "reconcile-delayed"
+      : mode === "reconcile-delayed" || mode === "repair-first-passkey"
         ? "reconcile"
         : "retry",
   );
@@ -402,6 +447,36 @@ async function main() {
       ),
     },
   );
+  if (mode === "repair-first-passkey" || mode === "finalize-first-passkey") {
+    assert.ok(firstPasskeyReview);
+    const repair = createFirstPasskeyResetRepair(
+      database,
+      createPrivyOperatorInspector(providerConfiguration),
+      createPrivySessionControl(providerConfiguration),
+      { origin: "https://yaparena-staging-web.onrender.com" },
+    );
+    resetStarted = true;
+    const input = {
+      userId: selected.userId,
+      requestId,
+      activityReview: firstPasskeyReview,
+    };
+    const result =
+      mode === "repair-first-passkey"
+        ? await repair.repair(input)
+        : await repair.finalize(input);
+    assert.equal(result.state, "complete");
+    console.log(
+      JSON.stringify({
+        status: "complete",
+        action: mode,
+        fixedStagingTarget: true,
+        acceptedCredentialsUnchanged: true,
+        requiresFreshPasskeyVerification: true,
+      }),
+    );
+    return;
+  }
   resetStarted = true;
   const result =
     mode === "finalize-reviewed"

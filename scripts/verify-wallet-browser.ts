@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { chromium, type Browser } from "playwright-core";
+import { chromium, type Browser, type Page } from "playwright-core";
 import pg from "pg";
 import { privateKeyToAccount } from "viem/accounts";
 import type {} from "../frontend/account-types.ts";
@@ -61,6 +61,7 @@ const accounts: string[] = [];
 const checks: string[] = [];
 const errors: string[] = [];
 let browser: Browser | undefined;
+let failurePage: Page | undefined;
 let phase = "start";
 async function countWallets(accountId: string) {
   return (
@@ -129,8 +130,18 @@ try {
     window.ethereum = { request };
   });
   const page = await context.newPage();
+  failurePage = page;
   page.setDefaultTimeout(10000);
   page.on("pageerror", (error) => errors.push(error.message));
+  const accountRefreshEntered = Promise.withResolvers<void>();
+  const releaseAccountRefresh = Promise.withResolvers<void>();
+  let holdAccountRefresh = false;
+  await page.route("**/api/auth/me", async (route) => {
+    if (!holdAccountRefresh) return route.continue();
+    accountRefreshEntered.resolve();
+    await releaseAccountRefresh.promise;
+    return route.continue();
+  });
   await page.route("**/api/auth/wallet/operations", async (route) => {
     if (unavailable)
       return route.fulfill({
@@ -233,18 +244,23 @@ try {
   ).rows[0]?.id;
   assert.ok(retained);
   await form.locator("select[name=credential]").selectOption(retained);
+  phase = "retained-wallet wrong-account proof";
   activeSigner = signer(1);
   await submitFailure(/Switch your wallet/);
+  phase = "retained-wallet wrong-chain proof";
   activeSigner = signer(2);
   activeChain = 1;
   await submitFailure(new RegExp(`chain ${chainId}`));
+  phase = "retained-wallet cancelled signature";
   activeChain = chainId;
   rejectSignature = true;
   await submitFailure(/rejected signature/);
+  phase = "retained-wallet expired completion";
   rejectSignature = false;
   expireCompletion = true;
   await submitFailure(/expired or invalid/);
   assert.equal(await countWallets(accountId), 2);
+  phase = "retained-wallet unavailable approval service";
   unavailable = true;
   await submitFailure(/service unavailable/);
   assert.equal(await page.locator("#signed-in").isVisible(), true);
@@ -256,8 +272,48 @@ try {
     path: resolve(directory, "retained-removal-mobile.png"),
     fullPage: true,
   });
-  await form.locator("button[type=submit]").click();
-  await dialog.waitFor({ state: "hidden" });
+  phase = "mobile retained-wallet removal while account refresh is held";
+  holdAccountRefresh = true;
+  const refreshBarrierDeadline = Promise.withResolvers<void>();
+  let refreshBarrierTimedOut = false;
+  const refreshBarrierTimer = setTimeout(() => {
+    refreshBarrierTimedOut = true;
+    releaseAccountRefresh.resolve();
+    refreshBarrierDeadline.resolve();
+  }, 10000);
+  try {
+    await form.locator("button[type=submit]").click();
+    await dialog.waitFor({ state: "hidden" });
+    await Promise.race([
+      accountRefreshEntered.promise,
+      refreshBarrierDeadline.promise,
+    ]);
+    assert.equal(refreshBarrierTimedOut, false);
+    assert.equal(await countWallets(accountId), 1);
+    assert.equal(await page.locator("#signed-in").isVisible(), false);
+    await page
+      .locator("#account-notice")
+      .filter({ hasText: "Checking your account…" })
+      .waitFor();
+  } finally {
+    holdAccountRefresh = false;
+    clearTimeout(refreshBarrierTimer);
+    releaseAccountRefresh.resolve();
+  }
+  phase = "mobile retained-wallet removal after account refresh";
+  await page.locator("#signed-in").waitFor({ state: "visible" });
+  await page
+    .locator("#account-notice")
+    .getByText(
+      "Wallet unlinked. Other sessions were signed out and your session was renewed.",
+      { exact: true },
+    )
+    .waitFor();
+  await page
+    .locator("#account-notifications")
+    .getByText("was unlinked", { exact: false })
+    .first()
+    .waitFor();
   assert.equal(await countWallets(accountId), 1);
   assert.equal(await page.locator("#signed-in").isVisible(), true);
   assert.ok(
@@ -273,8 +329,9 @@ try {
     true,
   );
   checks.push(
-    "retained proof rejects wrong account, wrong chain, cancelled signature, expiry and synthetic service outage; mobile removal preserves session and notification",
+    "retained proof rejects wrong account, wrong chain, cancelled signature, expiry and synthetic service outage; committed mobile removal keeps private account data hidden during a held refresh, then restores the confirmed session and notification",
   );
+  phase = "retained-wallet consumed completion replay";
   assert.ok(completed);
   const replay = await page.evaluate(
     async (operation: { path: string; body: string }) => {
@@ -366,9 +423,28 @@ try {
       artifactDirectory: directory,
     }),
   );
-} catch {
+} catch (error) {
+  const errorName =
+    error instanceof Error &&
+    ["AssertionError", "TimeoutError"].includes(error.name)
+      ? error.name
+      : "Error";
+  const scriptLine =
+    error instanceof Error
+      ? error.stack?.match(/verify-wallet-browser\.ts:(\d+):\d+/)?.[1]
+      : undefined;
+  await failurePage
+    ?.screenshot({ path: resolve(directory, "failure.png"), fullPage: true })
+    .catch(() => {});
   console.error(
-    JSON.stringify({ status: "failed", phase, artifactDirectory: directory }),
+    JSON.stringify({
+      status: "failed",
+      phase,
+      errorName,
+      scriptLine: scriptLine ? Number(scriptLine) : null,
+      artifactDirectory: directory,
+      privateDetailsWithheld: true,
+    }),
   );
   process.exitCode = 1;
 } finally {

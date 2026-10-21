@@ -18,7 +18,7 @@ import pg from "pg";
 const projectRef = "ypteqfmjietdqjzyvgtk";
 const credentialPath = "/private/tmp/yaparena-auth-operator/role-recovery.json";
 const evidenceDirectory = resolve(
-  "docs/evidence/account-completion-baseline/privy-passkey-release",
+  "docs/evidence/account-completion-baseline/embedded-wallet-release",
 );
 const phase = process.argv[2];
 assert.ok(phase === "preflight" || phase === "postflight");

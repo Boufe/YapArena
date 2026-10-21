@@ -40,14 +40,14 @@ const projectRef = "ypteqfmjietdqjzyvgtk";
 const privateRoot = "/private/tmp/yaparena-auth-operator";
 const credentialPath = resolve(privateRoot, "role-recovery.json");
 const keyPath = resolve(privateRoot, "selected-1-4-3/backup-key");
-// The original 13-migration release is retained in its dated evidence. This
-// release starts from that verified 41-migration staging schema.
-const reviewedAppliedCount = 41;
+// Prior releases retain their exact backup/migration evidence. This release
+// starts from the verified 43-migration Privy-only staging schema.
+const reviewedAppliedCount = 43;
 const releaseEvidence =
-  "docs/evidence/account-completion-baseline/privy-passkey-release";
+  "docs/evidence/account-completion-baseline/embedded-wallet-release";
 const reviewedPending = [
-  "1792426012000_add-provider-passkey-provenance",
-  "1792426013000_add-provider-passkey-bootstrap",
+  "1792426014000_add-embedded-wallet-provisioning",
+  "1792426015000_add-provider-control-phases",
 ];
 const exec = promisify(execFile),
   sha = (value: Buffer | string) =>

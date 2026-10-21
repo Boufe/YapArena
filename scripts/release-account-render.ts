@@ -41,7 +41,7 @@ assert.ok(process.argv.length <= 3);
 if (mode !== "inspect")
   assert.equal(process.env.ACCOUNT_STAGING_RENDER_ACTION, mode);
 const directory = resolve(
-    "docs/evidence/account-completion-baseline/privy-passkey-release",
+    "docs/evidence/account-completion-baseline/embedded-wallet-release",
   ),
   lockPath = "/private/tmp/yaparena-auth-operator/render-release.lock";
 type Json = Record<string, unknown>;

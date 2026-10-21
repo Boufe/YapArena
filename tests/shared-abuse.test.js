@@ -57,6 +57,18 @@ it("scopes resolved-account recovery attempts independently, without storing acc
     "throttled",
   );
   assert.equal(
+    await first("12345678901234", "embedded.wallet.retry"),
+    "allowed",
+  );
+  assert.equal(
+    await second("12345678901234", "embedded.wallet.retry"),
+    "throttled",
+  );
+  assert.equal(
+    await second("12345678901235", "embedded.wallet.retry"),
+    "allowed",
+  );
+  assert.equal(
     [...counters.keys()].some((key) => key.includes("12345678901234")),
     false,
   );
@@ -70,6 +82,10 @@ it("scopes resolved-account recovery attempts independently, without storing acc
   });
   assert.equal(
     await unavailable("12345678901234", "security.login"),
+    "unavailable",
+  );
+  assert.equal(
+    await unavailable("12345678901234", "embedded.wallet.retry"),
     "unavailable",
   );
   await assert.rejects(
@@ -107,6 +123,10 @@ it("scopes resolved-account recovery attempts independently, without storing acc
     "allowed",
     "allowed",
     "throttled",
+    "allowed",
+    "throttled",
+    "allowed",
+    "unavailable",
     "unavailable",
   ]);
 });

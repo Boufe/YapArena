@@ -45,7 +45,8 @@ export function createSharedAccountAttemptLimiter(options: {
       | "security.login"
       | "provider.credentials.reconcile"
       | "provider.passkey.link"
-      | "provider.passkey.restart",
+      | "provider.passkey.restart"
+      | "embedded.wallet.retry",
   ) => {
     if (
       !/^[1-9][0-9]*$/.test(userId) ||
@@ -54,6 +55,7 @@ export function createSharedAccountAttemptLimiter(options: {
         "provider.credentials.reconcile",
         "provider.passkey.link",
         "provider.passkey.restart",
+        "embedded.wallet.retry",
       ].includes(purpose)
     )
       throw new Error("verified recovery account and operation required");

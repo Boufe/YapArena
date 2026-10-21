@@ -295,7 +295,9 @@ describe("public discovery", () => {
     assert.equal(account.status, 200);
     assert.match(account.text, /Sign-In with Ethereum/);
     assert.match(account.text, /id="profile-form"/);
-    assert.match(account.text, /id="wallet-link"/);
+    assert.doesNotMatch(account.text, /id="wallet-link"|Link another wallet/);
+    assert.match(account.text, /id="retained-wallets"[^>]*hidden/);
+    assert.match(account.text, /id="wallet-list"/);
     assert.match(
       (await request(app).get("/topics/public-topic")).text,
       /data-follow-type="topics"/,

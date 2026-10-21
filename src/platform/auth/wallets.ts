@@ -26,8 +26,12 @@ export interface LinkedWallet {
 }
 
 export class ChallengeUnavailableError extends Error {}
+export class WalletRegistrationUnavailableError extends Error {}
 
-export function createWalletRepository(database: Pool) {
+export function createWalletRepository(
+  database: Pool,
+  options: { allowNewAccounts?: boolean } = {},
+) {
   return Object.freeze({
     operations: createWalletOperationRepository(database),
     async createChallenge(input: {
@@ -122,6 +126,10 @@ export function createWalletRepository(database: Pool) {
         )
           throw new ChallengeUnavailableError(
             "wallet ownership changed; request a fresh challenge",
+          );
+        if (!account && options.allowNewAccounts === false)
+          throw new WalletRegistrationUnavailableError(
+            "Use email to create an account. Wallet sign-in is for existing accounts.",
           );
         const consumed = await client.query(
           `UPDATE wallet_challenges SET consumed_at = CURRENT_TIMESTAMP WHERE id = $1 AND consumed_at IS NULL

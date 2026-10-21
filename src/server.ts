@@ -27,6 +27,8 @@ import {
 } from "./platform/auth/privy.ts";
 import { createProviderRevocation } from "./platform/auth/provider-revocation.ts";
 import { createProviderAccounts } from "./platform/auth/provider-accounts.ts";
+import { createEmbeddedWalletProvisioning } from "./platform/auth/embedded-wallet-provisioning.ts";
+import { createPrivyEmbeddedWalletProvider } from "./platform/auth/embedded-wallet-provider.ts";
 import { createProviderSessionMonitor } from "./platform/auth/provider-session-monitor.ts";
 import { createAccountOperationRepository } from "./platform/auth/account-operations.ts";
 import { AccountOperationError } from "./platform/auth/account-operations.ts";
@@ -115,8 +117,10 @@ const mediaAccountRevocation = mediaProvider
     })
   : undefined;
 const users = createUserRepository(database);
-const wallets = createWalletRepository(database);
 const providerConfig = loadProviderConfig(process.env);
+const wallets = createWalletRepository(database, {
+  allowNewAccounts: !providerConfig,
+});
 const abuseStore = providerConfig
   ? createRedisAbuseStore({
       url: providerConfig.redisUrl,
@@ -126,12 +130,28 @@ const abuseStore = providerConfig
       },
     })
   : undefined;
+const embeddedWallet = providerConfig
+  ? createEmbeddedWalletProvisioning(
+      database,
+      createPrivyEmbeddedWalletProvider({
+        appId: providerConfig.appId,
+        appSecret: providerConfig.appSecret,
+      }),
+    )
+  : undefined;
 const authProvider = providerConfig
   ? {
       appId: providerConfig.appId,
       clientId: providerConfig.clientId,
       verifier: createPrivyVerifier(providerConfig),
       accounts: createProviderAccounts(database),
+      embeddedWallet: embeddedWallet
+        ? {
+            repository: embeddedWallet,
+            authorizeAttempt: (userId: string) =>
+              authorizeAccountAttempt(userId, "embedded.wallet.retry"),
+          }
+        : undefined,
     }
   : undefined;
 const sessions = createSessionRepository(database, {
@@ -162,7 +182,8 @@ async function authorizeAccountAttempt(
     | "security.login"
     | "provider.credentials.reconcile"
     | "provider.passkey.link"
-    | "provider.passkey.restart",
+    | "provider.passkey.restart"
+    | "embedded.wallet.retry",
 ) {
   if (!accountAttempt)
     throw new AccountOperationError(
@@ -334,10 +355,44 @@ const synchronizeProvider = () => {
     });
 };
 const providerTimer = providerRevocation
-  ? setInterval(synchronizeProvider, 30_000)
+  ? setInterval(synchronizeProvider, 10_000)
   : undefined;
 providerTimer?.unref();
 synchronizeProvider();
+let embeddedWalletWork: Promise<void> | undefined;
+const synchronizeEmbeddedWallet = () => {
+  if (!embeddedWallet || embeddedWalletWork) return;
+  embeddedWalletWork = embeddedWallet
+    .process(1)
+    .then((result) => {
+      if (result.ready)
+        metrics.authJourney.inc(
+          { event: "embedded_wallet_ready" },
+          result.ready,
+        );
+      if (result.retry)
+        metrics.authJourney.inc(
+          { event: "embedded_wallet_retry" },
+          result.retry,
+        );
+      if (result.review)
+        metrics.authJourney.inc(
+          { event: "embedded_wallet_review" },
+          result.review,
+        );
+    })
+    .catch(() => {
+      metrics.authJourney.inc({ event: "embedded_wallet_worker_error" });
+    })
+    .finally(() => {
+      embeddedWalletWork = undefined;
+    });
+};
+const embeddedWalletTimer = embeddedWallet
+  ? setInterval(synchronizeEmbeddedWallet, 10_000)
+  : undefined;
+embeddedWalletTimer?.unref();
+synchronizeEmbeddedWallet();
 
 logger.info(
   {
@@ -363,7 +418,9 @@ async function shutdown(signal: string) {
 
   try {
     clearInterval(providerTimer);
+    clearInterval(embeddedWalletTimer);
     await providerWork;
+    await embeddedWalletWork;
     await runtime.stop();
     abuseStore?.close();
     clearTimeout(forcedExit);

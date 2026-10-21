@@ -26,9 +26,12 @@ import {
 import {
   ChallengeUnavailableError,
   WalletAlreadyLinkedError,
+  WalletRegistrationUnavailableError,
 } from "./wallets.ts";
 import { createApiRateLimiter } from "../security.ts";
 import { WalletOperationError } from "./wallet-operations.ts";
+import { AccountOperationError } from "./account-operations.ts";
+import type { createEmbeddedWalletProvisioning } from "./embedded-wallet-provisioning.ts";
 
 const dummyPasswordHash =
   "$argon2id$v=19$m=19456,p=1,t=2$lyjbixDyiZIjLayIBjKzug$XkfmwNfqtaLsRnC6LtyIEGEQ5pApGzGiypF/XpcVboI";
@@ -141,6 +144,13 @@ export function createAuthRouter({
     clientId?: string;
     verifier: IdentityVerifier;
     accounts: ReturnType<typeof createProviderAccounts>;
+    embeddedWallet?: {
+      repository: Pick<
+        ReturnType<typeof createEmbeddedWalletProvisioning>,
+        "get" | "requestRetry"
+      >;
+      authorizeAttempt: (userId: string) => Promise<void>;
+    };
   };
   recordAuth?: (
     event: string,
@@ -292,11 +302,65 @@ export function createAuthRouter({
   });
   router.get("/methods", requireAuthentication, async (request, response) =>
     response.json({
+      accountId: request.user!.id,
       provider: provider
         ? await provider.accounts.details(request.user!.id)
         : null,
       legacyPassword: Boolean(request.user!.email),
     }),
+  );
+  router.get(
+    "/embedded-wallet",
+    requireAuthentication,
+    async (request, response) => {
+      if (!provider?.embeddedWallet)
+        return response
+          .status(503)
+          .json({ error: "wallet setup is temporarily unavailable" });
+      return response.json(
+        await provider.embeddedWallet.repository.get(request.user!.id),
+      );
+    },
+  );
+  router.post(
+    "/embedded-wallet",
+    requireAuthentication,
+    async (request, response, next) => {
+      if (request.get("origin") !== applicationOrigin)
+        return response
+          .status(403)
+          .json({ error: "request origin is not allowed" });
+      const body: unknown = request.body;
+      if (
+        !body ||
+        typeof body !== "object" ||
+        Array.isArray(body) ||
+        Object.keys(body).length !== 0
+      )
+        return response.status(400).json({ error: "invalid wallet request" });
+      if (request.get("X-YapArena-Expected-Account") !== request.user!.id)
+        return response
+          .status(409)
+          .json({ error: "account changed; refresh wallet setup" });
+      if (!provider?.embeddedWallet || !sharedAccountLimiter)
+        return response
+          .status(503)
+          .json({ error: "wallet setup is temporarily unavailable" });
+      return sharedAccountLimiter(request, response, next);
+    },
+    async (request, response) => {
+      const wallet = provider!.embeddedWallet!;
+      try {
+        await wallet.authorizeAttempt(request.user!.id);
+        return response
+          .status(202)
+          .json(await wallet.repository.requestRetry(request.user!.id));
+      } catch (error) {
+        if (error instanceof AccountOperationError)
+          return response.status(error.status).json({ error: error.message });
+        throw error;
+      }
+    },
   );
   if (sharedAccountLimiter)
     router.use(
@@ -680,6 +744,8 @@ export function createAuthRouter({
             return response
               .status(410)
               .json({ error: "challenge expired or used" });
+          if (error instanceof WalletRegistrationUnavailableError)
+            return response.status(403).json({ error: error.message });
           throw error;
         }
       },
@@ -736,6 +802,10 @@ export function createAuthRouter({
             .status(400)
             .json({ error: "invalid wallet operation" });
         try {
+          if (provider && input.purpose === "link")
+            return response
+              .status(410)
+              .json({ error: "external wallet linking is unavailable" });
           const operation = await walletRepository.operations.create({
             ...input,
             targetWalletId:
@@ -787,6 +857,10 @@ export function createAuthRouter({
             .status(400)
             .json({ error: "invalid wallet operation proof" });
         try {
+          if (provider && input.purpose === "link")
+            return response
+              .status(410)
+              .json({ error: "external wallet linking is unavailable" });
           const result = await walletRepository.operations.complete({
             ...input,
             id: request.params.id,

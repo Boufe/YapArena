@@ -33,6 +33,7 @@ import type {
   ProviderPasskeyTerms,
   SecurityApproval,
 } from "./auth-events.js";
+import { EmbeddedWallet } from "./embedded-wallet.js";
 
 type Config = {
   enabled: boolean;
@@ -917,6 +918,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
         passkeys={passkeys}
         onReconcile={setReconciliationToken}
       />
+      <EmbeddedWallet />
       {reconciliationToken && (
         <Reconciliation
           key={reconciliationToken}

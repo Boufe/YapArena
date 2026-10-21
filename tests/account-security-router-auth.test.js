@@ -82,6 +82,52 @@ function fixture(overrides = {}) {
   return { app, seen, call };
 }
 describe("security passkey HTTP boundaries", () => {
+  it("disables new external-wallet links before proof consumption and keeps retained removal", async () => {
+    const calls = [];
+    const { call } = fixture({
+      allowExternalWalletLinks: false,
+      walletOperations: {
+        async create(input) {
+          calls.push(input);
+          return { id };
+        },
+        async complete(input) {
+          calls.push(input);
+          return { token: "synthetic", wallet: { id } };
+        },
+      },
+    });
+    const target = {
+      purpose: "link",
+      address: `0x${"11".repeat(20)}`,
+      chainId: 1,
+    };
+    const created = await call("post", "/wallet/operations").send({
+      ...target,
+      credential: { type: "passkey", keyId },
+    });
+    const completed = await call(
+      "post",
+      `/wallet/operations/${id}/complete`,
+    ).send({
+      ...target,
+      approval: { id, password: "synthetic" },
+      proposedSignature: "0x1234",
+    });
+    for (const response of [created, completed]) {
+      assert.equal(response.status, 410);
+      assert.equal(response.headers["set-cookie"], undefined);
+    }
+    assert.deepEqual(calls, []);
+    const removed = await call("post", "/wallet/operations").send({
+      ...target,
+      purpose: "unlink",
+      targetWalletId: keyId,
+      credential: { type: "passkey", keyId },
+    });
+    assert.equal(removed.status, 200);
+    assert.equal(calls[0].purpose, "unlink");
+  });
   it("restarts a first provider passkey only through server-verified bearer context and a native proof", async () => {
     const calls = [];
     const { app } = fixture({

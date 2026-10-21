@@ -403,6 +403,7 @@ export function createApp({
       "/api/auth",
       createAccountSecurityRouter({
         ...accountSecurity,
+        allowExternalWalletLinks: !authProvider,
         sessions,
         environment,
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",

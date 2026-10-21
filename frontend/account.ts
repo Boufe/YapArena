@@ -119,7 +119,7 @@ function walletMessageHex(message: string) {
   );
 }
 
-async function walletAction(purpose: "login" | "link") {
+async function walletAction() {
   const provider = window.ethereum;
   if (!provider?.request) {
     say(
@@ -137,10 +137,6 @@ async function walletAction(purpose: "login" | "link") {
       throw new Error(
         "Your wallet did not provide a valid account and network.",
       );
-    if (purpose === "link") {
-      openWalletChange({ purpose, address: address.toLowerCase(), chainId });
-      return;
-    }
     const base = "/api/auth/wallet/login";
     const challenge = await api<WalletChallenge>(`${base}/challenge`, "POST", {
       address,
@@ -157,8 +153,8 @@ async function walletAction(purpose: "login" | "link") {
       challengeId: challenge.id,
       signature,
     });
-    say((purpose as string) === "link" ? "Wallet linked." : "Signed in.");
-    if (purpose === "login" && returnToRequestedPage()) return;
+    say("Signed in.");
+    if (returnToRequestedPage()) return;
     await loadAccount();
   } catch (error) {
     say(
@@ -212,7 +208,8 @@ async function loadWallets(version = accountVersion) {
     .wallets;
   if (version !== accountVersion) return;
   linkedWallets = wallets;
-  if (!wallets.length) list.append(item("No wallet linked yet."));
+  const retained = document.querySelector<HTMLElement>("#retained-wallets");
+  if (retained) retained.hidden = wallets.length === 0;
   for (const wallet of wallets) {
     const row = item(
       `${wallet.address.slice(0, 8)}…${wallet.address.slice(-6)} · chain ${wallet.chainId}`,
@@ -349,10 +346,7 @@ async function loadAccount() {
 
 document
   .querySelector<HTMLElement>("#wallet-login")!
-  .addEventListener("click", () => walletAction("login"));
-document
-  .querySelector<HTMLElement>("#wallet-link")!
-  .addEventListener("click", () => walletAction("link"));
+  .addEventListener("click", () => walletAction());
 const signOutButtons = [
   document.querySelector<HTMLButtonElement>("#sign-out")!,
   checkingSignOut,

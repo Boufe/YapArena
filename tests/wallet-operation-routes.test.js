@@ -19,6 +19,7 @@ function fixture({
   signedIn = true,
   environment = "development",
   authRateLimit = 100,
+  provider = false,
 } = {}) {
   const operations = {
     create: mock.fn(async (input) => {
@@ -47,6 +48,9 @@ function fixture({
     environment,
     applicationOrigin: "https://arena.example.test",
     authRateLimit,
+    authProvider: provider
+      ? { appId: "synthetic", verifier: {}, accounts: {} }
+      : undefined,
   });
   const call = (path, body, method = "post") =>
     request(app)
@@ -63,6 +67,37 @@ function fixture({
 }
 
 describe("wallet credential-management HTTP gate", () => {
+  it("disables new external links in provider mode and preserves retained removal", async () => {
+    const { call, operations } = fixture({ provider: true });
+    for (const [path, body] of [
+      [
+        "/api/auth/wallet/operations",
+        { ...target, credential: { type: "password" } },
+      ],
+      [
+        `/api/auth/wallet/operations/${id}/complete`,
+        { ...target, password: "synthetic", proposedSignature: "0xaa" },
+      ],
+    ]) {
+      const response = await call(path, body);
+      assert.equal(response.status, 410);
+      assert.equal(response.headers["set-cookie"], undefined);
+    }
+    assert.equal(operations.create.mock.callCount(), 0);
+    assert.equal(operations.complete.mock.callCount(), 0);
+    assert.equal(
+      (
+        await call("/api/auth/wallet/operations", {
+          ...target,
+          purpose: "unlink",
+          targetWalletId: id,
+          credential: { type: "password" },
+        })
+      ).status,
+      201,
+    );
+    assert.equal(operations.create.mock.callCount(), 1);
+  });
   it("removes the cookie-only legacy mutation API", async () => {
     const { call, operations } = fixture();
     for (const path of [

@@ -215,6 +215,7 @@ export type SecurityRouterOptions = {
   providerPasskeyBootstrap?: ReturnType<typeof createProviderPasskeyBootstrap>;
   authorizeProviderPasskeyAttempt?: (userId: string) => Promise<void>;
   walletOperations?: ReturnType<typeof createProviderWalletOperations>;
+  allowExternalWalletLinks?: boolean;
   legacyProviderLink?: ReturnType<typeof createLegacyProviderLink>;
   providerIdentityRecovery?: ReturnType<typeof createProviderIdentityRecovery>;
   access?: ReturnType<typeof createAccountAccessRepository>;
@@ -234,6 +235,7 @@ export function createAccountSecurityRouter({
   providerPasskeyBootstrap,
   authorizeProviderPasskeyAttempt,
   walletOperations,
+  allowExternalWalletLinks = true,
   legacyProviderLink,
   providerIdentityRecovery,
   access,
@@ -663,6 +665,11 @@ export function createAccountSecurityRouter({
         ])
       )
         invalid();
+      if (!allowExternalWalletLinks && body.purpose === "link")
+        throw new AccountOperationError(
+          410,
+          "external wallet linking is unavailable",
+        );
       return response.json(
         await walletOperations.create({
           ...session(request),
@@ -692,6 +699,11 @@ export function createAccountSecurityRouter({
               body.proposedSignature.length > 8194))
         )
           invalid();
+        if (!allowExternalWalletLinks && body.purpose === "link")
+          throw new AccountOperationError(
+            410,
+            "external wallet linking is unavailable",
+          );
         const approval = proof(body.approval);
         if (approval.id !== id) invalid();
         const result = await walletOperations.complete({

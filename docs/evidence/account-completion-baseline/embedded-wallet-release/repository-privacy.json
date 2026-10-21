@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "testedRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+  "scope": "Current tracked text plus new documentation, including the uncommitted post-release evidence; helper checks file identity/size/mtime, path inventory and HEAD stability through completion.",
+  "trackedAndNewDocumentationTextScanned": true,
+  "textFilesScanned": 897,
+  "binaryFilesSkipped": 763,
+  "deletedFilesSkipped": 0,
+  "bytesRead": 243589768,
+  "highEntropyActualSecretsChecked": 5,
+  "configuredProviderSecretOccurrences": 3,
+  "rawAndUriEncodedFormsChecked": true,
+  "matchingFiles": 0,
+  "secretFileMatches": 0,
+  "readOnlyRequests": 2,
+  "databaseConnections": 0,
+  "mutations": 0,
+  "helperSha256": "2d85829fbb247f88e7d494a9cae37b9b0659d186fd254b62fa2d45e00ecf5b36",
+  "limitations": [
+    "Checks the five privately loaded current owner/runtime/Render/Privy/LiveKit secrets and selected encoded forms; it is not proof against all historical, unknown or obfuscated secrets.",
+    "Binary files and screenshot pixels are not inspected by this text scanner. The new hosted guest journeys use empty forms and no user credential ceremony; screenshots and preserved theme were reviewed separately.",
+    "Only counts, booleans, public revision and helper hash are exported. No secret values, environment variable inventory, matching paths or raw service responses are recorded.",
+    "This report and later fixed-text completion/PR metadata are added after the scan; they contain only this allowlisted aggregate result."
+  ]
+}

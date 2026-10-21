@@ -1,0 +1,156 @@
+{
+  "result": "PASS",
+  "runId": 39678375965,
+  "runAttempt": 1,
+  "url": "https://github.com/Boufe/YapArena/actions/runs/39678375965",
+  "completedAt": "2026-10-21T21:45:57Z",
+  "reviewedAt": "2026-10-21T21:49:34.740632+00:00",
+  "branchRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+  "testedMergeCommit": "4f7f28a1aac35fd8da7197debbe5481757a11065",
+  "mergeParents": [
+    "fd60543b5f6d8f0b65fe1f93807252064d9317f2",
+    "eba1dc5cfe6680a9a41e98482b64d3c725163a1b"
+  ],
+  "testedTree": "c1179532281a42b92094b52448d11e26c33404a0",
+  "branchTree": "c1179532281a42b92094b52448d11e26c33404a0",
+  "allFiveCheckoutLogsVerified": true,
+  "environment": {
+    "runner": "Ubuntu 24.04",
+    "qualityNode": "24.22.0",
+    "integrationNode": "24.21.0",
+    "databaseMode": "disposable Docker PostgreSQL; native PostgreSQL17 tools for community Unicode/replay prerequisites",
+    "configuredDockerPostgresImage": "postgres:18.4-bookworm"
+  },
+  "quality": {
+    "tests": 858,
+    "passed": 858,
+    "skipped": 0,
+    "coverage": {
+      "lines": 95.32,
+      "branches": 91.23,
+      "functions": 95.35
+    },
+    "eachFreshAndUpgrade": {
+      "accountSecurityLedger": 239,
+      "treasury": 5
+    }
+  },
+  "integration": {
+    "result": "success",
+    "eachFreshAndUpgrade": {
+      "accountSecurityLedger": 239,
+      "a4": 17,
+      "treasury": 5
+    },
+    "retainedWallet": {
+      "status": "passed",
+      "groups": 4,
+      "fixtureSha256": "3720a754856057a21398c2995a0fdb7733a258814aeea6d9ead66a07f2774287",
+      "fixtureHashProvenance": "SHA256 of scripts/verify-wallet-browser.ts in exact tested tree; actual child status/groups read from integration stdout",
+      "acceptanceJsonUploaded": false
+    },
+    "replayPackagingAndPipeline": "passed",
+    "coreBrowser": "passed",
+    "community": {
+      "result": "PASS",
+      "viewers": 500,
+      "rooms": 50,
+      "seconds": 30,
+      "writes": 300,
+      "deliverySamples": 3000,
+      "deliveryP50Ms": 35,
+      "deliveryP95Ms": 95,
+      "stormRecoveryMs": 432,
+      "restartRecoveryMs": 4301,
+      "maxStreams": 500,
+      "maxRooms": 50,
+      "rssGrowthMiB": 16.6,
+      "finalStreams": 0,
+      "maxRuntimeConnections": 8
+    },
+    "backupIsolatedRestore": "passed",
+    "publicDiscoveryApiSmokeAndDesktopMobileBrowsers": "passed",
+    "cleanup": "passed"
+  },
+  "artifact": {
+    "id": 12383357698,
+    "name": "core-browser-evidence",
+    "sha256": "4f1e8f7108f6de526d4cb108df9fb4f4fab3f89e093fe63ed4d7b3c55f200bfc",
+    "entries": 37,
+    "privateDownload": true,
+    "parentStatus": "passed",
+    "childJsonCount": 5,
+    "explicitResultPassChildJsonCount": 4,
+    "a4AssertionEvidenceWithoutResultField": "a4/browser-evidence.json; assertions/errors/outcomes inspected and parent A4 gate passed"
+  },
+  "jobs": [
+    {
+      "id": 119494085297,
+      "name": "deployment",
+      "conclusion": "success",
+      "checkout": "4f7f28a1aac35fd8da7197debbe5481757a11065",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39678375965/job/119494085297",
+      "startedAt": "2026-10-21T21:23:22Z",
+      "completedAt": "2026-10-21T21:23:38Z",
+      "rawLogSha256": "179bf187a5e3e68fd5953f993c3c36692b69e156e7522e8659bddd89d04931d7",
+      "rawLogBytes": 14874,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119494085661,
+      "name": "monitoring",
+      "conclusion": "success",
+      "checkout": "4f7f28a1aac35fd8da7197debbe5481757a11065",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39678375965/job/119494085661",
+      "startedAt": "2026-10-21T21:23:22Z",
+      "completedAt": "2026-10-21T21:23:40Z",
+      "rawLogSha256": "a70854e13aea501f535c992a4f4323a69045eb19c8131c3f6c3255ce31953911",
+      "rawLogBytes": 18371,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119494086003,
+      "name": "quality / check",
+      "conclusion": "success",
+      "checkout": "4f7f28a1aac35fd8da7197debbe5481757a11065",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39678375965/job/119494086003",
+      "startedAt": "2026-10-21T21:23:22Z",
+      "completedAt": "2026-10-21T21:28:14Z",
+      "rawLogSha256": "19dd8200ddde395f8b56bf358efeee5851cc53d9d13fc50a13dcb3c127adcece",
+      "rawLogBytes": 108935,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119496381728,
+      "name": "container",
+      "conclusion": "success",
+      "checkout": "4f7f28a1aac35fd8da7197debbe5481757a11065",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39678375965/job/119496381728",
+      "startedAt": "2026-10-21T21:28:17Z",
+      "completedAt": "2026-10-21T21:34:42Z",
+      "rawLogSha256": "ea9cadfeb72f14b3ac4650d2028d0301e02bf2ad6c52e168ebfe0b81db6f2958",
+      "rawLogBytes": 1230856,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119496381880,
+      "name": "integration",
+      "conclusion": "success",
+      "checkout": "4f7f28a1aac35fd8da7197debbe5481757a11065",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39678375965/job/119496381880",
+      "startedAt": "2026-10-21T21:28:17Z",
+      "completedAt": "2026-10-21T21:45:56Z",
+      "rawLogSha256": "89d360580746d96f7f5031c33ca73fad01f40bcc59cfde34c04e9bffe872dfe3",
+      "rawLogBytes": 257691,
+      "rawLogPrivateMode": "0600"
+    }
+  ],
+  "limitations": [
+    "CI uses runner-local disposable PostgreSQL and synthetic browser/media/legacy-wallet fixtures; it is not a hosted deployment, genuine provider journey or physical-device trial.",
+    "The deployment job validates production Compose only; its name does not establish a Render deployment.",
+    "SDK111, native18, coin22, cookie7/14, real Redis and prior genuine chain/Cloud trials are separate evidence, not rerun or upgraded by this CI.",
+    "The configured Trivy policy checks HIGH/CRITICAL with ignore-unfixed; success does not establish zero vulnerabilities.",
+    "The retained acceptance.json is excluded by the current artifact upload glob. Its actual status:passed/groups:4 is independently checked in the final integration log; the fixture hash is derived from the exact tested Git tree.",
+    "Raw CI logs and artifact ZIP remain private mode0600; only allowlisted aggregate excerpts, child projections and a synthetic screenshot are archived."
+  ]
+}

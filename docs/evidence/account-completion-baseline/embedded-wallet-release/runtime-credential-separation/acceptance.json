@@ -1,0 +1,75 @@
+{
+  "passed": true,
+  "services": [
+    {
+      "serviceId": "srv-datv1kjncjis73a500cg",
+      "valuesInspected": 30,
+      "listingComplete": true,
+      "allValuesScanned": true,
+      "rawAndEncodedOwnerPatternsChecked": true,
+      "ownerCredentialMatches": 0,
+      "ownerIdentityMarkerMatches": 0,
+      "suspiciousDatabaseAdminKeyCount": 0,
+      "nonemptySuspiciousDatabaseAdminKeyCount": 0,
+      "databaseUrlValueCount": 1,
+      "ownerOrAdminDatabaseUrlValueCount": 0,
+      "unexpectedDatabaseUrlIdentityCount": 0,
+      "privilegedDatabaseJwtMarkerCount": 0,
+      "ownerCredentialAbsent": true,
+      "ownerIdentityMarkersAbsent": true,
+      "suspiciousDatabaseAdminKeysAbsent": true,
+      "ownerOrAdminDatabaseUrlsAbsent": true,
+      "unexpectedDatabaseIdentitiesAbsent": true,
+      "privilegedDatabaseJwtMarkersAbsent": true,
+      "runtimeDatabaseConfigurationPresent": true,
+      "runtimeDatabaseCredentialMatches": true,
+      "passed": true
+    },
+    {
+      "serviceId": "srv-db38jiid0e5s73ffr2cg",
+      "valuesInspected": 21,
+      "listingComplete": true,
+      "allValuesScanned": true,
+      "rawAndEncodedOwnerPatternsChecked": true,
+      "ownerCredentialMatches": 0,
+      "ownerIdentityMarkerMatches": 0,
+      "suspiciousDatabaseAdminKeyCount": 0,
+      "nonemptySuspiciousDatabaseAdminKeyCount": 0,
+      "databaseUrlValueCount": 1,
+      "ownerOrAdminDatabaseUrlValueCount": 0,
+      "unexpectedDatabaseUrlIdentityCount": 0,
+      "privilegedDatabaseJwtMarkerCount": 0,
+      "ownerCredentialAbsent": true,
+      "ownerIdentityMarkersAbsent": true,
+      "suspiciousDatabaseAdminKeysAbsent": true,
+      "ownerOrAdminDatabaseUrlsAbsent": true,
+      "unexpectedDatabaseIdentitiesAbsent": true,
+      "privilegedDatabaseJwtMarkersAbsent": true,
+      "runtimeDatabaseConfigurationPresent": true,
+      "runtimeDatabaseCredentialMatches": true,
+      "passed": true
+    }
+  ],
+  "linkedCounts": [
+    {
+      "serviceId": "srv-datv1kjncjis73a500cg",
+      "linkedGroupCount": 0,
+      "directSecretFileCount": 1
+    },
+    {
+      "serviceId": "srv-db38jiid0e5s73ffr2cg",
+      "linkedGroupCount": 0,
+      "directSecretFileCount": 1
+    }
+  ],
+  "environmentGroupListingComplete": true,
+  "linkedGroupMembershipStableDuringInspection": true,
+  "linkedGroupValuesScanned": true,
+  "directAndInheritedEnvironmentValuesScanned": true,
+  "serviceSecretFilesInspected": true,
+  "fixedServiceIdsVerified": true,
+  "readOnlyRequests": 6,
+  "databaseConnections": 0,
+  "mutations": 0,
+  "helperSha256": "cf43df4835a48629a113c8971b48761c660073c0e2c6f63d2c2d86269187a8b6"
+}

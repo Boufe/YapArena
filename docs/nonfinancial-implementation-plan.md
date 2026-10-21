@@ -30,9 +30,9 @@ records 739 tests for its own revision.
 All five [required CI checks](evidence/account-completion-baseline/privy-passkey-ci/README.md)
 passed for `d6e2d35`. The [Privy-only staging release](evidence/account-completion-baseline/privy-passkey-release/README.md)
 applied its two additive migrations after encrypted 83-table/15-sequence backup
-and exact isolated rehearsal. The named web service is live at that revision;
+and exact isolated rehearsal. The named web service was verified live at that revision;
 seven hosted guest groups and all 14 served asset matches passed. Staging has
-43 applied / zero pending migrations. The earlier 13-migration/739-test release
+43 applied / zero pending migrations at that release. The earlier 13-migration/739-test release
 at `9395242` retains its separate historical evidence.
 Retained legacy application-key recovery can replace a lost sole email or Google
 identity without changing the account or merging by email. New Privy keys sign
@@ -55,14 +55,14 @@ returning/linking/recovery journeys and final account acceptance remain open.
 The reviewed delayed provider-reset repair is complete, preserving revocation
 cutoffs and all retained accounts. The Privy-only corrections are hosted. Final review then identified an additional
 account-switch race in ordinary provider settings; its correction and 99-scenario
-local SDK regression passed in `f422dfd`, with release pending. The separate
+local SDK regression passed in `f422dfd`, now included in the `eba1dc5` release. The separate
 interrupted first-passkey reset repair completed without adopting a key or creating
 a session; [actual evidence](evidence/account-completion-baseline/first-passkey-reset-repair/README.md)
 records its one mutation, GET-only finalization and preserved revocation fences.
 The founder then approved automatic user-controlled Privy EVM wallets and removal
 of new external-wallet linking. The [durable wallet design](embedded-wallets.md)
-is implemented locally with no app signing authority; combined acceptance and
-staging release remain pending. Unknown external-wallet signup is also disabled
+is implemented with no app signing authority and deployed at `eba1dc5`; genuine
+provider acceptance remains pending. Unknown external-wallet signup is also disabled
 in email-first mode; retained wallet login/removal stays available. See the
 completion matrix for exact acceptance status.
 The subsequent wallet/reset integration passed **854 tests with zero skips**,
@@ -73,8 +73,8 @@ cookie-coordination groups (14 issuer paths). The
 [new combined evidence](evidence/account-completion-baseline/wallet-phase-integrated/README.md)
 and individual reports bind those local results to their source and asset hashes.
 The current source includes durable user-only wallet provisioning and acknowledged
-provider-reset confirmation; the named staging site still serves `d6e2d35` until
-its separate guarded release. Genuine provider and physical acceptance remain open.
+provider-reset confirmation. The named staging web site now serves `eba1dc5`
+after the separate guarded release below. Genuine provider and physical acceptance remain open.
 The next credential-wait correction parks wallet work without spending creation
 attempts while verification is unfinished. Its complete local gate passed
 **858 tests with zero skips**, **239 focused cases on each fresh/upgrade path**,
@@ -82,8 +82,18 @@ attempts while verification is unfinished. Its complete local gate passed
 18-group native passkey rerun. The
 [new hash-scoped evidence](evidence/account-completion-baseline/wallet-verification-pause/README.md)
 does not inherit a new genuine provider or SDK result. The earlier four-of-five
-CI result includes a failed retained-wallet mobile refresh fixture; its
-deterministic correction and exact-revision CI must pass before release.
+CI result includes a failed retained-wallet mobile refresh fixture. Its
+deterministic correction passed a controlled RED/GREEN test, and all five checks
+now pass on the exact `eba1dc5` tree in
+[run 39678375965](evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/README.md).
+The new encrypted 85-table/15-sequence backup, isolated restore and 43-to-45
+migration rehearsal passed. Both additive migrations are applied; all four
+accounts and all 14 security projections were preserved before writers resumed.
+The [release record](evidence/account-completion-baseline/embedded-wallet-release/README.md)
+confirms exact web revision `eba1dc5` live, unchanged replay-worker source,
+seven hosted guest groups, all 14 asset matches and anonymous wallet privacy.
+The actual read-only wallet result remains pending credential verification;
+genuine saved-key activation and wallet/default-recovery acceptance stay open.
 Real Base Sepolia test-USDC receipt evidence is separate from labelled conversion
 simulations. No live financial routes are enabled. Existing A4 remains nonredeemable
 play money; the new 100 YC/USDC direction does not convert historical grants or

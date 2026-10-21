@@ -1,0 +1,3340 @@
+{
+  "schemaVersion": 1,
+  "title": "Email-first account, security and redeemable Yap Coins requirement checklist",
+  "checkedAt": "2026-10-21T22:24:05.180940+00:00",
+  "overallStatus": "incomplete",
+  "scopeRule": "Each satisfied status identifies its recorded scope and limitations. Continuing future maintenance/guard duties are limitations, not invented unfinished acceptance. Local success never becomes hosted, genuine provider, physical-device, legal or live-financial acceptance. Overall remains incomplete while required genuine/external/delivery gates are open.",
+  "authority": {
+    "matrix": "email-first-completion.md",
+    "approvedDecisions": "email-first-accounts.md",
+    "governingRequirements": "product-prd.md",
+    "independentAudit": "evidence/account-completion-baseline/wallet-phase-independent-completion-audit.md",
+    "pathBase": "docs/",
+    "newClaims": false
+  },
+  "currentState": {
+    "workingTreeBase": "a9706ccb55ae342c4f11366145b1896d17656931",
+    "sourceBoundary": "The integrated/native runs started from a9706cc with the exact three backend and two PostgreSQL-test changes pinned below, before their focused commits. Those changes and the corrected retained-wallet verifier/evidence are now committed and pushed in 2efc95c/ce85b4a/eba1dc5. The integrated run used the older 05c0 verifier; separate controlled RED/GREEN acceptance passed for the new 3720 verifier. All five exact-tree CI checks passed in run 39678375965; guarded backup/restore rehearsal and owner migration passed; exact web deployment is LIVE at eba1dc5, with readiness and seven hosted guest groups passed; genuine provider authentication and wallet acceptance remain open.",
+    "correctionHashes": {
+      "src/platform/auth/embedded-wallet-provisioning.ts": "afadf4f70fc737d033320cb9e6172073282f512dcb845aff8fdb058a9ef325ba",
+      "src/platform/auth/provider-accounts.ts": "a87ccaba271a9c4f30fa712e81f5759fa488749d2224611b61f6b8adeec286e1",
+      "src/platform/auth/provider-control-phases.ts": "11935ce851d67589258032a8033c2db871491cfc703c75107669d5cef6937a3f",
+      "dist/platform/auth/embedded-wallet-provisioning.js": "93a50583ed8927170e9168b3884a144da05cd722383a6cad3207c79f85d83336",
+      "dist/platform/auth/provider-accounts.js": "70ece1a1f2d8db00da7469a24180e1c9764c9ab3d8d6541fcc4db7dcceb55c07",
+      "dist/platform/auth/provider-control-phases.js": "302bfacd36ca84d1e269a9bf23ab86f89124241e9b3fa19c3d525c2c3dd3ff40",
+      "tests/embedded-wallet-provisioning-postgres.test.js": "b4a72d35de3870ea1dfadebbe15a73fb36dde1354d37de8d37830b22b63898c0",
+      "tests/provider-control-phases-postgres.test.js": "8a344febfeaec90b27f389e19aa4b2323ec632409bd6835a40872e0ea0432865"
+    },
+    "latestLocalGate": {
+      "date": "2026-10-21",
+      "qualityTestsPassed": 858,
+      "qualitySkipped": 0,
+      "coveragePercent": {
+        "lines": 95.32,
+        "branches": 91.22,
+        "functions": 95.35
+      },
+      "accountSecurityLedgerTestsPerFreshAndUpgrade": 239,
+      "a4TestsPerFreshAndUpgrade": 17,
+      "treasuryTestsPerFreshAndUpgrade": 5,
+      "nativePasskeyGroups": 18,
+      "retainedWalletVerifierSha256": "05c0eae6d63f2a2f22d9cbff08af590f7321c41850ee5c25bfbd7dbe681ef3db",
+      "evidence": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+    },
+    "earlierSeparateScopes": {
+      "sdkChecks": 111,
+      "coinBrowserGroups": 22,
+      "cookieOrderingGroups": 7,
+      "cookieIssuerPaths": 14,
+      "rule": "These are separately dated/source-pinned results, not rerun or upgraded by the current backend correction."
+    },
+    "staging": {
+      "webRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "replayWorkerRevision": "fd60543b5f6d8f0b65fe1f93807252064d9317f2",
+      "autoDeploy": "off_for_both_services",
+      "appliedMigrations": 45,
+      "pendingMigrations": [],
+      "accounts": 4,
+      "retainedAccounts": 3,
+      "genuineManualSignupPreserved": true,
+      "selectedResetAccountsAbsent": true,
+      "liveJournals": 0,
+      "liveGrantLots": 0,
+      "rooms": 0,
+      "deterministicSandbox": "enabled_on_web_only",
+      "newReleaseApplied": true,
+      "evidence": [
+        "evidence/account-completion-baseline/embedded-wallet-release/staging-database-preflight.json",
+        "evidence/account-completion-baseline/embedded-wallet-release/render-account-inspect.json",
+        "evidence/account-completion-baseline/embedded-wallet-release/media-room-inspect.json",
+        "evidence/account-completion-baseline/embedded-wallet-release/staging-release-prepare.json",
+        "evidence/account-completion-baseline/embedded-wallet-release/staging-release-migrate.json",
+        "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json",
+        "evidence/account-completion-baseline/embedded-wallet-release/render-account-deploy.json",
+        "evidence/account-completion-baseline/embedded-wallet-release/render-account-resume.json",
+        "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json",
+        "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json",
+        "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+      ],
+      "schemaReleaseApplied": true,
+      "releaseState": "live_guest_postflight_passed_genuine_acceptance_pending",
+      "webDeploymentConfirmed": true,
+      "lastConfirmedWebRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "requestedWebRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "webDeploymentId": "dep-dbcjbacs728c73f7m02g",
+      "webDeploymentStatus": "live",
+      "replayWorkerDeploymentId": "dep-dbcjb7uq1p3s73c9oe60",
+      "replayWorkerDeploymentStatus": "live",
+      "writersResumed": true,
+      "runtimeNonIdleSessionsBeforePrepare": 0,
+      "runtimeNonIdleSessionsBeforeMigration": 0,
+      "encryptedApplicationBackup": true,
+      "exactRestoredFingerprints": true,
+      "restoredMigrationRehearsal": true,
+      "securityFingerprintsUnchanged": "guarded_pre_post_migration_comparison_passed",
+      "providerGenerationMismatch": 0,
+      "unresolvedProviderResetJobs": 0,
+      "previousWebRevision": "d6e2d355da255e03c257802c890c036c4d572a62",
+      "renderObservedAt": "2026-10-21T22:08:54.316Z",
+      "databasePostflightObservedAt": "2026-10-21T22:10:58.209Z",
+      "guestObservedAt": "2026-10-21T22:09:27.913Z",
+      "guestGroupsPassed": 7,
+      "hostedAssetHashesMatched": 14,
+      "readinessHttpStatus": 200,
+      "retiredRegisterHttpStatus": 410,
+      "anonymousEmbeddedWalletHttpStatus": 401,
+      "anonymousEmbeddedWalletPrivateNoStoreNoCookie": true,
+      "guestAccountOrProviderMutations": 0
+    },
+    "requiredOpenGates": [
+      "Publish the final documentary commit/PR/archive record; runtime/source acceptance remains pinned to verified eba1dc5. Report the later PR-header check result separately when actually observed, without inventing success or a self-referential runtime CI/commit cycle.",
+      "Genuine returning email, Google, same-Privy-key activation/returning/native proof, recovery and user-controlled wallet creation/default recovery.",
+      "Physical-device/screen-reader and full WCAG acceptance.",
+      "Actual activity/provider custody/signing/five-network eligibility and Canadian province/age/identity/retention review.",
+      "Approved funded/allocated promotional backing and all financial live-release gates."
+    ],
+    "supersedingDecisions": [
+      "One Privy passkey only for new product enrollment/sign-in; retained independent legacy records remain preserved.",
+      "Interrupted/expired FIRSTsetup may use the approved same-DID single current Privy key if no original candidate was captured, only never-funded/never-strong plus fresh native verification; captured candidates remain exact.",
+      "Automatically provision one empty user-controlled EVM wallet/default Privy recovery with no delegated app signer; signup is independent. New external-wallet linking/unknown-wallet signup in Privy mode is removed.",
+      "No daily withdrawal cap; gross minimum 5USDC; displayed network fee is deducted inside gross. Completed purchases use USDC withdrawals, not original-route refunds.",
+      "Only original eligible balance sources may be restored from funded correction backing; cost consent records are not charges."
+    ],
+    "latestPushedReleaseCandidate": {
+      "revision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "backendCommit": "2efc95c",
+      "retainedWalletVerifierCommit": "ce85b4a",
+      "ci": "all_five_success_run_39678375965_exact_merge_tree_verified",
+      "stagingRelease": "live_eba1dc5_readiness_guest7_assets14_passed_genuine_provider_pending",
+      "ciRunId": 39678375965,
+      "pullRequest": "https://github.com/Boufe/YapArena/pull/42",
+      "prBodyUpdatedForRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "sourceAndEvidenceCommittedAndPushed": true
+    },
+    "focusedRetainedWalletRefresh": {
+      "result": "passed_controlled_red_and_green",
+      "greenGroups": 4,
+      "pageErrors": 0,
+      "controlledRedExpectedFixtureExitCode": 1,
+      "controlledRedActualFixtureExitCode": 1,
+      "maintainedFixtureSha256": "3720a754856057a21398c2995a0fdb7733a258814aeea6d9ead66a07f2774287",
+      "evidence": "evidence/account-completion-baseline/wallet-phase-ci/retained-refresh/result.json",
+      "scope": "Focused separate disposable PostgreSQL/native browser fixture result with unchanged application/assets; not the earlier full-run verifier and not exact CI."
+    },
+    "latestCiGate": {
+      "result": "PASS",
+      "runId": 39678375965,
+      "revision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "testedMergeCommit": "4f7f28a1aac35fd8da7197debbe5481757a11065",
+      "testedTree": "c1179532281a42b92094b52448d11e26c33404a0",
+      "allFiveCheckoutLogsVerified": true,
+      "qualityTestsPassed": 858,
+      "qualitySkipped": 0,
+      "coveragePercent": {
+        "lines": 95.32,
+        "branches": 91.23,
+        "functions": 95.35
+      },
+      "eachFreshAndUpgrade": {
+        "accountSecurityLedger": 239,
+        "a4": 17,
+        "treasury": 5
+      },
+      "retainedWalletGroups": 4,
+      "evidence": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/result.json",
+      "limitations": "Runner-local disposable/synthetic acceptance only; no hosted deployment, genuine provider or physical-device claim."
+    },
+    "runtimeConfigurationSeparation": {
+      "result": "PASS",
+      "readOnlyRequests": 6,
+      "databaseConnections": 0,
+      "mutations": 0,
+      "fixedServices": 2,
+      "linkedEnvironmentGroups": 0,
+      "secretFilesPerService": 1,
+      "ownerCredentialMatches": 0,
+      "ownerIdentityMarkerMatches": 0,
+      "runtimeDatabaseCredentialMatches": true,
+      "evidence": "evidence/account-completion-baseline/embedded-wallet-release/runtime-credential-separation/acceptance.json",
+      "scope": "Actual fixed Render configuration inspection during release preparation; not a claim of a deployed revision or a comprehensive obfuscation/pixel/history scan."
+    },
+    "finalIndependentAudit": {
+      "reviewedAt": "2026-10-21T22:22:04.107704+00:00",
+      "requirementsReviewed": 52,
+      "newIndependentApplicationSourceGapFound": false,
+      "currentScope": "Exact eba source, new CI logs/tree/artifacts, source-pinned local 858/239/native18, separate SDK111/coin22/cookie7-14 scopes and current 52-row checklist. Genuine, hosted, device and financial live-release obligations remain open. Actual migration/security preservation, Render LIVE and guest7/assets14/anonymous-wallet postflight now independently read; genuine provider inspection remains PENDING.",
+      "ongoingReleaseAndDelivery": ["R49"],
+      "humanOrGenuineProviderJourneys": [
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R09",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R15",
+        "R16",
+        "R17",
+        "R18",
+        "R19",
+        "R27",
+        "R29",
+        "R30",
+        "R44",
+        "R45",
+        "R46",
+        "R47",
+        "R51",
+        "R52"
+      ],
+      "externalConfigurationLegalCustodyRoutesFunding": [
+        "R14",
+        "R18",
+        "R21",
+        "R22",
+        "R23",
+        "R24",
+        "R25",
+        "R26",
+        "R28",
+        "R31",
+        "R32",
+        "R33",
+        "R34",
+        "R36"
+      ],
+      "controlledHostedOperationalAcceptance": ["R37", "R38", "R39"],
+      "recommendation": "Current owned-fixture cleanup R42 is satisfied. Track any future explicitly owned acceptance identity before separately scoped cleanup; no additional hosted deletion is authorized.",
+      "satisfiedRecordedScopes": [
+        "R01",
+        "R02",
+        "R03",
+        "R20",
+        "R35",
+        "R40",
+        "R41",
+        "R42",
+        "R43",
+        "R48",
+        "R50"
+      ],
+      "finalSecondDocumentReview": {
+        "result": "PASS",
+        "reviewer": "auth_security",
+        "markdownSha256Reviewed": "7d364ae5da6854e7a271ff99582aba73b3a3b53f0e8e2775b1025f32a315f800",
+        "jsonSha256Reviewed": "f9e0d563701e967aecdd9db29ed44a8b900d6454fa4363b6e5759af889cf5c1c",
+        "rows": 52,
+        "references": 321,
+        "catalogEntries": 59,
+        "localMarkdownLinks": 49,
+        "sourceCompiledHashes": 8,
+        "newUnsupportedClaimOrBlockerFound": false,
+        "scope": "Actual read-only reviewer confirmation; this later fixed-text outcome records that pass, not a new code/test/provider run."
+      }
+    },
+    "releaseEvidenceReview": {
+      "reviewedAt": "2026-10-21T22:14:32.257574+00:00",
+      "databasePostflightPassed": true,
+      "applicationDeploymentAcceptance": "live_revision_readiness_guest7_and_assets14_passed",
+      "scope": "Guarded application-schema backup/rehearsal/migration, unchanged pre-resume security comparison, exact Render LIVE revision and guest/no-auth-mutation HTTP acceptance were observed. This is not genuine email/OAuth/passkey, wallet creation/recovery, physical-device or live-financial acceptance."
+    },
+    "providerWalletAcceptance": {
+      "result": "PENDING",
+      "reason": "credential_verification_required",
+      "observedAt": "2026-10-21T22:09:31.603Z",
+      "state": "retry_wait",
+      "generationMatch": true,
+      "acceptedCredentialSnapshot": true,
+      "providerCredentialsMatch": false,
+      "repeatedProviderReadsAgree": true,
+      "repeatedDatabaseReadsAgree": true,
+      "providerRequests": 6,
+      "renderRequests": 4,
+      "databaseSnapshots": 2,
+      "mutations": 0,
+      "userOnlyOwnershipAcceptance": "not_established",
+      "noAdditionalSignerOrPolicyAcceptance": "not_established",
+      "physicalDeviceVerified": false,
+      "liveFundingVerified": false,
+      "evidence": "evidence/account-completion-baseline/embedded-wallet-release/provider-wallet/acceptance-pending.json",
+      "scope": "Actual read-only provider inspection, not a successful wallet creation/recovery or genuine native-key activation. Human testing remains in progress; no result is assumed."
+    },
+    "repositoryPrivacy": {
+      "result": "PASS",
+      "textFilesScanned": 897,
+      "binaryFilesSkipped": 763,
+      "actualSecretsChecked": 5,
+      "matchingFiles": 0,
+      "secretFileMatches": 0,
+      "readOnlyRequests": 2,
+      "databaseConnections": 0,
+      "mutations": 0,
+      "helperSha256": "2d85829fbb247f88e7d494a9cae37b9b0659d186fd254b62fa2d45e00ecf5b36",
+      "evidence": "evidence/account-completion-baseline/embedded-wallet-release/repository-privacy.json",
+      "scope": "Current tracked/new-document text and five actual secret forms only; binary pixels/history/unknown obfuscation excluded. Later fixed-text result metadata is outside original scan."
+    }
+  },
+  "evidenceCatalog": {
+    "contract": {
+      "path": "email-first-completion.md",
+      "scope": "Current governing matrix and approved decision log; a working record, not executed acceptance.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "plan": {
+      "path": "nonfinancial-implementation-plan.md",
+      "scope": "Repository implementation/status requirements and dated evidence links.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "prd": {
+      "path": "product-prd.md",
+      "scope": "Product requirements subject to the later explicit founder decisions.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "architecture": {
+      "path": "email-first-accounts.md",
+      "scope": "Current authentication architecture and approved financial decision sheet; historical statements retain their dated scope.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "operations": {
+      "path": "operations.md",
+      "scope": "Owner/runtime, isolated verification, Redis and deployment operating requirements.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "financialOps": {
+      "path": "financial-operations.md",
+      "scope": "Disabled live release gates, owner financial workflows and source-restoring correction rules.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "financialPlan": {
+      "path": "financial-implementation-plan.md",
+      "scope": "Combined financial/pre-funds release requirements; not an eligibility approval.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "a4": {
+      "path": "a4-mechanism.md",
+      "scope": "Historical nonredeemable A4 economics and the separately approved sandbox integration boundary.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "integrated": {
+      "path": "evidence/account-completion-baseline/wallet-verification-pause/README.md",
+      "scope": "2026-10-21 local working-tree run at a9706cc plus three backend/two test changes; 858 zero-skip tests, 239 focused cases on each fresh/upgrade path, 17 A4 and five treasury cases per path; source hashes in archive manifest.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "rawGate": {
+      "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/run.log",
+      "scope": "Actual complete local maintained gate terminal output; PostgreSQL 17.10; no hosted/provider/device inference.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "manifest": {
+      "path": "evidence/account-completion-baseline/wallet-verification-pause/archive-manifest.json",
+      "scope": "Exact tested dirty backend, compiled backend and test fingerprints; copied artifact hashes and prior native leaf restoration.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "pgFresh": {
+      "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log",
+      "scope": "Actual 239-case fresh disposable runtime-role PostgreSQL suite; controlled provider/chain fixtures.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "pgUpgrade": {
+      "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log",
+      "scope": "Actual 239-case upgraded disposable runtime-role PostgreSQL suite; controlled provider/chain fixtures.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "native": {
+      "path": "evidence/account-completion-baseline/wallet-verification-pause/native/results.json",
+      "scope": "2026-10-21 native18: actual installed SDK, virtual CTAP2 and real application/runtime PostgreSQL; provider token/OTP/GET/control responses synthetic. Same-key bridge four groups and retained-independent-key compatibility fourteen.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "sdk": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json",
+      "scope": "Separately dated 111-check installed-SDK run with synthetic provider/application responses; its own source/asset hashes, not a new run inherited by the backend correction.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "coin": {
+      "path": "evidence/account-completion-baseline/coin-sandbox-browser/results.json",
+      "scope": "Separately dated 22-group real-backend/native-proof browser run with deterministic financial simulation; not live/provider-hosted settlement.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "cookie": {
+      "path": "evidence/account-completion-baseline/wallet-phase-cookie-browser/results.json",
+      "scope": "Separately dated seven-group, 14-issuer local HTTP/Web Locks cookie-ordering run; synthetic identities, no DB/provider acceptance inferred.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "redis": {
+      "path": "evidence/redis-acceptance/embedded-wallet-scopes/results.json",
+      "scope": "2026-10-21 actual disposable Redis/two Node HTTP processes; ten groups including passkey/restart/wallet retry; no hosted outage/capacity acceptance.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "preflight": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-preflight.json",
+      "scope": "Historical pre-migration2026-10-21 read-only staging snapshot: four accounts/three retained, selected reset IDs absent, zero live journals/grants,43 applied/two pending. Current45/0 and LIVE evidence are separately cataloged.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "render": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-inspect.json",
+      "scope": "Actual22:08:54UTC read-only post-release Render inventory: web eba1dc5 and worker fd60543 are both LIVE, automatic deploy off, runtime credentials/verified TLS flags, deterministic sandbox web-only; this inspect itself performs no mutation.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "rooms": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/media-room-inspect.json",
+      "scope": "2026-10-21 read-only actual Cloud room count zero; no room or participant created; not proof that no JWT exists.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "hosted": {
+      "path": "evidence/account-completion-baseline/account-hosted-browser/d6e2d35/acceptance.json",
+      "scope": "Historical deployed d6e2d35 guest seven-group result and served-asset comparison; no genuine email/OAuth/key/financial ceremony.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "priorRelease": {
+      "path": "evidence/account-completion-baseline/privy-passkey-release/README.md",
+      "scope": "Historical actual d6 release, 43 migrations, role/account checks and guest evidence; does not establish the new correction deployment.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "release": {
+      "path": "account-staging-release.md",
+      "scope": "Current pending 43-to-45 guarded release procedure; no completed new migration/deployment claim.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "sourceReview": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/auth-release-source-review.md",
+      "scope": "Hash-scoped release helper/migration source review; phase migration is an author recheck, with separate independent phase review required.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "independent": {
+      "path": "evidence/account-completion-baseline/wallet-phase-independent-completion-audit.md",
+      "scope": "Dated independent 52-row audit and post-a970 finding addendum; audit reports are not tests or later-revision acceptance.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "authReview": {
+      "path": "evidence/account-completion-baseline/auth-independent-review.md",
+      "scope": "Auth security source/evidence review, including authorship and local/hosted limitations; not an executed provider trial.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "walletReview": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-review/README.md",
+      "scope": "Hash-scoped independent wallet ownership/retry/recovery exclusion and subsequent parking/rearm source review.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "phaseReview": {
+      "path": "evidence/account-completion-baseline/provider-control-phase-review/README.md",
+      "scope": "Hash-scoped independent durable provider confirmation and synchronized wallet wake review.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "financialReview": {
+      "path": "evidence/account-completion-baseline/financial-review/README.md",
+      "scope": "Independent accounting/state-transition review with unchanged-financial-source continuation hashes; not provider approval.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "provider": {
+      "path": "email-first-provider-review.md",
+      "scope": "Current recorded primary-source provider/activity/route research and explicit missing eligibility/custody/multichain sandbox acceptance.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "testnet": {
+      "path": "evidence/coin-testnet/ledger/README.md",
+      "scope": "Prior actual Base Sepolia app-ledger test-USDC funding/payout/finality reconciliation; valueless test assets, one route, no live custody or five-network acceptance.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "originalSignup": {
+      "path": "evidence/email-first/README.md",
+      "scope": "2026-10-19 historical local fixtures plus separately recorded genuine manual signup/selected reset; not current complete returning-login acceptance.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "reset": {
+      "path": "evidence/email-first/reset-selected.json",
+      "scope": "Original narrowed four-ID reset evidence; retained/manual accounts must remain. Not authority for another deletion.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "repair": {
+      "path": "evidence/account-completion-baseline/first-passkey-reset-repair/README.md",
+      "scope": "Actual reviewed reset-only first-key repair and GET-only finalization; no key/digest adoption or new application session and no genuine activation success inferred.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "sessionSecurity": {
+      "path": "security/account-session-revocation.md",
+      "scope": "Current session/provider generation, replay fences, owned pending reset and revocation operating contract.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "media": {
+      "path": "evidence/account-completion-baseline/media-app-cloud-revocation/acceptance.json",
+      "scope": "Prior actual local HTTP/runtime PostgreSQL plus LiveKit Cloud trial; speaker disconnect/refreshed-token rejection/public viewer preserved, separately budgeted and dated.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "legacyDrain": {
+      "path": "evidence/account-completion-baseline/staging-release.md",
+      "scope": "Historical f942 legacy issuance drain plus separate zero-room/seat observations completed during earlier release; current release must preserve containment.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "screenReader": {
+      "path": "evidence/account-completion-baseline/screen-reader-attempt.md",
+      "scope": "Explicitly incomplete screen-reader attempt; no physical/assistive-technology completion claim.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "ciHistorical": {
+      "path": "evidence/account-completion-baseline/wallet-phase-ci/a9706cc/README.md",
+      "scope": "Historical a970 CI: four checks passed, retained-wallet integration failed; not acceptance of the new corrective working tree or subsequently changed verifier.",
+      "reviewedAt": "2026-10-21T21:23:21.140Z",
+      "executionDateRule": "Actual execution timestamp and tested revision remain those in the linked artifact; reviewedAt is the checklist inspection time."
+    },
+    "retainedRefresh": {
+      "path": "evidence/account-completion-baseline/wallet-phase-ci/retained-refresh/README.md",
+      "scope": "2026-10-21 controlled RED failed at the intended held-refresh assertion; corrected maintained verifier GREEN passed four groups with zero page errors in separate disposable PostgreSQL clusters and unchanged application/assets. Exact fixture SHA-256 3720a754856057a21398c2995a0fdb7733a258814aeea6d9ead66a07f2774287. This is focused acceptance, not full exact-revision CI.",
+      "reviewedAt": "2026-10-21T21:26:41.372Z",
+      "executionDateRule": "Actual runner outcomes and source hashes remain those in the linked result/child outputs; reviewedAt is the checklist inspection time."
+    },
+    "retainedRefreshResult": {
+      "path": "evidence/account-completion-baseline/wallet-phase-ci/retained-refresh/result.json",
+      "scope": "2026-10-21 controlled RED failed at the intended held-refresh assertion; corrected maintained verifier GREEN passed four groups with zero page errors in separate disposable PostgreSQL clusters and unchanged application/assets. Exact fixture SHA-256 3720a754856057a21398c2995a0fdb7733a258814aeea6d9ead66a07f2774287. This is focused acceptance, not full exact-revision CI.",
+      "reviewedAt": "2026-10-21T21:26:41.372Z",
+      "executionDateRule": "Actual runner outcomes and source hashes remain those in the linked result/child outputs; reviewedAt is the checklist inspection time."
+    },
+    "ciCurrent": {
+      "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/README.md",
+      "scope": "All five required CI jobs passed on exact eba1dc5 tree; actual logs, retained status:passed/groups4,858/239x2/17x2/5x2 and artifact inspected. Runner-local/synthetic scope only.",
+      "reviewedAt": "2026-10-21T21:54:32.108405+00:00",
+      "executionDateRule": "Review time does not replace the linked actual execution/revision evidence."
+    },
+    "ciCurrentResult": {
+      "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/result.json",
+      "scope": "Exact tested merge4f7f28a1, branch/tree proof, five raw log hashes, actual CI95.32/91.23/95.35 coverage and scoped results; not a hosted deployment.",
+      "reviewedAt": "2026-10-21T21:54:32.108405+00:00",
+      "executionDateRule": "Review time does not replace the linked actual execution/revision evidence."
+    },
+    "runtimeConfigSeparation": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/runtime-credential-separation/acceptance.json",
+      "scope": "Actual lead-run read-only fixed Render web/worker configuration scan: six GETs, zero DB/mutations, zero linked groups, one secret file per service, no configured owner/admin markers and expected runtime credentials. No env names/values exported.",
+      "reviewedAt": "2026-10-21T21:54:32.108405+00:00",
+      "executionDateRule": "Review time does not replace the linked actual execution/revision evidence."
+    },
+    "releasePrepare": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-prepare.json",
+      "scope": "Actual encrypted application backup, 85-table/15-sequence exact private restore and owner migration rehearsal; runtime nonidle peers0 before prepare. No global-role/provider disaster recovery claim.",
+      "reviewedAt": "2026-10-21T22:00:57.726221+00:00",
+      "executionDateRule": "Actual observed execution times/statuses remain those in the linked outputs."
+    },
+    "releaseMigration": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-migrate.json",
+      "scope": "Actual separate-owner14/15 additive migration, runtime nonidle peers 0 before apply and guarded unchanged security fingerprint checks; no account deletion/live financial activity.",
+      "reviewedAt": "2026-10-21T22:00:57.726221+00:00",
+      "executionDateRule": "Actual observed execution times/statuses remain those in the linked outputs."
+    },
+    "databasePostflight": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json",
+      "scope": "Actual refreshed22:10:58UTC read-only strict-TLS postflight:45 applied/0 pending,4 accounts/3 retained, selected reset IDs absent,0 live journals/grants, matching generations and private role boundaries. Earlier stopped-writer security hashes are separately preserved in security-preservation.json.",
+      "reviewedAt": "2026-10-21T22:00:57.726221+00:00",
+      "executionDateRule": "Actual observed execution times/statuses remain those in the linked outputs."
+    },
+    "deploymentAccepted": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-deploy.json",
+      "scope": "Initial21:59:05UTC exact eba web deploy acceptance was build_in_progress; this historical acceptance output does not establish LIVE. Later render-account-inspect.json separately confirms both services LIVE.",
+      "reviewedAt": "2026-10-21T22:00:57.726221+00:00",
+      "executionDateRule": "Actual observed execution times/statuses remain those in the linked outputs."
+    },
+    "servicesResumed": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-resume.json",
+      "scope": "Both named writers resumed after guarded migration; control-plane acceptance is separate from application readiness.",
+      "reviewedAt": "2026-10-21T22:00:57.726221+00:00",
+      "executionDateRule": "Actual observed execution times/statuses remain those in the linked outputs."
+    },
+    "hostedCurrent": {
+      "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json",
+      "scope": "Actual22:09:27UTC hosted guest7 groups and14 exact local/served asset matches, readiness200, retired register410 Redis probe; no auth/account/provider/media mutation. No genuine OTP/OAuth/key or physical-device acceptance.",
+      "reviewedAt": "2026-10-21T22:14:32.257574+00:00",
+      "executionDateRule": "Actual execution time/revision and limits remain those in the linked sanitized output."
+    },
+    "anonymousWalletCurrent": {
+      "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json",
+      "scope": "Actual single anonymous wallet-state request denied401 with private/no-store/Vary Cookie, no cookie or wallet-state leak and no mutation.",
+      "reviewedAt": "2026-10-21T22:14:32.257574+00:00",
+      "executionDateRule": "Actual execution time/revision and limits remain those in the linked sanitized output."
+    },
+    "providerWalletPending": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-wallet/acceptance-pending.json",
+      "scope": "Actual22:09:31UTC provider result PENDING credential_verification_required: retry_wait, accepted snapshot present, provider digest mismatch, matching generation,2 stable DB/provider snapshots,6 provider GETs/4 Render GETs,0 mutations. Ownership/creation/default recovery/native-key acceptance is not established.",
+      "reviewedAt": "2026-10-21T22:14:32.257574+00:00",
+      "executionDateRule": "Actual execution time/revision and limits remain those in the linked sanitized output."
+    },
+    "securityPreservation": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json",
+      "scope": "Actual stopped-writer pre/post comparison43\u219245: all14 account/session/provider/key/wallet security projections unchanged, four accounts/three retained, no mutations by comparison. Later legitimate runtime/user changes are not frozen by this historical comparison.",
+      "reviewedAt": "2026-10-21T22:14:32.257574+00:00",
+      "executionDateRule": "Actual execution time/revision and limits remain those in the linked sanitized output."
+    },
+    "providerCapabilityFollowup": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-capability-followup.md",
+      "scope": "2026-10-21 official primary-source follow-up: Enterprise requirement for custom OTP sender/template and production webhooks is verified and unused; basic app name/logo guide states no plan restriction. Numeric production user-GET allowance and actual selected production app/domain/OAuth/provider-cookie setup are not established. This research made no provider/configuration/DB mutation.",
+      "reviewedAt": "2026-10-21T22:18:52.930062+00:00",
+      "executionDateRule": "Documentation review time21:53:22UTC and recorded actual settings limits remain explicit in the linked report."
+    },
+    "repositoryPrivacy": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/repository-privacy.json",
+      "scope": "Actual count-only scan of 897 tracked/new-document UTF8 text files, 763 binary files skipped, 5 current actual high-entropy secrets checked in raw/selected encoded forms, 0 matches, 2 GET/0 DB/0 mutations. File/path/HEAD stability checked. Binary pixels/history/unknown obfuscation not proven clean; later fixed-text result metadata is outside that original scan.",
+      "reviewedAt": "2026-10-21T22:22:04.107704+00:00",
+      "executionDateRule": "Review time does not replace actual dated execution/source boundaries in the linked artifact."
+    },
+    "finalTransitionReview": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/final-transition-review.md",
+      "scope": "Independent integrated transition and full-contract source/artifact review with explicit authorship limits and dated historical addenda.22 financial implementation/migration/test fingerprints match; no new blocking source defect identified. Actual provider/device/financial live requirements remain incomplete.",
+      "reviewedAt": "2026-10-21T22:22:04.107704+00:00",
+      "executionDateRule": "Review time does not replace actual dated execution/source boundaries in the linked artifact."
+    },
+    "databaseAfterLive": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-after-live.json",
+      "scope": "Actual after-LIVE read-only catalog snapshot 45/0, four accounts/three retained, zero live and private runtime/browser boundaries. This does not establish genuine key/wallet acceptance.",
+      "reviewedAt": "2026-10-21T22:22:04.107704+00:00",
+      "executionDateRule": "Review time does not replace actual dated execution/source boundaries in the linked artifact."
+    },
+    "hostedReleaseReadme": {
+      "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/README.md",
+      "scope": "Actual eba LIVE/served-assets/readiness and seven guest groups plus anonymous private-wallet401 scope, matching screenshots and strict no-auth-mutation limits.",
+      "reviewedAt": "2026-10-21T22:22:04.107704+00:00",
+      "executionDateRule": "Review time does not replace actual dated execution/source boundaries in the linked artifact."
+    }
+  },
+  "requirements": [
+    {
+      "id": "R01",
+      "requirement": "Establish checkout, fetch, PR and deployed revision; preserve existing work",
+      "owner": "lead",
+      "dependencies": ["access"],
+      "implementationStatus": "baseline_preserved_exact_ci_migration_live_revision_and_guest_postflight_verified",
+      "completionStatus": "satisfied_for_verified_staging_revision",
+      "acceptanceCriteria": [
+        "Inspect status/branches/worktrees, fetch and compare with origin/main; preserve dirty/shared work and all PR42 changes.",
+        "Record exact source/deployed revisions and mismatch; release only the reviewed exact revision after required checks."
+      ],
+      "verification": {
+        "locallyTested": "source_record_or_research_review_only",
+        "hostedTested": "actual_exact_live_revision_database_preservation_and_guest_postflight_passed_no_genuine_auth_claim",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "contract",
+          "path": "email-first-completion.md"
+        },
+        {
+          "reference": "preflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-preflight.json"
+        },
+        {
+          "reference": "render",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-inspect.json"
+        },
+        {
+          "reference": "ciHistorical",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/a9706cc/README.md"
+        },
+        {
+          "reference": "release",
+          "path": "account-staging-release.md"
+        },
+        {
+          "reference": "retainedRefresh",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/retained-refresh/README.md"
+        },
+        {
+          "reference": "retainedRefreshResult",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/retained-refresh/result.json"
+        },
+        {
+          "reference": "ciCurrent",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/README.md"
+        },
+        {
+          "reference": "ciCurrentResult",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/result.json"
+        },
+        {
+          "reference": "releasePrepare",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-prepare.json"
+        },
+        {
+          "reference": "releaseMigration",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-migrate.json"
+        },
+        {
+          "reference": "databasePostflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json"
+        },
+        {
+          "reference": "deploymentAccepted",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-deploy.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "securityPreservation",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json"
+        }
+      ],
+      "remainingBlockers": [],
+      "limitations": [
+        "Baseline, exact eba1dc5 staging revision, guard/rehearsal/migration and guest postflight are verified. Genuine provider/device/financial acceptance remains explicitly assigned to other rows."
+      ]
+    },
+    {
+      "id": "R02",
+      "requirement": "Read governing PRD, plans, security, operations and recorded evidence",
+      "owner": "all",
+      "dependencies": ["repository"],
+      "implementationStatus": "governing_sources_read_ongoing_conformance_applies",
+      "completionStatus": "read_requirement_satisfied_final_conformance_audit_separate",
+      "acceptanceCriteria": [
+        "Apply CONTRIBUTING/AGENTS, governing PRD/plans, auth/security/wallet/Redis/operations guides and A4/pre-funds requirements.",
+        "Treat dated trials as evidence only for their stated revision and respect later approved overrides."
+      ],
+      "verification": {
+        "locallyTested": "source_record_or_research_review_only",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "prd",
+          "path": "product-prd.md"
+        },
+        {
+          "reference": "plan",
+          "path": "nonfinancial-implementation-plan.md"
+        },
+        {
+          "reference": "architecture",
+          "path": "email-first-accounts.md"
+        },
+        {
+          "reference": "financialPlan",
+          "path": "financial-implementation-plan.md"
+        },
+        {
+          "reference": "a4",
+          "path": "a4-mechanism.md"
+        },
+        {
+          "reference": "operations",
+          "path": "operations.md"
+        }
+      ],
+      "remainingBlockers": [],
+      "limitations": [
+        "The required governing-source read is performed. Continuing conformance with approved decisions and dated evidence is an execution obligation, checked again by the final R50 audit; it is not an unperformed reading task."
+      ]
+    },
+    {
+      "id": "R03",
+      "requirement": "Maintain checklist, decision log, coordinated contracts and ownership",
+      "owner": "lead",
+      "dependencies": [],
+      "implementationStatus": "checklist_decision_log_contracts_and_ownership_maintained_and_audited",
+      "completionStatus": "current_checklist_and_execution_contract_maintenance_satisfied",
+      "acceptanceCriteria": [
+        "Maintain an owner, dependencies, implementation status, concrete acceptance criteria, evidence and blockers for every requirement.",
+        "Keep approved/routine/material/provider-verified/unconfirmed decisions separate; coordinate module ownership and shared contracts.",
+        "Keep the task incomplete until required integration/release/external acceptance is satisfied."
+      ],
+      "verification": {
+        "locallyTested": "52_row_owner_contract_decision_and_evidence_reference_audit_passed",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "contract",
+          "path": "email-first-completion.md"
+        },
+        {
+          "reference": "independent",
+          "path": "evidence/account-completion-baseline/wallet-phase-independent-completion-audit.md"
+        },
+        {
+          "reference": "manifest",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/archive-manifest.json"
+        }
+      ],
+      "remainingBlockers": [],
+      "limitations": [
+        "The current52-row checklist, decision log, ownership/contracts and evidence statuses have been audited. Continue updating them when new facts arrive; future maintenance does not make the present checklist unimplemented or imply other acceptance gates passed."
+      ]
+    },
+    {
+      "id": "R04",
+      "requirement": "Preserve public discovery/watch, theme/header and signed-in controls",
+      "owner": "lead",
+      "dependencies": ["UI baseline"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Keep discovery and watching public; preserve the shared theme/header/layout and genuine signed-in balance/deposit/menu controls.",
+        "Compare changed desktop/mobile journeys with matching before/after screenshots and fence stale actor/private state.",
+        "Verify current hosted signed-in journeys separately from guest and synthetic fixtures."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "integrated",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+        },
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        },
+        {
+          "reference": "hosted",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/d6e2d35/acceptance.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine hosted signed-in/theme/account-switch acceptance remains open; local 111-scenario actor/draft/privacy regression and hosted guest layout/assets passed."
+      ]
+    },
+    {
+      "id": "R05",
+      "requirement": "Genuine Privy primary email-code signup and returning login",
+      "owner": "auth/lead",
+      "dependencies": ["provider app"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Use genuine hosted Privy email codes for primary signup/returning login; do not implement a duplicate OTP lifecycle.",
+        "Provision one stable internal account only from verified provider evidence; preserve the genuine manual account.",
+        "Complete genuine returning-login acceptance on the corrective staging revision."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "historical_genuine_signup_plus_current_eba_guest_release_verified_returning_auth_ceremony_pending",
+        "genuineProviderTested": "historical_or_partial_actual_evidence_required_full_journey_still_open",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "originalSignup",
+          "path": "evidence/email-first/README.md"
+        },
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        },
+        {
+          "reference": "repair",
+          "path": "evidence/account-completion-baseline/first-passkey-reset-repair/README.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Current genuine hosted returning login must pass after the corrective release; earlier manual signup alone does not satisfy it."
+      ]
+    },
+    {
+      "id": "R06",
+      "requirement": "Code lifecycle, paste/autofill, resend, cancellation, errors, delayed delivery",
+      "owner": "lead",
+      "dependencies": ["Privy capabilities"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Handle send/wait/submit/success/cancel, wrong/expired/used codes, resends/delayed delivery, address edits, paste/autofill and keyboard interaction.",
+        "Prevent duplicate submissions and disclose safe provider failures without exposing credentials.",
+        "Verify genuine delivery/expiry/used-code behavior and OS/device autofill separately from intercepted SDK fixtures."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        },
+        {
+          "reference": "originalSignup",
+          "path": "evidence/email-first/README.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine delivery, delayed/expired/used-code and OS autofill acceptance remains unverified."
+      ]
+    },
+    {
+      "id": "R07",
+      "requirement": "Refresh/back/multi-tab/network/initialization and duplicate-submit handling",
+      "owner": "lead",
+      "dependencies": ["browser"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Handle refresh/back/multiple tabs/interrupted network/provider initialization without signed-out flashes or duplicate actions.",
+        "Fence stale actor responses and serialize cookie issuers/revokers with explicit unsupported-capability failure and bounded waits.",
+        "Verify the genuine interrupted/cross-tab provider journey independently."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        },
+        {
+          "reference": "cookie",
+          "path": "evidence/account-completion-baseline/wallet-phase-cookie-browser/results.json"
+        },
+        {
+          "reference": "integrated",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine hosted interrupted/cross-tab provider ceremony and physical/other-browser behavior remains unverified."
+      ]
+    },
+    {
+      "id": "R08",
+      "requirement": "Optional Google and passkey enrollment/returning authentication",
+      "owner": "auth/lead",
+      "dependencies": ["provider settings and proof"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Expose one Privy passkey sign-in option and add/manage that Privy passkey from Account settings; no second new product key.",
+        "Support optional Google and returning provider passkey login using verified actual app settings.",
+        "Complete genuine hosted enrollment/activation/returning authentication and Google linking without treating token issuance or frontend flags as fresh proof."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "historical_or_partial_actual_evidence_required_full_journey_still_open",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "architecture",
+          "path": "email-first-accounts.md"
+        },
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        },
+        {
+          "reference": "native",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/native/results.json"
+        },
+        {
+          "reference": "hosted",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/d6e2d35/acceptance.json"
+        },
+        {
+          "reference": "repair",
+          "path": "evidence/account-completion-baseline/first-passkey-reset-repair/README.md"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "providerWalletPending",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-wallet/acceptance-pending.json"
+        }
+      ],
+      "remainingBlockers": [
+        "The genuine saved/exportable provider key has not completed local activation or returning-login acceptance; genuine hosted Google linking/login also remains open."
+      ]
+    },
+    {
+      "id": "R09",
+      "requirement": "Minimal onboarding and exact safe local return/action",
+      "owner": "lead",
+      "dependencies": ["browser"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Use minimal onboarding, preserve exact safe local page/query/fragment and the initiating allowlisted action.",
+        "Restore focus and appropriate same-actor draft context after auth; never automatically submit a stake, withdrawal or provider mutation.",
+        "Verify genuine hosted return to the initiating action."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        },
+        {
+          "reference": "integrated",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine hosted initiating-page/action return remains unverified."
+      ]
+    },
+    {
+      "id": "R10",
+      "requirement": "Stable transactional identity provisioning, races and callback replay",
+      "owner": "auth",
+      "dependencies": ["PostgreSQL"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Provision stable DID-to-account ownership transactionally and idempotently across callback races; never merge by matching email.",
+        "Consume provider SIDs and reject replay/retired identities without trusting browser account IDs.",
+        "Enqueue asset provisioning in the verified account transaction; interrupted callbacks cannot create duplicate accounts or jobs."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "manifest",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/archive-manifest.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine hosted callback/account journeys remain separate; the corrected source/schema is deployed at eba1dc5 and guest postflight passed."
+      ]
+    },
+    {
+      "id": "R11",
+      "requirement": "Recovery/email changes/method linking/removal",
+      "owner": "auth",
+      "dependencies": ["supported fresh proof, policy"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Require current strong exact proof for email/method changes and explicit reconciliation; removed provider keys cannot approve their replacement.",
+        "Allow the approved first-key restart only for never-funded/never-strong accounts, same DID/fresh SID and native verification; captured candidates must match exactly, otherwise only the approved single-current-key branch is allowed.",
+        "Restrict new-DID recovery to retained independent keys and reject current/uncertain embedded-wallet assets under the final lock.",
+        "Complete genuine recovery/method journeys; all-strong-lost recovery remains reviewed/manual until a supported service is approved."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "native",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/native/results.json"
+        },
+        {
+          "reference": "repair",
+          "path": "evidence/account-completion-baseline/first-passkey-reset-repair/README.md"
+        },
+        {
+          "reference": "authReview",
+          "path": "evidence/account-completion-baseline/auth-independent-review.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine hosted recovery/email/method flows remain open; all-strong-lost recovery still needs a supported approved review service."
+      ]
+    },
+    {
+      "id": "R12",
+      "requirement": "Retained legacy dual-ownership reconciliation, no email-only merge",
+      "owner": "auth",
+      "dependencies": ["fresh proofs"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Require deliberate dual ownership before linking retained legacy identity; preserve stable account/profile/balances.",
+        "Reject a new DID already bound to another local account and preserve both accounts for manual reconciliation.",
+        "Never infer wallet/email ownership or automatically merge; retire old bindings permanently where approved."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "native",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/native/results.json"
+        },
+        {
+          "reference": "authReview",
+          "path": "evidence/account-completion-baseline/auth-independent-review.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine hosted retained-account dual-ownership linking remains unverified."
+      ]
+    },
+    {
+      "id": "R13",
+      "requirement": "Linked-wallet management preserves retained and final-method protections",
+      "owner": "auth",
+      "dependencies": ["existing F02"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Disable new external wallet linking and unknown-wallet signup in Privy mode while retaining known-wallet login.",
+        "Require purpose-bound existing proof for retained removal; preserve final-method protection, generation revocation and immutable ownership.",
+        "Verify genuine hosted/physical retained-wallet ceremonies separately."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "integrated",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+        },
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Current genuine hosted/physical retained-wallet login and removal remain unverified."
+      ]
+    },
+    {
+      "id": "R14",
+      "requirement": "Cookie/domain/sender/branding/provider limits/pricing verified",
+      "owner": "auth/provider",
+      "dependencies": ["official docs/settings"],
+      "implementationStatus": "development_settings_and_unused_enterprise_capabilities_verified_actual_production_configuration_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Verify actual selected-app login/merge/origin/embedded-wallet settings and supported SDK mechanisms using official current documentation.",
+        "Verify production cookie/custom-domain/sender/branding, provider limits/pricing and numeric capacity/entitlements before relying on them.",
+        "Keep runtime secrets separate and incur no unapproved paid feature or plan."
+      ],
+      "verification": {
+        "locallyTested": "source_record_or_research_review_only",
+        "hostedTested": "actual_eba1dc5_guest_public_provider_metadata_and_recorded_free_development_settings_verified_no_selected_production_app_acceptance",
+        "genuineProviderTested": "actual_public_provider_metadata_and_recorded_dashboard_settings_only_no_production_configuration_or_full_auth_ceremony_claim",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "architecture",
+          "path": "email-first-accounts.md"
+        },
+        {
+          "reference": "provider",
+          "path": "email-first-provider-review.md"
+        },
+        {
+          "reference": "preflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-preflight.json"
+        },
+        {
+          "reference": "hosted",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/d6e2d35/acceptance.json"
+        },
+        {
+          "reference": "providerCapabilityFollowup",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-capability-followup.md"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Numeric selected-production user-GET quota/capacity is not established by published MAU/signature allowances. The selected production app/domain/DNS, own Google OAuth credentials/redirects and provider HttpOnly-cookie configuration have not been established. No paid upgrade or custom sender is required or enabled by the current staging implementation."
+      ],
+      "providerFactsVerified": {
+        "development": "Actual selected development app Free/no payment method/150-user cap and current hosted public email/Google/passkey/origin/merge flags are recorded.",
+        "customOtpSenderTemplate": "Official email guide requires Enterprise for custom OTP email/reply address/branding; this paid custom service is unused and no plan purchase or free entitlement is assumed.",
+        "basicAppIdentity": "Appearance guide says app name/logo are used in login emails without stating a plan restriction. Do not describe all basic identity settings as paid or infer custom From-domain approval.",
+        "productionWebhooks": "Official guide requires Enterprise; unused. The approved implementation performs fresh protected-request server inspection instead.",
+        "publishedFreeAllowances": "Published Developer pricing describes 0-499 MAU and 50,000 monthly signatures; these are not the selected production user-GET requests-per-second allowance.",
+        "providerCookiesAndOauth": "Current development Google setup is supported. Privy HttpOnly-cookie production setup needs a separately selected stable domain/DNS/app configuration; YapArena application cookies are a separate mechanism."
+      },
+      "limitations": [
+        "Verified Enterprise-only custom OTP sender/template and production webhook services remain unused; their plan requirement is known, rather than an unverified feature dependency. Basic name/logo documentation does not establish a blanket paid branding requirement or a selected custom sender/domain."
+      ]
+    },
+    {
+      "id": "R15",
+      "requirement": "Automatic user-controlled EVM wallet; signup independent of provisioning",
+      "owner": "wallet/lead",
+      "dependencies": ["provider settings"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Use the later approved one user-controlled EVM wallet/default Privy recovery policy with no delegated YapArena signer.",
+        "Keep signup/application access independent of provisioning failure and do not issue YC or funding liabilities by creating a wallet.",
+        "Verify exact staging deployment and actual provider wallet creation/default recovery."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "walletReview",
+          "path": "evidence/account-completion-baseline/embedded-wallet-review/README.md"
+        },
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        },
+        {
+          "reference": "preflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-preflight.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "providerWalletPending",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-wallet/acceptance-pending.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine user-controlled wallet creation/default recovery acceptance remains pending. Actual provider inspection reported credential_verification_required, not ownership/creation PASS. Exact release/guest postflight passed."
+      ]
+    },
+    {
+      "id": "R16",
+      "requirement": "Expiring replay-resistant operation proofs bound to exact sensitive terms",
+      "owner": "auth/lead",
+      "dependencies": ["supported authenticators"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Bind server-verifiable five-minute one-use proof to account/session/generation, operation/nonce/expiry and exact amount/asset/destination/terms.",
+        "Use the accepted same Privy public key from trusted GET plus native UV, or retained authorized credentials; never use JWT iat/refresh/MFA flags as fresh authorization.",
+        "Consume proof and mutation atomically and recheck expiry/session after waits; reject replay/cross-account/changed terms.",
+        "Complete a genuine hosted native proof ceremony."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "native",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/native/results.json"
+        },
+        {
+          "reference": "authReview",
+          "path": "evidence/account-completion-baseline/auth-independent-review.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine hosted same-key operation authorization and actual device ceremony remain unverified."
+      ]
+    },
+    {
+      "id": "R17",
+      "requirement": "Logout current/others/all, suspension, credential revocation and stale-token fence",
+      "owner": "auth",
+      "dependencies": ["PostgreSQL/provider"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Default Sign out revokes all sessions; retain explicitly scoped current/other/specific session controls, suspension and credential-change revocation.",
+        "Preserve SID/generation/cutoff fences so stale/refreshed tokens cannot recreate local sessions.",
+        "Persist mutation intent/acknowledgement; resume only bounded GET confirmation across worker ticks and never replay unknown mutations.",
+        "Keep logout responsive during outages and verify genuine current hosted reset/sign-out."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "historical_or_partial_actual_evidence_required_full_journey_still_open",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "phaseReview",
+          "path": "evidence/account-completion-baseline/provider-control-phase-review/README.md"
+        },
+        {
+          "reference": "repair",
+          "path": "evidence/account-completion-baseline/first-passkey-reset-repair/README.md"
+        },
+        {
+          "reference": "cookie",
+          "path": "evidence/account-completion-baseline/wallet-phase-cookie-browser/results.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Verify genuine hosted logout/reset without another manual repair assumption. The durable phase source/schema is deployed and guest postflight passed; no signed-in reset ceremony is inferred."
+      ]
+    },
+    {
+      "id": "R18",
+      "requirement": "Provider-side credential changes invalidate existing application cookies",
+      "owner": "auth",
+      "dependencies": ["supported affordable mechanism"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Inspect current trusted provider credentials/key on every protected request without positive authorization caching.",
+        "Perform remote inspection outside held pool/account locks, then revalidate exact local session/mapping/generation before authorization.",
+        "Return temporary denial for an owned pending setup/reset; real key/method changes revoke existing cookies.",
+        "Verify genuine hosted provider-side changes and production request/rate budget."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "sessionSecurity",
+          "path": "security/account-session-revocation.md"
+        },
+        {
+          "reference": "phaseReview",
+          "path": "evidence/account-completion-baseline/provider-control-phase-review/README.md"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "providerWalletPending",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-wallet/acceptance-pending.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine provider-side change acceptance and production per-request inspection capacity/budget remain unresolved."
+      ]
+    },
+    {
+      "id": "R19",
+      "requirement": "Open connections, in-flight operations and media grant revocation boundaries",
+      "owner": "auth/lead",
+      "dependencies": ["media provider"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Enforce current session/generation and assigned/device-ready speaker rules for media grants and publishing.",
+        "Disconnect revoked speakers through the durable outbox; reject old/refreshed publishing tokens and preserve public viewers.",
+        "Recheck in-flight operations and retain exact documented grant/connection cutoffs, legacy drain and pending-device takeover rules.",
+        "Keep actual Cloud trial, current genuine hosted logout and physical media acceptance distinct."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "prior_actual_cloud_trial_and_current_deployed_source_no_genuine_current_logout_media_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "media",
+          "path": "evidence/account-completion-baseline/media-app-cloud-revocation/acceptance.json"
+        },
+        {
+          "reference": "legacyDrain",
+          "path": "evidence/account-completion-baseline/staging-release.md"
+        },
+        {
+          "reference": "rooms",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/media-room-inspect.json"
+        },
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        }
+      ],
+      "remainingBlockers": [
+        "Current genuine hosted user logout and physical media acceptance remain separate from the prior bounded Cloud trial."
+      ]
+    },
+    {
+      "id": "R20",
+      "requirement": "Preserve approved financial terms exactly",
+      "owner": "lead",
+      "dependencies": ["founder prompt"],
+      "implementationStatus": "approved_financial_rule_source_copy_and_deployed_sandbox_preservation_audit_passed",
+      "completionStatus": "approved_rule_preservation_satisfied_for_recorded_sandbox_and_release_scope",
+      "acceptanceCriteria": [
+        "Keep YC internal/nontransferable at 100 YC per USDC; historical A4/play money remains nonredeemable and isolated.",
+        "Keep Canada conditional on actual eligibility, crypto only, all five requested input networks in scope and external withdrawals USDC only.",
+        "Issue welcome 2500 YC and explicit Toronto-day daily 500 YC; grant principal remains spend-only.",
+        "Each grant independently needs new grant-earned net profit equal to its principal; prior profits/new grants cannot qualify another grant; qualification is sticky and never restores losses.",
+        "Spend each oldest grant principal before its earned profit, then the next grant, then purchased funds; purchases have no qualification. Mixed-source results are proportional, losses within a grant consume its earlier profit first, and withdrawals use purchased principal then purchased profit then qualified backed grant profit.",
+        "Honor later approved gross minimum 5, fee deducted inside gross, no daily cap, manual review/no transfers and USDC withdrawals for completed purchases instead of original-route purchase refunds.",
+        "Use only separately backed finite promotional reserves; the live50-USDC budget is approved but unfunded/unallocated.",
+        "Release uncertain payout reserves only on reconciled no-transfer proof and preserve approved original-source-only funded corrections."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "exact_deployed_source_and_customer_asset_rule_copy_preserved_no_genuine_financial_mutation_claim",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "contract",
+          "path": "email-first-completion.md"
+        },
+        {
+          "reference": "architecture",
+          "path": "email-first-accounts.md"
+        },
+        {
+          "reference": "financialReview",
+          "path": "evidence/account-completion-baseline/financial-review/README.md"
+        },
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "coin",
+          "path": "evidence/account-completion-baseline/coin-sandbox-browser/results.json"
+        },
+        {
+          "reference": "ciCurrentResult",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/result.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "databasePostflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json"
+        }
+      ],
+      "remainingBlockers": [],
+      "limitations": [
+        "Independent source/copy review and unchanged financial22-group scope plus combined858-test/239-case suites passed. Exact deployed financial assets match; no stale daily cap/fee-on-top/completed-purchase-refund/purchased-qualification rule found.",
+        "This satisfies preservation of approved rules. Live legal/provider eligibility, routes, real funding/backing and financial operation acceptance remain separate R21-R36 requirements; none are approved by this status."
+      ]
+    },
+    {
+      "id": "R21",
+      "requirement": "Custody/signing/provider routes including all five requested networks",
+      "owner": "provider",
+      "dependencies": ["actual activity approval"],
+      "implementationStatus": "research_recorded_provider_custody_routes_unapproved",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Resolve and approve actual custody/transaction signing responsibility for this activity/operator.",
+        "Verify asset/network identifiers, conversions and account eligibility for Ethereum/Base/Solana/BNB Smart Chain/Bitcoin without assuming native USDC or silently substituting bridged assets.",
+        "Obtain actual provider acceptance and authorized configuration before selecting/activating live routes; an empty EVM wallet is not this approval."
+      ],
+      "verification": {
+        "locallyTested": "source_record_or_research_review_only",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "provider",
+          "path": "email-first-provider-review.md"
+        },
+        {
+          "reference": "financialPlan",
+          "path": "financial-implementation-plan.md"
+        },
+        {
+          "reference": "walletReview",
+          "path": "evidence/account-completion-baseline/embedded-wallet-review/README.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Obtain written approval for the actual activity/operator; select custody/signing and all five exact conversion routes with supported provider evidence."
+      ]
+    },
+    {
+      "id": "R22",
+      "requirement": "Quotes/expiry/conversion/fees/settlement/finality/reorg handling",
+      "owner": "provider/lead",
+      "dependencies": ["chosen routes"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Display immutable quote, expiry, input/output assets/precision, fees, destination and settlement terms before authorization.",
+        "Enforce route-specific finality/reversal/reorg semantics and reconcile canonical external receipts before final credit/retry.",
+        "Verify all approved live multichain provider quotes/settlement routes separately from simulation and Base Sepolia."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "prior_actual_Base_Sepolia_chain_testnet_only_no_selected_multichain_provider_sandbox",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "testnet",
+          "path": "evidence/coin-testnet/ledger/README.md"
+        },
+        {
+          "reference": "provider",
+          "path": "email-first-provider-review.md"
+        },
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "financialOps",
+          "path": "financial-operations.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Selected live-provider multichain quotes/fees/settlement/finality/reversal contract and authenticated sandbox acceptance remain pending."
+      ]
+    },
+    {
+      "id": "R23",
+      "requirement": "Canadian age/province/identity/retention eligibility",
+      "owner": "provider",
+      "dependencies": ["qualified/provider review"],
+      "implementationStatus": "eligibility_unapproved_live_provinces_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Obtain written actual-activity Canadian age/province/identity/retention review and provider acceptance.",
+        "Keep every live province disabled until those requirements are resolved; do not infer eligibility from another platform or claim incorporation universally required."
+      ],
+      "verification": {
+        "locallyTested": "source_record_or_research_review_only",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "provider",
+          "path": "email-first-provider-review.md"
+        },
+        {
+          "reference": "financialPlan",
+          "path": "financial-implementation-plan.md"
+        },
+        {
+          "reference": "contract",
+          "path": "email-first-completion.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Written Canadian activity/province/age/identity/retention review and provider approval are unavailable; live provinces remain disabled."
+      ]
+    },
+    {
+      "id": "R24",
+      "requirement": "Approved solvent finite promotional allocation and reserve caps",
+      "owner": "lead/provider",
+      "dependencies": ["founder decision"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Reserve worst-case separately funded promotional exposure before admission with finite concurrent caps.",
+        "Never use purchased customer backing for promotional profits or convert virtual principal into cash collateral.",
+        "Fund and explicitly allocate the approved finite 50-USDC live treasury only with required authorization and eligibility."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "financialReview",
+          "path": "evidence/account-completion-baseline/financial-review/README.md"
+        },
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "financialOps",
+          "path": "financial-operations.md"
+        }
+      ],
+      "remainingBlockers": [
+        "The real 50-USDC promotional budget has not been funded or allocated; live backing/provider approval remains pending."
+      ]
+    },
+    {
+      "id": "R25",
+      "requirement": "Payout timing, refund/correction/dispute rules and instrument integration",
+      "owner": "lead/provider",
+      "dependencies": ["founder decisions"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Apply the approved two Toronto-business-day manual review target without automatic deadline reserve release.",
+        "Implement approved evidence-based reports/corrections/disputes with no arbitrary reporting cutoff and funded original-source-only restoration.",
+        "Integrate the approved YES/NO/A4 instrument economics without changing unrelated historical play markets.",
+        "Verify actual provider recovery capabilities/cost execution and live operational staffing before enabling them."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "contract",
+          "path": "email-first-completion.md"
+        },
+        {
+          "reference": "financialOps",
+          "path": "financial-operations.md"
+        },
+        {
+          "reference": "coin",
+          "path": "evidence/account-completion-baseline/coin-sandbox-browser/results.json"
+        },
+        {
+          "reference": "financialReview",
+          "path": "evidence/account-completion-baseline/financial-review/README.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Provider-specific recovery execution and live review/operating acceptance are unverified."
+      ]
+    },
+    {
+      "id": "R26",
+      "requirement": "Confirmed funding, conversion quotes and exactly-once funded issuance",
+      "owner": "lead",
+      "dependencies": ["external contract"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Confirm canonical external funding and an unexpired disclosed conversion quote before balanced funded coin issuance.",
+        "Scope idempotency to environment/account/request/terms and credit exactly once under concurrent callbacks.",
+        "Reconcile actual provider/chain sandbox backing externally and distinguish it from deterministic simulation.",
+        "Complete approved live five-network funding acceptance before live enablement."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "prior_actual_Base_Sepolia_chain_testnet_only_no_selected_multichain_provider_sandbox",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "testnet",
+          "path": "evidence/coin-testnet/ledger/README.md"
+        },
+        {
+          "reference": "provider",
+          "path": "email-first-provider-review.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Live five-network provider funding/conversion acceptance is missing; Base Sepolia is only one valueless test route."
+      ]
+    },
+    {
+      "id": "R27",
+      "requirement": "Exactly-once welcome/daily Toronto-day grants and grant lots",
+      "owner": "lead",
+      "dependencies": ["claim timing decision"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Issue welcome 2,500 exactly once and explicit daily 500 once per Toronto calendar day, including concurrent requests.",
+        "Maintain independent grant lots/source provenance and principal/profit/qualification targets.",
+        "Require approved strong authentication and explicit sandbox interaction before initializing a retained account financially; never auto-fund it during auth/release.",
+        "Allocate separate backing before promising live withdrawable promotional rewards."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "current_eba_guest_release_verified_genuine_grant_issuance_not_performed",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "coin",
+          "path": "evidence/account-completion-baseline/coin-sandbox-browser/results.json"
+        },
+        {
+          "reference": "financialOps",
+          "path": "financial-operations.md"
+        }
+      ],
+      "remainingBlockers": [
+        "No retained hosted account financial history is initialized and no real grant backing allocated; genuine proof/approved backing precede any live promise."
+      ]
+    },
+    {
+      "id": "R28",
+      "requirement": "Source spending, proportional profit/loss, fees/rounding and permanent qualification",
+      "owner": "lead",
+      "dependencies": ["examples approved"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Use exact fixed-point arithmetic and persist grant FIFO/principal-before-profit stake spending, purchased original principal before purchased profit, and purchased-before-qualified-promotional withdrawal sources.",
+        "Split mixed-source profits/losses using actual instrument cost and deterministic residual allocation; losses/fees cannot qualify grants incorrectly.",
+        "Qualify each grant independently and permanently only at its own new net-profit target; later losses do not relock or restore spent value.",
+        "Settle by the approved closing-time/UUID order across concurrent requests and reject expired/stale session contexts."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "financialReview",
+          "path": "evidence/account-completion-baseline/financial-review/README.md"
+        },
+        {
+          "reference": "a4",
+          "path": "a4-mechanism.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Local sandbox accounting is accepted only within its recorded scope; live instrument/provider combined-release gates remain open."
+      ]
+    },
+    {
+      "id": "R29",
+      "requirement": "Promotional backing and available/reserved/pending/promo/withdrawable projections",
+      "owner": "lead",
+      "dependencies": ["R24/R28"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Separate virtual spend-only principal from backed cash/profit and purchased/promotional/fee/operating accounts.",
+        "Provide exact available/reserved/pending/promotional/withdrawable projections with source/qualification constraints and no double counting.",
+        "Preserve solvency/reserve caps and allocate real promotional backing before live promises.",
+        "Verify genuine hosted financial initialization only after successful strong proof."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "current_eba_guest_release_and_zero_live_catalog_verified_no_genuine_financial_initialization",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "coin",
+          "path": "evidence/account-completion-baseline/coin-sandbox-browser/results.json"
+        },
+        {
+          "reference": "financialReview",
+          "path": "evidence/account-completion-baseline/financial-review/README.md"
+        },
+        {
+          "reference": "preflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-preflight.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine hosted proof before financial initialization and real promotional backing allocation remain pending."
+      ]
+    },
+    {
+      "id": "R30",
+      "requirement": "Withdrawal request, specific proof, manual review and transactional reservation",
+      "owner": "lead/auth",
+      "dependencies": ["R16/R25"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Quote gross/fee/net/network/destination, enforce gross minimum 5 and bind the exact stored request to fresh operation proof.",
+        "Reserve the gross debit transactionally once with scoped idempotency and account/session/context fences.",
+        "Require owner-only manual approval/signing and keep rejection/observation/reconciliation semantics safe.",
+        "Verify genuine hosted authorization and live manual payout operations separately from simulation."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "coin",
+          "path": "evidence/account-completion-baseline/coin-sandbox-browser/results.json"
+        },
+        {
+          "reference": "native",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/native/results.json"
+        },
+        {
+          "reference": "financialReview",
+          "path": "evidence/account-completion-baseline/financial-review/README.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine hosted exact proof and live manual payout operations remain unverified."
+      ]
+    },
+    {
+      "id": "R31",
+      "requirement": "Scoped idempotency and pending/completed/failed/uncertain external outcomes",
+      "owner": "lead",
+      "dependencies": ["provider contract"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Persist external operation identity/signing bytes/nonce before any broadcast and reject duplicate allocation.",
+        "Handle pending/completed/failed/uncertain states monotonically and reconcile the original operation before retries.",
+        "Confirm selected live-provider external idempotency/finality/retry semantics without inferring them from testnet."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "prior_actual_Base_Sepolia_chain_testnet_only_no_selected_multichain_provider_sandbox",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "testnet",
+          "path": "evidence/coin-testnet/ledger/README.md"
+        },
+        {
+          "reference": "financialReview",
+          "path": "evidence/account-completion-baseline/financial-review/README.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Selected live-provider external idempotency/retry/reconciliation semantics remain unverified."
+      ]
+    },
+    {
+      "id": "R32",
+      "requirement": "Receipts, refunds, corrections and append-only auditable reversals",
+      "owner": "lead",
+      "dependencies": ["approved policy"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Use append-only balanced receipts/reversals/corrections and retain original evidence.",
+        "Apply later approved completed-purchase USDC withdrawal policy; do not promise superseded original-route refunds.",
+        "Restore only original eligible cash sources from separate funded correction backing and cumulative persisted caps; do not create a compensation category or grant qualification.",
+        "Record exact recovery-cost consent as consent-only/no-charge; require approved provider execution before charging or attempting live recovery.",
+        "Submitting an error report or recording recovery-cost consent does not itself freeze/reserve/debit funds; only the separately reviewed authorized correction/recovery path may change financial state."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "coin",
+          "path": "evidence/account-completion-baseline/coin-sandbox-browser/results.json"
+        },
+        {
+          "reference": "financialOps",
+          "path": "financial-operations.md"
+        },
+        {
+          "reference": "financialReview",
+          "path": "evidence/account-completion-baseline/financial-review/README.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Provider-specific recovery/refund/correction execution and live operating acceptance remain unverified; consent-only records authorize no charge."
+      ]
+    },
+    {
+      "id": "R33",
+      "requirement": "Authenticated webhooks, duplicate/out-of-order events and reconciliation",
+      "owner": "lead",
+      "dependencies": ["provider sandbox"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Authenticate provider webhooks; store scoped immutable inbox evidence and tolerate duplicates/out-of-order delivery.",
+        "Reconcile uncertain events with the authoritative external source; late pending events cannot undo final state.",
+        "Verify the selected multichain provider sandbox and route-specific finality before live release."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "prior_actual_Base_Sepolia_chain_testnet_only_no_selected_multichain_provider_sandbox",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "testnet",
+          "path": "evidence/coin-testnet/ledger/README.md"
+        },
+        {
+          "reference": "provider",
+          "path": "email-first-provider-review.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Selected multichain provider sandbox/account-specific webhook and settlement acceptance remains unavailable."
+      ]
+    },
+    {
+      "id": "R34",
+      "requirement": "Prevent duplicate payout, overspend, double reserve and premature release",
+      "owner": "lead/review",
+      "dependencies": ["transactional workflows"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Prevent concurrent overspending, double reservations/payouts and duplicated receipt/nonce use with transaction locks and immutable idempotency.",
+        "Keep uncertain/failed payout reserves until reconciliation proves no transfer; timeouts/retries alone cannot release them.",
+        "Independently review financial transitions and verify real chosen-provider retry/outcome behavior."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "prior_actual_Base_Sepolia_chain_testnet_only_no_selected_multichain_provider_sandbox",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "testnet",
+          "path": "evidence/coin-testnet/ledger/README.md"
+        },
+        {
+          "reference": "financialReview",
+          "path": "evidence/account-completion-baseline/financial-review/README.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Chosen live-provider outcome/retry acceptance remains open; earlier testnet reconciliation is not live payout approval."
+      ]
+    },
+    {
+      "id": "R35",
+      "requirement": "Historical/sandbox/live and purchased/promo/fees/operating isolation",
+      "owner": "lead",
+      "dependencies": ["asset contracts"],
+      "implementationStatus": "historical_rail_asset_backing_and_runtime_role_isolation_verified_local_and_staging",
+      "completionStatus": "isolation_requirements_satisfied_for_recorded_local_and_staging_scope",
+      "acceptanceCriteria": [
+        "Keep historical nonredeemable play, simulation, physical testnet and live environments separate with explicit assets/precision.",
+        "Isolate purchased backing, promotional backing, fees and operating funds; deny runtime live-ledger writes.",
+        "Preserve zero live financial history and private-schema role separation before/after staging release."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_pre_post_45_migration_zero_live_catalog_and_private_role_isolation_passed",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "preflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-preflight.json"
+        },
+        {
+          "reference": "financialReview",
+          "path": "evidence/account-completion-baseline/financial-review/README.md"
+        },
+        {
+          "reference": "releasePrepare",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-prepare.json"
+        },
+        {
+          "reference": "releaseMigration",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-migrate.json"
+        },
+        {
+          "reference": "databasePostflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json"
+        },
+        {
+          "reference": "deploymentAccepted",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-deploy.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "securityPreservation",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json"
+        }
+      ],
+      "remainingBlockers": [],
+      "limitations": [
+        "Real isolated PostgreSQL suites verified explicit asset/rail/history and purchased/promotional/fee/operating separation and runtime live-write denial. Physical testnet/simulation databases remain separate.",
+        "Actual45-migration catalogs and unchanged pre/post security comparison preserve zero live financial history and private browser/runtime roles before/after release. This is isolation acceptance, not selected live-provider eligibility, custody or financial backing approval."
+      ]
+    },
+    {
+      "id": "R36",
+      "requirement": "Clearly label deterministic/provider sandbox/live evidence; keep live disabled",
+      "owner": "all",
+      "dependencies": ["release gates"],
+      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Label deterministic simulation, provider-hosted sandbox and actual chain testnet precisely in UI/docs/evidence.",
+        "Keep live funding/redemption disabled until provider/security/financial/combined repository gates pass.",
+        "Do not claim mocks, an empty wallet, a passing build or provider marketing as financial provider acceptance."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "disabled_pending_combined_release_gates"
+      },
+      "evidence": [
+        {
+          "reference": "coin",
+          "path": "evidence/account-completion-baseline/coin-sandbox-browser/results.json"
+        },
+        {
+          "reference": "testnet",
+          "path": "evidence/coin-testnet/ledger/README.md"
+        },
+        {
+          "reference": "render",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-inspect.json"
+        },
+        {
+          "reference": "financialOps",
+          "path": "financial-operations.md"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        }
+      ],
+      "remainingBlockers": [
+        "All live provider/security/financial/legal/backing release gates remain open; live funding/redemption must stay disabled."
+      ]
+    },
+    {
+      "id": "R37",
+      "requirement": "Redis multi-instance atomic IP/account/operation limits and privacy namespaces",
+      "owner": "Redis",
+      "dependencies": ["isolated Redis"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Use real atomic Redis limits across multiple instances with IP/account/operation scopes, privacy HMACs and environment namespaces.",
+        "Keep PostgreSQL authoritative and do not expose Redis or cache positive authorization decisions or duplicate OTP state.",
+        "Verify hosted multi-instance/capacity behavior separately from local two-process tests."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "redis",
+          "path": "evidence/redis-acceptance/embedded-wallet-scopes/results.json"
+        },
+        {
+          "reference": "preflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-preflight.json"
+        },
+        {
+          "reference": "operations",
+          "path": "operations.md"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Hosted multi-instance/capacity acceptance remains unverified; real local two-process Redis evidence is not that trial."
+      ]
+    },
+    {
+      "id": "R38",
+      "requirement": "Redis timeout/retry/outage and logout/revocation availability",
+      "owner": "Redis/auth",
+      "dependencies": ["isolated instances"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Bound connection/command/retry behavior and fail closed for protected mutations during Redis/provider outages.",
+        "Keep local logout/revocation available and PostgreSQL-authoritative regardless of abuse-store availability.",
+        "Separate actual local outage/OOM/restart evidence from any unperformed hosted drill."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "redis",
+          "path": "evidence/redis-acceptance/embedded-wallet-scopes/results.json"
+        },
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "cookie",
+          "path": "evidence/account-completion-baseline/wallet-phase-cookie-browser/results.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        }
+      ],
+      "remainingBlockers": [
+        "No hosted Redis outage drill has been performed; local outage evidence retains its stated scope."
+      ]
+    },
+    {
+      "id": "R39",
+      "requirement": "Redis restart/eviction/memory/availability and latency/error/throttle metrics",
+      "owner": "Redis",
+      "dependencies": ["isolated Redis"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Use and verify appropriate noeviction/memory/restart/availability behavior for security limits; recognize counter loss on restart.",
+        "Measure bounded aggregate latency/errors/throttles without identities or credentials.",
+        "Obtain actual hosted capacity/availability evidence or explicitly retain denied raw-INFO/hosted-outage limits; add ordinary caching only when measured."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "redis",
+          "path": "evidence/redis-acceptance/embedded-wallet-scopes/results.json"
+        },
+        {
+          "reference": "hosted",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/d6e2d35/acceptance.json"
+        },
+        {
+          "reference": "operations",
+          "path": "operations.md"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Hosted raw INFO access is denied and hosted capacity/outage/availability acceptance remains unverified."
+      ]
+    },
+    {
+      "id": "R40",
+      "requirement": "Preserve narrowed four-account reset, retained/manual accounts and guarded tooling",
+      "owner": "lead",
+      "dependencies": ["reset reports"],
+      "implementationStatus": "guarded_backup_rehearsal_migration_and_retained_reset_scope_verified",
+      "completionStatus": "satisfied_for_guarded_release_preservation",
+      "acceptanceCriteria": [
+        "Keep the reset narrowed to the original four deleted IDs and preserve all retained accounts plus the genuine manual signup.",
+        "Keep reset tooling explicit target/scope/backup/rehearsal gated and absent from startup/migration automation.",
+        "Recheck account/security fingerprints after additive release; do not delete or empty staging again."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_exact_live_revision_database_preservation_and_guest_postflight_passed_no_genuine_auth_claim",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "reset",
+          "path": "evidence/email-first/reset-selected.json"
+        },
+        {
+          "reference": "preflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-preflight.json"
+        },
+        {
+          "reference": "sourceReview",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/auth-release-source-review.md"
+        },
+        {
+          "reference": "release",
+          "path": "account-staging-release.md"
+        },
+        {
+          "reference": "releasePrepare",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-prepare.json"
+        },
+        {
+          "reference": "releaseMigration",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-migrate.json"
+        },
+        {
+          "reference": "databasePostflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json"
+        },
+        {
+          "reference": "deploymentAccepted",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-deploy.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "securityPreservation",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json"
+        }
+      ],
+      "remainingBlockers": [],
+      "limitations": [
+        "Pre/post security comparison occurred with both writers stopped. All four accounts/three retained and selected reset absence were preserved. Later legitimate user activity is separate; no additional deletion authorized."
+      ]
+    },
+    {
+      "id": "R41",
+      "requirement": "Reject pre-reset credentials and delayed callbacks",
+      "owner": "auth/lead",
+      "dependencies": ["original credentials or disposable reproduction"],
+      "implementationStatus": "accepted_local_reproduction_original_hosted_replay_unavailable",
+      "completionStatus": "satisfied_by_approved_local_reproduction",
+      "acceptanceCriteria": [
+        "Reject pre-reset cookies/passwords/provider sessions and delayed known-wallet/provider callbacks without reprovisioning old ownership.",
+        "When original hosted credentials are unavailable, use disposable isolated signed identities and clearly label the reproduction.",
+        "Do not describe that local reproduction as the original hosted replay trial."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "originalSignup",
+          "path": "evidence/email-first/README.md"
+        },
+        {
+          "reference": "authReview",
+          "path": "evidence/account-completion-baseline/auth-independent-review.md"
+        }
+      ],
+      "remainingBlockers": [],
+      "limitations": [
+        "Original pre-reset hosted browser credentials are unavailable. The approved disposable signed password/wallet/cookie/delayed-callback reproduction passed; it must not be described as the original hosted replay trial."
+      ]
+    },
+    {
+      "id": "R42",
+      "requirement": "Clean only explicitly created automated acceptance identities",
+      "owner": "lead",
+      "dependencies": ["exact identity ledger"],
+      "implementationStatus": "current_owned_disposable_cleanup_recorded_no_hosted_fixture_identity_created",
+      "completionStatus": "current_owned_fixture_cleanup_satisfied",
+      "acceptanceCriteria": [
+        "Use explicit disposable local identities/environments for automated acceptance and clean only those owned fixtures.",
+        "Track any newly created genuine hosted acceptance identity before separately scoped cleanup; preserve retained/manual accounts.",
+        "Never reuse reset tooling for general cleanup or delete unlisted hosted accounts."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "integrated",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+        },
+        {
+          "reference": "native",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/native/results.json"
+        },
+        {
+          "reference": "contract",
+          "path": "email-first-completion.md"
+        }
+      ],
+      "remainingBlockers": [],
+      "limitations": [
+        "All recorded owned disposable fixtures/clusters cleaned. Future genuine acceptance identities, if explicitly created, must be tracked before separately scoped cleanup; retained/manual accounts remain preserved."
+      ]
+    },
+    {
+      "id": "R43",
+      "requirement": "Combined quality, coverage, database isolation and browser release gates",
+      "owner": "lead",
+      "dependencies": ["merged implementation"],
+      "implementationStatus": "recorded_combined_quality_ci_migration_live_and_guest_release_gates_passed",
+      "completionStatus": "required_repository_gates_satisfied_for_recorded_revision",
+      "acceptanceCriteria": [
+        "Pass unchanged coverage/lint/format/strict inventories and all required fresh/upgrade database isolation/browser gates on the combined source.",
+        "Preserve meaningful assertions and actual failures; do not lower thresholds, suppress types or count skipped suites as tested.",
+        "Obtain all five required CI successes on the exact revised pushed source and complete guarded release/postflight."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_exact_live_revision_database_preservation_and_guest_postflight_passed_no_genuine_auth_claim",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "integrated",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+        },
+        {
+          "reference": "rawGate",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/run.log"
+        },
+        {
+          "reference": "manifest",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/archive-manifest.json"
+        },
+        {
+          "reference": "ciHistorical",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/a9706cc/README.md"
+        },
+        {
+          "reference": "retainedRefresh",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/retained-refresh/README.md"
+        },
+        {
+          "reference": "retainedRefreshResult",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/retained-refresh/result.json"
+        },
+        {
+          "reference": "ciCurrent",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/README.md"
+        },
+        {
+          "reference": "ciCurrentResult",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/result.json"
+        },
+        {
+          "reference": "releasePrepare",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-prepare.json"
+        },
+        {
+          "reference": "releaseMigration",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-migrate.json"
+        },
+        {
+          "reference": "databasePostflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json"
+        },
+        {
+          "reference": "deploymentAccepted",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-deploy.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        }
+      ],
+      "remainingBlockers": [],
+      "limitations": [
+        "CI 5/5 proves exact eba1dc5 tree,858 tests/zero skips,239/17/5 per fresh-upgrade path and retained-wallet 4 groups. Guarded migration and exact LIVE/readiness/guest7/assets14 passed. Genuine provider/device/financial acceptance remains separate."
+      ]
+    },
+    {
+      "id": "R44",
+      "requirement": "Auth/financial/security/concurrency/provider failure acceptance coverage",
+      "owner": "lead/review",
+      "dependencies": ["workflows"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Cover auth/recovery/linking/callback races/session expiry/revocation/stale token/cross-account and provider/network failures.",
+        "Cover grants/source qualification/concurrent spending/withdrawals/webhook ordering/uncertain reconciliation/asset isolation/reset protections.",
+        "Rerun affected combined checks after parallel integration and distinguish genuine provider/chain/hosted/device evidence."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "native",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/native/results.json"
+        },
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        },
+        {
+          "reference": "coin",
+          "path": "evidence/account-completion-baseline/coin-sandbox-browser/results.json"
+        },
+        {
+          "reference": "cookie",
+          "path": "evidence/account-completion-baseline/wallet-phase-cookie-browser/results.json"
+        },
+        {
+          "reference": "redis",
+          "path": "evidence/redis-acceptance/embedded-wallet-scopes/results.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine provider journeys, all five actual routes and device acceptance remain missing; separately dated SDK/coin/cookie results are not new runs."
+      ]
+    },
+    {
+      "id": "R45",
+      "requirement": "WCAG 2.2 AA checks, keyboard/focus/announcements/mobile/200% zoom",
+      "owner": "lead",
+      "dependencies": ["changed journeys"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Target WCAG 2.2AA through keyboard/focus restoration/announcements, mobile reflow and 200% zoom for changed journeys.",
+        "Run scoped automated accessibility checks without claiming full conformance or physical assistive-technology behavior.",
+        "Complete physical screen-reader/device acceptance separately and preserve matching theme screenshots."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "integrated",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+        },
+        {
+          "reference": "native",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/native/results.json"
+        },
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        },
+        {
+          "reference": "coin",
+          "path": "evidence/account-completion-baseline/coin-sandbox-browser/results.json"
+        },
+        {
+          "reference": "screenReader",
+          "path": "evidence/account-completion-baseline/screen-reader-attempt.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Full WCAG 2.2AA and physical assistive-technology conformance are unverified; scoped axe/keyboard/mobile/zoom passes do not establish them."
+      ]
+    },
+    {
+      "id": "R46",
+      "requirement": "Screen-reader and physical-device trials distinct from automation",
+      "owner": "lead",
+      "dependencies": ["human/device access"],
+      "implementationStatus": "automation_scopes_separated_physical_screen_reader_trials_incomplete",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Record automation, native virtual authenticators, screen-reader and physical-device testing as distinct scopes.",
+        "Complete supported screen-reader and actual physical-device authentication/account/financial journeys before claiming them accepted."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "screenReader",
+          "path": "evidence/account-completion-baseline/screen-reader-attempt.md"
+        },
+        {
+          "reference": "native",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/native/results.json"
+        },
+        {
+          "reference": "coin",
+          "path": "evidence/account-completion-baseline/coin-sandbox-browser/results.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Native screen-reader test attempt is incomplete and actual physical-device/human acceptance is still needed."
+      ]
+    },
+    {
+      "id": "R47",
+      "requirement": "Privacy-preserving signup/auth/resend/provider/recovery measurement",
+      "owner": "lead/auth",
+      "dependencies": ["journeys"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Measure signup completion, auth latency, resends, provider errors and recovery outcomes with bounded non-PII outcomes/timing.",
+        "Exclude codes/tokens/signatures/raw email/IP/private financial data and redact comparison/session headers from logs.",
+        "Measure genuine hosted delivery/conversion/recovery outcomes without treating synthetic fixtures as population data."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        },
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "authReview",
+          "path": "evidence/account-completion-baseline/auth-independent-review.md"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine hosted delivery/completion/latency/recovery measurements are missing; synthetic fixture counts are not population outcomes."
+      ]
+    },
+    {
+      "id": "R48",
+      "requirement": "Runtime vs owner separation; no secret/private-data exposure",
+      "owner": "all/review",
+      "dependencies": ["deployment/config"],
+      "implementationStatus": "runtime_owner_tls_config_text_privacy_and_manual_artifact_scope_verified",
+      "completionStatus": "credential_config_text_and_recorded_artifact_privacy_scope_satisfied",
+      "acceptanceCriteria": [
+        "Keep owner/admin credentials out of web/worker, preserve strict verified TLS and private browser/runtime grants.",
+        "Keep private configs/backups/signatures/financial data out of source/logs/screenshots/reports; inspect final artifact changes.",
+        "Verify encrypted backup/restore rehearsal and exact unchanged security state around the new migration before writers resume.",
+        "Record denied advisor access and provider maintenance limits without inventing clean results."
+      ],
+      "verification": {
+        "locallyTested": "actual_current_secret_text_scan_and_scoped_artifact_review_passed_with_binary_history_limits",
+        "hostedTested": "actual_runtime_owner_configuration_strict_tls_private_role_backup_migration_and_guest_boundaries_verified",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "preflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-preflight.json"
+        },
+        {
+          "reference": "sourceReview",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/auth-release-source-review.md"
+        },
+        {
+          "reference": "release",
+          "path": "account-staging-release.md"
+        },
+        {
+          "reference": "authReview",
+          "path": "evidence/account-completion-baseline/auth-independent-review.md"
+        },
+        {
+          "reference": "runtimeConfigSeparation",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/runtime-credential-separation/acceptance.json"
+        },
+        {
+          "reference": "releasePrepare",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-prepare.json"
+        },
+        {
+          "reference": "releaseMigration",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-migrate.json"
+        },
+        {
+          "reference": "databasePostflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json"
+        },
+        {
+          "reference": "deploymentAccepted",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-deploy.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "securityPreservation",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json"
+        },
+        {
+          "reference": "repositoryPrivacy",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/repository-privacy.json"
+        },
+        {
+          "reference": "finalTransitionReview",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/final-transition-review.md"
+        },
+        {
+          "reference": "databaseAfterLive",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-after-live.json"
+        },
+        {
+          "reference": "hostedReleaseReadme",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/README.md"
+        },
+        {
+          "reference": "providerCapabilityFollowup",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-capability-followup.md"
+        }
+      ],
+      "remainingBlockers": [],
+      "limitations": [
+        "Actual current-secret scanner passed 897 text files/five privately loaded current secrets with zero matches; 763 binary files and screenshot pixels were skipped. Empty-form hosted screenshots/current artifacts were reviewed separately; this does not prove all historical, unknown or obfuscated secrets absent.",
+        "Strict TLS, browser/runtime private roles and separate owner migration/configuration are verified within their recorded boundaries. Supabase advisors access was denied; that is an explicit limitation, not a fabricated clean advisor result.",
+        "The scan output and later fixed-text completion/PR metadata were added after the actual scan and contain only allowlisted aggregate facts; the original scan is not relabelled as testing future bytes."
+      ]
+    },
+    {
+      "id": "R49",
+      "requirement": "Focused commits, PR #42 update, screenshots, results/config/docs/status",
+      "owner": "lead",
+      "dependencies": ["integration"],
+      "implementationStatus": "focused_source_commits_and_final_documents_screenshots_archives_prepared_reviewed_pending_publication",
+      "completionStatus": "deliverables_ready_final_document_commit_and_pr_archive_publication_pending",
+      "acceptanceCriteria": [
+        "Deliver focused strict-source commits in existing PR42 with implementation/configuration/docs/status and matching screenshots/results.",
+        "Use secret variable names only and preserve a reviewable combined diff and exact tested revision/hash evidence.",
+        "Update the PR, exact CI and final release/evidence handoff after remaining gates."
+      ],
+      "verification": {
+        "locallyTested": "source_record_or_research_review_only",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "contract",
+          "path": "email-first-completion.md"
+        },
+        {
+          "reference": "manifest",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/archive-manifest.json"
+        },
+        {
+          "reference": "integrated",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+        },
+        {
+          "reference": "release",
+          "path": "account-staging-release.md"
+        },
+        {
+          "reference": "retainedRefresh",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/retained-refresh/README.md"
+        },
+        {
+          "reference": "retainedRefreshResult",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/retained-refresh/result.json"
+        },
+        {
+          "reference": "ciCurrent",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/README.md"
+        },
+        {
+          "reference": "ciCurrentResult",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/result.json"
+        },
+        {
+          "reference": "releasePrepare",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-prepare.json"
+        },
+        {
+          "reference": "releaseMigration",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-migrate.json"
+        },
+        {
+          "reference": "databasePostflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json"
+        },
+        {
+          "reference": "deploymentAccepted",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-deploy.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "finalTransitionReview",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/final-transition-review.md"
+        },
+        {
+          "reference": "hostedReleaseReadme",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/README.md"
+        },
+        {
+          "reference": "repositoryPrivacy",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/repository-privacy.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Lead must publish the final documentation/evidence commit and refreshed PR/archive body. Runtime/source CI and staging acceptance remain pinned to exact eba1dc5; report later PR-header check status only when actually observed, without inventing future successes or requiring a self-referential runtime CI/commit cycle."
+      ],
+      "limitations": [
+        "Focused implementation commits are already pushed in PR42; current local documentation/screenshots/acceptance archives and formatting/strict-source checks are prepared/reviewed. The final documentary publication itself has not yet been recorded."
+      ]
+    },
+    {
+      "id": "R50",
+      "requirement": "Independent security/financial and full-prompt completion audit",
+      "owner": "review/lead",
+      "dependencies": ["integrated revision"],
+      "implementationStatus": "independent_whole_contract_source_release_and_final_document_audit_performed",
+      "completionStatus": "independent_whole_contract_source_and_evidence_audit_satisfied_with_limits",
+      "acceptanceCriteria": [
+        "Have separate reviewers examine integrated sensitive auth/financial transitions and all 52 requirements, disclosing authorship limits.",
+        "Investigate and fix independently actionable findings; agent reports alone are not acceptance.",
+        "Audit all required evidence/status/blockers after final CI/release and keep the overall task explicitly incomplete while external requirements remain."
+      ],
+      "verification": {
+        "locallyTested": "source_record_or_research_review_only",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "independent",
+          "path": "evidence/account-completion-baseline/wallet-phase-independent-completion-audit.md"
+        },
+        {
+          "reference": "authReview",
+          "path": "evidence/account-completion-baseline/auth-independent-review.md"
+        },
+        {
+          "reference": "financialReview",
+          "path": "evidence/account-completion-baseline/financial-review/README.md"
+        },
+        {
+          "reference": "walletReview",
+          "path": "evidence/account-completion-baseline/embedded-wallet-review/README.md"
+        },
+        {
+          "reference": "phaseReview",
+          "path": "evidence/account-completion-baseline/provider-control-phase-review/README.md"
+        },
+        {
+          "reference": "ciCurrent",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/README.md"
+        },
+        {
+          "reference": "ciCurrentResult",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/result.json"
+        },
+        {
+          "reference": "releasePrepare",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-prepare.json"
+        },
+        {
+          "reference": "releaseMigration",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-migrate.json"
+        },
+        {
+          "reference": "databasePostflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json"
+        },
+        {
+          "reference": "deploymentAccepted",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-deploy.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "securityPreservation",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json"
+        },
+        {
+          "reference": "finalTransitionReview",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/final-transition-review.md"
+        },
+        {
+          "reference": "databaseAfterLive",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-after-live.json"
+        },
+        {
+          "reference": "hostedReleaseReadme",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/README.md"
+        },
+        {
+          "reference": "repositoryPrivacy",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/repository-privacy.json"
+        },
+        {
+          "reference": "providerCapabilityFollowup",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-capability-followup.md"
+        }
+      ],
+      "remainingBlockers": [],
+      "limitations": [
+        "The independent second reviewer actually read all52 final rows against source/contract/evidence at Markdown7d364ae5\u2026/JSONf9e0d563\u2026, validated321 references/59catalog entries/49local links/eight source-compiled hashes, and reported PASS with no new blocker. This fixed-text outcome entry records that completed review; it does not create a new runtime/source acceptance claim.",
+        "Independent authorship limits remain linked; review is not a fresh execution of tests/provider operations. Overall genuine/provider/device/legal/backing requirements remain incomplete."
+      ]
+    },
+    {
+      "id": "R51",
+      "requirement": "Automatically provision one user-controlled EVM wallet after verified account creation; survive redirect/outage; no app signer",
+      "owner": "wallet/lead",
+      "dependencies": ["supported free-tier provider API, durable job"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Transactionally enqueue one user-only controlled EVM wallet with immutable account/DID/external reference and no delegated app signing authority.",
+        "Provision outside login latency with leases, bounded provider retries, uncertain-create reconciliation and no duplicate wallet after worker crash/redirect/outage.",
+        "Park unaccepted credential waits without burning real failure attempts; rearm only exact accepted identity after verified login/retry or synchronized reset, preserving earlier failure budget.",
+        "Expose one private status/retry view and verify genuine provider creation/default recovery on the deployed revision."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "pgUpgrade",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/upgrade-account-security.log"
+        },
+        {
+          "reference": "walletReview",
+          "path": "evidence/account-completion-baseline/embedded-wallet-review/README.md"
+        },
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        },
+        {
+          "reference": "manifest",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/archive-manifest.json"
+        },
+        {
+          "reference": "releasePrepare",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-prepare.json"
+        },
+        {
+          "reference": "releaseMigration",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-migrate.json"
+        },
+        {
+          "reference": "databasePostflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json"
+        },
+        {
+          "reference": "deploymentAccepted",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-deploy.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "providerWalletPending",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-wallet/acceptance-pending.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Actual provider wallet creation/user-only ownership/default recovery acceptance is pending credential verification. Exact deployed source and read-only inspections pass their stated scopes; no native human key activation result is assumed."
+      ]
+    },
+    {
+      "id": "R52",
+      "requirement": "Remove new external-wallet linking while preserving retained wallet ownership/sign-in/security",
+      "owner": "wallet/review",
+      "dependencies": ["existing retained-credential guards"],
+      "implementationStatus": "implemented_required_acceptance_pending",
+      "completionStatus": "incomplete",
+      "acceptanceCriteria": [
+        "Remove new external-wallet link affordances and reject both backend linking routes and unknown-wallet signup when Privy is configured.",
+        "Preserve retained wallet ownership/sign-in/security proof/removal/final-method protection and legacy behavior where required.",
+        "Verify current hosted and physical retained-wallet behavior; do not infer it from synthetic provider or local signer fixtures."
+      ],
+      "verification": {
+        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
+        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "providerSandboxTested": "not_claimed",
+        "physicallyDeviceTested": "not_established",
+        "liveRelease": "does_not_authorize_live_financial_activity"
+      },
+      "evidence": [
+        {
+          "reference": "pgFresh",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/integrated/database/fresh-account-security.log"
+        },
+        {
+          "reference": "integrated",
+          "path": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+        },
+        {
+          "reference": "sdk",
+          "path": "evidence/account-completion-baseline/embedded-wallet-browser/r3/browser-results.json"
+        },
+        {
+          "reference": "walletReview",
+          "path": "evidence/account-completion-baseline/embedded-wallet-review/README.md"
+        },
+        {
+          "reference": "retainedRefresh",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/retained-refresh/README.md"
+        },
+        {
+          "reference": "retainedRefreshResult",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/retained-refresh/result.json"
+        },
+        {
+          "reference": "ciCurrent",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/README.md"
+        },
+        {
+          "reference": "ciCurrentResult",
+          "path": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/result.json"
+        },
+        {
+          "reference": "releasePrepare",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-prepare.json"
+        },
+        {
+          "reference": "releaseMigration",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-release-migrate.json"
+        },
+        {
+          "reference": "databasePostflight",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json"
+        },
+        {
+          "reference": "deploymentAccepted",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/render-account-deploy.json"
+        },
+        {
+          "reference": "hostedCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "anonymousWalletCurrent",
+          "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        }
+      ],
+      "remainingBlockers": [
+        "Genuine hosted/physical retained-wallet acceptance remains pending. Corrected retained-wallet fixture passed four focused and four exact-tree CI groups; exact release and guest private-route postflight passed."
+      ]
+    }
+  ]
+}

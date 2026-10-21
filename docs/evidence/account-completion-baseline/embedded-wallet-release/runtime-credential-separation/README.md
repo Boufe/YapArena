@@ -1,0 +1,13 @@
+# Runtime and database-owner credential separation
+
+The lead ran the reviewed read-only helper against both fixed Render services during release preparation for source `eba1dc5cfe6680a9a41e98482b64d3c725163a1b` on 2026-10-21. This configuration inspection does not claim that revision was already deployed.
+
+The [sanitized acceptance result](acceptance.json) passed. The web's 30 values and worker's 21 values include one Render-managed secret file each. Neither service has a linked environment group. Every returned value and secret-file content was checked in memory against the private database-owner password and identity, including raw and URL-encoded forms, database-owner/admin/migration markers, privileged PostgreSQL URL identities, and standalone or nested privileged database JWT role markers. Both configured database URLs matched the known runtime credential. All adverse match counts were zero. Expected Privy and LiveKit runtime secrets were accepted as provider credentials.
+
+The inspection made six authenticated GET requests, zero database connections, and zero mutations. The allowlist covered only the two services' direct variables and secret files plus complete environment-group metadata before and after inspection. A group-detail GET would be permitted only for an ID proven by metadata to link to a fixed target; no such request was needed. All lists were complete and relevant group membership remained stable. No secret names, values, group names, file contents, or raw provider responses are archived.
+
+Private helper SHA256: `cf43df4835a48629a113c8971b48761c660073c0e2c6f63d2c2d86269187a8b6`. Strict TypeScript noEmit and scoped ESLint passed. The 44-check offline self-test passed with zero network requests, database connections, or mutations; an independent reviewer reran that self-test and reviewed the fixed GET-only transport and private output before the lead performed the genuine inspection.
+
+Current official API documentation distinguishes [direct service variables](https://api-docs.render.com/reference/get-env-vars-for-service) from inherited group variables. The [environment-group listing](https://api-docs.render.com/reference/list-env-groups) and [official OpenAPI schema](https://api-docs.render.com/openapi/render-public-api-1.json) define `serviceLinks`, linked group variables, and secret files used for this inspection.
+
+This is point-in-time provider configuration evidence. It does not prove absence of arbitrarily encrypted or obfuscated credentials, inspect image contents or files outside Render-managed secrets, verify embedded-wallet creation, or authorize live financial activity.

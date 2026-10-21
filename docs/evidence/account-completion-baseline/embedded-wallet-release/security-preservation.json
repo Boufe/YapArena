@@ -1,0 +1,104 @@
+{
+  "result": "PASS",
+  "revision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+  "preAt": "2026-10-21T21:55:02.206Z",
+  "postAt": "2026-10-21T21:58:42.883Z",
+  "helperSha256": "5bfb0d3676cda21f455eda08f8e8a8bec3b9a3c3f56db7166a1a32aced791b37",
+  "privatePreArtifactSha256": "78ac281ddd411b55a67fc6438e2465718bfeb8374a9060dd4586f9b96d1457bc",
+  "privatePostArtifactSha256": "6436bac4c3aade1f700a63406100f0a12e08dee36398327ca0d414e261d78ad0",
+  "readOnly": true,
+  "stoppedWriters": true,
+  "appliedBefore": 43,
+  "appliedAfter": 45,
+  "accounts": {
+    "total": 4,
+    "retained": 3,
+    "selectedResetAbsent": true
+  },
+  "securityProjections": [
+    {
+      "name": "acceptedKeys",
+      "count": 0,
+      "unchanged": true
+    },
+    {
+      "name": "accountAccessChallenges",
+      "count": 1,
+      "unchanged": true
+    },
+    {
+      "name": "accountOperations",
+      "count": 0,
+      "unchanged": true
+    },
+    {
+      "name": "accounts",
+      "count": 4,
+      "unchanged": true
+    },
+    {
+      "name": "authControls",
+      "count": 1,
+      "unchanged": true
+    },
+    {
+      "name": "legacyProviderJobs",
+      "count": 2,
+      "unchanged": true
+    },
+    {
+      "name": "providerExchanges",
+      "count": 5,
+      "unchanged": true
+    },
+    {
+      "name": "providerIdentityRecoveries",
+      "count": 0,
+      "unchanged": true
+    },
+    {
+      "name": "providerMappings",
+      "count": 1,
+      "unchanged": true
+    },
+    {
+      "name": "providerPasskeyBootstraps",
+      "count": 0,
+      "unchanged": true
+    },
+    {
+      "name": "providerPasskeyIntents",
+      "count": 1,
+      "unchanged": true
+    },
+    {
+      "name": "securityUserHandles",
+      "count": 0,
+      "unchanged": true
+    },
+    {
+      "name": "sessions",
+      "count": 1,
+      "unchanged": true
+    },
+    {
+      "name": "walletIdentities",
+      "count": 1,
+      "unchanged": true
+    }
+  ],
+  "clientTls": {
+    "ssl": true,
+    "mode": "verify-full",
+    "caProvided": true,
+    "hostnameVerificationRequired": true,
+    "scope": "libpq client to configured direct or session-pooler endpoint; backendSsl is a separate server-observed hop"
+  },
+  "serverObservedPoolerBackendSsl": false,
+  "mutations": 0,
+  "limitations": [
+    "Private aggregate table hashes are retained outside the repository; no individual rows, IDs, credentials or connection strings are exported.",
+    "The first read-only attempts stopped at a backend SSL assertion; pg_stat_ssl describes the separate pooler backend hop. Corrected frozen helper checks libpq client TLS1.2/1.3 with forced verify-full and verified CA.",
+    "Comparison was made after migrations and before either writer resumed; later legitimate runtime state changes are not compared to this frozen snapshot."
+  ]
+}

@@ -7,11 +7,14 @@ production release. The [completion matrix](email-first-completion.md) and
 record the acceptance boundaries.
 
 The current release is an additive **43 → 45** update from deployed web
-`d6e2d35` to the reviewed `a9706cc` source, not a repeat of the original account
+`d6e2d35` to the reviewed `eba1dc5` source, not a repeat of the original account
 release. The [current release evidence](evidence/account-completion-baseline/embedded-wallet-release/README.md)
 and [hash-scoped source review](evidence/account-completion-baseline/embedded-wallet-release/auth-release-source-review.md)
-record its scope and outstanding gates. **Migration and deployment have not yet
-been performed.** If a correction changes the selected source, refresh its
+record its scope and outstanding gates. The encrypted backup, isolated restore,
+rehearsal and both migrations passed on 2026-10-21; all 14 security projections
+were unchanged before writers resumed. Exact web deployment and its acceptance
+are recorded in that evidence directory. This is a record of the release
+procedure, not a command to repeat the already-applied migrations. If a correction changes the selected source, refresh its
 review and exact-revision CI evidence before proceeding.
 
 Use Node 24 and local PostgreSQL 17/18 tools. Keep the existing private operator
@@ -83,6 +86,12 @@ it into a disposable local cluster, compares rows/sequences and rehearses the
 two pending migrations listed above, taking the schema from 43 to 45 applied
 migrations. It is not a full Supabase/provider disaster-recovery backup. Require
 terminal success and preserve the returned private directory.
+
+On macOS, use `LC_ALL=C LANG=C` for the local native PostgreSQL rehearsal.
+Set `ACCOUNT_STAGING_CA_PATH` to the reviewed public CA file when the private
+configuration's previous path is unavailable. Client certificate/hostname
+verification remains required. PostgreSQL's `pg_stat_ssl` observes the pooler's
+separate backend connection; it does not attest the external libpq TLS connection.
 
 Reinspect suspension and unchanged HEAD. Supply that exact directory through
 `ACCOUNT_STAGING_RELEASE_DIRECTORY`; it contains no secret in its name.

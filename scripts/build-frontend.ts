@@ -3,11 +3,25 @@ import { existsSync, watch, type FSWatcher } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { build, transform } from "esbuild";
+import { build, transform, type Plugin } from "esbuild";
 
 const repository = fileURLToPath(new URL("../", import.meta.url));
 const frontend = path.join(repository, "frontend");
 const publicDirectory = path.join(repository, "public");
+// These modules import shared src/ code (src/platform/html.ts) but keep their
+// own /assets/<name>.js URL. Only src/ imports are inlined: sibling frontend
+// imports such as ./arena-chart.js stay separate requests, exactly as the
+// per-file transform emits them.
+const inPlaceBundles = ["a4", "a4-inline"];
+const keepSiblingImports: Plugin = {
+  name: "keep-sibling-imports",
+  setup(context) {
+    context.onResolve({ filter: /^\.\/[^/]+\.js$/ }, (args) => ({
+      path: args.path,
+      external: true,
+    }));
+  },
+};
 
 async function files(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -54,6 +68,8 @@ async function buildFrontend(): Promise<void> {
   const sources = await checkSources();
   await Promise.all(
     sources.map(async (source) => {
+      const name = path.relative(frontend, source).replace(/\.tsx?$/, "");
+      if (inPlaceBundles.includes(name)) return;
       // Omitting format preserves classic-script scope and existing ESM imports.
       // Type-only modules erase to nothing and need no browser asset.
       const output = await transform(await readFile(source, "utf8"), {
@@ -61,10 +77,7 @@ async function buildFrontend(): Promise<void> {
         sourcefile: path.relative(repository, source),
       });
       if (!output.code.trim()) return;
-      const destination = path.join(
-        publicDirectory,
-        path.relative(frontend, source).replace(/\.tsx?$/, ".js"),
-      );
+      const destination = path.join(publicDirectory, `${name}.js`);
       await mkdir(path.dirname(destination), { recursive: true });
       await writeFile(destination, output.code);
     }),
@@ -86,6 +99,18 @@ async function buildFrontend(): Promise<void> {
         minify: true,
         format,
         outfile: `public/${output}.js`,
+      }),
+    ),
+  );
+  await Promise.all(
+    inPlaceBundles.map((entry) =>
+      build({
+        absWorkingDir: repository,
+        entryPoints: [`frontend/${entry}.ts`],
+        bundle: true,
+        format: "esm",
+        outfile: `public/${entry}.js`,
+        plugins: [keepSiblingImports],
       }),
     ),
   );
@@ -127,6 +152,10 @@ if (process.argv.includes("--check-sources")) {
       watch(
         path.join(repository, "src/features/discovery"),
         { recursive: true },
+        () => void rebuild(),
+      ),
+      watch(
+        path.join(repository, "src/platform/html.ts"),
         () => void rebuild(),
       ),
     ];

@@ -1,21 +1,19 @@
+import { html } from "../../platform/html.ts";
+
 const icons = {
-  person:
-    '<circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/>',
-  shield:
-    '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
-  wallet:
-    '<path d="M20 8V5H6a3 3 0 0 1 0-6h12v4M3 3v16a2 2 0 0 0 2 2h15V8H6a3 3 0 0 1-3-3" transform="translate(0 2) scale(.9)"/><path d="M21 12h-6v5h6M17 14.5h.01"/>',
-  spark:
-    '<path d="m12 2 2.7 7.3L22 12l-7.3 2.7L12 22l-2.7-7.3L2 12l7.3-2.7L12 2Z"/>',
-  activity: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
-  arrow: '<path d="M5 12h14m-6-6 6 6-6 6"/>',
-  check: '<path d="m5 12 4 4L19 6"/>',
+  person: html`<circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/>`,
+  shield: html`<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/>`,
+  wallet: html`<path d="M20 8V5H6a3 3 0 0 1 0-6h12v4M3 3v16a2 2 0 0 0 2 2h15V8H6a3 3 0 0 1-3-3" transform="translate(0 2) scale(.9)"/><path d="M21 12h-6v5h6M17 14.5h.01"/>`,
+  spark: html`<path d="m12 2 2.7 7.3L22 12l-7.3 2.7L12 22l-2.7-7.3L2 12l7.3-2.7L12 2Z"/>`,
+  activity: html`<path d="M3 12h4l3-8 4 16 3-8h4"/>`,
+  arrow: html`<path d="M5 12h14m-6-6 6 6-6 6"/>`,
+  check: html`<path d="m5 12 4 4L19 6"/>`,
 };
 const icon = (name: keyof typeof icons) =>
-  `<svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
+  html`<svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
 
 export function accountMarkup(asset: (name: string) => string) {
-  return `<link rel="stylesheet" href="${asset("account-auth.css")}">
+  return html`<link rel="stylesheet" href="${asset("account-auth.css")}">
   <section class="container account-shell">
     <div class="account-status-row"><a class="account-back" data-auth-return href="/debates">← Back to the arena</a><p id="account-notice" role="status" aria-live="polite">Checking your account…</p></div>
     <div id="signed-out" hidden>

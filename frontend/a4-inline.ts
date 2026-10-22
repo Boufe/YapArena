@@ -28,6 +28,7 @@ import {
   roundProgress,
 } from "./arena-chart.js";
 import { createPriceInspector } from "./arena-price.js";
+import { html } from "../src/platform/html.ts";
 // These selectors refer to the fixed arena server-rendered markup.
 const root = document.querySelector<HTMLElement>("[data-a4-inline]")!;
 if (root) {
@@ -49,18 +50,6 @@ if (root) {
       .slice(0, precision);
     return `${n < 0n ? "−" : ""}${a / 1000000n}${precision ? "." + fractional : ""} Yap Coins`;
   };
-  const escape = (value: unknown) =>
-    String(value).replace(
-      /[&<>"']/g,
-      (c) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        })[c as "&" | "<" | ">" | '"' | "'"],
-    );
   let userId: string | null | undefined,
     run: SelectedRun | null | undefined,
     pending: Commitment | null | undefined,
@@ -255,13 +244,17 @@ if (root) {
     const table = (
       rows: (Round & { receipt: NonNullable<Round["receipt"]> })[],
     ) =>
-      `<div class="arena-table-scroll"><table class="arena-order-table"><thead><tr><th>Side</th><th>Contracts</th><th>Limit</th><th>Status</th></tr></thead><tbody>${rows.map((r) => `<tr><td class="${r.receipt.side === "YES" ? "yes" : "no"}">${escape(r.receipt.side)}</td><td>${r.receipt.quantity}</td><td>${escape(r.receipt.limit)}</td><td>${escape(r.receipt.status.replaceAll("_", " "))}</td></tr><tr class="arena-receipt-detail"><td colspan="4">Round ${r.period} · reserved ${money(r.receipt.reserved)}${r.receipt.premium !== undefined ? ` · premium ${money(r.receipt.premium)} · fee ${money(r.receipt.fee)} · released ${money(r.receipt.released)}` : " · Binding commitment recorded"}${r.receipt.payout !== undefined ? `<br>Payout ${money(r.receipt.payout)} · net ${money(r.receipt.net)}` : " · Awaiting final reveal"}</td></tr>`).join("")}</tbody></table></div>`;
-    el("receipt").innerHTML = open.length
-      ? table(open)
-      : '<p class="arena-order-empty">No open commitments in this run.</p>';
-    ui("history").innerHTML = history.length
-      ? table(history)
-      : '<p class="arena-order-empty">No settled commitments in this run yet.</p>';
+      html`<div class="arena-table-scroll"><table class="arena-order-table"><thead><tr><th>Side</th><th>Contracts</th><th>Limit</th><th>Status</th></tr></thead><tbody>${rows.map((r) => html`<tr><td class="${r.receipt.side === "YES" ? "yes" : "no"}">${r.receipt.side}</td><td>${r.receipt.quantity}</td><td>${r.receipt.limit}</td><td>${r.receipt.status.replaceAll("_", " ")}</td></tr><tr class="arena-receipt-detail"><td colspan="4">Round ${r.period} · reserved ${money(r.receipt.reserved)}${r.receipt.premium !== undefined ? html` · premium ${money(r.receipt.premium)} · fee ${money(r.receipt.fee)} · released ${money(r.receipt.released)}` : " · Binding commitment recorded"}${r.receipt.payout !== undefined ? html`<br>Payout ${money(r.receipt.payout)} · net ${money(r.receipt.net)}` : " · Awaiting final reveal"}</td></tr>`)}</tbody></table></div>`;
+    el("receipt").innerHTML = (
+      open.length
+        ? table(open)
+        : html`<p class="arena-order-empty">No open commitments in this run.</p>`
+    ).toString();
+    ui("history").innerHTML = (
+      history.length
+        ? table(history)
+        : html`<p class="arena-order-empty">No settled commitments in this run yet.</p>`
+    ).toString();
   }
   function describeSelection() {
     const active =

@@ -1,5 +1,7 @@
+import { html } from "../../platform/html.ts";
+
 export function siteHeaderMarkup(asset: (name: string) => string) {
-  return `<header class="site-header" data-site-header data-session="checking" data-auth-script="${asset("account-auth.bundle.js")}" data-auth-style="${asset("account-auth.css")}">
+  return html`<header class="site-header" data-site-header data-session="checking" data-auth-script="${asset("account-auth.bundle.js")}" data-auth-style="${asset("account-auth.css")}">
     <div class="container nav arena-nav">
       <a class="brand" href="/" aria-label="YAP Arena home"><svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/><path d="M9 35 31 5"/></svg><span>YAP ARENA</span></a>
       <nav aria-label="Main navigation"><a href="/live">Live</a><a href="/debates">Explore</a><a href="/match">Create</a></nav>

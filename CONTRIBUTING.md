@@ -145,6 +145,13 @@ The inventory check rejects handwritten JavaScript in `frontend/` and tracked Ja
 in `public/`; generated JavaScript is ignored by Git, lint and formatting and excluded from Docker
 build input. Browser output is always regenerated in the image build.
 
+Build server and browser markup with `html` from `src/platform/html.ts`. It escapes every
+interpolated value unless the value is already `SafeHtml`; wrap a trusted fragment with `raw()`
+and say at the call site why it is safe. Write a boolean attribute value as `${String(flag)}`.
+Lint rejects local escape helpers and `innerHTML` built from interpolated template literals. A module
+served under its own `/assets/name.js` URL that imports shared `src/` code belongs in
+`inPlaceBundles` in `scripts/build-frontend.ts`.
+
 Use meaningful types for DOM elements, events, state and API payloads; do not add `any`,
 `@ts-ignore`, `@ts-nocheck` or broad assertions to silence errors. Narrow assertions may express
 existing markup, server-contract or platform guarantees. Do not add new validation/guards as part

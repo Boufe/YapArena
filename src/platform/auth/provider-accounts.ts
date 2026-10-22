@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import type { Pool } from "pg";
 import type { ProviderIdentity } from "./privy.ts";
+import { passkeyActivationPending } from "./provider-passkeys.ts";
+import { recordProviderCredentials } from "./provider-methods.ts";
 import { enqueueEmbeddedWalletProvisioning } from "./embedded-wallet-provisioning.ts";
 import {
   insertSession,
@@ -14,7 +16,6 @@ import {
 } from "./provider-credentials.ts";
 
 export type ProviderAccountErrorCode =
-  | "provider_credentials_changed"
   | "provider_identity_retired"
   | "provider_reset_pending"
   | "provider_reset_review_required"
@@ -78,12 +79,6 @@ export function createProviderAccounts(database: Pool) {
           const account = await lockAccount(client, mapped.rows[0].userId);
           if (!account)
             throw new SessionUnavailableError("account unavailable");
-          if (mapped.rows[0].credentialsDigest !== identity.credentialsDigest)
-            throw new ProviderAccountError(
-              "sign-in methods changed; ownership reconciliation is required",
-              403,
-              "provider_credentials_changed",
-            );
           // A new iat or unrecognized sid is not fresh authentication. Do not let
           // any surviving provider session cross a local revocation boundary.
           if (account.authGeneration !== mapped.rows[0].generation) {
@@ -121,6 +116,25 @@ export function createProviderAccounts(database: Pool) {
               401,
               "provider_session_revoked",
             );
+          // Record a method change, unless it is the passkey that this
+          // account is activating right now; activation records that itself.
+          if (
+            mapped.rows[0].credentialsDigest !== identity.credentialsDigest &&
+            !(await passkeyActivationPending(client, {
+              userId: account.id,
+              authGeneration: account.authGeneration,
+              subject: identity.subject,
+              beforeDigest: mapped.rows[0].credentialsDigest,
+              current: identity,
+            }))
+          )
+            await recordProviderCredentials(client, {
+              userId: account.id,
+              subject: identity.subject,
+              previousDigest: mapped.rows[0].credentialsDigest,
+              identity,
+              source: "exchange",
+            });
           user = account;
         } else {
           const account = await client.query<AuthenticationUser>(
@@ -159,13 +173,21 @@ export function createProviderAccounts(database: Pool) {
             401,
             "provider_session_revoked",
           );
+        // This exchange is a fresh Privy read. A deferred method change
+        // (a passkey being activated) keeps its stored methods until then.
         await client.query(
-          "UPDATE provider_identities SET email=$2,methods=$3::jsonb,credentials_snapshot=COALESCE($4::jsonb,credentials_snapshot) WHERE provider='privy' AND subject=$1",
+          `UPDATE provider_identities SET checked_at=clock_timestamp(),
+            email=CASE WHEN credentials_digest=$5 THEN $2 ELSE email END,
+            methods=CASE WHEN credentials_digest=$5 THEN $3::jsonb ELSE methods END,
+            credentials_snapshot=CASE WHEN credentials_digest=$5
+              THEN COALESCE($4::jsonb,credentials_snapshot) ELSE credentials_snapshot END
+          WHERE provider='privy' AND subject=$1`,
           [
             identity.subject,
             identity.email,
             JSON.stringify(identity.methods),
             identity.credentials ? JSON.stringify(identity.credentials) : null,
+            identity.credentialsDigest,
           ],
         );
         await insertSession(

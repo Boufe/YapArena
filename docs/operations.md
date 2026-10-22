@@ -158,6 +158,17 @@ revocation queue disconnects tracked speakers separately and retries provider fa
 Cloud token rejection, legacy-grant drainage and hosted acceptance retain the
 separate gates documented in that procedure.
 
+Signed-in requests no longer call Privy ([Decision 0008](decisions/0008-auth-simplification.md)
+step 9). A request whose last Privy read is over 15 minutes old schedules an asynchronous
+re-check, described in the [revocation procedure](security/account-session-revocation.md).
+`yaparena_auth_journey_total` counts its outcomes as `provider_recheck_unchanged`,
+`_recorded`, `_revoked`, `_deferred`, `_unavailable`, `_skipped` and `_error`; errors
+are also logged as `provider re-check failed`. A Privy outage now blocks only new
+sign-ins and step-up approvals, not signed-in browsing. `GET /api/auth/provider`
+serves Privy's sign-in settings from a five-minute cache (after a failed refresh it
+serves the last good answer and retries after 15 seconds), and the server refuses
+Privy apps that enable any sign-in method other than email codes, Google and passkeys.
+
 New passkeys are enrolled through Privy in Account settings. Sensitive operations
 verify the same key using an application-issued, expiring, one-use WebAuthn
 challenge. Previously enrolled independent application keys remain retained

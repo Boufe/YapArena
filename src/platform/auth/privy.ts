@@ -41,6 +41,12 @@ export type IdentityVerifier = {
 export class ProviderUnavailableError extends Error {}
 export class ProviderCredentialChangedError extends Error {}
 
+const supportedSignInSettings = new Set([
+  "email_auth",
+  "google_oauth",
+  "passkey_auth",
+]);
+
 type PrivyVerifierConfiguration = {
   appId: string;
   appSecret: string;
@@ -78,6 +84,18 @@ function privyVerifier(
       // Recheck at exchange time rather than caching an ownership decision.
       if (!settings.email_auth || settings.merge_accounts_by_email !== false)
         throw new Error("unsafe provider account configuration");
+      // Decision 0008: Privy offers only email codes, Google and passkeys.
+      // Any other sign-in method enabled in the dashboard fails closed.
+      if (
+        Object.entries(settings).some(
+          ([name, enabled]) =>
+            enabled === true &&
+            /_(auth|oauth)$/.test(name) &&
+            !supportedSignInSettings.has(name),
+        ) ||
+        (settings.custom_oauth_providers ?? []).some((entry) => entry.enabled)
+      )
+        throw new Error("unsupported provider sign-in method");
       return {
         google: settings.google_oauth,
         passkeys: settings.passkey_auth,

@@ -13,6 +13,7 @@ import {
 import { loadProviderConfig } from "../dist/platform/auth/provider-config.js";
 import { createSharedAbuseLimiter } from "../dist/platform/shared-abuse.js";
 import { createApp } from "../dist/app.js";
+import { createAuthRouter } from "../dist/platform/auth/router.js";
 import { createLogger } from "../dist/platform/logger.js";
 import { ProviderAccountError } from "../dist/platform/auth/provider-accounts.js";
 import { SessionUnavailableError } from "../dist/platform/auth/sessions.js";
@@ -354,6 +355,105 @@ describe("verified provider evidence", () => {
         merge_accounts_by_email: false,
       }).configuration(),
     );
+  });
+  it("refuses any Privy sign-in method other than email codes, Google and passkeys", async () => {
+    for (const unsupported of [
+      { sms_auth: true },
+      { wallet_auth: true },
+      { apple_oauth: true },
+      { guest_auth: true },
+      { custom_jwt_auth: true },
+      { custom_oauth_providers: [{ enabled: true, provider: "custom:x" }] },
+    ])
+      await assert.rejects(
+        verifier(undefined, {
+          email_auth: true,
+          merge_accounts_by_email: false,
+          google_oauth: true,
+          passkey_auth: true,
+          ...unsupported,
+        }).configuration(),
+        ProviderUnavailableError,
+      );
+    assert.deepEqual(
+      await verifier(undefined, {
+        email_auth: true,
+        merge_accounts_by_email: false,
+        google_oauth: false,
+        passkey_auth: true,
+        sms_auth: false,
+        twitter_oauth_on_mobile_enabled: true,
+        custom_oauth_providers: [{ enabled: false, provider: "custom:x" }],
+      }).configuration(),
+      { google: false, passkeys: true },
+    );
+  });
+  it("serves GET /api/auth/provider from a five-minute cache and backs off after failures", async () => {
+    function providerApp() {
+      const state = { clock: 0, reads: 0, failing: false };
+      const app = express();
+      app.use(
+        "/api/auth",
+        createAuthRouter({
+          users: {},
+          sessions: {},
+          environment: "test",
+          now: () => state.clock,
+          provider: {
+            appId,
+            accounts: {},
+            verifier: {
+              async configuration() {
+                state.reads++;
+                if (state.failing)
+                  throw new ProviderUnavailableError("synthetic");
+                return { google: true, passkeys: state.reads % 2 === 1 };
+              },
+            },
+          },
+        }),
+      );
+      const methods = async () => {
+        const response = await request(app).get("/api/auth/provider");
+        return [response.status, response.body.passkeys];
+      };
+      return { state, methods };
+    }
+    const cached = providerApp();
+    assert.deepEqual(
+      await Promise.all([cached.methods(), cached.methods(), cached.methods()]),
+      [
+        [200, true],
+        [200, true],
+        [200, true],
+      ],
+    );
+    assert.equal(cached.state.reads, 1);
+    cached.state.clock = 5 * 60_000 - 1;
+    assert.deepEqual(await cached.methods(), [200, true]);
+    assert.equal(cached.state.reads, 1);
+    // A failed refresh serves the last good answer and waits 15 seconds.
+    cached.state.clock = 5 * 60_000;
+    cached.state.failing = true;
+    assert.deepEqual(await cached.methods(), [200, true]);
+    cached.state.failing = false;
+    cached.state.clock = 5 * 60_000 + 14_999;
+    assert.deepEqual(await cached.methods(), [200, true]);
+    assert.equal(cached.state.reads, 2);
+    cached.state.clock = 5 * 60_000 + 15_000;
+    assert.deepEqual(await cached.methods(), [200, true]);
+    assert.equal(cached.state.reads, 3);
+    // Without a good answer yet, a failure is a 503 and is not retried at once.
+    const cold = providerApp();
+    cold.state.failing = true;
+    assert.deepEqual(await cold.methods(), [503, undefined]);
+    cold.state.failing = false;
+    cold.state.clock = 14_999;
+    assert.deepEqual(await cold.methods(), [503, undefined]);
+    assert.equal(cold.state.reads, 1);
+    cold.state.clock = 15_000;
+    assert.equal((await cold.methods())[0], 200);
+    assert.equal(cold.state.reads, 2);
   });
   it("verifies a real ES256 signature and obtains ownership data only from the provider", async () => {
     assert.deepEqual(await verifier().verify(jwt()), {

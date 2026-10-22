@@ -13,11 +13,6 @@ import {
   ProviderResetRetryError,
 } from "../dist/platform/auth/provider-revocation.js";
 import { createAccountWallet } from "../dist/features/account-wallet/repository.js";
-import { createProviderSessionMonitor } from "../dist/platform/auth/provider-session-monitor.js";
-import {
-  ProviderUnavailableError,
-  ProviderCredentialChangedError,
-} from "../dist/platform/auth/privy.js";
 import { createLegacyProviderLink } from "../dist/platform/auth/legacy-provider-link.js";
 import { hashPassword } from "../dist/platform/auth/passwords.js";
 const ownerUrl = process.env.A4_TEST_OWNER_URL;
@@ -122,27 +117,47 @@ describe(
       await service.synchronize(made.user.id);
       assert.equal(calls.length, 2);
     });
-    it("rejects an unapproved provider credential change without merging accounts", async () => {
+    it("records a provider method change at sign-in without merging accounts or ending sessions", async () => {
       const id = identity(),
+        token = randomUUID(),
         repo = createProviderAccounts(a);
-      const made = await exchange(repo, id);
-      await assert.rejects(
-        exchange(repo, {
-          ...id,
-          sessionId: randomUUID(),
-          credentialsDigest: "b".repeat(64),
-        }),
-        rejectedExchange("provider_credentials_changed", 403),
-      );
+      const made = await exchange(repo, id, token);
+      const changed = await exchange(repo, {
+        ...id,
+        sessionId: randomUUID(),
+        methods: ["email", "google_oauth"],
+        credentialsDigest: "b".repeat(64),
+      });
+      assert.equal(changed.user.id, made.user.id);
+      assert.equal(changed.created, false);
       assert.equal(
         (
-          await owner.query(
-            "SELECT count(*)::int n FROM provider_session_exchanges WHERE user_id=$1",
-            [made.user.id],
+          await createSessionRepository(a).findUserByTokenHash(
+            hashSessionToken(token),
           )
-        ).rows[0].n,
-        1,
+        ).id,
+        made.user.id,
       );
+      const mapping = (
+        await owner.query(
+          `SELECT credentials_digest AS digest,methods,checked_at IS NOT NULL AS checked,
+          (SELECT count(*)::int FROM provider_session_exchanges e WHERE e.user_id=p.user_id) AS exchanges,
+          (SELECT count(*)::int FROM identity_audit_events e WHERE e.user_id=p.user_id
+            AND e.event_type='provider.credentials.changed' AND e.metadata->>'source'='exchange') AS audits,
+          (SELECT count(*)::int FROM account_notifications n WHERE n.user_id=p.user_id
+            AND n.event_type='account.signin_changed') AS notices
+          FROM provider_identities p WHERE p.user_id=$1`,
+          [made.user.id],
+        )
+      ).rows[0];
+      assert.deepEqual(mapping, {
+        digest: "b".repeat(64),
+        methods: ["email", "google_oauth"],
+        checked: true,
+        exchanges: 2,
+        audits: 1,
+        notices: 1,
+      });
     });
     it("reports pending, uncertain and unmatched session-reset fences without accepting an unchanged credential or consuming its SID", async () => {
       const id = identity(),
@@ -412,239 +427,6 @@ describe(
           ])
         ).rows[0].password_hash,
         f.user.passwordHash,
-      );
-    });
-    it("inspects every protected cookie lookup, fails closed on outages and leaves local revocation available", async () => {
-      const id = identity(),
-        token = randomUUID(),
-        made = await exchange(createProviderAccounts(a), id, token);
-      let calls = 0,
-        outage = false;
-      const monitor = createProviderSessionMonitor(b, {
-        async inspect(subject) {
-          calls++;
-          assert.equal(subject, id.subject);
-          if (outage)
-            throw new ProviderUnavailableError("provider unavailable");
-          return id;
-        },
-      });
-      const sessions = createSessionRepository(a, {
-        verifyProviderSession: monitor,
-      });
-      for (let n = 0; n < 2; n++)
-        assert.equal(
-          (await sessions.findUserByTokenHash(hashSessionToken(token))).id,
-          made.user.id,
-        );
-      assert.equal(calls, 2);
-      outage = true;
-      await assert.rejects(
-        sessions.findUserByTokenHash(hashSessionToken(token)),
-        ProviderUnavailableError,
-      );
-      assert.equal(
-        (
-          await sessions.findUserByTokenHash(hashSessionToken(token), {
-            localRevocation: true,
-          })
-        ).id,
-        made.user.id,
-      );
-      assert.equal(calls, 3);
-      await sessions.revoke(made.user.id, hashSessionToken(token), false);
-      assert.equal(
-        await sessions.findUserByTokenHash(hashSessionToken(token), {
-          localRevocation: true,
-        }),
-        null,
-      );
-    });
-    it("revokes existing app cookies across instances for provider credential changes or removed/frozen accounts", async () => {
-      for (const invalidAccount of [false, true]) {
-        const id = identity(),
-          token = randomUUID();
-        await exchange(createProviderAccounts(a), id, token);
-        const monitor = createProviderSessionMonitor(a, {
-          async inspect() {
-            if (invalidAccount)
-              throw new ProviderCredentialChangedError(
-                "provider account unavailable",
-              );
-            return { ...id, credentialsDigest: "b".repeat(64) };
-          },
-        });
-        await assert.rejects(
-          createSessionRepository(b, {
-            verifyProviderSession: monitor,
-          }).findUserByTokenHash(hashSessionToken(token)),
-          /ownership reconciliation/,
-        );
-        assert.equal(
-          await createSessionRepository(a).findUserByTokenHash(
-            hashSessionToken(token),
-          ),
-          null,
-        );
-        await assert.rejects(
-          exchange(createProviderAccounts(b), {
-            ...id,
-            sessionId: randomUUID(),
-          }),
-          rejectedExchange("provider_reset_pending", 503),
-        );
-      }
-    });
-    it("releases the only runtime connection during a held provider inspection so local logout finishes first", async () => {
-      const single = new pg.Pool({
-        connectionString: runtimeUrl,
-        max: 1,
-        options: "-c search_path=pg_catalog,yaparena,pg_temp",
-      });
-      try {
-        for (const unavailable of [false, true]) {
-          const id = identity(),
-            token = randomUUID(),
-            made = await exchange(createProviderAccounts(a), id, token),
-            entered = Promise.withResolvers(),
-            release = Promise.withResolvers();
-          const sessions = createSessionRepository(single, {
-            verifyProviderSession: createProviderSessionMonitor(single, {
-              async inspect() {
-                entered.resolve();
-                await release.promise;
-                if (unavailable)
-                  throw new ProviderUnavailableError("synthetic held outage");
-                return id;
-              },
-            }),
-          });
-          const denied = assert.rejects(
-            sessions.findUserByTokenHash(hashSessionToken(token)),
-            /session is unavailable/,
-          );
-          let deadline;
-          try {
-            await entered.promise;
-            assert.equal(single.idleCount, 1);
-            const logout = sessions.revoke(
-              made.user.id,
-              hashSessionToken(token),
-              false,
-            );
-            await Promise.race([
-              logout,
-              new Promise((_, reject) => {
-                deadline = setTimeout(
-                  () => reject(Error("logout waited for provider inspection")),
-                  3000,
-                );
-              }),
-            ]);
-            assert.equal(
-              await sessions.findUserByTokenHash(hashSessionToken(token), {
-                localRevocation: true,
-              }),
-              null,
-            );
-          } finally {
-            clearTimeout(deadline);
-            release.resolve();
-            await denied;
-          }
-        }
-      } finally {
-        await single.end();
-      }
-    });
-    it("rejects an older inspection after logout-others advances the retained session without revoking that survivor", async () => {
-      const id = identity(),
-        token = randomUUID(),
-        made = await exchange(createProviderAccounts(a), id, token),
-        entered = Promise.withResolvers(),
-        release = Promise.withResolvers();
-      const sessions = createSessionRepository(a, {
-        verifyProviderSession: createProviderSessionMonitor(b, {
-          async inspect() {
-            entered.resolve();
-            await release.promise;
-            return id;
-          },
-        }),
-      });
-      const denied = assert.rejects(
-        sessions.findUserByTokenHash(hashSessionToken(token)),
-        ProviderUnavailableError,
-      );
-      try {
-        await entered.promise;
-        await createSessionRepository(b).revoke(
-          made.user.id,
-          hashSessionToken(token),
-          true,
-        );
-      } finally {
-        release.resolve();
-        await denied;
-      }
-      assert.equal(
-        (
-          await sessions.findUserByTokenHash(hashSessionToken(token), {
-            localRevocation: true,
-          })
-        ).id,
-        made.user.id,
-      );
-    });
-    it("does not turn a transient owned provider freeze into an incident after the provider-control job changes", async () => {
-      const id = identity(),
-        token = randomUUID(),
-        made = await exchange(createProviderAccounts(a), id, token),
-        entered = Promise.withResolvers(),
-        release = Promise.withResolvers();
-      await createSessionRepository(a).revoke(
-        made.user.id,
-        hashSessionToken(token),
-        true,
-      );
-      const sessions = createSessionRepository(a, {
-        verifyProviderSession: createProviderSessionMonitor(b, {
-          async inspect() {
-            entered.resolve();
-            await release.promise;
-            throw new ProviderCredentialChangedError(
-              "synthetic transient freeze",
-            );
-          },
-        }),
-      });
-      const denied = assert.rejects(
-        sessions.findUserByTokenHash(hashSessionToken(token)),
-        ProviderUnavailableError,
-      );
-      let frozenAt = null;
-      try {
-        await entered.promise;
-        await createProviderRevocation(b, {
-          state: async () => ({ frozenAt }),
-          freeze: async () => {
-            frozenAt = Math.floor(Date.now() / 1000);
-          },
-          unfreeze: async () => {
-            frozenAt = null;
-          },
-        }).synchronize(made.user.id);
-      } finally {
-        release.resolve();
-        await denied;
-      }
-      assert.equal(
-        (
-          await sessions.findUserByTokenHash(hashSessionToken(token), {
-            localRevocation: true,
-          })
-        ).id,
-        made.user.id,
       );
     });
     it("reads each owned grant separately and retains qualification after later losses", async () => {

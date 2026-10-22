@@ -99,13 +99,12 @@ type PasskeyRecord = {
   publicKeyDigest: string | null;
   rpId: string | null;
   mappedSubject: string | null;
-  credentialsDigest: string | null;
 };
 const passkeyColumns = `k.credential_id AS "credentialId",k.public_key AS "publicKey",
   k.counter,k.device_type AS "deviceType",u.user_handle AS "userHandle",
   k.provenance,k.provider_subject AS "providerSubject",
   k.provider_public_key_digest AS "publicKeyDigest",k.rp_id AS "rpId",
-  p.subject AS "mappedSubject",p.credentials_digest AS "credentialsDigest"`;
+  p.subject AS "mappedSubject"`;
 function samePasskey(left: PasskeyRecord, right: PasskeyRecord) {
   return (
     left.credentialId === right.credentialId &&
@@ -114,8 +113,7 @@ function samePasskey(left: PasskeyRecord, right: PasskeyRecord) {
     left.providerSubject === right.providerSubject &&
     left.publicKeyDigest === right.publicKeyDigest &&
     left.rpId === right.rpId &&
-    left.mappedSubject === right.mappedSubject &&
-    left.credentialsDigest === right.credentialsDigest
+    left.mappedSubject === right.mappedSubject
   );
 }
 
@@ -125,11 +123,7 @@ export function createAccountOperationRepository(
   database: Pool,
   inspector?: Pick<IdentityVerifier, "inspect">,
 ) {
-  async function inspectPasskey(
-    userId: string,
-    keyId: string,
-    purpose: string,
-  ) {
+  async function inspectPasskey(userId: string, keyId: string) {
     const key = (
       await database.query<PasskeyRecord>(
         `SELECT ${passkeyColumns} FROM account_security_keys k
@@ -167,11 +161,11 @@ export function createAccountOperationRepository(
           "Passkey verification is temporarily unavailable.",
         );
       const parsed = parseProviderPasskeyPublicKey(linked.publicKey);
+      // Decision 0008: step-up checks only this key (still linked, same
+      // public key). Other sign-in method changes are recorded, not fenced.
       if (
         parsed.publicKeyDigest !== key.publicKeyDigest ||
-        !parsed.publicKey.equals(key.publicKey) ||
-        (purpose !== "provider.passkey.link" &&
-          current.credentialsDigest !== key.credentialsDigest)
+        !parsed.publicKey.equals(key.publicKey)
       )
         unavailable();
     }
@@ -191,11 +185,7 @@ export function createAccountOperationRepository(
       const termsDigest = accountOperationTermsDigest(input.terms);
       const inspectedKey =
         input.credential.type === "passkey"
-          ? await inspectPasskey(
-              input.userId,
-              input.credential.keyId,
-              input.purpose,
-            )
+          ? await inspectPasskey(input.userId, input.credential.keyId)
           : undefined;
       const client = await database.connect();
       try {
@@ -348,11 +338,7 @@ export function createAccountOperationRepository(
       if (!operation) unavailable();
       const inspectedKey =
         operation.credentialType === "passkey" && operation.authorizingPasskeyId
-          ? await inspectPasskey(
-              input.userId,
-              operation.authorizingPasskeyId,
-              input.purpose,
-            )
+          ? await inspectPasskey(input.userId, operation.authorizingPasskeyId)
           : undefined;
       // Verify potentially slow wallet RPC outside the mutation transaction.
       if (

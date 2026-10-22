@@ -283,7 +283,32 @@ describe("public discovery", () => {
     assert.equal(matchingScript.status, 200);
     assert.doesNotThrow(() => new Function(accountScript.text));
     assert.doesNotThrow(() => new Function(matchingScript.text));
-    assert.equal((await request(app).get("/assets/offline.html")).status, 200);
+    const revision = /\/assets\/site\.css\?v=([0-9a-f]{12})/.exec(page.text)[1];
+    for (const name of ["site.css", "site.js", "media.bundle.js"]) {
+      const versioned = await request(app).get(`/assets/${name}?v=${revision}`);
+      assert.equal(versioned.status, 200);
+      assert.equal(
+        versioned.headers["cache-control"],
+        "public, max-age=31536000, immutable",
+      );
+    }
+    // A revision this process did not render keeps the revalidating headers.
+    for (const url of [
+      "/assets/site.css?v=000000000000",
+      `/assets/site.css?v=${revision}&v=${revision}`,
+      `/assets/offline.html?v=${revision}`,
+    ]) {
+      const response = await request(app).get(url);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers["cache-control"], "public, max-age=0");
+    }
+    const offline = await request(app).get("/assets/offline.html");
+    assert.equal(offline.status, 200);
+    assert.equal(offline.headers["cache-control"], "public, max-age=0");
+    assert.equal(
+      (await request(app).get(`/assets/missing.js?v=${revision}`)).status,
+      404,
+    );
     const worker = await request(app).get("/sw.js");
     assert.equal(worker.status, 200);
     assert.match(worker.headers["content-type"], /javascript/);

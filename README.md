@@ -341,6 +341,7 @@ source code, and a running process or container must be restarted before it sees
 | `AUTH_RATE_LIMIT`                    | `10`                               | Applies a stricter limit to registration and login attempts during the same window.                                                      |
 | `RATE_LIMIT_WINDOW_MS`               | `900000` (15 minutes)              | Defines the time window, in milliseconds, for both request limits.                                                                       |
 | `SESSION_DURATION_MS`                | `604800000` (7 days)               | Defines how long a signed-in server-side session remains valid.                                                                          |
+| `METRICS_TOKEN`                      | unset                              | Bearer token required by `/metrics` (32+ characters); production returns 404 for `/metrics` while it is unset.                           |
 | `POSTGRES_DB` / `POSTGRES_USER`      | project-specific                   | Name the local PostgreSQL database and its bootstrap administrator, separate from runtime.                                               |
 | `POSTGRES_PASSWORD`                  | `local-development-only`           | Authenticates the local PostgreSQL user; never reuse this example password outside local development.                                    |
 | `POSTGRES_PORT`                      | `5433`                             | Exposes PostgreSQL on this host port while PostgreSQL continues to use port `5432` in its container.                                     |
@@ -383,12 +384,16 @@ curl http://localhost:3000/ready
 Inspect Prometheus metrics:
 
 ```sh
-curl http://localhost:3000/metrics
+curl -H "Authorization: Bearer $METRICS_TOKEN" http://localhost:3000/metrics
 ```
 
 The endpoint exposes Node.js process metrics and bounded HTTP request count and
-duration metrics. In a deployed environment, expose `/metrics` only to the
-monitoring network or collector rather than the public internet.
+duration metrics. When `METRICS_TOKEN` is set, requests must send it as a bearer
+token. In production the endpoint returns 404 until the token is configured;
+other environments without a token leave it open for local use. The local Compose
+stack uses the fixed development token from `monitoring/prometheus.yml`. In a
+deployed environment, also expose `/metrics` only to the monitoring network or
+collector rather than the public internet.
 
 ### Local monitoring stack
 
@@ -467,7 +472,8 @@ Builds images and starts the production-like stack in the foreground, where the 
 visible. Press `Ctrl-C` to stop those containers. Add `--detach` if you want the stack to remain in the
 background and return control to the terminal.
 
-Tagged releases publish multi-architecture images to `ghcr.io/OWNER/REPOSITORY`.
+Tagged releases publish multi-architecture images to `ghcr.io/OWNER/REPOSITORY`. Each push to
+`main` also publishes `linux/amd64` web and encoder images tagged `sha-<full commit SHA>`.
 See [the operations runbook](docs/operations.md#release-and-deploy-an-image) for
 the immutable-digest release and deployment procedure.
 

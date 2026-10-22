@@ -76,3 +76,25 @@ export async function verifyRuntimeIdentity(database: Pick<pg.Pool, "query">) {
     );
   }
 }
+
+// Readiness ping. The deadline also covers pool acquisition, so a saturated
+// pool reports not ready instead of holding the health check open.
+export async function pingDatabase(
+  database: Pick<pg.Pool, "query">,
+  timeoutMs = 2_000,
+) {
+  let deadline: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      database.query("SELECT 1"),
+      new Promise<never>((_resolve, reject) => {
+        deadline = setTimeout(
+          () => reject(new Error("database readiness timed out")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(deadline);
+  }
+}

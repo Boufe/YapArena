@@ -5,12 +5,39 @@ import {
   Histogram,
   Registry,
 } from "prom-client";
+import { createHash, timingSafeEqual } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import type { createMeasurementRepository } from "../features/measurement/repository.ts";
 
 type ProductSummary = Awaited<
   ReturnType<ReturnType<typeof createMeasurementRepository>["summary"]>
 >;
+
+// With a token, scrapers must send `Authorization: Bearer <token>`. Without one,
+// production hides the endpoint and other environments keep it open locally.
+export function createMetricsAuthorization({
+  token,
+  environment,
+}: {
+  token?: string;
+  environment: string;
+}) {
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  const expected = token ? digest(`Bearer ${token}`) : undefined;
+  return (request: Request, response: Response, next: NextFunction) => {
+    if (!expected)
+      return environment === "production"
+        ? response.status(404).json({ error: "resource not found" })
+        : next();
+    // Equal-length digests keep the comparison constant time.
+    if (!timingSafeEqual(digest(request.get("authorization") ?? ""), expected))
+      return response
+        .set("WWW-Authenticate", 'Bearer realm="metrics"')
+        .status(401)
+        .json({ error: "authentication required" });
+    return next();
+  };
+}
 
 export function createMetrics() {
   const registry = new Registry();

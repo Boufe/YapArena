@@ -167,7 +167,8 @@ function fixture({ environment = "development", ...overrides } = {}) {
   let registered;
   let challenge;
   const app = createApp({
-    messages: { isReady: async () => {} },
+    messages: {},
+    database: { query: async () => ({ rows: [] }) },
     users: {
       create: async (email, passwordHash) => {
         registered = { ...user, email, passwordHash, authGeneration: "0" };
@@ -789,8 +790,8 @@ describe("credential-safe HTTP logs", () => {
 
   it("retains sanitized explicit readiness failures without a completion log", async () => {
     const { app, capture } = fixture({
-      messages: {
-        isReady: async () => {
+      database: {
+        query: async () => {
           throw credentialError();
         },
       },

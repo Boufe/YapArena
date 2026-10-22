@@ -99,6 +99,17 @@ four-account staging reset was executed after backup and rehearsal; retained
 accounts and the later manual signup must remain. The guarded reset command must
 never run at startup or from a migration. Do not repeat the reset for acceptance.
 
+Current state (2026-10-22): the founder decided on 2026-10-22 to reset, not repair,
+the frozen staging accounts. This supersedes the retention rule above. The guarded
+command ran on 2026-10-22 at 04:54:25 UTC with `--user-ids=72,73,134,135,136`
+(every account; `--all-users` fails its own post-delete check while an unowned
+wallet challenge exists). It removed five users, one session and one linked
+wallet after an encrypted backup and a passing local restore rehearsal, with both
+Render services suspended. Play runs, journals, media and subject IDs remain. The
+two linked Privy users were deleted in the Privy dashboard. Staging then had no accounts.
+Readiness returned 200 after resume and a fresh email signup succeeded; passkey,
+wallet and other journeys were not retested after this reset.
+
 Use Node.js 24 and locked dependencies. The complete source quality gate needs explicit
 disposable A4, wallet and revocation PostgreSQL identities; without them those suites skip
 and the unchanged 90% coverage thresholds can fail. The supported isolation harness creates
@@ -440,6 +451,13 @@ After the first release, verify the registry manifest lists both platforms, the 
 are attached to the published image, and the summary digest resolves to that manifest. Confirm the
 deployment host has read access to the package if GHCR keeps it private.
 
+Releases and the `CI` workflow's `main`-only `publish` jobs share `reusable-publish.yml`. Each
+push to `main` publishes `linux/amd64` web and encoder images tagged `sha-<full commit SHA>`, which
+the [Render staging runbook](render-staging.md#deploy-the-ci-published-images) deploys. The shared
+workflow pushes by digest without a tag, scans every platform of that pushed digest with the
+`container` job's Trivy settings, and tags it only after the scan passes. It never moves an
+existing tag; if the first requested tag exists, the run reports its digest and publishes nothing.
+
 On the deployment host, provide the immutable image reference and production database URL through
 an access-controlled environment file. Apply migrations as a separate release step:
 
@@ -450,6 +468,7 @@ APP_ORIGIN=https://service.example.com
 TRUST_PROXY=1
 LOG_LEVEL=info
 HOST_PORT=3000
+METRICS_TOKEN=RANDOM_SCRAPER_TOKEN
 ```
 
 This block is an example of the file's contents, not a command to paste into the shell. Create the
@@ -463,6 +482,8 @@ and restrict who can read it. It is separate from the local `.env` file and must
   large value.
 - `LOG_LEVEL` controls operational detail, while `HOST_PORT` selects the loopback port used by the
   host reverse proxy.
+- `METRICS_TOKEN` is the bearer token the metrics collector sends to `/metrics`; without it the
+  production endpoint returns 404.
 
 ```sh
 docker compose --env-file /secure/yaparena.env \

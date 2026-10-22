@@ -30,6 +30,9 @@ services:
           envVarKey: RENDER_EXTERNAL_URL
       - key: DATABASE_URL
         sync: false
+      # Bearer token for GET /metrics; production returns 404 without it.
+      - key: METRICS_TOKEN
+        generateValue: true
 
   # Dedicated background-jobs worker: A4 and coin-debate clocks, media clock and
   # recording stops, speaker revocation, Privy revocation, embedded-wallet

@@ -30,3 +30,6 @@ services:
           envVarKey: RENDER_EXTERNAL_URL
       - key: DATABASE_URL
         sync: false
+      # Bearer token for GET /metrics; production returns 404 without it.
+      - key: METRICS_TOKEN
+        generateValue: true

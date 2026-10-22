@@ -159,6 +159,40 @@ describe("shared API rate limits", () => {
     assert.notEqual(logout.status, 503);
   });
 
+  it("keeps account-security limiters fail-closed in the shared store", async () => {
+    const store = memoryAbuseStore();
+    const { limits } = shared(store);
+    const app = instance(limits, {
+      accountSecurity: { operations: {}, passkeys: {} },
+    });
+    await request(app)
+      .post("/api/auth/security/operations")
+      .set("Cookie", "session=synthetic-cookie")
+      .set("Origin", "http://localhost:3000")
+      .send({});
+    assert.ok(
+      store.calls.some(({ key }) =>
+        key.startsWith("test-ns:security:limit:api:security-mutations:"),
+      ),
+    );
+
+    const { limits: failing, observe } = shared(failingAbuseStore);
+    const refused = await request(
+      instance(failing, { accountSecurity: { operations: {}, passkeys: {} } }),
+    )
+      .post("/api/auth/security/operations")
+      .set("Cookie", "session=synthetic-cookie")
+      .set("Origin", "http://localhost:3000")
+      .send({});
+    assert.equal(refused.status, 503);
+    assert.equal(refused.headers["retry-after"], "5");
+    assert.ok(
+      observe.mock.calls.some(
+        ({ arguments: [outcome] }) => outcome === "unavailable",
+      ),
+    );
+  });
+
   it("keeps the in-memory limiter without a shared store", async () => {
     const app = instance(undefined, { apiRateLimit: 1 });
     assert.equal((await request(app).get("/health")).status, 200);

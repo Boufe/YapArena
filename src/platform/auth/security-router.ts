@@ -15,6 +15,7 @@ import { SessionUnavailableError } from "./sessions.ts";
 import { createRequireAuthentication, getCookieSettings } from "./router.ts";
 import { hashSessionToken } from "./session-tokens.ts";
 import { createApiRateLimiter } from "../security.ts";
+import type { SharedRateLimits } from "../shared-abuse.ts";
 import type {
   createProviderWalletOperations,
   ProviderWalletTarget,
@@ -225,6 +226,7 @@ export type SecurityRouterOptions = {
   siweRpcUrls?: Readonly<Record<string, string>>;
   sharedAccountLimiter?: RequestHandler;
   sharedAccessLimiter?: RequestHandler;
+  sharedRateLimits?: SharedRateLimits;
 };
 
 export function createAccountSecurityRouter({
@@ -245,7 +247,15 @@ export function createAccountSecurityRouter({
   siweRpcUrls = {},
   sharedAccountLimiter,
   sharedAccessLimiter,
+  sharedRateLimits,
 }: SecurityRouterOptions) {
+  // Account-security limits guard sign-in and credential changes: fail closed.
+  const securityLimiter = (name: string) =>
+    createApiRateLimiter({
+      windowMs: 900000,
+      limit: 30,
+      shared: sharedRateLimits?.(name, "closed"),
+    });
   const router = express.Router(),
     cookie = getCookieSettings(environment);
   const session = (request: Request) => {
@@ -274,10 +284,7 @@ export function createAccountSecurityRouter({
   });
   if (access) {
     const publicAccess = express.Router();
-    publicAccess.use(
-      "/security/access",
-      createApiRateLimiter({ windowMs: 900000, limit: 30 }),
-    );
+    publicAccess.use("/security/access", securityLimiter("security-access"));
     if (sharedAccessLimiter)
       publicAccess.use("/security/access", sharedAccessLimiter);
     publicAccess.post("/security/access/login", async (request, response) => {
@@ -356,7 +363,7 @@ export function createAccountSecurityRouter({
   }
   if (providerPasskeyBootstrap) {
     const bootstrap = express.Router();
-    bootstrap.use(createApiRateLimiter({ windowMs: 900000, limit: 30 }));
+    bootstrap.use(securityLimiter("security-bootstrap"));
     if (sharedAccessLimiter) bootstrap.use(sharedAccessLimiter);
     for (const action of ["candidate", "restart"] as const)
       bootstrap.post(`/${action}`, async (request, response) => {
@@ -390,7 +397,7 @@ export function createAccountSecurityRouter({
   }
   if (providerPasskeys) {
     const ceremony = express.Router();
-    ceremony.use(createApiRateLimiter({ windowMs: 900000, limit: 30 }));
+    ceremony.use(securityLimiter("security-passkeys"));
     if (sharedAccessLimiter) ceremony.use(sharedAccessLimiter);
     const authorizeAttempt = async (userId: string) => {
       if (!authorizeProviderPasskeyAttempt)
@@ -497,7 +504,7 @@ export function createAccountSecurityRouter({
   }
   router.use(createRequireAuthentication({ sessions, environment }));
   const mutations = express.Router();
-  mutations.use(createApiRateLimiter({ windowMs: 900000, limit: 30 }));
+  mutations.use(securityLimiter("security-mutations"));
   if (sharedAccountLimiter) mutations.use(sharedAccountLimiter);
   router.get("/security/passkeys", async (request, response) =>
     response.json({ passkeys: await passkeys.list(session(request).userId) }),

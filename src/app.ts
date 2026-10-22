@@ -208,7 +208,8 @@ export function createApp({
   >;
   sharedAuthLimiter?: RequestHandler;
   sharedAccountLimiter?: RequestHandler;
-  // Backs the general and auth API limiters with the shared Redis abuse store.
+  // Backs the general, auth and account-security API limiters with the shared
+  // Redis abuse store.
   sharedRateLimits?: SharedRateLimits;
   accountWallet?: ReturnType<typeof createAccountWallet>;
   coinSandbox?: Pick<
@@ -440,6 +441,7 @@ export function createApp({
         sessionDurationMs,
         siweRpcUrls,
         sharedAccountLimiter,
+        sharedRateLimits,
       }),
     );
   if (coinSandbox)

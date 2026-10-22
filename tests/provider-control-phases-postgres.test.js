@@ -6,8 +6,11 @@ import { createProviderAccounts } from "../dist/platform/auth/provider-accounts.
 import { createProviderRevocation } from "../dist/platform/auth/provider-revocation.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { hashSessionToken } from "../dist/platform/auth/session-tokens.js";
-import { createProviderSessionMonitor } from "../dist/platform/auth/provider-session-monitor.js";
-import { ProviderUnavailableError } from "../dist/platform/auth/privy.js";
+import { createProviderRecheck } from "../dist/platform/auth/provider-recheck.js";
+import {
+  ProviderCredentialChangedError,
+  ProviderUnavailableError,
+} from "../dist/platform/auth/privy.js";
 import { createProviderPasskeys } from "../dist/platform/auth/provider-passkeys.js";
 import { providerCredentialsDigest } from "../dist/platform/auth/provider-credentials.js";
 import { createEmbeddedWalletProvisioning } from "../dist/platform/auth/embedded-wallet-provisioning.js";
@@ -1055,12 +1058,14 @@ describe(
       assert.ok(current.freeze_acknowledged_at);
       assert.equal(current.confirmed_frozen_at, null);
       assert.notEqual(current.mapped_generation, current.current_generation);
-      await assert.rejects(
-        createProviderSessionMonitor(a, { inspect: async () => f.identity })(
-          f.userId,
-          f.tokenHash,
-        ),
-        ProviderUnavailableError,
+      // The app's own reset is in progress: the re-check takes no action.
+      assert.equal(
+        await createProviderRecheck(
+          a,
+          { inspect: async () => f.identity },
+          { staleAfterMs: 0 },
+        ).run(f.userId),
+        "deferred",
       );
       const priorReads = calls.length;
       await createProviderRevocation(b, control).synchronize(f.userId);
@@ -1087,9 +1092,14 @@ describe(
       assert.equal(current.minimum_issued_at, String(frozenAt + 1));
       assert.equal(calls.filter((v) => v === "freeze").length, 1);
       assert.equal(calls.filter((v) => v === "unfreeze").length, 1);
-      await createProviderSessionMonitor(a, {
-        inspect: async () => f.identity,
-      })(f.userId, f.tokenHash);
+      assert.equal(
+        await createProviderRecheck(
+          a,
+          { inspect: async () => f.identity },
+          { staleAfterMs: 0 },
+        ).run(f.userId),
+        "unchanged",
+      );
       await assert.rejects(
         createProviderAccounts(a).exchange(
           { ...f.identity, sessionId: randomUUID(), issuedAt: frozenAt },
@@ -1406,70 +1416,67 @@ describe(
       assert.equal((await job(f)).state, "complete");
       assert.equal(control.calls.filter((v) => v === "freeze").length, 1);
     });
-    it("fences a monitor overlapping a phase transition while still treating a real credential delta as an incident", async () => {
-      const f = await fixture(),
-        entered = Promise.withResolvers(),
+    it("takes no action on a re-check overlapping a phase transition and records a real credential delta", async () => {
+      const recheck = (inspect) =>
+        createProviderRecheck(a, { inspect }, { staleAfterMs: 0 });
+      const incidents = async (userId) =>
+        (
+          await owner.query(
+            "SELECT 1 FROM identity_audit_events WHERE user_id=$1 AND event_type='sessions.incident'",
+            [userId],
+          )
+        ).rowCount;
+      const sessions = async (userId) =>
+        (await owner.query("SELECT 1 FROM sessions WHERE user_id=$1", [userId]))
+          .rowCount;
+      const f = await fixture();
+      // fixture() signed out other sessions, so this account's reset is pending.
+      assert.equal(
+        await recheck(async () => f.identity).run(f.userId),
+        "deferred",
+      );
+      await bounded(
+        createProviderRevocation(b, immediate()).synchronize(f.userId),
+        "phase worker did not finish",
+      );
+      // A read that overlaps the next own reset sees a frozen user.
+      const entered = Promise.withResolvers(),
         release = Promise.withResolvers();
-      const checking = createProviderSessionMonitor(a, {
-        async inspect() {
-          entered.resolve();
-          await release.promise;
-          return f.identity;
-        },
-      })(f.userId, f.tokenHash);
-      const denied = assert.rejects(checking, ProviderUnavailableError);
+      const checking = recheck(async () => {
+        entered.resolve();
+        await release.promise;
+        throw new ProviderCredentialChangedError("synthetic own-reset freeze");
+      }).run(f.userId);
       try {
         await bounded(
           entered.promise,
-          "monitor did not enter provider inspection",
+          "re-check did not enter provider inspection",
         );
+        await createSessionRepository(b).revoke(f.userId, f.tokenHash, true);
         await bounded(
           createProviderRevocation(b, immediate()).synchronize(f.userId),
           "phase worker did not finish",
         );
       } finally {
         release.resolve();
-        await denied;
       }
-      assert.equal(
-        (
-          await owner.query(
-            "SELECT 1 FROM identity_audit_events WHERE user_id=$1 AND event_type='sessions.incident'",
-            [f.userId],
-          )
-        ).rowCount,
-        0,
-      );
-      await createProviderSessionMonitor(a, {
-        inspect: async () => f.identity,
-      })(f.userId, f.tokenHash);
+      assert.equal(await checking, "deferred");
+      assert.equal(await incidents(f.userId), 0);
+      assert.equal(await sessions(f.userId), 1);
       const changed = await fixture();
-      await assert.rejects(
-        createProviderSessionMonitor(a, {
-          inspect: async () => ({
-            ...changed.identity,
-            credentialsDigest: "b".repeat(64),
-          }),
-        })(changed.userId, changed.tokenHash),
-        (e) => e.status === 403,
+      await bounded(
+        createProviderRevocation(b, immediate()).synchronize(changed.userId),
+        "phase worker did not finish",
       );
       assert.equal(
-        (
-          await owner.query(
-            "SELECT 1 FROM identity_audit_events WHERE user_id=$1 AND event_type='sessions.incident'",
-            [changed.userId],
-          )
-        ).rowCount,
-        1,
+        await recheck(async () => ({
+          ...changed.identity,
+          credentialsDigest: "b".repeat(64),
+        })).run(changed.userId),
+        "recorded",
       );
-      assert.equal(
-        (
-          await owner.query("SELECT 1 FROM sessions WHERE user_id=$1", [
-            changed.userId,
-          ])
-        ).rowCount,
-        0,
-      );
+      assert.equal(await incidents(changed.userId), 0);
+      assert.equal(await sessions(changed.userId), 1);
     });
     it("does not let the normal phase worker cancel a freshly claimed owner retry with older phase metadata", async () => {
       const f = await fixture();

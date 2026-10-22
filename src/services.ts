@@ -22,7 +22,7 @@ import { createProviderRevocation } from "./platform/auth/provider-revocation.ts
 import { createProviderAccounts } from "./platform/auth/provider-accounts.ts";
 import { createEmbeddedWalletProvisioning } from "./platform/auth/embedded-wallet-provisioning.ts";
 import { createPrivyEmbeddedWalletProvider } from "./platform/auth/embedded-wallet-provider.ts";
-import { createProviderSessionMonitor } from "./platform/auth/provider-session-monitor.ts";
+import { createProviderRecheck } from "./platform/auth/provider-recheck.ts";
 import {
   AccountOperationError,
   createAccountOperationRepository,
@@ -148,10 +148,18 @@ export function createServices({
           : undefined,
       }
     : undefined;
+  // Requests never call Privy; a stale Privy read schedules this re-check.
+  // Only web requests trigger it; the worker never serves a session lookup.
+  const providerRecheck = authProvider
+    ? createProviderRecheck(database, authProvider.verifier, {
+        observe: (outcome, error) => {
+          metrics.authJourney.inc({ event: `provider_recheck_${outcome}` });
+          if (error) logger.error({ error }, "provider re-check failed");
+        },
+      })
+    : undefined;
   const sessions = createSessionRepository(database, {
-    verifyProviderSession: authProvider
-      ? createProviderSessionMonitor(database, authProvider.verifier)
-      : undefined,
+    providerCheck: providerRecheck,
   });
   const providerRevocation = providerConfig
     ? createProviderRevocation(
@@ -243,6 +251,7 @@ export function createServices({
     abuseStore,
     authProvider,
     sessions,
+    providerRecheck,
     providerRevocation,
     accountSecurity,
     coinDebates,

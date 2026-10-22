@@ -34,6 +34,9 @@ import { WalletOperationError } from "./wallet-operations.ts";
 import { AccountOperationError } from "./account-operations.ts";
 import type { createEmbeddedWalletProvisioning } from "./embedded-wallet-provisioning.ts";
 
+const providerMethodsCacheMs = 5 * 60_000;
+const providerMethodsRetryMs = 15_000;
+
 const dummyPasswordHash =
   "$argon2id$v=19$m=19456,p=1,t=2$lyjbixDyiZIjLayIBjKzug$XkfmwNfqtaLsRnC6LtyIEGEQ5pApGzGiypF/XpcVboI";
 
@@ -190,10 +193,51 @@ export function createAuthRouter({
     next();
   });
 
+  // Public and unauthenticated: serve Privy's sign-in settings from a short
+  // cache. The exchange still reads and checks them live. After a failed read
+  // the last good answer is served, and Privy is asked again after a pause.
+  type ProviderMethods = { google: boolean; passkeys: boolean };
+  let providerMethods:
+    { value: ProviderMethods; expiresAt: number } | undefined;
+  let providerMethodsRetryAt = 0;
+  let providerMethodsRead: Promise<ProviderMethods> | undefined;
+  function cachedProviderMethods(verifier: IdentityVerifier) {
+    const at = now();
+    if (
+      providerMethods &&
+      (providerMethods.expiresAt > at || at < providerMethodsRetryAt)
+    )
+      return Promise.resolve(providerMethods.value);
+    if (at < providerMethodsRetryAt)
+      return Promise.reject(
+        new ProviderUnavailableError("provider configuration unavailable"),
+      );
+    providerMethodsRead ??= verifier
+      .configuration()
+      .then(
+        (value) => {
+          providerMethods = {
+            value,
+            expiresAt: now() + providerMethodsCacheMs,
+          };
+          return value;
+        },
+        (error: unknown) => {
+          providerMethodsRetryAt = now() + providerMethodsRetryMs;
+          if (providerMethods) return providerMethods.value;
+          throw error;
+        },
+      )
+      .finally(() => {
+        providerMethodsRead = undefined;
+      });
+    return providerMethodsRead;
+  }
+
   router.get("/provider", async (_request, response) => {
     if (!provider) return response.json({ enabled: false });
     try {
-      const methods = await provider.verifier.configuration();
+      const methods = await cachedProviderMethods(provider.verifier);
       return response.json({
         enabled: true,
         appId: provider.appId,

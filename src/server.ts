@@ -56,6 +56,7 @@ const {
   abuseStore,
   authProvider,
   sessions,
+  providerRecheck,
   providerRevocation,
   accountSecurity,
   coinDebates,
@@ -184,6 +185,9 @@ async function shutdown(signal: string) {
   forcedExit.unref();
 
   try {
+    // Start no new Privy re-checks, and let running ones finish, before the
+    // runtime closes the database pool.
+    await providerRecheck?.close();
     await runtime.stop();
     services.close();
     clearTimeout(forcedExit);

@@ -1,7 +1,8 @@
 # Account session revocation
 
 Current email-first work adds account status, PostgreSQL provider-session replay
-fences, per-request Privy credential inspection, a durable Privy freeze/unfreeze
+fences, an asynchronous Privy re-check ([Decision 0008](../decisions/0008-auth-simplification.md)
+step 9), a durable Privy freeze/unfreeze
 queue and a separate durable LiveKit speaker-revocation queue. See the
 [provider session contract](../email-first-accounts.md#ownership-sessions-and-recovery)
 and [requirement/evidence matrix](../email-first-completion.md). Combined local,
@@ -32,7 +33,7 @@ selectors, derive the account from server authentication, and recheck the invoki
 inside the transaction. The account page explains whether this device stays signed in. Cookie
 attributes and the existing Origin protection remain unchanged. The existing authentication
 limiter remains defense in depth. Logout, owned session reads and revocation bypass
-the shared abuse limiter and external provider inspection so they remain available
+the shared abuse limiter and never schedule a Privy re-check, so they remain available
 during Redis/Privy outages. PostgreSQL must still confirm account-wide revocation.
 An absent, expired or unknown cookie returns a 401 warning that other devices were
 not confirmed signed out; a database failure must not claim successful revocation.
@@ -58,12 +59,32 @@ These ordering protections cover cooperating application browser flows;
 arbitrary API clients do not participate in the browser lock. PostgreSQL
 authorization and revocation still apply to every client.
 
-Protected requests normally verify the local session and current Privy credential
-snapshot. Provider inspection runs without a checked-out database connection or
-account lock; its result is accepted only after revalidating the original
-session, generation, identity mapping and provider-control job state under the
-account lock. A provider change retires local sessions; provider unavailability blocks
-protected actions. A refreshed or replayed provider token cannot reuse a consumed
+A protected request makes one indexed `SELECT` on `sessions`, `users` and
+`provider_identities`. It never calls Privy, takes no row lock and never fails
+because Privy is unavailable. When `provider_identities.checked_at` is more than
+15 minutes old, the request schedules an asynchronous re-check and continues. The
+re-check claims `checked_at` atomically, so one process reads Privy once per
+account per interval, and holds no connection or lock during the read. Its
+result is written only if the session generation, identity mapping, stored
+methods and provider-control job are unchanged under the account lock:
+
+- a deleted, frozen or guest Privy user (or one with an unsupported or no sign-in
+  method) loses every session through `revokeAccountSessions`, audited as
+  `sessions.incident` with `reason: "provider_change"`;
+- a sign-in method change is recorded with a `provider.credentials.changed` audit
+  event and an `account.signin_changed` notice; sessions continue;
+- a change that is the passkey this account is activating, or a frozen response
+  during the app's own freeze/unfreeze reset, is left alone;
+- a Privy outage or rate limit pauses re-checks in that process for 60 seconds;
+- an inconclusive check (outage, own reset, a concurrent change or an error)
+  hands its claim back, so the account is due again about a minute later.
+
+Sign-in and passkey setup record method changes the same way, instead of
+requiring ownership reconciliation or failing setup. A change that is the passkey
+being activated stays with that activation, which records it. Step-up re-reads Privy and checks only the approving key (still
+linked, same public key). Privy-side deletions, freezes and method changes
+therefore reach the app within about 15 minutes of activity, live at sign-in and
+step-up, and sessions still end after 7 days. A refreshed or replayed provider token cannot reuse a consumed
 Privy session ID to recreate an expired/revoked YapArena session. Local revocation
 commits before external calls; Privy queue failures retain their fence and retry.
 An uncertain provider mutation requires incident reconciliation. Provider freeze/
@@ -71,7 +92,7 @@ unfreeze is not a compare-and-swap ownership API: use a single operator for a
 provider incident rather than racing dashboard edits against the worker.
 The provider-control worker holds the account ordering lock during its bounded
 freeze/unfreeze sequence (up to 20 seconds). A concurrent local revocation may
-wait for that sequence. Per-request provider inspection holds no such lock or
+wait for that sequence. The provider re-check holds no such lock or
 checked-out connection while awaiting Privy.
 
 An acknowledged reset superseded by a successful authenticated logout drains

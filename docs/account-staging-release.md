@@ -85,7 +85,8 @@ ACCOUNT_STAGING_RENDER_ACTION=suspend \
   node scripts/release-account-render.ts suspend
 ```
 
-Verify both named services are actually suspended. No unrelated writer may remain.
+Verify all named services are actually suspended: web, the replay encoder and, once it exists,
+the `yaparena-staging-jobs` worker. No unrelated writer may remain.
 Keep them suspended throughout preparation and migration. The helper's runtime
 activity sample supplements that control; it does not prevent future connections.
 
@@ -136,9 +137,10 @@ ACCOUNT_STAGING_RENDER_ACTION=configure-sandbox \
 ```
 
 Set `ACCOUNT_STAGING_RENDER_COMMIT` to the exact current 40-character pushed SHA.
-The release helper targets the web service only and requires background jobs
-enabled so provider/media revocation work runs. The replay encoder remains on
-its recorded revision; it does not process the account outbox.
+The release helper deploys the exact SHA to web and, once it exists, the
+`yaparena-staging-jobs` worker. It refuses unless web runs background jobs or
+that worker is running, so provider/media revocation work continues. The replay
+encoder remains on its recorded revision; it does not process the account outbox.
 
 ```sh
 ACCOUNT_STAGING_RENDER_ACTION=resume \

@@ -62,3 +62,41 @@ it("keeps the broadcast overlay free of navigation and account controls", () => 
   assert.match(html, /broadcast-overlay/);
   assert.doesNotMatch(html, /data-site-header|data-auth-open/);
 });
+
+it("versions every server-rendered asset reference with the process revision", () => {
+  const origin = "https://arena.example";
+  const pages = [
+    renderHome(origin),
+    renderAccount(origin, true),
+    renderAccount(origin, false),
+    renderCoins(origin),
+    renderMatchmaking(origin),
+    renderMyModeration(false),
+    renderModeration(true),
+    renderMeasurementDashboard(
+      { windowDays: 28, events: [], watch: [] },
+      [],
+      false,
+    ),
+    renderOverlay({
+      proposition: "A public fixture",
+      status: "live",
+      topicTitle: "Topic",
+      sideALabel: "For",
+      sideBLabel: "Against",
+    }),
+  ];
+  const revisions = new Set();
+  for (const html of pages) {
+    const references = [...html.matchAll(/="(\/assets\/[^"]*)"/g)].map(
+      ([, url]) => url,
+    );
+    assert.ok(references.length > 0);
+    for (const url of references) {
+      const match = /^\/assets\/[^?"]+\?v=([0-9a-f]{12})$/.exec(url);
+      assert.ok(match, `unversioned asset reference ${url}`);
+      revisions.add(match[1]);
+    }
+  }
+  assert.equal(revisions.size, 1);
+});

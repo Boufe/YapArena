@@ -638,6 +638,7 @@ async function runtimeChecks(
       sessions,
       wallets,
       messages,
+      database: pool,
       discovery,
       identity,
       matching,

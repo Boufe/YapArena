@@ -166,7 +166,8 @@ npm run dev
 `npm run dev` generates browser assets, watches frontend/shared sources, starts the TypeScript API
 directly with Node.js, loads `.env.runtime`, and automatically restarts the API when its sources
 change. `npm run build` checks strict operational and frontend types, compiles production server JavaScript into
-the ignored `dist/` directory, and generates all browser modules and the four existing bundles.
+the ignored `dist/` directory, and generates all browser modules and the six
+bundles (`media`, `replay`, `hero-live`, `homepage`, `account-security` and `account-auth`).
 PostgreSQL must still be running in Docker. Open <http://localhost:3000/ready> to confirm the
 API can reach the database. Press `Ctrl-C` to stop the API; the database container keeps running until
 you run `docker compose down`.
@@ -299,7 +300,8 @@ Run the quality gate:
 npm run check
 ```
 
-This runs lint rules, verifies formatting and strict types, and executes the test suite with its coverage thresholds.
+This runs lint rules, verifies formatting, the [tracked-file policy](CONTRIBUTING.md#evidence-and-status-records)
+and strict types, and executes the test suite with its coverage thresholds.
 It is the same main quality gate used by CI, so run it before committing or opening a pull request.
 CI means **continuous integration**: GitHub automatically runs checks on pushed changes.
 

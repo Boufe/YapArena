@@ -421,57 +421,136 @@ describe(
             [context.userId],
           )
         ).rows[0].id;
-      for (const existingReference of [false, true]) {
-        const token = createSessionToken(),
-          generation = (
-            await owner.query("SELECT auth_generation FROM users WHERE id=$1", [
-              context.userId,
-            ])
-          ).rows[0].auth_generation,
-          session = await createSessionRepository(runtime).create(
-            context.userId,
-            token.tokenHash,
-            new Date(Date.now() + 1500),
-            { authGeneration: generation },
-          ),
-          shortContext = {
-            ...context,
-            sessionTokenHash: token.tokenHash,
-            expectedSessionId: session.id,
-          },
-          gate = await owner.connect();
-        let pending;
-        try {
-          await gate.query("BEGIN");
-          await gate.query(
-            "SELECT id FROM coin_accounts WHERE id=$1 FOR UPDATE",
-            [account],
-          );
-          const pid = (await gate.query("SELECT pg_backend_pid() AS pid"))
-            .rows[0].pid;
-          pending = a4.create(
-            shortContext,
-            debateId,
-            existingReference ? key : randomUUID(),
-          );
-          pending.catch(() => {});
-          await waitForBlocked(pid, 1);
-          await owner.query("SELECT pg_sleep(1.55)");
-        } finally {
-          await gate.query("COMMIT");
-          gate.release();
-        }
-        await assert.rejects(pending, /session/);
-        assert.equal(
-          (
-            await owner.query(
-              "SELECT state FROM coin_debate_rounds WHERE id=$1",
-              [due.id],
-            )
-          ).rows[0].state,
-          "open",
+      const expireFunction = `fixture_expiry_${randomUUID().replaceAll("-", "")}`,
+        fixture = await owner.connect();
+      assert.match(context.userId, /^[1-9][0-9]*$/);
+      try {
+        await fixture.query("BEGIN");
+        await fixture.query(`CREATE FUNCTION yaparena.${expireFunction}(bigint)
+          RETURNS integer LANGUAGE sql SECURITY DEFINER
+          SET search_path=pg_catalog,yaparena,pg_temp AS $$
+          WITH expired AS (UPDATE yaparena.sessions
+            SET expires_at=clock_timestamp()-interval '1 second'
+            WHERE id=$1 AND user_id=${context.userId} RETURNING id)
+          SELECT count(*)::integer FROM expired $$`);
+        await fixture.query(
+          `REVOKE ALL ON FUNCTION yaparena.${expireFunction}(bigint) FROM PUBLIC`,
         );
-        assert.deepEqual((await sandbox.summary(other)).book, before);
+        await fixture.query(
+          `GRANT EXECUTE ON FUNCTION yaparena.${expireFunction}(bigint) TO yaparena_runtime`,
+        );
+        await fixture.query("COMMIT");
+      } catch (error) {
+        await fixture.query("ROLLBACK");
+        throw error;
+      } finally {
+        fixture.release();
+      }
+      let inFlight;
+      try {
+        for (const existingReference of [false, true]) {
+          const token = createSessionToken(),
+            generation = (
+              await owner.query(
+                "SELECT auth_generation FROM users WHERE id=$1",
+                [context.userId],
+              )
+            ).rows[0].auth_generation,
+            session = await createSessionRepository(runtime).create(
+              context.userId,
+              token.tokenHash,
+              new Date(Date.now() + 3600000),
+              { authGeneration: generation },
+            ),
+            shortContext = {
+              ...context,
+              sessionTokenHash: token.tokenHash,
+              expectedSessionId: session.id,
+            },
+            gate = await owner.connect();
+          let initialSessionAuthorized = false,
+            ledgerBarrierObserved = false,
+            expirations = 0;
+          const expiringCaller = createCoinDebateSandbox(
+            {
+              query: (...args) => runtime.query(...args),
+              async connect() {
+                const client = await runtime.connect();
+                return {
+                  release: () => client.release(),
+                  async query(sql, values) {
+                    const result = await client.query(sql, values);
+                    if (
+                      typeof sql === "string" &&
+                      sql.includes("FOR UPDATE OF s") &&
+                      result.rows.some((row) => row.id === session.id)
+                    )
+                      initialSessionAuthorized = true;
+                    if (
+                      expirations === 0 &&
+                      typeof sql === "string" &&
+                      sql.includes("FROM coin_accounts") &&
+                      sql.includes("FOR UPDATE") &&
+                      result.rows.some((row) => row.id === account)
+                    ) {
+                      assert.equal(initialSessionAuthorized, true);
+                      assert.equal(ledgerBarrierObserved, true);
+                      // Runtime owns the session row lock. The temporary,
+                      // exact-user fixture function changes expiry on this same
+                      // connection without granting runtime UPDATE(expires_at).
+                      const expired = await client.query(
+                        `SELECT yaparena.${expireFunction}($1::bigint) AS expired`,
+                        [session.id],
+                      );
+                      assert.equal(expired.rows[0].expired, 1);
+                      expirations++;
+                    }
+                    return result;
+                  },
+                };
+              },
+            },
+            "simulation",
+          );
+          let pending;
+          try {
+            await gate.query("BEGIN");
+            await gate.query(
+              "SELECT id FROM coin_accounts WHERE id=$1 FOR UPDATE",
+              [account],
+            );
+            const pid = (await gate.query("SELECT pg_backend_pid() AS pid"))
+              .rows[0].pid;
+            pending = inFlight = expiringCaller.create(
+              shortContext,
+              debateId,
+              existingReference ? key : randomUUID(),
+            );
+            pending.catch(() => {});
+            await waitForBlocked(pid, 1);
+            ledgerBarrierObserved = true;
+          } finally {
+            await gate.query("COMMIT");
+            gate.release();
+          }
+          await assert.rejects(pending, /session/);
+          assert.equal(initialSessionAuthorized, true);
+          assert.equal(ledgerBarrierObserved, true);
+          assert.equal(expirations, 1);
+          assert.equal(
+            (
+              await owner.query(
+                "SELECT state FROM coin_debate_rounds WHERE id=$1",
+                [due.id],
+              )
+            ).rows[0].state,
+            "open",
+          );
+          assert.deepEqual((await sandbox.summary(other)).book, before);
+        }
+      } finally {
+        await inFlight?.catch(() => {});
+        await owner.query(`DROP FUNCTION yaparena.${expireFunction}(bigint)`);
       }
       assert.equal((await a4.advance()).completed, 1);
       await reconcile();

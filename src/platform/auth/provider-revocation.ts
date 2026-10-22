@@ -588,13 +588,32 @@ export function createProviderRevocation(
         )
           return { state: "rearmed", created: false };
         stage = "snapshot";
-        const initial = await logoutResetSnapshot(database, input.userId);
-        if (
-          initial.fingerprint !== input.review.expectedFingerprint ||
-          initial.generation !== input.review.expectedGeneration ||
-          initial.jobs[0]!.attempts !== input.review.expectedAttempts
-        )
-          throw new ProviderResetRetryError(stage);
+        let initial: Awaited<ReturnType<typeof logoutResetSnapshot>>;
+        try {
+          initial = await logoutResetSnapshot(database, input.userId);
+          if (
+            initial.fingerprint !== input.review.expectedFingerprint ||
+            initial.generation !== input.review.expectedGeneration ||
+            initial.jobs[0]!.attempts !== input.review.expectedAttempts
+          )
+            throw new ProviderResetRetryError(stage);
+        } catch (error) {
+          // An exact concurrent rearm can commit after the first replay read
+          // and invalidate the manual snapshot. Only its immutable matching
+          // audit can turn this failure into a replay; never admit new state.
+          if (
+            error instanceof ProviderResetRetryError &&
+            error.stage === "snapshot" &&
+            (await logoutResetReplay(
+              database,
+              input.userId,
+              input.requestId,
+              termsDigest,
+            ))
+          )
+            return { state: "rearmed", created: false };
+          throw error;
+        }
         // No checked-out database connection or ordering lock spans remote I/O.
         stage = "provider_inspection";
         const [identity, state] = await Promise.all([

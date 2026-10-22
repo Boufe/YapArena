@@ -309,6 +309,101 @@ describe(
       );
       assert.equal(f.control.calls.length, callsAfterCompletion);
     });
+    it("returns the committed exact replay when its initial audit miss precedes another owner's rearm commit", async () => {
+      const f = await brokenAcceptedKeyLogout();
+      let entered,
+        release,
+        heldOnce = false,
+        inspected = 0;
+      const started = new Promise((resolve) => {
+        entered = resolve;
+      });
+      const held = new Promise((resolve) => {
+        release = resolve;
+      });
+      const database = {
+        async query(...args) {
+          const result = await owner.query(...args);
+          if (
+            !heldOnce &&
+            typeof args[0] === "string" &&
+            args[0].includes("metadata->>'termsDigest' AS \"termsDigest\"") &&
+            args[1]?.[0] === f.request.requestId
+          ) {
+            heldOnce = true;
+            assert.equal(result.rowCount, 0);
+            entered();
+            await held;
+          }
+          return result;
+        },
+        connect: () => owner.connect(),
+      };
+      const repository = createProviderRevocation(database, f.control, {
+        operatorFrozenInspector: {
+          inspect: async () => {
+            inspected++;
+            return structuredClone(f.identity);
+          },
+        },
+      });
+      const pending = repository.resumeAcknowledgedLogoutReset(f.request).then(
+        (value) => ({ value }),
+        (error) => ({ error }),
+      );
+      try {
+        await bounded(
+          started,
+          "exact replay did not reach its initial audit miss",
+        );
+        assert.deepEqual(
+          await f.repository.resumeAcknowledgedLogoutReset(f.request),
+          { state: "rearmed", created: true },
+        );
+        const afterCommit = (
+          await owner.query(
+            "SELECT * FROM provider_revocation_jobs WHERE user_id=$1 ORDER BY generation",
+            [f.userId],
+          )
+        ).rows;
+        const beforeReplay = await preservedAccount(f.userId);
+        const calls = [...f.control.calls];
+        release();
+        const result = await bounded(
+          pending,
+          "committed exact replay did not return",
+        );
+        if (result.error) throw result.error;
+        assert.deepEqual(result.value, { state: "rearmed", created: false });
+        assert.equal(inspected, 0);
+        assert.deepEqual(f.control.calls, calls);
+        assert.deepEqual(await preservedAccount(f.userId), beforeReplay);
+        assert.deepEqual(
+          (
+            await owner.query(
+              "SELECT * FROM provider_revocation_jobs WHERE user_id=$1 ORDER BY generation",
+              [f.userId],
+            )
+          ).rows,
+          afterCommit,
+        );
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT count(*)::int AS n FROM identity_audit_events WHERE user_id=$1 AND event_type='provider.reset.logout_resumed'",
+              [f.userId],
+            )
+          ).rows[0].n,
+          1,
+        );
+      } finally {
+        release();
+        await bounded(
+          pending,
+          "held exact replay did not settle during cleanup",
+        );
+      }
+    });
     it("denies runtime preparation/rearm before provider I/O and rejects changed review terms or cross-account request reuse", async () => {
       const f = await brokenAcceptedKeyLogout();
       let inspected = 0;

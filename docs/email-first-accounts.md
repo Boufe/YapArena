@@ -146,7 +146,7 @@ Official documentation checked 2026-10-19; locked versions:
 - [Crypto deposits](https://docs.privy.io/wallets/funding/crypto-deposits/overview): routes differ from supported assets; dedicated addresses require wallets and app-paid source-chain gas sponsorship. No sponsorship credits purchased.
 - [Pricing](https://www.privy.io/pricing): free below 500 MAU; automatic upgrades need monitoring. Free/low-cost preference; no paid upgrade approved.
 - [Deletion](https://docs.privy.io/user-management/users/managing-users/deleting-users): deletion changes future DID and disassociates wallets. Never delete keys/assets for a fresh-looking signup.
-- [Webhooks](https://docs.privy.io/api-reference/webhooks/overview): development testing is free; the current documentation requires Enterprise for production webhooks. No paid upgrade approved. The selected affordable design instead performs a server-side Privy user inspection on every protected authenticated request. It compares verified credential snapshots and revokes changed accounts; provider outages fail closed. Local logout/revocation and public access bypass that inspection. Production rate capacity remains a release gate.
+- [Webhooks](https://docs.privy.io/api-reference/webhooks/overview): development testing is free; the current documentation requires Enterprise for production webhooks. No paid upgrade approved. Current state: [Decision 0008](decisions/0008-auth-simplification.md) step 9 replaced the per-request Privy inspection with an asynchronous re-check at most every 15 minutes per active account. Requests never wait on Privy; deleted, frozen or guest Privy users lose their sessions and method changes are recorded with a notice. See the [revocation procedure](security/account-session-revocation.md).
 
 The selected dashboard reports a development-app limit of 150 users. This is
 distinct from the advertised free production MAU allowance. Sender/branding
@@ -195,8 +195,10 @@ requires auto-merging off and rechecks before
 exchange; only enabled optional methods appear. No cached positive ownership
 decision bypasses this check.
 
-The verified credential identifiers are hashed as an enrollment snapshot. A new
-exchange with changed methods is rejected for deliberate ownership reconciliation.
+The verified credential identifiers are hashed as an enrollment snapshot. Since
+[Decision 0008](decisions/0008-auth-simplification.md) step 9, an exchange with
+changed methods records them with an audit event and an in-app notice instead of
+requiring ownership reconciliation.
 Email changes and method linking/removal now use retained operation-specific proof
 before provider interaction and exact verified credential-delta reconciliation
 afterward. Provider-side ownership rules still apply. New passkeys are enrolled

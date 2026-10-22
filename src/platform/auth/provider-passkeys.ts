@@ -23,6 +23,7 @@ import {
 } from "./provider-credentials.ts";
 import { assertActiveSession, insertSession, lockAccount } from "./sessions.ts";
 import { createSessionToken } from "./session-tokens.ts";
+import { recordProviderCredentials } from "./provider-methods.ts";
 import { firstProviderPasskeyBootstrapAllowed as bootstrapAllowed } from "./provider-passkey-policy.ts";
 
 type PreparedApproval = Awaited<
@@ -231,6 +232,20 @@ export async function pendingProviderPasskeyAddition(
   return false;
 }
 
+// True while this exact change is a passkey that the account is activating;
+// activation then records it. A key Privy cannot describe is not pending.
+export async function passkeyActivationPending(
+  client: Pick<PoolClient, "query">,
+  input: Parameters<typeof pendingProviderPasskeyAddition>[1],
+) {
+  try {
+    return await pendingProviderPasskeyAddition(client, input);
+  } catch (error) {
+    if (error instanceof AccountOperationError) return false;
+    throw error;
+  }
+}
+
 type Mapping = {
   subject: string;
   email: string | null;
@@ -360,17 +375,21 @@ export function createProviderPasskeys(
         )
       ).rows[0];
       if (!mapping) invalid();
-      const before = verifiedStoredCredentials(mapping);
       const current = await verifier.inspect(mapping.subject);
       if (
-        !before ||
         current.subject !== mapping.subject ||
-        current.credentialsDigest !== mapping.credentialsDigest ||
         !current.credentials ||
         providerCredentialsDigest(current.credentials) !==
-          mapping.credentialsDigest
+          current.credentialsDigest
       )
         invalid();
+      // Decision 0008: stored methods may lag Privy by up to the re-check
+      // interval. This fresh read records such a change before setup starts.
+      const changed = current.credentialsDigest !== mapping.credentialsDigest;
+      const before = changed
+        ? current.credentials
+        : verifiedStoredCredentials(mapping);
+      if (!before) invalid();
       const origin = new URL(input.origin).origin;
       const rpId = new URL(origin).hostname;
       const mode = input.credentialId ? "existing" : "addition";
@@ -406,6 +425,27 @@ export function createProviderPasskeys(
           locked.credentialsDigest !== mapping.credentialsDigest
         )
           invalid();
+        if (changed) {
+          // A key this account is already activating keeps its own intent.
+          if (
+            (await passkeyActivationPending(client, {
+              userId: input.userId,
+              authGeneration: account.authGeneration,
+              subject: mapping.subject,
+              beforeDigest: mapping.credentialsDigest,
+              current,
+            })) ||
+            !(await recordProviderCredentials(client, {
+              userId: input.userId,
+              subject: mapping.subject,
+              previousDigest: mapping.credentialsDigest,
+              identity: current,
+              source: "passkey_setup",
+            }))
+          )
+            invalid();
+        }
+        const beforeDigest = current.credentialsDigest;
         if (
           input.credentialId &&
           (
@@ -431,7 +471,7 @@ export function createProviderPasskeys(
           if (
             existing.sessionTokenHash !== input.sessionTokenHash ||
             existing.authGeneration !== account.authGeneration ||
-            existing.beforeDigest !== mapping.credentialsDigest ||
+            existing.beforeDigest !== beforeDigest ||
             existing.origin !== origin ||
             existing.subject !== mapping.subject ||
             existing.mode !== mode ||
@@ -455,7 +495,7 @@ export function createProviderPasskeys(
                 mapping.subject,
                 origin,
                 rpId,
-                mapping.credentialsDigest,
+                beforeDigest,
                 JSON.stringify(before),
                 mode,
                 input.credentialId ?? null,

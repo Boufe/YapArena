@@ -234,14 +234,6 @@ describe(
         });
         assert.equal(f.counters().unfreezes, 1);
         f.freshSession();
-        await assert.rejects(
-          createProviderAccounts(runtime).exchange(
-            f.identity,
-            createSessionToken().tokenHash,
-            new Date(Date.now() + 600000),
-          ),
-          { code: "provider_credentials_changed" },
-        );
         const bootstrap = createProviderPasskeyBootstrap(runtime, f.verifier, {
           authorizeAttempt: async () => {},
         });

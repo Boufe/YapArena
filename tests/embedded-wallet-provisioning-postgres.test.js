@@ -368,7 +368,6 @@ describe(
     });
     it("parks an unaccepted credential without polling or exhausting attempts, then rearms only through its accepted same-DID exchange", async () => {
       const f = await fixture(),
-        originalIdentity = { ...f.identity },
         acceptedCredentials = [
           ...f.identity.credentials,
           { type: "passkey", id: `synthetic-provider-key-${randomUUID()}` },
@@ -404,26 +403,8 @@ describe(
         assert.equal((await f.other.process(1, f.userId)).processed, 0);
       }
       assert.equal(f.calls.length, 1, "parked work performs no provider polls");
-      await assert.rejects(
-        createProviderAccounts(a).exchange(
-          nextIdentity,
-          createSessionToken().tokenHash,
-          new Date(Date.now() + 600000),
-        ),
-        { status: 403, code: "provider_credentials_changed" },
-      );
-      // Simulate the accepted-credential transaction. The real reset-phase hook
-      // is covered by its own protocol suite; this fixture never calls Privy.
-      await owner.query(
-        `UPDATE provider_identities SET methods=$2::jsonb,credentials_digest=$3,credentials_snapshot=$4::jsonb
-         WHERE user_id=$1`,
-        [
-          f.userId,
-          JSON.stringify(nextIdentity.methods),
-          nextIdentity.credentialsDigest,
-          JSON.stringify(nextIdentity.credentials),
-        ],
-      );
+      // Without the accepting sign-in, no enqueue rearms the parked job: not
+      // one without a digest, with the not-yet-recorded digest or another DID.
       const client = await a.connect();
       try {
         await client.query("BEGIN");
@@ -435,7 +416,7 @@ describe(
           client,
           f.userId,
           f.subject,
-          originalIdentity.credentialsDigest,
+          nextIdentity.credentialsDigest,
         );
         await enqueueEmbeddedWalletProvisioning(
           client,
@@ -451,14 +432,8 @@ describe(
         client.release();
       }
       assert.equal((await row(f.userId)).last_failure, "account_verification");
-      await assert.rejects(
-        createProviderAccounts(a).exchange(
-          { ...originalIdentity, sessionId: randomUUID() },
-          createSessionToken().tokenHash,
-          new Date(Date.now() + 600000),
-        ),
-        { status: 403, code: "provider_credentials_changed" },
-      );
+      // Decision 0008: the same-DID sign-in records the new methods (with an
+      // audit event and notice) and that accepted digest rearms the job.
       Object.assign(f.identity, nextIdentity);
       const exchanged = await createProviderAccounts(a).exchange(
         f.identity,

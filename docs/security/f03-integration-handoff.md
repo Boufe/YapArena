@@ -11,6 +11,11 @@ instructions below are historical. Later staging records show the combined appli
 Account suspension/recovery, external LiveKit revocation and the other listed acceptance gaps
 are separate work; the merge does not close them.
 
+Current-state note — 2026-10-22: by founder decision, account-scoped logout-all and
+logout-others below were removed; Sign out ends only this device and the per-device
+session list remains. See the current [revocation contract](account-session-revocation.md#owner-controls-and-semantics).
+The generation fence for credential changes and incidents is unchanged.
+
 Standalone F03 implementation ready for coordinated integration review, 2026-10-05.
 No deployment, hosted probes, production accounts or PR merges were performed.
 

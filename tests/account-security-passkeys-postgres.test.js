@@ -27,6 +27,7 @@ import { createCoinSandboxRepository } from "../dist/features/account-wallet/san
 import { waitForSiweIssuedAt } from "./siwe-fixture-clock.js";
 import { ProviderUnavailableError } from "../dist/platform/auth/privy.js";
 import { createEmbeddedWalletProvisioning } from "../dist/platform/auth/embedded-wallet-provisioning.js";
+import { endAllAccountSessions } from "./helpers/account-sessions.js";
 
 const ownerUrl = process.env.WALLET_TEST_OWNER_DATABASE_URL;
 const runtimeUrl = process.env.WALLET_TEST_DATABASE_URL;
@@ -1396,11 +1397,7 @@ describe(
       try {
         await seen;
         await pool.query("SELECT 1");
-        await createSessionRepository(b).revoke(
-          f.f.userId,
-          f.f.sessionTokenHash,
-          false,
-        );
+        await endAllAccountSessions(b, f.f.userId);
         release();
         await assert.rejects(held, /session|invalid|expired|changed/);
         assert.equal(
@@ -1551,11 +1548,7 @@ describe(
           },
         }),
         challenge = await service.loginOptions({ origin });
-      await createSessionRepository(b).revoke(
-        f.f.userId,
-        f.f.sessionTokenHash,
-        false,
-      );
+      await endAllAccountSessions(b, f.f.userId);
       await assert.rejects(
         service.login({
           id: challenge.id,
@@ -1809,11 +1802,7 @@ describe(
       try {
         await entered.promise;
         await Promise.race([
-          createSessionRepository(single).revoke(
-            f.f.userId,
-            f.f.sessionTokenHash,
-            false,
-          ),
+          endAllAccountSessions(single, f.f.userId),
           new Promise((_, reject) => {
             timeout = setTimeout(
               () =>
@@ -2074,11 +2063,7 @@ describe(
         origin,
         credential: { type: "password" },
       });
-      await createSessionRepository(b).revoke(
-        f.f.userId,
-        f.f.sessionTokenHash,
-        false,
-      );
+      await endAllAccountSessions(b, f.f.userId);
       await assert.rejects(
         service.reconcile({
           id: operation.id,

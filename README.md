@@ -231,8 +231,9 @@ not cache debate records; reconnect to see current content.
 
 Open <http://localhost:3000/account> to sign in with an EVM wallet and a one-time
 Sign-In with Ethereum message. You can also use an existing email account, then link a wallet.
-The account page also offers sign-out controls for this device, other sessions, or all
-sessions including this device. Credential removal signs out preexisting account sessions.
+Sign out ends only this device's session. The account page's Active sessions list can sign
+out any one session you do not recognize. Credential removal signs out preexisting account
+sessions.
 See the [revocation contract](docs/security/account-session-revocation.md) for proof-authorized
 replacement, incident response and deployment requirements.
 Creating a profile starts a private draft; choose Public and save to publish it. Public people

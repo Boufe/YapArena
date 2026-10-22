@@ -2,6 +2,11 @@
 
 **Paused at the founder's explicit request on 2026-10-21, 23:03 UTC; subsequently resumed by an explicit “continue working”.**
 The following is the preserved pause checkpoint. Current checklist/release evidence supersedes its pending status.
+
+Current-state note — 2026-10-22: "default Sign out all" below is superseded. By founder
+decision, Sign out ends only this device, the sign-out-all/others options were removed, and the
+logout overlap owner rearm no longer exists; see [Decision 0008](decisions/0008-auth-simplification.md) point 4.
+
 The task is incomplete. Resume only after the founder says “continue”, “continue
 working” or otherwise explicitly resumes. Do not restart the implementation.
 The founder is leaving with the computer; no local server, browser test or CI

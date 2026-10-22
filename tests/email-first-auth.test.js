@@ -858,7 +858,7 @@ describe("provider exchange API", () => {
       sessions: {
         findUserByTokenHash: async () => (active ? { id: "11" } : null),
         deleteByTokenHash: async () => {},
-        revoke: async () => {},
+        revokeSession: async () => ({ current: true }),
       },
       logger: createLogger({ enabled: false }),
       environment: "production",
@@ -908,16 +908,6 @@ describe("provider exchange API", () => {
       204,
     );
     assert.equal((await exchange(app)).status, 503);
-    for (const path of ["logout-all", "logout-other-sessions"])
-      assert.equal(
-        (
-          await request(app)
-            .post(`/api/auth/${path}`)
-            .set("Origin", "https://arena.example")
-            .set("Cookie", "__Host-session=synthetic")
-        ).status,
-        204,
-      );
   });
   it("publishes a host-only secure session after provisioning and retires new unverified registration", async () => {
     const app = setup();

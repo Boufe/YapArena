@@ -260,6 +260,20 @@ and safe local URL. Signing in never submits the initiating stake, payment,
 follow or account mutation. Provider callback parameters are removed from the
 returned URL.
 
+**Current state — 2026-10-22 founder decision:** Sign out works as in other apps
+and ends only this device's session. `POST /api/auth/logout` deletes that one
+session row (audited `sessions.logout_one`); it does not advance the account
+generation or queue a Privy freeze/unfreeze. The browser ends its own Privy
+session with Privy `logout()`. Sign out all sessions and Sign out other sessions,
+with `POST /api/auth/logout-all` and `/logout-other-sessions`, were removed. The
+Active sessions list on the account page still signs out one chosen device. This
+is implemented and locally tested on branch `fix/single-device-logout`, not
+hosted-tested; see [Decision 0008](decisions/0008-auth-simplification.md) point 4.
+The next two paragraphs record the earlier decision and the `92f11b4` correction.
+Their provider-reset description still applies to the remaining generation
+changes: security incidents, key triggers, wallet removal, password change and
+suspension.
+
 Normal **Sign out** now revokes all YapArena sessions by founder decision.
 Explicit owned-session and logout-others controls retain their targeted semantics.
 Generation changes enqueue durable provider-revocation work in the transaction.
@@ -283,6 +297,12 @@ independently of the general background-job setting, with database leases across
 replicas. Provider incident handling requires a single writer
 because the provider has no conditional ownership API for freeze/unfreeze.
 Resume after suspension still requires reviewed reconciliation.
+
+Current state, 2026-10-22: the logout overlap handling below and its owner-only
+rearm (`prepareAcknowledgedLogoutReset`/`resumeAcknowledgedLogoutReset`) were
+removed on `fix/single-device-logout`, because only sign-out-all/others
+generations could reach them. An older job overlapping a newer generation again
+stops for manual review (`inherited_manual`).
 
 The first-key/logout overlap correction is committed in `92f11b4`. An older
 positively acknowledged reset may drain only through the exact successful
@@ -330,8 +350,8 @@ the same store and fail open on a store error (logged, `fail_open` outcome); the
 auth and wallet-sign-in limiters fail closed (503). Without Redis they stay
 process-local. Verified account-scoped
 wallet-operation creation uses a separate 30-per-15-minute budget; auth POSTs
-share a 120-per-15-minute IP-subnet budget. Logout/current-session inspection and
-account-wide revocation remain usable during Redis outages. These are initial
+share a 120-per-15-minute IP-subnet budget. Logout, session listing and
+per-device revocation remain usable during Redis outages. These are initial
 staging limits, not financial fraud controls.
 
 Connect/command bounds are one second; offline queue and automatic reconnect are

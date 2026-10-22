@@ -19,24 +19,31 @@ it does not replace the final hosted rollout and legacy-grant checks.
 
 ## Owner controls and semantics
 
-| Action                                 | Result after successful commit                                                                                                                                                                     |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/auth/logout`                | Normal Sign out advances the account generation and retires all existing account sessions. Creates no replacement cookie.                                                                          |
-| `POST /api/auth/logout-all`            | Advances the account generation and deletes every existing account session, including the invoking session. Creates no replacement.                                                                |
-| `POST /api/auth/logout-other-sessions` | Advances the generation, deletes every other session and advances the authorized current row to the new generation. Retains its token and original absolute expiry; creates no replacement cookie. |
-| `DELETE /api/auth/sessions/:id`        | Revokes only a session owned by the authenticated account. Session IDs are server-issued selectors, not ownership evidence.                                                                        |
-| Wallet removal                         | The credential deletion trigger advances the generation and deletes all existing account sessions in the same transaction.                                                                         |
-| Password or email credential update    | The users trigger advances the generation and deletes all existing account sessions in the same transaction.                                                                                       |
+| Action                              | Result after successful commit                                                                                                                                                                       |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/auth/logout`             | Sign out deletes only the invoking session row (audited `sessions.logout_one`). The generation is unchanged, other devices stay signed in and no Privy job is queued. Creates no replacement cookie. |
+| `DELETE /api/auth/sessions/:id`     | Revokes only a session owned by the authenticated account. Session IDs are server-issued selectors, not ownership evidence.                                                                          |
+| Wallet removal                      | The credential deletion trigger advances the generation and deletes all existing account sessions in the same transaction.                                                                           |
+| Password or email credential update | The users trigger advances the generation and deletes all existing account sessions in the same transaction.                                                                                         |
 
-Account-wide controls require a live authenticated session, accept no account/session
-selectors, derive the account from server authentication, and recheck the invoking session
-inside the transaction. The account page explains whether this device stays signed in. Cookie
+By founder decision on 2026-10-22, Sign out works as in other apps: it ends this device only.
+Sign out all sessions and Sign out other sessions (`POST /api/auth/logout-all` and
+`/logout-other-sessions`, audited `sessions.logout_all`/`sessions.logout_others`) were
+removed; older audit rows keep those names. The account page's Active sessions list signs out
+one chosen device at a time. Neither control calls Privy or advances the generation. The
+browser ends its own Privy session with Privy `logout()`, and other tabs of this browser
+follow through the `yaparena-account` BroadcastChannel. A live Privy session on another
+device is not ended; a consumed Privy `sid` cannot mint a new YapArena session.
+
+Session controls require a live authenticated session, accept no account selectors, derive
+the account from server authentication, and recheck the invoking session inside the
+transaction. The account page explains that signing out ends only that device. Cookie
 attributes and the existing Origin protection remain unchanged. The existing authentication
 limiter remains defense in depth. Logout, owned session reads and revocation bypass
 the shared abuse limiter and never schedule a Privy re-check, so they remain available
-during Redis/Privy outages. PostgreSQL must still confirm account-wide revocation.
-An absent, expired or unknown cookie returns a 401 warning that other devices were
-not confirmed signed out; a database failure must not claim successful revocation.
+during Redis/Privy outages. PostgreSQL must still confirm the revocation.
+An absent, expired or unknown cookie returns 401 ("this session has already ended");
+a database failure must not claim successful revocation.
 Revocation responses do not expire the browser cookie: an old delayed response
 must not delete a newer account's cookie. The remaining opaque cookie has no
 authority after its database session is retired; a new sign-in overwrites it.
@@ -95,15 +102,14 @@ freeze/unfreeze sequence (up to 20 seconds). A concurrent local revocation may
 wait for that sequence. The provider re-check holds no such lock or
 checked-out connection while awaiting Privy.
 
-An acknowledged reset superseded by a successful authenticated logout drains
-only its existing bounded cleanup, with an exact audit/job for every intervening
-generation. Its completion cannot advance a stale mapping/token cutoff or wake
-wallet work; the current logout still performs its own reset. A committed live
-unfreeze intent remains owned by its original lease. Unknown intents, changed
-credentials, suspension and unaudited generation changes stay fenced. The
-separate reviewed owner rearm can restore one stopped acknowledged/inherited
-pair's confirmation budget once; an exact concurrent request returns the same
-immutable audit receipt without another provider call or budget allocation.
+A reset job overtaken by a newer generation never adopts it: a job that has not
+requested a freeze completes without a provider call, one that has stops for
+manual review, and a newer job behind an unfinished or manual older one stops as
+`inherited_manual`. Unknown intents, changed credentials and suspension stay
+fenced. The `92f11b4` drain for resets superseded by an authenticated
+sign-out-all/others, and the owner-only rearm for that case
+(`prepareAcknowledgedLogoutReset`/`resumeAcknowledgedLogoutReset`, audit
+`provider.reset.logout_resumed`), were removed on 2026-10-22 with those actions.
 
 An inspection failure during the matching pending/running provider reset, or
 its uncertain manual outcome, denies protected access temporarily. It must not
@@ -209,10 +215,10 @@ in-memory revocation caches or cross-instance broadcasts to lose.
   session in the caller's transaction. Its result does not authorize publishing a cookie
   before the caller successfully commits.
 - `revokeAccountSessions(client, userId, options)`: after the account lock, advances the
-  generation, deletes sessions and records the account audit event. `retainTokenHash` is only
-  for an already revalidated current session; the repository's `revoke` method enforces that
-  precondition. `action` is `sessions.logout_all`, `sessions.logout_others`, or
-  `sessions.incident`; options include `actorSessionId` and `requestId`.
+  generation, deletes every session and records the account audit event. It serves security
+  incidents only: `action` is `sessions.incident`, with an optional `reason` such as
+  `provider_change`. Sign out uses the repository's `revokeSession`, which deletes one
+  owned session row without changing the generation.
 - `sessions.create(userId, tokenHash, expiresAt, expected)`: owns its transaction and requires
   `expected.authGeneration`. Password sign-in also supplies the exact verified hash/email;
   optional `walletId` checks credential ownership. It commits before returning.
@@ -222,7 +228,7 @@ account generation. Completion rechecks the snapshot and wallet ownership, atomi
 consumes the challenge and inserts the session before COMMIT. Unknown legacy challenges
 are consumed during migration. F02 operations bind their proofs to the same generation,
 session, trusted credential UUID and exact action/target; generation changes invalidate
-pending approvals even when logout-others retains the token.
+pending approvals.
 
 The original F03 baseline had no recovery or suspension implementation. Current
 email-first security operations bind retained password/wallet/security-passkey
@@ -237,7 +243,8 @@ accounts require reviewed recovery.
 
 1. Identify the affected account through an authenticated owner request or the existing
    private support process. Never treat an email string or wallet connection as recovery proof.
-2. The owner uses **Sign out all sessions** to retire all device cookies. A still-compromised
+2. The owner signs out every unrecognized device under **Active sessions**; the credential
+   update in step 4 retires every device cookie at once. A still-compromised
    credential can sign in again, so remove/replace it using retained trusted credential proof
    (F02), or the verified owner/operator procedure below. A lost sole wallet has no recovery
    bypass; the final-method guard remains in place.

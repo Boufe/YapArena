@@ -14,6 +14,7 @@ import {
   hashSessionToken,
 } from "../dist/platform/auth/session-tokens.js";
 import { providerPasskeyFixture } from "./provider-passkey-fixture.js";
+import { endAllAccountSessions } from "./helpers/account-sessions.js";
 
 const runtimeUrl = process.env.WALLET_TEST_DATABASE_URL;
 const ownerUrl = process.env.WALLET_TEST_OWNER_DATABASE_URL;
@@ -107,15 +108,11 @@ describe(
           id: intent.id,
           token: "synthetic",
         });
-      await createSessionRepository(runtime).revoke(
-        user.id,
-        token.tokenHash,
-        false,
-      );
+      await endAllAccountSessions(runtime, user.id);
       // Simulate a completed worker freeze whose immediate confirmation lagged.
       // Shift ONLY this synthetic revocation window to avoid a 30-second sleep.
       await owner.query(
-        "UPDATE identity_audit_events SET occurred_at=clock_timestamp()-interval '20 seconds' WHERE user_id=$1 AND event_type='sessions.logout_all'",
+        "UPDATE identity_audit_events SET occurred_at=clock_timestamp()-interval '20 seconds' WHERE user_id=$1 AND event_type='sessions.incident'",
         [user.id],
       );
       await owner.query(
@@ -310,7 +307,7 @@ describe(
         }
         if (scenario === "before-claim") {
           await owner.query(
-            "UPDATE identity_audit_events SET occurred_at=clock_timestamp()-interval '2 minutes' WHERE user_id=$1 AND event_type='sessions.logout_all'",
+            "UPDATE identity_audit_events SET occurred_at=clock_timestamp()-interval '2 minutes' WHERE user_id=$1 AND event_type='sessions.incident'",
             [f.userId],
           );
           input.activityReview.frozenAt -= 30;
@@ -318,7 +315,7 @@ describe(
         }
         if (scenario === "event")
           await owner.query(
-            "UPDATE identity_audit_events SET event_type='synthetic.not_a_revocation' WHERE user_id=$1 AND event_type='sessions.logout_all'",
+            "UPDATE identity_audit_events SET event_type='synthetic.not_a_revocation' WHERE user_id=$1 AND event_type='sessions.incident'",
             [f.userId],
           );
         if (scenario === "prior-unresolved")

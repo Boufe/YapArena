@@ -9,6 +9,7 @@ import {
 } from "../dist/features/media/account-revocation.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
+import { endAllAccountSessions } from "./helpers/account-sessions.js";
 
 it("requires supported token revocation and a bounded provider deadline", async () => {
   const database = {
@@ -239,16 +240,12 @@ describe(
         /immutable/,
       );
     });
-    it("orders all-session logout against issuance and contains only the retired identity across pools", async () => {
+    it("orders an all-session revocation against issuance and contains only the retired identity across pools", async () => {
       const context = await debate(await actor()),
         f = fixture();
       await f.repo.issueSpeakerGrant(context);
       const [old] = await grants(context);
-      await createSessionRepository(b).revoke(
-        context.userId,
-        context.sessionTokenHash,
-        false,
-      );
+      await endAllAccountSessions(b, context.userId);
       assert.equal(
         await f.repo.isCurrentGrant(context.debateId, old.identity),
         false,
@@ -283,17 +280,28 @@ describe(
       );
       await assert.rejects(f.repo.issueSpeakerGrant(context), /session/);
     });
-    it("preserves the actual retained SID after logout-others generation changes", async () => {
+    it("keeps the remaining device's SID when another device signs out and retires only the signed-out SID", async () => {
       const context = await debate(await actor()),
-        f = fixture();
-      await session(context.userId);
+        f = fixture(),
+        other = await session(context.userId);
       await f.repo.issueSpeakerGrant(context);
       const [grant] = await grants(context);
-      await createSessionRepository(b).revoke(
-        context.userId,
-        context.sessionTokenHash,
-        true,
+      const generation = async (userId) =>
+        (
+          await owner.query(
+            "SELECT auth_generation::text AS generation FROM users WHERE id=$1",
+            [userId],
+          )
+        ).rows[0].generation;
+      const before = await generation(context.userId);
+      assert.deepEqual(
+        await createSessionRepository(b).revokeSession(
+          context.userId,
+          other.sessionTokenHash,
+        ),
+        { current: true },
       );
+      assert.equal(await generation(context.userId), before);
       assert.equal((await grants(context))[0].state, "active");
       assert.equal(
         await f.repo.isCurrentGrant(context.debateId, grant.identity),
@@ -313,12 +321,22 @@ describe(
       const second = await debate(await actor()),
         another = await session(second.userId);
       await f.repo.issueSpeakerGrant(second);
-      await createSessionRepository(b).revoke(
-        second.userId,
-        another.sessionTokenHash,
-        true,
+      assert.deepEqual(
+        await createSessionRepository(b).revokeSession(
+          second.userId,
+          another.sessionTokenHash,
+          second.sessionId,
+        ),
+        { current: false },
       );
       assert.equal((await grants(second))[0].state, "revoking");
+      assert.equal(
+        await f.repo.isCurrentGrant(
+          second.debateId,
+          (await grants(second))[0].identity,
+        ),
+        false,
+      );
       await f.repo.flush();
     });
     it("requires confirmed old-token revocation before moving the publishing device and retries provider outages", async () => {
@@ -624,11 +642,7 @@ describe(
       await started;
       const duplicate = fixture(b);
       await duplicate.repo.flush();
-      const revoke = createSessionRepository(b).revoke(
-        context.userId,
-        next.sessionTokenHash,
-        false,
-      );
+      const revoke = endAllAccountSessions(b, context.userId);
       let timer;
       try {
         await Promise.race([
@@ -654,11 +668,7 @@ describe(
         initial = fixture();
       await initial.repo.issueSpeakerGrant(context);
       const [old] = await grants(context);
-      await createSessionRepository(b).revoke(
-        context.userId,
-        context.sessionTokenHash,
-        false,
-      );
+      await endAllAccountSessions(b, context.userId);
       let began, finish;
       const started = new Promise((resolve) => {
         began = resolve;
@@ -712,11 +722,7 @@ describe(
       const context = await debate(await actor()),
         initial = fixture();
       await initial.repo.issueSpeakerGrant(context);
-      await createSessionRepository(b).revoke(
-        context.userId,
-        context.sessionTokenHash,
-        false,
-      );
+      await endAllAccountSessions(b, context.userId);
       const [grant] = await grants(context);
       const timed = fixture(a, {
         timeoutMs: 100,

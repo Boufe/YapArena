@@ -22,6 +22,7 @@ import {
 } from "../dist/platform/auth/wallets.js";
 import { createChallengeMessage } from "../dist/platform/auth/siwe.js";
 import { hashSessionToken } from "../dist/platform/auth/session-tokens.js";
+import { endAllAccountSessions } from "./helpers/account-sessions.js";
 
 const connectionString = process.env.REVOCATION_TEST_DATABASE_URL;
 const enabled = Boolean(connectionString);
@@ -178,30 +179,43 @@ describe(
       await Promise.all([owner?.end(), firstPool?.end(), secondPool?.end()]);
     });
 
-    it("logout-all denies both devices across instances and permits a fresh password login", async () => {
+    it("sign out ends only this device across instances; the other device and the account generation are unchanged", async () => {
       const user = await account();
       const a = await login(user),
         b = await login(user, appB);
-      assert.equal((await me(appA, a)).status, 200);
-      const result = await post(appA, "logout-all", a);
+      const generation = async () =>
+        (
+          await owner.query(
+            "SELECT auth_generation::text AS generation FROM users WHERE id=$1",
+            [user.id],
+          )
+        ).rows[0].generation;
+      const before = await generation();
+      const result = await post(appA, "logout", a);
       assert.equal(result.status, 204);
       assert.equal(result.headers["set-cookie"], undefined);
-      for (const instance of [appA, appB])
-        for (const oldCookie of [a, b])
-          assert.equal((await me(instance, oldCookie)).status, 401);
+      for (const instance of [appA, appB]) {
+        assert.equal((await me(instance, a)).status, 401);
+        assert.equal((await me(instance, b)).status, 200);
+      }
+      assert.equal(await generation(), before);
+      assert.equal((await post(appB, "logout", a)).status, 401);
       const fresh = await login(user, appB);
       assert.equal((await me(appA, fresh)).status, 200);
       const audit = await owner.query(
-        "SELECT metadata FROM identity_audit_events WHERE user_id = $1 AND event_type = 'sessions.logout_all'",
+        "SELECT event_type AS type, subject_id AS subject, metadata FROM identity_audit_events WHERE user_id = $1 AND event_type IN ('sessions.logout_one','sessions.logout_all','sessions.logout_others','sessions.incident')",
         [user.id],
+      );
+      assert.deepEqual(
+        audit.rows.map((row) => row.type),
+        ["sessions.logout_one"],
+      );
+      assert.equal(
+        audit.rows[0].subject,
+        audit.rows[0].metadata.actorSessionId,
       );
       assert.equal(audit.rows[0].metadata.actorUserId, user.id);
       assert.equal(audit.rows[0].metadata.outcome, "success");
-      if (process.env.REVOCATION_TEST_RUNTIME_URL)
-        assert.equal(
-          audit.rows[0].metadata.actorDatabaseRole,
-          "yaparena_runtime",
-        );
       assert.ok(audit.rows[0].metadata.requestId);
       assert.doesNotMatch(
         JSON.stringify(audit.rows),
@@ -209,24 +223,14 @@ describe(
       );
     });
 
-    it("logout-other-sessions retains the authorized current device, without replacing its cookie", async () => {
+    it("offers no sign-out-everywhere or sign-out-others routes", async () => {
       const user = await account();
       const a = await login(user),
         b = await login(user, appB);
-      const result = await post(appA, "logout-other-sessions", a);
-      assert.equal(result.status, 204);
-      assert.equal(result.headers["set-cookie"], undefined);
-      assert.equal((await me(appB, a)).status, 200);
-      assert.equal((await me(appA, b)).status, 401);
-    });
-
-    it("normal Sign out revokes all account sessions across instances", async () => {
-      const user = await account();
-      const a = await login(user),
-        b = await login(user, appB);
-      assert.equal((await post(appA, "logout", a)).status, 204);
-      assert.equal((await me(appB, a)).status, 401);
-      assert.equal((await me(appA, b)).status, 401);
+      for (const path of ["logout-all", "logout-other-sessions"])
+        assert.equal((await post(appA, path, a)).status, 404);
+      assert.equal((await me(appA, a)).status, 200);
+      assert.equal((await me(appB, b)).status, 200);
     });
 
     it("rejects unauthenticated, cross-account selectors, and foreign sessions even after middleware", async () => {
@@ -234,23 +238,39 @@ describe(
         other = await account();
       const a = await login(user),
         b = await login(other, appB);
-      for (const path of ["logout-all", "logout-other-sessions"]) {
-        assert.equal((await post(appA, path)).status, 401);
-        assert.equal(
-          (await post(appA, path, a).send({ userId: other.id })).status,
-          400,
-        );
-        assert.equal(
-          (await post(appA, path, a).set("Origin", "https://attacker.example"))
-            .status,
-          403,
-        );
-      }
+      assert.equal((await post(appA, "logout")).status, 401);
+      assert.equal(
+        (await post(appA, "logout", a).send({ userId: other.id })).status,
+        400,
+      );
+      assert.equal(
+        (
+          await post(appA, "logout", a).set(
+            "Origin",
+            "https://attacker.example",
+          )
+        ).status,
+        403,
+      );
       await assert.rejects(
-        sessions.revoke(other.id, hashSessionToken(a.split("=")[1]), false),
+        sessions.revokeSession(other.id, hashSessionToken(a.split("=")[1])),
         SessionUnavailableError,
       );
+      assert.equal(
+        await sessions.revokeSession(
+          user.id,
+          hashSessionToken(a.split("=")[1]),
+          (
+            await owner.query(
+              "SELECT id::text FROM sessions WHERE token_hash=$1",
+              [hashSessionToken(b.split("=")[1])],
+            )
+          ).rows[0].id,
+        ),
+        null,
+      );
       assert.equal((await me(appB, b)).status, 200);
+      assert.equal((await me(appA, a)).status, 200);
     });
 
     it("wallet removal revokes password and wallet sessions, preserves account ownership and final method", async () => {
@@ -390,10 +410,10 @@ describe(
       }
     });
 
-    it("stale password authentication cannot cross logout-all or password-change ordering points", async () => {
-      for (const mutate of ["logout", "password"]) {
+    it("stale password authentication cannot cross an all-session revocation or password-change ordering points", async () => {
+      for (const mutate of ["revocation", "password"]) {
         const user = await account();
-        const cookie = await login(user);
+        await login(user);
         const gate = barrier();
         const staleUsers = {
           ...users,
@@ -408,8 +428,8 @@ describe(
           .send({ email: user.email, password })
           .then((value) => value);
         await gate.entered;
-        if (mutate === "logout")
-          assert.equal((await post(appB, "logout-all", cookie)).status, 204);
+        if (mutate === "revocation")
+          await endAllAccountSessions(secondPool, user.id);
         else
           await owner.query(
             "UPDATE users SET password_hash = $2 WHERE id = $1",
@@ -499,13 +519,12 @@ describe(
       }
     });
 
-    it("wallet challenges issued before logout-all or logout-others are invalidated; fresh challenges succeed", async () => {
+    it("wallet challenges issued before an all-session revocation are invalidated; fresh challenges succeed", async () => {
       const user = await account();
       await linkFixture(user, signers[2]);
-      for (const action of ["logout-all", "logout-other-sessions"]) {
-        const cookie = await login(user);
+      for (let round = 0; round < 2; round++) {
         const old = await challenge(signers[2]);
-        assert.equal((await post(appB, action, cookie)).status, 204);
+        await endAllAccountSessions(secondPool, user.id);
         await assert.rejects(
           wallets.completeLogin(old.id, {
             tokenHash: hashSessionToken(randomUUID()),
@@ -528,7 +547,7 @@ describe(
 
     it("issuance ordered first is deleted by a waiting revocation, including across instances", async () => {
       const user = await account();
-      const cookie = await login(user);
+      await login(user);
       const client = await owner.connect();
       const token = hashSessionToken("issued-before-revoke");
       await client.query("BEGIN");
@@ -540,11 +559,7 @@ describe(
         expiresAt(),
         locked.authGeneration,
       );
-      const revocation = createSessionRepository(secondPool).revoke(
-        user.id,
-        hashSessionToken(cookie.split("=")[1]),
-        false,
-      );
+      const revocation = endAllAccountSessions(secondPool, user.id);
       try {
         await waitForLock("f03-instance-b");
         await client.query("COMMIT");
@@ -682,7 +697,18 @@ describe(
       );
       assert.equal(result.rows[0].executable, false);
       const cookie = await login(user);
-      assert.equal((await post(appB, "logout-all", cookie)).status, 204);
+      assert.equal((await post(appB, "logout", cookie)).status, 204);
+      await login(user);
+      await endAllAccountSessions(firstPool, user.id);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int AS n FROM sessions WHERE user_id=$1",
+            [user.id],
+          )
+        ).rows[0].n,
+        0,
+      );
     });
   },
 );

@@ -127,7 +127,8 @@
       "Automatically provision one empty user-controlled EVM wallet/default Privy recovery with no delegated app signer; signup is independent. New external-wallet linking/unknown-wallet signup in Privy mode is removed.",
       "No daily withdrawal cap; gross minimum 5USDC; displayed network fee is deducted inside gross. Completed purchases use USDC withdrawals, not original-route refunds.",
       "Only original eligible balance sources may be restored from funded correction backing; cost consent records are not charges.",
-      "Founder selected continued payment-provider comparison; Tangem is their existing wallet, not an approved custody/signing design. No permission to send the NOWPayments inquiry has been given."
+      "Founder selected continued payment-provider comparison; Tangem is their existing wallet, not an approved custody/signing design. No permission to send the NOWPayments inquiry has been given.",
+      "2026-10-22 founder decision: Sign out ends only this device's session, with no generation change or Privy reset; Sign out all/other sessions are removed and the per-device Active sessions list remains. Implemented and locally tested on branch fix/single-device-logout, not hosted-tested. Supersedes R17's default all-session Sign out."
     ],
     "latestPushedReleaseCandidate": {
       "revision": "819421d30b10acb29b38a0f75ed46360af373870",
@@ -2115,6 +2116,7 @@
     {
       "id": "R17",
       "requirement": "Logout current/others/all, suspension, credential revocation and stale-token fence",
+      "currentStateNote": "2026-10-22: superseded by founder decision. Sign out ends only this device; logout-all/logout-others, the 92f11b4 logout overlap drain and its owner rearm were removed on branch fix/single-device-logout (local tests only, not hosted). The fields below are the dated record; the owner-rearm blocker can no longer be executed.",
       "owner": "auth",
       "dependencies": ["PostgreSQL/provider"],
       "implementationStatus": "local_overlap_correction_integrated_hosted_repair_and_genuine_acceptance_pending",

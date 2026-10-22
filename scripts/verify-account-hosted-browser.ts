@@ -44,7 +44,6 @@ const assets = [
   "site.js",
   "account.js",
   "account-session-list.js",
-  "account-sessions.js",
   "account-auth.bundle.js",
   "account-security.bundle.js",
   "account-coins.js",

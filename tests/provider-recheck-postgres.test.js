@@ -19,6 +19,7 @@ import {
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
 import { createUserRepository } from "../dist/platform/auth/users.js";
+import { endAllAccountSessions } from "./helpers/account-sessions.js";
 
 const ownerUrl = process.env.A4_TEST_OWNER_URL;
 const runtimeUrl = process.env.A4_TEST_DATABASE_URL;
@@ -395,11 +396,7 @@ describe(
       assert.equal(await immediate.run(signedIn.userId), "unchanged");
       assert.equal(await immediate.run(signedIn.userId), "skipped");
       // A deferral during the app's own reset is handed back too.
-      await createSessionRepository(a).revoke(
-        signedIn.userId,
-        signedIn.tokenHash,
-        true,
-      );
+      await endAllAccountSessions(a, signedIn.userId);
       await makeStale(signedIn.userId);
       assert.equal(await immediate.run(signedIn.userId), "deferred");
       assert.equal(await immediate.run(signedIn.userId), "deferred");
@@ -426,7 +423,7 @@ describe(
       );
     });
 
-    it("holds no connection or lock during the Privy read; a sign-out that wins discards its result", async () => {
+    it("holds no connection or lock during the Privy read; an account-wide revocation that wins discards its result", async () => {
       const single = new pg.Pool({
         ...options,
         connectionString: runtimeUrl,
@@ -434,7 +431,11 @@ describe(
       });
       try {
         for (const failure of [false, true]) {
-          const signedIn = await signIn();
+          const signedIn = await signIn(),
+            otherDevice = await signIn({
+              ...signedIn.identity,
+              sessionId: randomUUID(),
+            });
           await makeStale(signedIn.userId);
           const entered = Promise.withResolvers(),
             release = Promise.withResolvers();
@@ -456,26 +457,34 @@ describe(
             await bounded(entered.promise, "re-check did not start");
             assert.equal(single.idleCount, 1);
             await bounded(
-              createSessionRepository(single).revoke(
+              createSessionRepository(single).revokeSession(
                 signedIn.userId,
-                signedIn.tokenHash,
-                true,
+                otherDevice.tokenHash,
               ),
               "sign-out waited for the provider read",
+            );
+            assert.equal(await liveSessions(signedIn.userId), 1);
+            await bounded(
+              endAllAccountSessions(single, signedIn.userId),
+              "account-wide revocation waited for the provider read",
             );
           } finally {
             release.resolve();
           }
           assert.equal(await running, "deferred");
-          assert.equal(await liveSessions(signedIn.userId), 1);
+          assert.equal(await liveSessions(signedIn.userId), 0);
+          // Only the winning revocation is recorded; the re-check result
+          // (a method change or a provider-side freeze) is discarded.
           const audit = (
             await owner.query(
-              `SELECT event_type FROM identity_audit_events WHERE user_id=$1
-              AND event_type IN ('sessions.incident','provider.credentials.changed')`,
+              `SELECT event_type,metadata->>'reason' AS reason FROM identity_audit_events
+              WHERE user_id=$1 AND event_type IN ('sessions.incident','provider.credentials.changed')`,
               [signedIn.userId],
             )
           ).rows;
-          assert.deepEqual(audit, []);
+          assert.deepEqual(audit, [
+            { event_type: "sessions.incident", reason: null },
+          ]);
         }
       } finally {
         await single.end();
@@ -484,10 +493,13 @@ describe(
 
     it("takes no action while the app's own Privy reset is in progress", async () => {
       const signedIn = await signIn();
-      await createSessionRepository(a).revoke(
+      const generation = await endAllAccountSessions(a, signedIn.userId);
+      // A device that signs in again while the reset is still pending.
+      await createSessionRepository(a).create(
         signedIn.userId,
-        signedIn.tokenHash,
-        true,
+        createSessionToken().tokenHash,
+        new Date(Date.now() + 600_000),
+        { authGeneration: generation },
       );
       await makeStale(signedIn.userId);
       const verifier = verifierFor(() => {
@@ -502,7 +514,11 @@ describe(
     });
 
     it("does not schedule a re-check from sign-out routes or for unmapped accounts", async () => {
-      const signedIn = await signIn();
+      const signedIn = await signIn(),
+        otherDevice = await signIn({
+          ...signedIn.identity,
+          sessionId: randomUUID(),
+        });
       await makeStale(signedIn.userId);
       const scheduled = [];
       const sessions = createSessionRepository(a, {
@@ -517,7 +533,41 @@ describe(
         }),
       );
       assert.deepEqual(scheduled, []);
-      assert.ok(await sessions.findUserByTokenHash(signedIn.tokenHash));
+      // Signing out ends this device only: no re-check, no Privy call, no
+      // generation change and no provider reset.
+      const accountState = async () =>
+        (
+          await owner.query(
+            `SELECT u.auth_generation::text AS generation,
+            (SELECT count(*)::int FROM provider_revocation_jobs j WHERE j.user_id=u.id) AS jobs
+            FROM users u WHERE u.id=$1`,
+            [signedIn.userId],
+          )
+        ).rows[0];
+      const before = await accountState();
+      const verifier = verifierFor(() => {
+        throw new Error("sign-out must not read Privy");
+      });
+      const response = await request(appFor(sessions, verifier))
+        .post("/api/auth/logout")
+        .set("Cookie", `session=${signedIn.token}`);
+      assert.equal(response.status, 204);
+      assert.deepEqual(scheduled, []);
+      assert.deepEqual(verifier.calls, {
+        inspect: 0,
+        verify: 0,
+        configuration: 0,
+      });
+      assert.deepEqual(await accountState(), before);
+      assert.equal(await liveSessions(signedIn.userId), 1);
+      assert.equal(
+        await sessions.findUserByTokenHash(signedIn.tokenHash, {
+          localRevocation: true,
+        }),
+        null,
+      );
+      assert.deepEqual(scheduled, []);
+      assert.ok(await sessions.findUserByTokenHash(otherDevice.tokenHash));
       assert.deepEqual(scheduled, [signedIn.userId]);
       assert.equal(
         await createProviderRecheck(

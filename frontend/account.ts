@@ -36,7 +36,6 @@ checkingSignOut.id = "account-checking-sign-out";
 checkingSignOut.type = "button";
 checkingSignOut.className = "button-secondary account-checking-signout";
 checkingSignOut.textContent = "Sign out";
-checkingSignOut.setAttribute("aria-label", "Sign out all sessions");
 checkingSignOut.hidden = true;
 notice.parentElement!.append(checkingSignOut);
 const profileForm = document.querySelector<ProfileForm>("#profile-form")!;
@@ -359,7 +358,7 @@ for (const button of signOutButtons)
     const version = accountVersion;
     const expectedAccount = window.yapCurrentSessionAccount?.();
     for (const control of signOutButtons) control.disabled = true;
-    say("Finishing account changes and signing out…");
+    say("Signing out…");
     let expired = false;
     try {
       try {
@@ -700,7 +699,7 @@ window.addEventListener("yap:provider-logout", (event) => {
   const expired: unknown = event instanceof CustomEvent ? event.detail : false;
   endedSessionNotice =
     expired === true
-      ? "This session has ended. Sign in again to sign out other devices."
+      ? "This session had already ended. Sign in again to continue."
       : "";
   clearAccountState();
   say(

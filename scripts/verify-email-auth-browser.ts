@@ -57,7 +57,6 @@ const assetFiles = [
   "account-auth.bundle.js",
   "account-security.bundle.js",
   "account-session-list.js",
-  "account-sessions.js",
   "account.js",
   "site-header.js",
   "auth-return.js",
@@ -4696,15 +4695,23 @@ try {
         `${name}: switching accounts cancels the old trusted-credential dialog, erases its detached password and issues no follow-on operation; replacement-account controls still open and cancel a fresh approval with the same synthetic password`,
       );
     }
-    await page.route("**/api/auth/logout-other-sessions", (route) =>
-      route.fulfill({ status: 204 }),
+    // Log out ends only this device; the account-wide session controls are gone.
+    assert.equal(
+      await page.locator("#sign-out-others, #sign-out-all").count(),
+      0,
+      "the removed other-session and all-session sign-out controls stay absent",
     );
-    page.once("dialog", (confirmation) => void confirmation.accept());
-    await page.locator("#sign-out-others").click();
-    await page
-      .getByText("Other sessions signed out. This device is still signed in.", {
-        exact: true,
-      })
+    const sessionAccess = page.locator(
+      "#account-security .account-session-controls",
+    );
+    await sessionAccess
+      .getByRole("heading", { name: "Active sessions", exact: true, level: 3 })
+      .waitFor();
+    await sessionAccess
+      .getByText(
+        "Signing out only ends the session on that device. Sign out any session you don’t recognize.",
+        { exact: true },
+      )
       .waitFor();
     assert.equal(await page.locator("#signed-in").isVisible(), true);
     if (phase === "after") {
@@ -4745,6 +4752,11 @@ try {
       const checkingSignOut = page.locator("#account-checking-sign-out");
       assert.equal(await checkingSignOut.isVisible(), true);
       assert.equal(await checkingSignOut.isEnabled(), true);
+      assert.equal(
+        await checkingSignOut.getAttribute("aria-label"),
+        null,
+        "the checking-state control is named by its visible Sign out text",
+      );
       unavailableReads.release();
       await Promise.all(unavailableReplies);
       await page
@@ -4793,26 +4805,17 @@ try {
       checks.push(
         `${name}: held account inspection clears prior private fields without guest flashes; initial and continuing inspection outages retain a usable local sign-out action, which sends one logout request and hides after confirmed guest state`,
       );
-      for (const action of ["account", "header", "all", "others"] as const) {
+      for (const action of ["account", "header"] as const) {
         const gate = deferred(),
           started = deferred(),
-          path =
-            action === "all"
-              ? "/api/auth/logout-all"
-              : action === "others"
-                ? "/api/auth/logout-other-sessions"
-                : "/api/auth/logout";
+          path = "/api/auth/logout";
         const heldLogout = async (route: Route) => {
           started.release();
           await gate.promise;
-          await route.fulfill(
-            action === "account" || action === "header"
-              ? {
-                  status: 401,
-                  json: { error: "synthetic old session has ended" },
-                }
-              : { status: 204 },
-          );
+          await route.fulfill({
+            status: 401,
+            json: { error: "synthetic old session has ended" },
+          });
         };
         await page.route(`**${path}`, heldLogout);
         await page.evaluate(() =>
@@ -4823,19 +4826,7 @@ try {
           await page
             .getByRole("button", { name: "Log out", exact: false })
             .click();
-        } else {
-          if (action !== "account")
-            page.once("dialog", (confirmation) => void confirmation.accept());
-          await page
-            .locator(
-              action === "all"
-                ? "#sign-out-all"
-                : action === "others"
-                  ? "#sign-out-others"
-                  : "#sign-out",
-            )
-            .click();
-        }
+        } else await page.locator("#sign-out").click();
         await started.promise;
         fixtureAccountId = `replacement-after-${action}-logout`;
         await page.evaluate(() =>
@@ -4871,17 +4862,12 @@ try {
         await page.unroute(`**${path}`, heldLogout);
       }
       checks.push(
-        `${name}: delayed default, header, all-session and other-session logout replies cannot clear or relabel a replacement account or invoke provider logout`,
+        `${name}: delayed account-page and header logout replies cannot clear or relabel a replacement account or invoke provider logout`,
       );
-      for (const action of ["account", "header", "all", "others"] as const) {
+      for (const action of ["account", "header"] as const) {
         const gate = deferred(),
           started = deferred(),
-          path =
-            action === "all"
-              ? "/api/auth/logout-all"
-              : action === "others"
-                ? "/api/auth/logout-other-sessions"
-                : "/api/auth/logout";
+          path = "/api/auth/logout";
         const heldLogout = async (route: Route) => {
           started.release();
           await gate.promise;
@@ -4893,37 +4879,16 @@ try {
           await page
             .getByRole("button", { name: "Log out", exact: false })
             .click();
-        } else {
-          if (action !== "account")
-            page.once("dialog", (confirmation) => void confirmation.accept());
-          await page
-            .locator(
-              action === "all"
-                ? "#sign-out-all"
-                : action === "others"
-                  ? "#sign-out-others"
-                  : "#sign-out",
-            )
-            .click();
-        }
+        } else await page.locator("#sign-out").click();
         await started.promise;
         await page.evaluate(() =>
           window.dispatchEvent(new Event("yap:account-changed")),
         );
         await page.getByText("Account ready.", { exact: true }).waitFor();
-        appSignedIn = action === "others";
-        const retainedInspection =
-          action === "others" ? page.waitForResponse("**/api/auth/me") : null;
+        appSignedIn = false;
         gate.release();
-        if (retainedInspection) {
-          await (await retainedInspection).finished();
-          await page.locator("#signed-in").waitFor({ state: "visible" });
-          await page.getByText("Account ready.", { exact: true }).waitFor();
-        } else await page.locator("#signed-out").waitFor({ state: "visible" });
-        assert.equal(
-          await page.locator("#signed-in").isVisible(),
-          action === "others",
-        );
+        await page.locator("#signed-out").waitFor({ state: "visible" });
+        assert.equal(await page.locator("#signed-in").isVisible(), false);
         assert.equal(
           await page.evaluate(() =>
             Reflect.get(window, "__staleRemovalLogouts"),
@@ -4986,53 +4951,45 @@ try {
       checks.push(
         `${name}: session removal trusts server current=false and refreshes a missing stale current row without ending the replacement local session`,
       );
-      for (const control of ["all", "others", "individual"] as const) {
-        const path =
-          control === "individual"
-            ? "/api/auth/sessions/701"
-            : `/api/auth/logout-${control === "all" ? "all" : "other-sessions"}`;
-        const ended = (route: Route) => {
-          appSignedIn = false;
-          return route.fulfill({
-            status: 401,
-            json: { error: "synthetic current authorization ended" },
-          });
-        };
-        await page.route(`**${path}`, ended);
-        page.once("dialog", (confirmation) => void confirmation.accept());
-        if (control === "individual")
-          await page
-            .getByRole("region", { name: "Active YapArena sessions" })
-            .getByRole("button", { name: /^Sign out this session, started/ })
-            .click();
-        else
-          await page
-            .locator(control === "all" ? "#sign-out-all" : "#sign-out-others")
-            .click();
-        await page.locator("#signed-out").waitFor({ state: "visible" });
+      const endedSessionPath = "/api/auth/sessions/701";
+      const ended = (route: Route) => {
+        appSignedIn = false;
+        return route.fulfill({
+          status: 401,
+          json: { error: "synthetic current authorization ended" },
+        });
+      };
+      await page.route(`**${endedSessionPath}`, ended);
+      page.once("dialog", (confirmation) => void confirmation.accept());
+      await page
+        .getByRole("region", { name: "Active YapArena sessions" })
+        .getByRole("button", { name: /^Sign out this session, started/ })
+        .click();
+      await page.locator("#signed-out").waitFor({ state: "visible" });
+      await page
+        .locator("#account-notice")
+        .getByText(
+          "This session had already ended. Sign in again to continue.",
+          {
+            exact: true,
+          },
+        )
+        .waitFor();
+      assert.equal(await page.locator("#account-name").textContent(), "");
+      assert.equal(
         await page
-          .locator("#account-notice")
-          .getByText(
-            "This session has ended. Sign in again to sign out other devices.",
-            { exact: true },
-          )
-          .waitFor();
-        assert.equal(await page.locator("#account-name").textContent(), "");
-        assert.equal(
-          await page
-            .locator('#profile-form input[name="displayName"]')
-            .inputValue(),
-          "",
-        );
-        await page.unroute(`**${path}`, ended);
-        appSignedIn = true;
-        await page.evaluate(() =>
-          window.dispatchEvent(new Event("yap:account-changed")),
-        );
-        await page.getByText("Account ready.", { exact: true }).waitFor();
-      }
+          .locator('#profile-form input[name="displayName"]')
+          .inputValue(),
+        "",
+      );
+      await page.unroute(`**${endedSessionPath}`, ended);
+      appSignedIn = true;
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("yap:account-changed")),
+      );
+      await page.getByText("Account ready.", { exact: true }).waitFor();
       checks.push(
-        `${name}: advanced all/other and individual session 401 replies clear local private fields and explain that other-device sign-out is unconfirmed`,
+        `${name}: an individual current-session 401 reply clears local private fields and explains that this session had already ended`,
       );
     }
     const oldAccountReads = deferred(),
@@ -5063,10 +5020,7 @@ try {
       appSignedIn = false;
       return route.fulfill({
         status: 401,
-        json: {
-          error:
-            "this session has ended; sign in again to sign out other devices",
-        },
+        json: { error: "this session has already ended" },
       });
     });
     await page
@@ -5076,10 +5030,9 @@ try {
     assert.equal(await page.locator("#signed-in").isVisible(), false);
     await page
       .locator("#account-notice")
-      .getByText(
-        "This session has ended. Sign in again to sign out other devices.",
-        { exact: true },
-      )
+      .getByText("This session had already ended. Sign in again to continue.", {
+        exact: true,
+      })
       .waitFor();
     assert.equal(await page.locator("#account-name").textContent(), "");
     assert.equal(
@@ -5103,7 +5056,7 @@ try {
     await page.unroute("**/api/auth/me", oldAccountReadHandler);
     await capture(page, `account-expired-signout-${name}.png`, true);
     checks.push(
-      `${name}: an expired normal sign-out cookie clears account fields and member controls, ignores delayed pre-logout identity responses and explains that other-device sign-out is unconfirmed`,
+      `${name}: an expired normal sign-out cookie clears account fields and member controls, ignores delayed pre-logout identity responses and explains that this session had already ended`,
     );
     await page.unroute("**/api/auth/logout");
     appSignedIn = true;
@@ -5111,14 +5064,14 @@ try {
       window.dispatchEvent(new Event("yap:account-changed")),
     );
     await page.getByText("Account ready.", { exact: true }).waitFor();
-    await page.route("**/api/auth/logout-all", (route) => {
+    await page.route("**/api/auth/logout", (route) => {
       appSignedIn = false;
       return route.fulfill({ status: 204 });
     });
-    page.once("dialog", (confirmation) => void confirmation.accept());
-    await page.locator("#sign-out-all").click();
+    await page.locator("#sign-out").click();
     await page.locator("#signed-out").waitFor({ state: "visible" });
     assert.equal(await page.locator("#signed-in").isVisible(), false);
+    await page.unroute("**/api/auth/logout");
     assert.deepEqual(
       await page.evaluate(() =>
         Reflect.get(window, "__walletDirectoryViolations"),
@@ -5126,7 +5079,7 @@ try {
       [],
     );
     checks.push(
-      `${name}: server-owned authentication methods, profile create/publish with permanent handle, other/all-session sign-out controls, account/dialog automated WCAG tags, no account overflow and unused wallet directory disabled`,
+      `${name}: server-owned authentication methods, profile create/publish with permanent handle, this-device-only sign-out with Active sessions copy and no account-wide sign-out controls, account/dialog automated WCAG tags, no account overflow and unused wallet directory disabled`,
     );
     requests.length = 0;
     await page.goto(`${base}/test/entry?round=42#commit`);
@@ -5282,14 +5235,29 @@ try {
     await page
       .getByRole("link", { name: "Account settings", exact: true })
       .waitFor();
+    // Header Log out ends Privy through the sign-in island inside the closed
+    // dialog on public pages. Keep its provider request local to the fixture.
+    await page.route("**/api/v1/sessions/logout", (route) =>
+      route.fulfill({
+        headers: {
+          "access-control-allow-origin": base,
+          "access-control-allow-credentials": "true",
+          "access-control-allow-methods": "POST, OPTIONS",
+          "access-control-allow-headers":
+            route.request().headers()["access-control-request-headers"] ?? "",
+        },
+        json: { success: true },
+      }),
+    );
+    const providerLogoutCleared = () =>
+      page.waitForFunction(
+        () => localStorage.getItem("yaparena-provider-logout") === null,
+      );
     await page.route("**/api/auth/logout", (route) => {
       appSignedIn = false;
       return route.fulfill({
         status: 401,
-        json: {
-          error:
-            "this session has ended; sign in again to sign out other devices",
-        },
+        json: { error: "this session has already ended" },
       });
     });
     await page.getByRole("button", { name: "Log out", exact: false }).click();
@@ -5297,13 +5265,14 @@ try {
     assert.equal(await page.locator("[data-header-member]").isVisible(), false);
     await page
       .locator("[data-header-status]")
-      .getByText(
-        "This session has ended. Sign in again to sign out other devices.",
-        { exact: true },
-      )
+      .getByText("This session had already ended. Sign in again to continue.", {
+        exact: true,
+      })
       .waitFor();
+    await providerLogoutCleared();
+    assert.equal(await authModal.isVisible(), false);
     checks.push(
-      `${name}: expired header sign-out clears the member menu and preserves the warning that other devices may remain signed in`,
+      `${name}: expired header sign-out clears the member menu, explains that this session had already ended and finishes Privy logout through the closed sign-in island on a public page`,
     );
     await capture(page, `header-expired-signout-${name}.png`, true);
     await page.unroute("**/api/auth/logout");
@@ -5336,6 +5305,10 @@ try {
     await page.getByRole("button", { name: "Log out", exact: false }).click();
     await login.waitFor();
     assert.equal(await page.locator("[data-header-member]").isVisible(), false);
+    await providerLogoutCleared();
+    checks.push(
+      `${name}: header Log out on a public page clears the pending Privy logout marker through the already mounted sign-in island`,
+    );
     await otherTab.getByRole("link", { name: "Log in", exact: true }).waitFor();
     assert.equal(
       await otherTab.locator("[data-header-member]").isVisible(),

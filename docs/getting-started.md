@@ -240,7 +240,8 @@ terms used by the template.
 
 The `reusable-quality.yml` workflow is the repository's reusable boundary for Node installation and
 quality checks. Organizations can move it to a central workflow repository later; generated projects
-can call the local copy without depending on external infrastructure.
+can call the local copy without depending on external infrastructure. `reusable-publish.yml` is the
+shared build, scan and publish boundary for release tags and `main` commits.
 
 Workflow files live under `.github/workflows/`. GitHub reads them after a push and runs the configured
 jobs; you do not download “the CI” locally. `npm run check` is the local equivalent of the main source

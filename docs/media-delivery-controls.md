@@ -128,9 +128,11 @@ web adaptive access during a canary; omitting it enables the eligible catalog.
 `MEDIA_REPLAY_CONCURRENCY=1` is the provisional default (hard maximum two).
 Job/input/output limits are documented in `.env.example` and replay automation.
 
-For Render's Docker runtime, set `MEDIA_WORKER_TOOLS=true` on the separate worker.
-Render maps this non-secret flag to the Docker build argument that installs FFmpeg
-and ffprobe; the web image default omits them. Set Docker Command to
+CI publishes the encoder image (`ghcr.io/boufe/yaparena-encoder`) with FFmpeg and
+ffprobe for every `main` commit; see [the CI-published images](render-staging.md#deploy-the-ci-published-images).
+A worker built from source by Render's Docker runtime instead needs
+`MEDIA_WORKER_TOOLS=true`, which Render maps to the Docker build argument that installs
+them; the web image default omits them. Either way, set Docker Command to
 `node dist/replay-worker.js`. A self-managed Node 24 host can install FFmpeg instead.
 The application does not require a local Docker daemon. CI verifies both image variants.
 See [Render Docker configuration](https://render.com/docs/docker).

@@ -472,7 +472,8 @@ Builds images and starts the production-like stack in the foreground, where the 
 visible. Press `Ctrl-C` to stop those containers. Add `--detach` if you want the stack to remain in the
 background and return control to the terminal.
 
-Tagged releases publish multi-architecture images to `ghcr.io/OWNER/REPOSITORY`.
+Tagged releases publish multi-architecture images to `ghcr.io/OWNER/REPOSITORY`. Each push to
+`main` also publishes `linux/amd64` web and encoder images tagged `sha-<full commit SHA>`.
 See [the operations runbook](docs/operations.md#release-and-deploy-an-image) for
 the immutable-digest release and deployment procedure.
 

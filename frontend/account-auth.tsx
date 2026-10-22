@@ -242,6 +242,47 @@ function passkeySignInFailure(error: unknown) {
   return "Passkey sign-in could not be completed. Try again, or use email.";
 }
 
+function emailCodeSendFailure(error: unknown) {
+  const details = error !== null && typeof error === "object" ? error : null;
+  const code =
+    details && "privyErrorCode" in details ? details.privyErrorCode : undefined;
+  const status =
+    details && "status" in details && typeof details.status === "number"
+      ? details.status
+      : undefined;
+  if (code === "captcha_timeout")
+    return "Security verification timed out. Reload the page and try again.";
+  if (
+    code === "captcha_failure" ||
+    code === "invalid_captcha" ||
+    code === "captcha_disabled"
+  )
+    return "Security verification could not finish. Reload the page and try again, or use a different browser.";
+  if (code === "too_many_requests" || status === 429)
+    return "Too many code requests. Wait a moment, then try again.";
+  if (status !== undefined && status >= 500)
+    return "Email sign-in is temporarily unavailable. Try again shortly.";
+  if (
+    code === "client_request_timeout" ||
+    (details &&
+      "type" in details &&
+      details.type === "api_error" &&
+      "status" in details &&
+      details.status === null)
+  )
+    return "The connection to secure sign-in was interrupted. Reconnect and try again.";
+  if (
+    code === "missing_or_invalid_privy_app_id" ||
+    code === "missing_or_invalid_privy_account_id" ||
+    code === "disallowed_login_method" ||
+    code === "max_accounts_reached"
+  )
+    return "Email sign-in is unavailable for this app right now. Try again later.";
+  if (status === 401 || status === 403)
+    return "The sign-in provider could not accept this code request. Try again shortly.";
+  return "We couldn’t request a code. Try again shortly.";
+}
+
 function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
   const [intent, setIntent] = useState<AuthMode | null>(
     root?.dataset.authMode === "signup"
@@ -643,7 +684,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
       setMessage(
         "Check your inbox and spam folder. Enter the newest code from Privy.",
       );
-    }, "We couldn’t send a code. Check your email address and try again shortly.");
+    }, emailCodeSendFailure);
   }
   const seconds = Math.max(0, Math.ceil((resendAt - clock) / 1_000));
   return (

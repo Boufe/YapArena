@@ -855,6 +855,343 @@ async function verifyPasskeyFailureClassification(
     }
   }
 }
+async function verifyEmailSendFailureClassification(
+  name: string,
+  viewport: { width: number; height: number },
+) {
+  const fixtureOrigin = new URL(base);
+  fixtureOrigin.hostname = "localhost";
+  const origin = fixtureOrigin.origin;
+  const scenarios: {
+    id: string;
+    status: number;
+    code: string;
+    captcha: "failure" | "timeout" | null;
+    expectedInitCalls: number;
+    notice: string;
+  }[] = [
+    {
+      id: "captcha-failure",
+      status: 200,
+      code: "captcha_failure",
+      captcha: "failure",
+      expectedInitCalls: 0,
+      notice: "Security verification could not finish.",
+    },
+    {
+      id: "captcha-timeout",
+      status: 200,
+      code: "captcha_timeout",
+      captcha: "timeout",
+      expectedInitCalls: 0,
+      notice: "Security verification timed out.",
+    },
+    {
+      id: "captcha-rejected",
+      status: 400,
+      code: "invalid_captcha",
+      captcha: null,
+      expectedInitCalls: 1,
+      notice: "Security verification could not finish.",
+    },
+    {
+      id: "provider-rate-limit",
+      status: 429,
+      code: "too_many_requests",
+      captcha: null,
+      expectedInitCalls: 1,
+      notice: "Too many code requests.",
+    },
+    {
+      id: "provider-unavailable",
+      status: 503,
+      code: "synthetic_provider_unavailable",
+      captcha: null,
+      expectedInitCalls: 4,
+      notice: "Email sign-in is temporarily unavailable.",
+    },
+    {
+      id: "provider-network",
+      status: 0,
+      code: "synthetic_network_failure",
+      captcha: null,
+      expectedInitCalls: 4,
+      notice: "The connection to secure sign-in was interrupted.",
+    },
+    {
+      id: "provider-configuration",
+      status: 400,
+      code: "missing_or_invalid_privy_app_id",
+      captcha: null,
+      expectedInitCalls: 1,
+      notice: "Email sign-in is unavailable for this app right now.",
+    },
+    {
+      id: "provider-disabled",
+      status: 400,
+      code: "disallowed_login_method",
+      captcha: null,
+      expectedInitCalls: 1,
+      notice: "Email sign-in is unavailable for this app right now.",
+    },
+    {
+      id: "provider-denied",
+      status: 403,
+      code: "synthetic_provider_denial",
+      captcha: null,
+      expectedInitCalls: 1,
+      notice: "The sign-in provider could not accept this code request.",
+    },
+    {
+      id: "provider-unknown",
+      status: 400,
+      code: "synthetic_unclassified_failure",
+      captcha: null,
+      expectedInitCalls: 1,
+      notice: "We couldn’t request a code.",
+    },
+  ];
+  for (const scenario of scenarios) {
+    const context = await browser.newContext({ viewport });
+    try {
+      await context.addInitScript(
+        ({ captcha }) => {
+          if (window !== window.top) return;
+          localStorage.setItem("yaparena-measurement-declined", "1");
+          if (!captcha) return;
+          // The real installed SDK and Turnstile React wrapper receive a
+          // synthetic challenge API. No real challenge is solved or bypassed.
+          const counters = { renders: 0, errors: 0, responseReads: 0 };
+          Reflect.set(window, "yapSyntheticCaptchaCounters", counters);
+          Reflect.set(window, "turnstile", {
+            render(_container: unknown, options: unknown) {
+              counters.renders++;
+              if (
+                captcha === "failure" &&
+                options !== null &&
+                typeof options === "object" &&
+                "error-callback" in options &&
+                typeof options["error-callback"] === "function"
+              ) {
+                const callback = options["error-callback"];
+                queueMicrotask(() => {
+                  counters.errors++;
+                  callback("300000");
+                });
+              }
+              return "synthetic-turnstile-widget";
+            },
+            getResponse() {
+              counters.responseReads++;
+              // The installed SDK polls until this is non-null; leave it
+              // unavailable to exercise its real, unmodified timeout.
+              return undefined;
+            },
+            execute() {},
+            reset() {},
+            remove() {},
+          });
+        },
+        { captcha: scenario.captcha },
+      );
+      if (scenario.captcha)
+        await context.route(
+          (url) => url.origin === "https://challenges.cloudflare.com",
+          (route) =>
+            route.fulfill({ contentType: "application/javascript", body: "" }),
+        );
+      const page = await context.newPage();
+      page.on("pageerror", (error) => errors.push(error.message));
+      let initCalls = 0;
+      let authenticateCalls = 0;
+      let exchanges = 0;
+      const unexpected: string[] = [];
+      await context.route(
+        (url) =>
+          url.origin === "https://auth.privy.io" &&
+          url.pathname.startsWith("/api/"),
+        (route) => {
+          const path = new URL(route.request().url()).pathname;
+          const headers = {
+            "access-control-allow-origin": origin,
+            "access-control-allow-credentials": "true",
+            "access-control-allow-methods": "GET, POST, OPTIONS",
+            "access-control-allow-headers":
+              route.request().headers()["access-control-request-headers"] ??
+              "authorization, content-type, privy-app-id",
+          };
+          if (route.request().method() === "OPTIONS")
+            return route.fulfill({ status: 204, headers });
+          if (path === `/api/v1/apps/${appId}`)
+            return route.fulfill({
+              headers,
+              json: {
+                ...providerSettings,
+                captcha_enabled: Boolean(scenario.captcha),
+                enabled_captcha_provider: scenario.captcha ? "turnstile" : null,
+                captcha_site_key: scenario.captcha
+                  ? "t:synthetic-site-key"
+                  : "",
+              },
+            });
+          if (path === "/api/v1/passwordless/init") {
+            initCalls++;
+            if (scenario.status === 0) return route.abort("failed");
+            return route.fulfill({
+              status: scenario.status,
+              headers,
+              json: {
+                type: "authentication_error",
+                code: scenario.code,
+                error: "SYNTHETIC_PRIVATE_PROVIDER_DETAIL_MUST_NOT_APPEAR",
+              },
+            });
+          }
+          if (path === "/api/v1/passwordless/authenticate") {
+            authenticateCalls++;
+            return route.abort();
+          }
+          if (path === "/api/v1/analytics_events")
+            return route.fulfill({ headers, json: { success: true } });
+          unexpected.push(path);
+          return route.abort();
+        },
+      );
+      await page.route("**/api/auth/me", (route) =>
+        route.fulfill({
+          status: 401,
+          json: { error: "authentication required" },
+        }),
+      );
+      await page.route("**/api/auth/privy/exchange", (route) => {
+        exchanges++;
+        return route.abort();
+      });
+      await page.goto(`${origin}/account`);
+      const auth = page.locator("#email-auth");
+      const button = auth.locator('button[type="submit"]');
+      await button.waitFor();
+      await page.waitForFunction(
+        () =>
+          document.querySelector<HTMLButtonElement>(
+            '#email-auth button[type="submit"]',
+          )?.disabled === false,
+      );
+      if (scenario.captcha)
+        await page.waitForFunction((captcha) => {
+          const counters: unknown = Reflect.get(
+            window,
+            "yapSyntheticCaptchaCounters",
+          );
+          return (
+            counters !== null &&
+            typeof counters === "object" &&
+            "renders" in counters &&
+            typeof counters.renders === "number" &&
+            counters.renders > 0 &&
+            (captcha !== "failure" ||
+              ("errors" in counters &&
+                typeof counters.errors === "number" &&
+                counters.errors > 0))
+          );
+        }, scenario.captcha);
+      await auth
+        .getByLabel("Email address", { exact: true })
+        .fill("synthetic-send-failure@example.invalid");
+      for (const attempt of [1, 2]) {
+        await button.click();
+        await auth
+          .getByText(scenario.notice, { exact: false })
+          .waitFor()
+          .catch(async (error: unknown) => {
+            await capture(page, `send-email-${scenario.id}-${name}.png`, true);
+            await writeFile(
+              resolve(directory, `send-email-${scenario.id}-${name}.json`),
+              JSON.stringify({
+                phase: `email send ${scenario.id} before provider verification`,
+                attempt,
+                initCalls,
+                authenticateCalls,
+                exchanges,
+                emailBlameNoticeVisible: await auth
+                  .getByText(
+                    "We couldn’t send a code. Check your email address",
+                    {
+                      exact: false,
+                    },
+                  )
+                  .isVisible(),
+                expectedNoticeVisible: await auth
+                  .getByText(scenario.notice, { exact: false })
+                  .isVisible(),
+              }) + "\n",
+            );
+            throw error;
+          });
+        await page.waitForFunction(
+          () =>
+            document.querySelector<HTMLButtonElement>(
+              '#email-auth button[type="submit"]',
+            )?.disabled === false,
+        );
+        assert.equal(initCalls, scenario.expectedInitCalls * attempt);
+        assert.equal(authenticateCalls, 0);
+        assert.equal(exchanges, 0);
+      }
+      assert.equal(await page.locator("#signed-in").isVisible(), false);
+      assert.equal(
+        await page
+          .getByText("SYNTHETIC_PRIVATE_PROVIDER_DETAIL_MUST_NOT_APPEAR", {
+            exact: false,
+          })
+          .count(),
+        0,
+      );
+      assert.equal(
+        await auth
+          .getByText("We couldn’t send a code. Check your email address", {
+            exact: false,
+          })
+          .count(),
+        0,
+      );
+      assert.equal(
+        await auth.locator('input[autocomplete="one-time-code"]').count(),
+        0,
+      );
+      if (scenario.captcha) {
+        const counters: unknown = await page.evaluate(() =>
+          Reflect.get(window, "yapSyntheticCaptchaCounters"),
+        );
+        assert.ok(counters !== null && typeof counters === "object");
+        assert.ok(
+          "renders" in counters &&
+            typeof counters.renders === "number" &&
+            counters.renders > 0,
+        );
+        if (scenario.captcha === "failure")
+          assert.ok(
+            "errors" in counters &&
+              typeof counters.errors === "number" &&
+              counters.errors > 0,
+          );
+        else
+          assert.ok(
+            "responseReads" in counters &&
+              typeof counters.responseReads === "number" &&
+              counters.responseReads > 0,
+          );
+      }
+      assert.deepEqual(unexpected, []);
+      await capture(page, `send-email-${scenario.id}-${name}.png`, true);
+      checks.push(
+        `${name}: email send ${scenario.id} shows its bounded notice, permits one explicit retry with exact SDK request counts, keeps private state hidden and issues no verification/app exchange; ${scenario.captcha ? "real installed CAPTCHA error path with synthetic Turnstile API, not a genuine challenge trial" : "provider response is synthetic"}`,
+      );
+    } finally {
+      await context.close();
+    }
+  }
+}
 async function verifyPrivyPasskeySetup(
   name: string,
   viewport: { width: number; height: number },
@@ -2711,6 +3048,7 @@ try {
   ] as const) {
     await verifyExchangeFailureClassification(name, viewport);
     await verifyPasskeyFailureClassification(name, viewport);
+    await verifyEmailSendFailureClassification(name, viewport);
     await verifyPrivyPasskeySetup(name, viewport);
     await verifyEmbeddedWalletStatus(name, viewport);
     if (name === "desktop")
@@ -5367,7 +5705,7 @@ try {
         errors,
         requirementFailures,
         scope:
-          "Local SSR fixture and installed Privy SDK; public provider metadata fetched live with CAPTCHA explicitly disabled in the fixture response only. OTP/passkey provider endpoints and application responses, including durable wallet status/retry projections, are synthetic. Wallet fixtures assert no browser provider creation, signing, funding or transfer call. Real Chromium virtual-authenticator ceremonies exercise native passkey creation/assertion; real PostgreSQL acceptance is recorded separately. No real CAPTCHA validation, email delivery, genuine provider login/link/wallet creation, hosted session, physical device or complete WCAG conformance evidence.",
+          "Local SSR fixture and installed Privy SDK; public provider metadata fetched live and intercepted for fixtures. Most fixtures disable CAPTCHA; two email-send cases enable a synthetic Turnstile API to exercise the installed SDK callback and unmodified timeout paths. OTP/passkey provider endpoints and application responses, including durable wallet status/retry projections, are synthetic. Wallet fixtures assert no browser provider creation, signing, funding or transfer call. Real Chromium virtual-authenticator ceremonies exercise native passkey creation/assertion; real PostgreSQL acceptance is recorded separately. No real CAPTCHA validation, email delivery, genuine provider login/link/wallet creation, hosted session, physical device or complete WCAG conformance evidence.",
       },
       null,
       2,

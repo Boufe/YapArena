@@ -2379,6 +2379,32 @@ async function verifyPrivyPasskeySetup(
     assert.equal(providerLinkCalls, 1);
     assert.equal(await page.locator("#signed-in").isVisible(), false);
     const setupCard = page.locator("#passkey-setup-resume");
+    async function checkSetupAccessibility(
+      state: "checking" | "waiting" | "ready",
+    ) {
+      const previousStage = stage;
+      stage = `automated ${state} passkey confirmation accessibility`;
+      await page.waitForFunction(() => Boolean(window.axe));
+      const violations = await page.evaluate(async () =>
+        (
+          await window.axe.run("#passkey-setup-resume", {
+            runOnly: {
+              type: "tag",
+              values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"],
+            },
+          })
+        ).violations.map((entry) => ({ id: entry.id, impact: entry.impact })),
+      );
+      await writeFile(
+        resolve(directory, `passkey-accessibility-${state}-${name}.json`),
+        JSON.stringify({ state, violations }) + "\n",
+      );
+      assert.deepEqual(violations, []);
+      checks.push(
+        `${name}: ${state} passkey confirmation passes automated WCAG 2.2-tagged checks; screen-reader and physical-device testing remain separate`,
+      );
+      stage = previousStage;
+    }
     const setupVisible = await setupCard.isVisible();
     await writeFile(
       resolve(directory, `passkey-confirmation-held-${name}.json`),
@@ -2424,6 +2450,7 @@ async function verifyPrivyPasskeySetup(
         headingBox.y >= 0 &&
         headingBox.y + headingBox.height <= viewport.height,
     );
+    await checkSetupAccessibility("checking");
     holdSetupRefresh = false;
     setupRefreshGate.release();
     const profileHandle = page.locator('#profile-form input[name="handle"]');
@@ -2461,6 +2488,7 @@ async function verifyPrivyPasskeySetup(
     );
     assert.equal(providerInitCalls, 1);
     assert.equal(providerLinkCalls, 1);
+    await checkSetupAccessibility("waiting");
     const profileDraft = "passkey_profile_draft";
     if (!initialReadUnavailable) {
       await page.waitForFunction(() =>
@@ -2578,6 +2606,7 @@ async function verifyPrivyPasskeySetup(
         confirmedBox.y >= 0 &&
         confirmedBox.y + confirmedBox.height <= viewport.height,
     );
+    await checkSetupAccessibility("ready");
     await capture(page, `passkey-confirmation-complete-${name}.png`, true);
     if (name === "desktop") {
       await page.setViewportSize({ width: 1280, height: 900 });

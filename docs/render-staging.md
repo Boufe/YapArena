@@ -2,8 +2,8 @@
 
 The staging stack uses one Render web service, a separately configured replay encoder, Supabase
 Postgres, LiveKit Cloud, and Cloudflare R2.
-Until the [worker cut-over](#move-background-jobs-to-the-worker), the Render web process also runs
-every background job: clocks, revocation, wallet provisioning and cleanup. Supabase only hosts
+Since the [worker cut-over](#move-background-jobs-to-the-worker), a paid Render worker runs every
+background job: clocks, revocation, wallet provisioning and cleanup. Supabase only hosts
 PostgreSQL; the application continues to own accounts, sessions, and authorization. LiveKit carries
 the live video and records it to a private R2 bucket. The browser reads verified adaptive replays
 through the authenticated private edge; eligible recordings without a ready adaptive package retain
@@ -16,10 +16,12 @@ records the existing paid `0.5c-512mb` encoder, October 8 all-eligible rollout a
 web/worker builds at `b11a11b` on October 15. Those historical checks supersede no-encoder/
 deleted-canary notes; they do not establish today's live versions or a matching build pair.
 The October 19 documentation audit did not inspect live providers or deploy current main.
+The October 22 [worker cut-over](#move-background-jobs-to-the-worker) put `8a80e44` live on the new
+jobs worker at 17:41:59 UTC and on web, with `RUN_BACKGROUND_JOBS=false`, at 17:48:45 UTC.
 
-`render.yaml` defines **one Free Render web service** and the paid `yaparena-staging-jobs`
-background worker, which the operator creates manually for the
-[cut-over](#move-background-jobs-to-the-worker). It does not create a Render database or the replay
+`render.yaml` defines **one Free Render web service**, with `RUN_BACKGROUND_JOBS=false`, and the
+paid `yaparena-staging-jobs` background worker that runs the jobs instead
+([cut-over](#move-background-jobs-to-the-worker)). It does not create a Render database or the replay
 encoder. Its start commands only start runtime processes; migrations run in a separate
 operator process. Render Free has no pre-deploy command, so `render.yaml` disables automatic
 deployment and the operator completes migrations before manually deploying the same reviewed
@@ -34,9 +36,9 @@ describes a source-built service.
 
 This is a small trial environment. Render Free sleeps after 15 minutes without inbound traffic and
 can take about a minute to wake. A live debate page polls the app every three seconds, but an
-instance restart can still interrupt the turn clock. While web runs the background jobs, they stop
-while it sleeps; the paid jobs worker does not sleep. Supabase Free can pause after a week of low
-activity. Do not use this environment for promised live events or real user data.
+instance restart can still interrupt the turn clock. The background jobs run in the paid jobs
+worker, which does not sleep; moved back to web, they stop while web sleeps. Supabase Free can
+pause after a week of low activity. Do not use this environment for promised live events or real user data.
 
 ## Create the database
 
@@ -153,7 +155,8 @@ debate, media clock/recording-stop and speaker-revocation jobs, the ten-second P
 embedded-wallet jobs, and the hourly cleanup. `node dist/worker.js` builds the same jobs from the
 same factory (`src/services.ts`) and always runs them, whatever `RUN_BACKGROUND_JOBS` says. It
 serves no HTTP and starts no community stream. The worker is paid compute and needs the separate
-hosted-change/deployment authorization.
+hosted-change/deployment authorization. Staging completed these steps on 2026-10-22; they apply to
+a new environment or a repeat after rollback.
 
 `scripts/release-account-render.ts` finds the jobs worker by exact name, type and workspace.
 It suspends and resumes it with web and the replay encoder, requires the same runtime database
@@ -165,7 +168,9 @@ URL, and deploys the release SHA to it after web. Its `deploy` mode accepts
    TLS settings used by web, never an owner/migration URL, plus web's `A4_MODE`/`A4_*`,
    `COIN_SANDBOX_ENABLED`, all `LIVEKIT_*`/`MEDIA_*` media and replay variables and, when web uses
    Privy, `PRIVY_*` and `REDIS_*`. The worker validates but never connects to Redis. Keep
-   `LOG_LEVEL` at `info` or more verbose, and leave web's `RUN_BACKGROUND_JOBS=true`.
+   `LOG_LEVEL` at `info` or more verbose, and keep web's `RUN_BACKGROUND_JOBS=true` until step 3.
+   A new environment created from `render.yaml` starts web with `false`: set it to `true` first,
+   or no process runs the Privy and media jobs until the worker has their settings.
 2. Confirm the worker ticks. Its Render logs show `background worker started` with `media` and
    `privy` matching web, then one `background job ran` line per job: `a4-recovery` within a second,
    `media-clock` and `speaker-revocation` with media, `provider-revocation` and `embedded-wallet`
@@ -175,13 +180,14 @@ URL, and deploys the release SHA to it after web. Its `deploy` mode accepts
    should show steady CPU/memory and no restarts. The worker has no `/metrics` endpoint, so its
    Prometheus counters (`yaparena_auth_journey_total`, `yaparena_media_control_total`) are not
    scraped.
-3. Set `RUN_BACKGROUND_JOBS=false` on the web service in the dashboard. `render.yaml` still says
-   `true`, so a Blueprint sync can restore it until a follow-up change updates the file.
-4. Manually redeploy web. Its `server started` log shows `backgroundJobs: false` and no
-   `background job ran` lines follow; `/ready` returns 200. Check the worker log for new errors.
+3. Set `RUN_BACKGROUND_JOBS=false` on the web service in the dashboard, matching `render.yaml`.
+4. Redeploy web if saving the variable did not start a deploy. Its `server started` log shows
+   `backgroundJobs: false` and no `background job ran` lines follow; `/ready` returns 200. Check
+   the worker log for new errors.
 
 Rollback: set web `RUN_BACKGROUND_JOBS` back to `true` and redeploy web. Both processes then run
 the jobs, as during steps 1–3; suspend the worker afterwards to return to a single process.
+`render.yaml` declares `false`, so change the file too or keep Blueprint sync off while rolled back.
 
 Both processes may run every job at once. PostgreSQL coordinates them: row locks and leases for
 A4, recording stops, speaker revocation, Privy revocation and wallet provisioning, advisory locks
@@ -303,7 +309,7 @@ worker. This has not yet been tried on these services.
    credential if the package is private. Keep Docker Command `/bin/sh /app/scripts/start-staging.sh`,
    health check path `/ready` and every environment variable. Render deploys the image after the
    change; confirm `/ready` and the smoke checks.
-4. Once it exists, switch the `yaparena-staging-jobs` worker to the same web digest and keep Docker
+4. Switch the `yaparena-staging-jobs` worker to the same web digest and keep Docker
    Command `node dist/worker.js`. Confirm its `background worker started` log line.
 5. Switch the encoder to `ghcr.io/boufe/yaparena-encoder@sha256:ENCODER_DIGEST` from the same CI
    run and keep Docker Command `node dist/replay-worker.js`. `MEDIA_WORKER_TOOLS` only affected

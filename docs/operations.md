@@ -179,9 +179,11 @@ and an untouched same-identity job. The older job cannot advance the mapping's
 generation/token cutoff or wake wallet provisioning. Unacknowledged intents,
 changed credentials, suspension and unaudited generation changes remain fenced.
 Read-only propagation checks release database connections. The bounded mutation
-window retains account ordering. These authentication jobs run on the Privy-configured
-web service independently of general `RUN_BACKGROUND_JOBS`; the separate
-maintenance worker does not receive the Privy secret or run this queue.
+window retains account ordering. These authentication jobs run every ten seconds with
+the other background jobs: on the web service while `RUN_BACKGROUND_JOBS` is true,
+and in the maintenance worker (`npm run start:worker`), which always runs them when it
+has the same Privy configuration. The worker validates but never connects to Redis.
+See [the staging cut-over](render-staging.md#move-background-jobs-to-the-worker).
 
 An uncertain provider freeze/unfreeze requires evidence review. The explicit
 owner-only `scripts/retry-account-provider-reset.ts` modes separate an ordinary

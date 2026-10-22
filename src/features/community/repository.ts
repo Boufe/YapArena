@@ -49,7 +49,7 @@ interface ChatRow {
 interface AcceptedChatRow extends ChatRow {
   payloadMatches: boolean;
 }
-interface CaseRow {
+export interface CaseRow {
   id: string;
   reporterUserId: string;
   debateId: string;
@@ -68,7 +68,7 @@ interface CaseRow {
   chatBody: string | null;
   chatState: "open" | "paused";
 }
-interface AppealRow {
+export interface AppealRow {
   id: string;
   caseId: string;
   appellantUserId: string;

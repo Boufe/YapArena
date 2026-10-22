@@ -33,3 +33,34 @@ services:
       # Bearer token for GET /metrics; production returns 404 without it.
       - key: METRICS_TOKEN
         generateValue: true
+
+  # Dedicated background-jobs worker: A4 and coin-debate clocks, media clock and
+  # recording stops, speaker revocation, Privy revocation, embedded-wallet
+  # provisioning and hourly cleanup. Render has no free plan for background
+  # workers: this service needs a paid instance, Starter (0.5 CPU, 512 MB) or
+  # larger. It ignores RUN_BACKGROUND_JOBS and serves no HTTP. Create and deploy
+  # it manually, then follow the cut-over in docs/render-staging.md before
+  # changing RUN_BACKGROUND_JOBS on the web service. Copy the web service's
+  # A4/coin sandbox, media, Privy and Redis settings so both build the same jobs.
+  - type: worker
+    name: yaparena-staging-jobs
+    runtime: docker
+    region: ohio
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: node dist/worker.js
+    # Deploy the same reviewed commit as web after the operator migration.
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_OPTIONS
+        value: --max-semi-space-size=4
+      - key: APP_ORIGIN
+        fromService:
+          name: yaparena-staging-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: DATABASE_URL
+        sync: false

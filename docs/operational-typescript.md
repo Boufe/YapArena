@@ -86,7 +86,8 @@ additive migrations. It requires independently stopped writers and passed
 release gates; its environment assertions alone do not establish either.
 Neither command resets accounts or enables live financial activity.
 `release-account-render.ts` separately inspects or operates only the named
-staging web and replay services. Each mutation requires its matching
+staging web and replay services, plus the `yaparena-staging-jobs` worker found by
+exact name, type and workspace. Each mutation requires its matching
 `ACCOUNT_STAGING_RENDER_ACTION`; deployment additionally requires the exact
 current `ACCOUNT_STAGING_RENDER_COMMIT`. It emits only allowlisted metadata.
 The operator must verify actual stopped writers, backup/rehearsal, release gates,

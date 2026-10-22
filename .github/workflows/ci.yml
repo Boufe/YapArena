@@ -97,9 +97,9 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     needs: quality
-    # Normally 13-18 minutes, up to about 50 when the Ubuntu mirror is slow.
-    # A hung step fails instead of holding the runner until the 6-hour default.
-    timeout-minutes: 60
+    # Normally 13-18 minutes. A hung step fails instead of holding the runner
+    # until the 6-hour default.
+    timeout-minutes: 45
 
     steps:
       - name: Download repository
@@ -115,9 +115,9 @@ jobs:
         run: npm ci
 
       - name: Install FFmpeg and native PostgreSQL verification tools
-        # Normally under a minute, but 20-35 minutes when the Ubuntu mirror
-        # sends slowly; that run still passes. The cap only stops a real hang.
-        timeout-minutes: 40
+        # Normally under a minute. When the Azure mirror is slow, the download
+        # moves to another mirror after 5 minutes.
+        timeout-minutes: 15
         run: |
           # Retry a mirror connection that sends nothing for 20 s instead of
           # waiting on it. A config file also covers the apt-get update that
@@ -127,7 +127,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          sudo apt-get install --yes --no-install-recommends ffmpeg postgresql-17
+          packages=(ffmpeg postgresql-17)
+          # azure.archive.ubuntu.com sometimes sends at 30-45 kB/s, which apt
+          # does not treat as a failure. Download first, so a slow download can
+          # be stopped without interrupting dpkg. If it is not done in 5
+          # minutes, drop that mirror from the runner's list and finish from
+          # archive.ubuntu.com; packages already downloaded are kept.
+          if ! sudo timeout 5m apt-get install --yes --no-install-recommends \
+            --download-only "${packages[@]}"; then
+            echo "::warning::Ubuntu mirror too slow; downloading from archive.ubuntu.com"
+            sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+            sudo apt-get update
+            sudo apt-get install --yes --no-install-recommends \
+              --download-only "${packages[@]}"
+          fi
+          sudo apt-get install --yes --no-install-recommends "${packages[@]}"
 
       - name: Verify native PostgreSQL Unicode setup under the C locale
         run: |

@@ -97,6 +97,9 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     needs: quality
+    # Normally 13-18 minutes. A stalled step fails instead of holding the
+    # runner until the 6-hour default.
+    timeout-minutes: 45
 
     steps:
       - name: Download repository
@@ -112,11 +115,19 @@ jobs:
         run: npm ci
 
       - name: Install FFmpeg and native PostgreSQL verification tools
+        # Normally under a minute. A stalled mirror fails here instead of
+        # holding the runner for 20-40 minutes.
+        timeout-minutes: 10
         run: |
+          # Retry a mirror connection that sends nothing for 20 s instead of
+          # waiting on it. A config file also covers the apt-get update that
+          # apt.postgresql.org.sh runs, which command-line options cannot reach.
+          printf '%s\n' 'Acquire::Retries "5";' 'Acquire::http::Timeout "20";' \
+            | sudo tee /etc/apt/apt.conf.d/80-ci-network-retries > /dev/null
           sudo apt-get update
-          sudo apt-get install --yes postgresql-common
+          sudo apt-get install --yes --no-install-recommends postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          sudo apt-get install --yes ffmpeg postgresql-17
+          sudo apt-get install --yes --no-install-recommends ffmpeg postgresql-17
 
       - name: Verify native PostgreSQL Unicode setup under the C locale
         run: |

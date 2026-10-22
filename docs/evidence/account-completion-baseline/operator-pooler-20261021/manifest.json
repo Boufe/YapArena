@@ -1,0 +1,149 @@
+{
+  "format": 1,
+  "archivedAt": "2026-10-22T00:01:14.421115+00:00",
+  "operatorCommit": "e8fcdffb6e4e7a857cf761b136b40fc99807d1a4",
+  "localRunBase": "3096ca776a04f3cf38ad835d7348329791c0385b plus frozen operator/test changes committed e8fcdff",
+  "deployedWebRevision": "3096ca776a04f3cf38ad835d7348329791c0385b",
+  "financialSourceBaseline": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+  "privateTrialHelperSha256": "6b049c8f61ac4f50e640be1450ad68df2dc7d5691a83ad807aaf8790357ef938",
+  "privateConfigurationAndAttemptMarkerArchived": false,
+  "simulationResultOriginalSha256": "b208778eff3c2a01fd72aa986ca588f510dbb5835befa6758bf76e9c73e8cf2b",
+  "sourceAndCompiledHashes": {
+    "scripts/coin-sandbox-operator.ts": "4b92c712549d6c193b23141c8f106d23767b74f07dbbca1dcb17b3e6688c9311",
+    "src/features/account-wallet/sandbox-repository.ts": "1531dc00ae2f40885fe39e91e4346eb583f643beb4073522b30f9eb936ea1416",
+    "src/features/account-wallet/grant-accounting.ts": "9b965bafb4012a9286cfc75f44943bab1788987b1a404c2cee923e4d1f18b0b5",
+    "src/features/account-wallet/ledger.ts": "0086f6107ea50bdaa64a187d2d49a27ce4785009efbc55dcd5c91b713658e862",
+    "src/features/account-wallet/external-operations.ts": "a421fb42de5f673e4ac50dd994f107434526a2e3f0c80da68025ebf74c4524f2",
+    "src/features/account-wallet/sandbox-webhooks.ts": "744c3d6390248aeb5ba1d67c1255337be37e4e978e73eec3f98c22b7d9712955",
+    "src/platform/auth/account-operations.ts": "909bd5467b6b30ee183eed4c7cb9057f24a154a5d40d5927e2093538d274d61d",
+    "migrations/1792426006000_add-isolated-coin-sandbox.js": "5080a0597486bf3f875630d2c62d72d72525780c5cb4b12dfcc08ed50da775b1",
+    "migrations/1792426010000_enforce-sandbox-withdrawal-operator-boundary.js": "2ac72c67e314cc844cba6ba67feb8686a6a560514c08d8648859225601648ecb",
+    "dist/features/account-wallet/sandbox-repository.js": "7e4d040317e1365825a99c7917a9a8b6223282cca7a99b1017ec03d2168b01c4",
+    "dist/features/account-wallet/ledger.js": "65843c1acb496fea64c9abd3b02f1a98278dc688e6b40afe23d17efd1d3c3df7",
+    "dist/features/account-wallet/grant-accounting.js": "fa4ebed7af12e18c079d8ba66db16c877b98bd0d029da7c267e14b21da85972f",
+    "dist/features/account-wallet/external-operations.js": "705b091d3d0c90b127ecfadbe2af105396d5f10bd75906d3b61ac74d44442ec8",
+    "dist/platform/auth/account-operations.js": "1dd773f12e4b5583bb03b34f4d20f6ece0116c48ebb12a5d93b9880332e90932",
+    "dist/features/account-wallet/sandbox-webhooks.js": "db961fbd243be0da4566f769fff80939bc35b7131ebd21bb017dfc644b3b2e61",
+    "tests/coin-sandbox-postgres.test.js": "2f9a5d722a3427840217c6bce5ef93912608c91fa830153621bbce5f910a6109",
+    "scripts/verify-database-isolation.ts": "81333bce294839bffb5070e21149fb93db9eceeb53285d00722388ef2fe32cc8",
+    "package-lock.json": "1c79a2f11f62be0ca0c2cda4ebec3d23c8a541d6748dcf4013330d33f203e7a5"
+  },
+  "artifacts": [
+    {
+      "path": "README.md",
+      "bytes": 6793,
+      "sha256": "1dea2e34d368c6486f984d9155187e6f7fbc55e29bc7bcea1f6137a4cdddd7c0"
+    },
+    {
+      "path": "local/database/fresh-account-security.log",
+      "bytes": 30686,
+      "sha256": "7d7928e176a2d338c6c55dd9945d185b6a85171717b21ba6ae687bf0a69a14a5"
+    },
+    {
+      "path": "local/database/fresh-inventory.json",
+      "bytes": 407786,
+      "sha256": "f95dd8b1fbc95886d4d0d01f706900cc4dec38ac5368b55c630b807dd4efcc13"
+    },
+    {
+      "path": "local/database/fresh-inventory.json.raw",
+      "bytes": 409274,
+      "sha256": "a3b88fea0b0c0624dd698c809a2848fc4c995cb92e0ae96894839a529c875249"
+    },
+    {
+      "path": "local/database/treasury-fresh.log",
+      "bytes": 945,
+      "sha256": "44764f90f6ea2f644bd7e85e03f509686445714b18e6b091676a13b2d4d3bd7f"
+    },
+    {
+      "path": "local/database/treasury-upgrade.log",
+      "bytes": 940,
+      "sha256": "55528c5249d14be8a7e0e898e9300cc3f6cf81b62222c002a31bf3059f97f622"
+    },
+    {
+      "path": "local/database/upgrade-account-security.log",
+      "bytes": 30650,
+      "sha256": "1d4b4e35337650bbe033bd2ae5fcd5de407ba1e47b3e5baf791b84944a1cd8d5"
+    },
+    {
+      "path": "local/database/upgrade-inventory.json",
+      "bytes": 407800,
+      "sha256": "d30c106a6b6787082de99856b9f0573f210ad38bdca3d1fe75a431d2ebd2d2b9"
+    },
+    {
+      "path": "local/database/upgrade-inventory.json.raw",
+      "bytes": 409288,
+      "sha256": "3e9f0c4194dd25679f64d6a5c88a4e8485813fdb79482951d79b71ed75006420"
+    },
+    {
+      "path": "local/format-failure-r1.log",
+      "bytes": 35793,
+      "sha256": "c4c7024c86563fbdfc4834887bfda3471a777c7bbd7205303cc0d8b63edf7276"
+    },
+    {
+      "path": "local/format-failure-r2.log",
+      "bytes": 35462,
+      "sha256": "0ce264abfd24afbc2d4624f59d15e2389bdffb42b895af019f15b4dc3deb186c"
+    },
+    {
+      "path": "local/quality.log",
+      "bytes": 109197,
+      "sha256": "7bf5f00e6d143a63c6ec01e4afaa1d5015e5ea3684d5632a1a1f96eb91fbe219"
+    },
+    {
+      "path": "local/result.json",
+      "bytes": 1225,
+      "sha256": "e56ac8355675c78f08d016b57267b41dd5e37b972e5d56cb0d818bc39f4020f4"
+    },
+    {
+      "path": "local/run.log",
+      "bytes": 68628,
+      "sha256": "b9117f0a3f4ba6a97e5d50f8df70fe0b99d873cfa46a666880435e32c910ebf4"
+    },
+    {
+      "path": "simulation/result.json",
+      "bytes": 3602,
+      "sha256": "b597e99f1296f1a8ded6947743952eaf1beca934123f16a8ca01790da61c4f6f"
+    },
+    {
+      "path": "simulation/result.json.raw",
+      "bytes": 3614,
+      "sha256": "b208778eff3c2a01fd72aa986ca588f510dbb5835befa6758bf76e9c73e8cf2b"
+    }
+  ],
+  "formattedRawComparisons": [
+    {
+      "formatted": "local/database/fresh-inventory.json",
+      "raw": "local/database/fresh-inventory.json.raw",
+      "semanticEquality": true,
+      "formattedSha256": "f95dd8b1fbc95886d4d0d01f706900cc4dec38ac5368b55c630b807dd4efcc13",
+      "rawSha256": "a3b88fea0b0c0624dd698c809a2848fc4c995cb92e0ae96894839a529c875249"
+    },
+    {
+      "formatted": "local/database/upgrade-inventory.json",
+      "raw": "local/database/upgrade-inventory.json.raw",
+      "semanticEquality": true,
+      "formattedSha256": "d30c106a6b6787082de99856b9f0573f210ad38bdca3d1fe75a431d2ebd2d2b9",
+      "rawSha256": "3e9f0c4194dd25679f64d6a5c88a4e8485813fdb79482951d79b71ed75006420"
+    },
+    {
+      "formatted": "simulation/result.json",
+      "raw": "simulation/result.json.raw",
+      "semanticEquality": true,
+      "formattedSha256": "b597e99f1296f1a8ded6947743952eaf1beca934123f16a8ca01790da61c4f6f",
+      "rawSha256": "b208778eff3c2a01fd72aa986ca588f510dbb5835befa6758bf76e9c73e8cf2b"
+    }
+  ],
+  "foreignOwnedPathsExcluded": ["ci/", "ci-review.md"],
+  "localLogProvenance": {
+    "run": "lead-produced terminal r3 log; ends full-quality and fresh/upgrade isolation PASS",
+    "quality": "complete npm run check output from same disposable harness",
+    "database": "synthetic local database tests and sanitized schema/role catalogs; not hosted user rows",
+    "failedAttempts": "r1/r2 logs stopped at formatting checks; no passing full-gate inference"
+  },
+  "reviewLimits": [
+    "Archive author also authored the minimal operator URL guard and private trial helper. Lead and wallet-reviewer inspections are separate; archive review is not a second execution.",
+    "No provider, service, browser or database calls/mutations were made to prepare this archive.",
+    "No raw account/request identifiers, amounts, destinations, email, credentials, signatures or private attempt/configuration material is copied. Catalog object OIDs and role names describe disposable schema metadata only.",
+    "Remote CI result and its potentially differing coverage are maintained separately. Local scope here is859 tests,95.32/91.23/95.35 and240/17/5 each database path; no new SDK/native/coin/cookie browser gate inferred."
+  ]
+}

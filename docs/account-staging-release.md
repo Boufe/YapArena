@@ -6,7 +6,7 @@ production release. The [completion matrix](email-first-completion.md) and
 [independent helper review](evidence/account-completion-baseline/release-helper-review/README.md)
 record the acceptance boundaries.
 
-The current release is an additive **43 → 45** update from deployed web
+The recorded schema release below is the additive **43 → 45** update from web
 `d6e2d35` to the reviewed `eba1dc5` source, not a repeat of the original account
 release. The [current release evidence](evidence/account-completion-baseline/embedded-wallet-release/README.md)
 and [hash-scoped source review](evidence/account-completion-baseline/embedded-wallet-release/auth-release-source-review.md)
@@ -16,6 +16,21 @@ were unchanged before writers resumed. Exact web deployment and its acceptance
 are recorded in that evidence directory. This is a record of the release
 procedure, not a command to repeat the already-applied migrations. If a correction changes the selected source, refresh its
 review and exact-revision CI evidence before proceeding.
+
+The later code-only `3096ca7` release is verified LIVE with the same 45 applied
+migrations. `819421d` includes the reset-overlap/replay and visible setup corrections. Its combined local gate passed870 tests/all four core browser stages; all five exact-tree CI checks passed. It is now verified LIVE at deployment `dep-dbcmpbbncjis73cvs9pg`, with seven guest groups/14 matching assets/readiness200. The separate old-instance containment and reviewed account repair remain open in the [current release record](evidence/account-completion-baseline/account-repair-release-819421d-20261022/README.md). Do not repeat schema preparation,
+writer suspension or migrations for this code-only correction. Deploy only its
+exact tested pushed SHA, inspect until LIVE, and verify the served assets.
+
+The approved disposable genuine signup increased the current account count to
+five: the original four protected accounts plus one privately attributed test
+identity. Historical database helpers deliberately guard their older inventory
+and may reject this state. Do not delete that account or loosen those guards to
+make a preflight pass. Use a separately reviewed read-only inspection bound to
+the exact attribution. The stopped acknowledged-reset repair is a distinct
+owner operation, performed only after the corrected engine is live; see
+[provider-reset operations](operations.md#local-verification). It does not reset
+accounts, adopt credentials or authorize financial activity.
 
 Use Node 24 and local PostgreSQL 17/18 tools. Keep the existing private operator
 configuration and backup key outside the repository. The commands load neither

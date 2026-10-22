@@ -1,0 +1,16 @@
+{
+  "status": "failed",
+  "postgres": "host",
+  "quality": "full runtime-backed npm run check",
+  "steps": [
+    {
+      "name": "build",
+      "status": "passed"
+    },
+    {
+      "name": "fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers",
+      "status": "failed"
+    }
+  ],
+  "scope": "Disposable local PostgreSQL and synthetic browser/media fixtures; no hosted or physical-device acceptance"
+}

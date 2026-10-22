@@ -74,6 +74,16 @@ freeze/unfreeze sequence (up to 20 seconds). A concurrent local revocation may
 wait for that sequence. Per-request provider inspection holds no such lock or
 checked-out connection while awaiting Privy.
 
+An acknowledged reset superseded by a successful authenticated logout drains
+only its existing bounded cleanup, with an exact audit/job for every intervening
+generation. Its completion cannot advance a stale mapping/token cutoff or wake
+wallet work; the current logout still performs its own reset. A committed live
+unfreeze intent remains owned by its original lease. Unknown intents, changed
+credentials, suspension and unaudited generation changes stay fenced. The
+separate reviewed owner rearm can restore one stopped acknowledged/inherited
+pair's confirmation budget once; an exact concurrent request returns the same
+immutable audit receipt without another provider call or budget allocation.
+
 An inspection failure during the matching pending/running provider reset, or
 its uncertain manual outcome, denies protected access temporarily. It must not
 mistake the application's own freeze for another credential incident and revoke

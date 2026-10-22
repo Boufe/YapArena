@@ -4,17 +4,35 @@ Baseline: clean shared checkout at `fd60543`, equal to fetched `origin/main`
 on 2026-10-19. Branch: `feat/email-first-accounts`; no unrelated edits present.
 This record distinguishes implementation from acceptance; it is not paid-release approval.
 
-Current staging web revision is `d6e2d35`, deployed on 2026-10-20 after all five
-[required CI checks](evidence/account-completion-baseline/privy-passkey-ci/README.md)
-passed. The [Privy-only release](evidence/account-completion-baseline/privy-passkey-release/README.md)
-records an encrypted 83-table/15-sequence backup, exact isolated restore/rehearsal,
+Current staging web revision is `3096ca7`, verified LIVE on 2026-10-21 after
+all five [exact-source CI checks](evidence/account-completion-baseline/passkey-signin-errors-20261021/ci-review.md)
+passed. The [latest release](evidence/account-completion-baseline/passkey-signin-errors-20261021/README.md)
+records seven hosted guest groups and 14 matching assets. The earlier
+[guarded database release](evidence/account-completion-baseline/embedded-wallet-release/README.md)
+records an encrypted 85-table/15-sequence backup, exact isolated restore/rehearsal,
 two additive migrations and preservation of the three retained accounts plus the
-manual signup. Staging has 43 applied / zero pending migrations. All seven hosted
-guest groups passed with 14 matching assets. The earlier
-[9395242 release](evidence/account-completion-baseline/staging-release.md) is preserved.
-Only the deterministic coin sandbox is enabled. Genuine hosted identity
-ceremonies, device/screen-reader acceptance and live financial approval remain
-separate requirements.
+manual signup. Staging has 45 applied / zero pending migrations. The replay worker
+remains at `fd60543`; automatic deployment is off for both services. Earlier
+[Privy-only](evidence/account-completion-baseline/privy-passkey-release/README.md) and
+[9395242](evidence/account-completion-baseline/staging-release.md) releases remain preserved.
+Only the deterministic coin sandbox is enabled. The founder now reports successful
+Privy passkey setup, later returning passkey login and same-key use in the withdrawal
+simulation. A separate read-only inspection confirms a ready user-owned embedded
+wallet with no additional signer/policy. The [genuine acceptance record](evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md)
+preserves the initial failed login, later success and limits. Remaining genuine
+recovery/Google/email-code journeys, device/screen-reader acceptance and live
+financial approval remain separate requirements.
+
+The latest passkey error correction distinguishes cancellation from provider,
+network and configuration failures. Its installed-SDK suite passed 125 checks;
+the combined application gate passed 858 tests and all core browser journeys.
+The subsequent owner-only operator change `e8fcdff` accepts the verified Supabase
+pooler login format while retaining SQL owner checks. Its local gate passed 859
+tests without skips and 240 focused account/security/ledger cases on each fresh
+and upgraded database. The [guarded simulation trial](evidence/account-completion-baseline/operator-pooler-20261021/README.md)
+approved and completed the existing proof-matched withdrawal exactly once, with
+an exact deterministic receipt, unchanged sources and no provider/chain calls.
+This operator change requires no application redeployment or schema migration.
 
 Current corrective work is tracked in the [completion log](email-first-completion.md).
 The genuine returning-user trial exposed an uncertain provider-session reset
@@ -25,7 +43,8 @@ login option. The same credential's server-verifiable operation proof passed
 798 quality tests, 198 fresh/upgrade PostgreSQL cases, 18 native passkey groups,
 92 SDK scenarios and all five CI checks. Final review found an additional browser
 account-switch race in ordinary provider-method settings; its correction and
-regression release are in progress. Genuine provider acceptance remains separate.
+regression are included in the current deployed source. Genuine provider acceptance retains
+the separate scopes above.
 Earlier separate-key descriptions and trials retain their recorded scope.
 
 On 2026-10-21, the founder changed the wallet direction: automatically create
@@ -34,9 +53,13 @@ YapArena signing authority. Remove new external-wallet linking from the product
 while preserving retained wallet credentials. The
 [wallet design](embedded-wallets.md) records supported provisioning,
 recovery and cost boundaries. Creation must survive the post-login redirect
-without blocking ordinary account access. Implementation and genuine provider
-acceptance remain in progress; the five input routes and live financial gates
-are unchanged. Earlier wallets-off observations remain dated configuration facts.
+without blocking ordinary account access. Implementation is deployed and genuine
+read-only user ownership/configuration acceptance passed; default recovery and
+remaining provider/device scenarios are open. The five input routes and live
+financial gates are unchanged. Earlier wallets-off observations remain dated
+configuration facts. The founder selected continued payment-provider comparison
+and identified their existing wallet as Tangem; neither selects custody/signing
+or authorizes contacting a provider.
 
 ## Direction and phases
 
@@ -133,10 +156,10 @@ The screenshot is CRSHMARKET. [Blink](https://www.blink.cash/apps) lists that
 integration; this identifies its passkey deposit option, not a card processor.
 Card/crypto business approval, Canadian/provincial support, commercial terms and
 Bitcoin/BNB conversion routes remain unverified. Privy login/wallet support alone
-does not establish payout eligibility. The deployed `d6e2d35` has wallet creation
-off; the founder-approved durable EVM provisioning change is implemented locally
-and awaits its separate release and provider acceptance. No custody/export flow
-is claimed accepted.
+does not establish payout eligibility. The earlier `d6e2d35` release had wallet
+creation off. The founder-approved durable EVM provisioning is now deployed and
+read-only user-only ownership acceptance passed. Default recovery and a
+custody/export execution remain unverified.
 
 Provider review concerns support for YapArena's actual activity and flow of
 funds; it is not a blanket assertion that wallet transfers require incorporation.
@@ -258,6 +281,18 @@ independently of the general background-job setting, with database leases across
 replicas. Provider incident handling requires a single writer
 because the provider has no conditional ownership API for freeze/unfreeze.
 Resume after suspension still requires reviewed reconciliation.
+
+The first-key/logout overlap correction is committed in `92f11b4`. An older
+positively acknowledged reset may drain only through the exact successful
+authenticated-logout generation chain; a later logout then performs its own
+reset. Older completion cannot adopt a stale generation, lower a token cutoff
+or wake wallet work. Unknown/crashed mutations and changed authority remain
+manual. A separate owner-only, fingerprint-bound review can rearm the exact
+stopped acknowledged/inherited pair once without making any provider mutation.
+Its fresh/upgrade PostgreSQL gate passed 248 cases on each path, including
+runtime-role denial, adversarial review evidence, concurrent replay, in-flight
+intent competition and audit rollback. This is local acceptance; the new
+disposable account has not yet been repaired or genuinely retested.
 
 Sensitive backend changes retain operation-bound password/SIWE proof and reuse
 the same Privy passkey for an application-issued, server-verified WebAuthn

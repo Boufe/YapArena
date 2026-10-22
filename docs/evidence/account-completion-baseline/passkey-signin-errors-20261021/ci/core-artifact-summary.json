@@ -1,0 +1,65 @@
+{
+  "parent": {
+    "status": "passed",
+    "steps": [
+      {
+        "name": "build",
+        "status": "passed"
+      },
+      {
+        "name": "fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers",
+        "status": "passed"
+      },
+      {
+        "name": "homepage navigation, interactions, responsive layout and accessibility",
+        "status": "passed"
+      },
+      {
+        "name": "Live/replay preview playback and handoff",
+        "status": "passed"
+      }
+    ],
+    "scope": "Disposable local PostgreSQL and synthetic browser/media fixtures; no hosted or physical-device acceptance"
+  },
+  "children": [
+    {
+      "path": "a4/arena/evidence.json",
+      "result": "PASS",
+      "allBooleanChecksTrue": true,
+      "booleanCheckCount": 17,
+      "errors": []
+    },
+    {
+      "path": "a4/shared-bots/evidence.json",
+      "result": "PASS",
+      "allBooleanChecksTrue": true,
+      "booleanCheckCount": 11,
+      "errors": []
+    },
+    {
+      "path": "homepage/evidence.json",
+      "result": "PASS",
+      "allBooleanChecksTrue": true,
+      "booleanCheckCount": 18,
+      "errors": []
+    },
+    {
+      "path": "live/evidence.json",
+      "result": "PASS",
+      "allBooleanChecksTrue": true,
+      "booleanCheckCount": 15,
+      "errors": []
+    },
+    {
+      "path": "a4/browser-evidence.json",
+      "explicitResultFieldPresent": false,
+      "assertionDescriptions": 15,
+      "errors": [],
+      "acceptanceBoundary": "Its parent A4 gate passed; no explicit child result field is inferred."
+    }
+  ],
+  "entries": 37,
+  "unsafeEntries": 0,
+  "uncompressedBytes": 19936517,
+  "retainedWalletAcceptanceJsonUploaded": false
+}

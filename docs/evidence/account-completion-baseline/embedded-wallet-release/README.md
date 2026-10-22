@@ -89,14 +89,17 @@ No OTP, OAuth, passkey ceremony, account creation or financial action was run by
 these guest checks. Dashboard automatic creation remains off because durable
 application jobs own provisioning.
 
-The actual read-only provider wallet result is **PENDING**, requiring credential
+The release-time read-only provider wallet result was **PENDING**, requiring credential
 verification; no user-only wallet creation/ownership acceptance is claimed.
 The observed job is in `retry_wait`, with synchronized local generations and
 different current-provider versus accepted credential digests. The inspector
 does not expose the job's attempt counter or claim proof of a completed setup.
-Genuine same-key setup,
-returning login, sensitive proof and wallet recovery remain human/provider
-acceptance gates. Current [provider capability facts](provider-capability-followup.md)
+The [later genuine acceptance continuation](genuine-passkey-wallet-20261021/README.md)
+records founder-reported setup, later successful returning passkey login and
+same-key withdrawal-simulation use, followed by a separate read-only provider
+ownership **PASS** at 22:38:05 UTC. The initial failed returning attempt remains
+recorded with unknown cause. Default wallet recovery and remaining genuine
+provider/device journeys remain open. Current [provider capability facts](provider-capability-followup.md)
 distinguish free core features from unused paid sender/webhook services and
 unestablished production numeric API capacity. Canadian activity eligibility,
 five-network custody/conversion approval and funded promotional backing remain
@@ -104,11 +107,11 @@ open. Live funding/redemption remains disabled.
 
 ## Remaining acceptance and resumption
 
-- **Saved passkey and automatic wallet:** the founder is testing the existing
-  account's Finish passkey setup action. A genuine successful device assertion
-  must precede accepting that key. After a reported state change, rerun the
-  maintained read-only wallet verifier against exact `eba1dc5`; never repair,
-  adopt, retry creation or unfreeze through an inspection command. An isolated
+- **Saved passkey and automatic wallet:** the founder reports successful setup,
+  returning passkey login and use in the withdrawal simulation. The maintained
+  read-only wallet verifier then passed user-only ownership/no additional signer
+  checks against exact `eba1dc5`. It did not sign, fund or execute recovery.
+  Never repair, adopt, retry creation or unfreeze through an inspection command. An isolated
   copy of that revision is retained for later evidence-only PR updates. Its
   shell selected Node 25 and was correctly rejected; explicit existing Node 24
   passed the unchanged verifier's 20 offline checks. This is an environment

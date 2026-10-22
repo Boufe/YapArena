@@ -1,0 +1,19 @@
+{
+  "candidate": "819421d30b10acb29b38a0f75ed46360af373870",
+  "candidateTree": "bac02032063919d151880230769925c1d269734e",
+  "actualCheckoutMerge": "73722bcb594736ded5ac6264ebcff142e37d05d8",
+  "mergeParents": [
+    "fd60543b5f6d8f0b65fe1f93807252064d9317f2",
+    "819421d30b10acb29b38a0f75ed46360af373870"
+  ],
+  "mergeTree": "bac02032063919d151880230769925c1d269734e",
+  "treesEqual": true,
+  "checkoutCommitsByJob": {
+    "0_container.txt": "73722bcb594736ded5ac6264ebcff142e37d05d8",
+    "1_integration.txt": "73722bcb594736ded5ac6264ebcff142e37d05d8",
+    "2_quality _ check.txt": "73722bcb594736ded5ac6264ebcff142e37d05d8",
+    "3_monitoring.txt": "73722bcb594736ded5ac6264ebcff142e37d05d8",
+    "4_deployment.txt": "73722bcb594736ded5ac6264ebcff142e37d05d8"
+  },
+  "source": "GitHub git-commit API projection plus actual checkout log excerpts; no branch-protection configuration assertion."
+}

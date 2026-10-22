@@ -1,0 +1,119 @@
+{
+  "format": 1,
+  "auditResult": "PASS",
+  "observedAt": "2026-10-22T01:44:33.757623+00:00",
+  "runId": 39705118511,
+  "runUrl": "https://github.com/Boufe/YapArena/actions/runs/39705118511",
+  "runAttempt": 1,
+  "candidate": "819421d30b10acb29b38a0f75ed46360af373870",
+  "allFiveJobsSucceeded": true,
+  "jobs": [
+    {
+      "name": "deployment",
+      "id": 119583236416,
+      "conclusion": "success",
+      "completedAt": "2026-10-22T01:20:52Z",
+      "conditionalSkippedSteps": []
+    },
+    {
+      "name": "monitoring",
+      "id": 119583236638,
+      "conclusion": "success",
+      "completedAt": "2026-10-22T01:20:59Z",
+      "conditionalSkippedSteps": []
+    },
+    {
+      "name": "quality / check",
+      "id": 119583236690,
+      "conclusion": "success",
+      "completedAt": "2026-10-22T01:26:30Z",
+      "conditionalSkippedSteps": []
+    },
+    {
+      "name": "integration",
+      "id": 119585068723,
+      "conclusion": "success",
+      "completedAt": "2026-10-22T01:40:04Z",
+      "conditionalSkippedSteps": ["Show logs after failure"]
+    },
+    {
+      "name": "container",
+      "id": 119585068798,
+      "conclusion": "success",
+      "completedAt": "2026-10-22T01:31:40Z",
+      "conditionalSkippedSteps": []
+    }
+  ],
+  "actualCheckoutCommits": {
+    "0_container.txt": "73722bcb594736ded5ac6264ebcff142e37d05d8",
+    "1_integration.txt": "73722bcb594736ded5ac6264ebcff142e37d05d8",
+    "2_quality _ check.txt": "73722bcb594736ded5ac6264ebcff142e37d05d8",
+    "3_monitoring.txt": "73722bcb594736ded5ac6264ebcff142e37d05d8",
+    "4_deployment.txt": "73722bcb594736ded5ac6264ebcff142e37d05d8"
+  },
+  "mergeCommit": "73722bcb594736ded5ac6264ebcff142e37d05d8",
+  "mergeParents": [
+    "fd60543b5f6d8f0b65fe1f93807252064d9317f2",
+    "819421d30b10acb29b38a0f75ed46360af373870"
+  ],
+  "mergeTree": "bac02032063919d151880230769925c1d269734e",
+  "branchTree": "bac02032063919d151880230769925c1d269734e",
+  "mergeTreeMatchesBranch": true,
+  "quality": {
+    "tests": 870,
+    "pass": 870,
+    "fail": 0,
+    "skipped": 0,
+    "coverage": {
+      "lines": "93.80",
+      "branches": "91.28",
+      "functions": "95.12"
+    },
+    "treasuryFresh": 5,
+    "treasuryUpgrade": 5,
+    "accountFresh": 249,
+    "accountUpgrade": 249,
+    "logTestBlocks": [5, 5, 249, 870, 249]
+  },
+  "integration": {
+    "accountFresh": 249,
+    "accountUpgrade": 249,
+    "a4Fresh": 17,
+    "a4Upgrade": 17,
+    "treasuryFresh": 5,
+    "treasuryUpgrade": 5,
+    "testFailures": 0,
+    "testSkips": 0,
+    "retainedWalletBrowserGroups": 4,
+    "logTestBlocks": [5, 5, 249, 17, 249, 17]
+  },
+  "artifact": {
+    "format": 1,
+    "artifactId": 12394579842,
+    "runId": 39705118511,
+    "sha256": "25edcec604a87e56f0269805da3ed8371d27ce3e773d9e5f79280659cad8076f",
+    "downloadMatchesApiDigest": true,
+    "jsonFiles": 6,
+    "pngFiles": 31,
+    "recordedChecks": 76,
+    "structuredResultsPassed": true,
+    "recordedErrorsAndAccessibilityListsEmpty": true,
+    "pngHeadersAndDimensionsValid": true
+  },
+  "runtimeFacts": {
+    "node": "v24.21.0 (actual integration log)",
+    "dockerPostgres": "18.4 (Debian 18.4-1.pgdg12+1), actual integration log",
+    "nativePostgresSetup": "17.11 (Ubuntu 17.11-1.pgdg24.04+2), actual integration log"
+  },
+  "rawRunLogsSha256": "ae994ffb25872178bbb834c3980ca34aada349c314d5a8f96acc5894755a23e9",
+  "mutations": 0,
+  "limitations": [
+    "CI verifies local disposable databases, synthetic browser/media fixtures and configured build/scan gates; it is not deployed repair or genuine returning-sign-in/native-device acceptance.",
+    "The deployment job validates Compose configuration; it does not deploy Render.",
+    "Container scans are configured for fixable HIGH/CRITICAL findings and ignore unfixed vulnerabilities; success is not a claim that every dependency advisory is absent.",
+    "The only skipped CI step was conditional failure-log collection after successful integration; all recorded Node test blocks have zero skipped tests.",
+    "Core evidence review checks structured results, archive integrity and PNG headers/dimensions. It does not substitute a fresh visual or physical-device review.",
+    "Read-only GitHub requests and private local files only; no provider/database/service mutation or account data requested."
+  ],
+  "archiveScope": "Sanitized CI status/count/checkout projections and allowlisted raw excerpts. Full raw logs and ZIPs remain private; no artifact account records or screenshots are republished."
+}

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "title": "Email-first account, security and redeemable Yap Coins requirement checklist",
-  "checkedAt": "2026-10-21T22:25:32.620Z",
+  "checkedAt": "2026-10-22T02:00:32.150651+00:00",
   "overallStatus": "incomplete",
   "scopeRule": "Each satisfied status identifies its recorded scope and limitations. Continuing future maintenance/guard duties are limitations, not invented unfinished acceptance. Local success never becomes hosted, genuine provider, physical-device, legal or live-financial acceptance. Overall remains incomplete while required genuine/external/delivery gates are open.",
   "authority": {
@@ -10,11 +10,11 @@
     "governingRequirements": "product-prd.md",
     "independentAudit": "evidence/account-completion-baseline/wallet-phase-independent-completion-audit.md",
     "pathBase": "docs/",
-    "newClaims": false
+    "claimPolicy": "New bounded claims require actual inspected evidence; historical audits retain their source and authorship limits."
   },
   "currentState": {
-    "workingTreeBase": "a9706ccb55ae342c4f11366145b1896d17656931",
-    "sourceBoundary": "The integrated/native runs started from a9706cc with the exact three backend and two PostgreSQL-test changes pinned below, before their focused commits. Those changes and the corrected retained-wallet verifier/evidence are now committed and pushed in 2efc95c/ce85b4a/eba1dc5. The integrated run used the older 05c0 verifier; separate controlled RED/GREEN acceptance passed for the new 3720 verifier. All five exact-tree CI checks passed in run 39678375965; guarded backup/restore rehearsal and owner migration passed; exact web deployment is LIVE at eba1dc5, with readiness and seven hosted guest groups passed; genuine provider authentication and wallet acceptance remain open.",
+    "workingTreeBase": "7bb6e7f180b6346f7d880a7b66fe22084d775c31",
+    "sourceBoundary": "Application819421d is exact LIVE with all five exact-tree CI checks; local870/249-per-path/core4, SDK184 and overlapping32/11 retain their source scopes.7bb is verifier-only. Original3096/e8 and historical phase hashes remain dated evidence. Current new-disposable repair/return acceptance is open, with no live-financial activation.",
     "correctionHashes": {
       "src/platform/auth/embedded-wallet-provisioning.ts": "afadf4f70fc737d033320cb9e6172073282f512dcb845aff8fdb058a9ef325ba",
       "src/platform/auth/provider-accounts.ts": "a87ccaba271a9c4f30fa712e81f5759fa488749d2224611b61f6b8adeec286e1",
@@ -26,20 +26,22 @@
       "tests/provider-control-phases-postgres.test.js": "8a344febfeaec90b27f389e19aa4b2323ec632409bd6835a40872e0ea0432865"
     },
     "latestLocalGate": {
-      "date": "2026-10-21",
-      "qualityTestsPassed": 858,
+      "applicationSourceCommit": "819421d30b10acb29b38a0f75ed46360af373870",
+      "qualityTestsPassed": 870,
       "qualitySkipped": 0,
       "coveragePercent": {
-        "lines": 95.32,
-        "branches": 91.22,
-        "functions": 95.35
+        "lines": 93.79,
+        "branches": 91.28,
+        "functions": 95.12
       },
-      "accountSecurityLedgerTestsPerFreshAndUpgrade": 239,
+      "accountSecurityLedgerTestsPerFreshAndUpgrade": 249,
       "a4TestsPerFreshAndUpgrade": 17,
       "treasuryTestsPerFreshAndUpgrade": 5,
-      "nativePasskeyGroups": 18,
-      "retainedWalletVerifierSha256": "05c0eae6d63f2a2f22d9cbff08af590f7321c41850ee5c25bfbd7dbe681ef3db",
-      "evidence": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+      "coreBrowserSteps": 4,
+      "retainedWalletGroups": 4,
+      "status": "passed",
+      "scope": "Rootactualr3begancf4249plusfrozenUIlatercommitted819; no runtime source changed. SDK184/focused32 separate. Later verifier-only additions separatelychecked.",
+      "evidence": "evidence/account-completion-baseline/account-setup-feedback-20261022/integrated/result.json"
     },
     "earlierSeparateScopes": {
       "sdkChecks": 111,
@@ -49,12 +51,12 @@
       "rule": "These are separately dated/source-pinned results, not rerun or upgraded by the current backend correction."
     },
     "staging": {
-      "webRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "webRevision": "819421d30b10acb29b38a0f75ed46360af373870",
       "replayWorkerRevision": "fd60543b5f6d8f0b65fe1f93807252064d9317f2",
       "autoDeploy": "off_for_both_services",
       "appliedMigrations": 45,
       "pendingMigrations": [],
-      "accounts": 4,
+      "accounts": 5,
       "retainedAccounts": 3,
       "genuineManualSignupPreserved": true,
       "selectedResetAccountsAbsent": true,
@@ -74,14 +76,17 @@
         "evidence/account-completion-baseline/embedded-wallet-release/render-account-resume.json",
         "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json",
         "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json",
-        "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json",
+        "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-deploy-accepted.json",
+        "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json",
+        "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
       ],
       "schemaReleaseApplied": true,
-      "releaseState": "live_guest_postflight_passed_genuine_acceptance_pending",
+      "releaseState": "exact819LIVE_guest7_assets14_readiness200_passed_containment_and_owner_repair_pending",
       "webDeploymentConfirmed": true,
-      "lastConfirmedWebRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
-      "requestedWebRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
-      "webDeploymentId": "dep-dbcjbacs728c73f7m02g",
+      "lastConfirmedWebRevision": "819421d30b10acb29b38a0f75ed46360af373870",
+      "requestedWebRevision": "819421d30b10acb29b38a0f75ed46360af373870",
+      "webDeploymentId": "dep-dbcmpbbncjis73cvs9pg",
       "webDeploymentStatus": "live",
       "replayWorkerDeploymentId": "dep-dbcjb7uq1p3s73c9oe60",
       "replayWorkerDeploymentStatus": "live",
@@ -92,23 +97,27 @@
       "exactRestoredFingerprints": true,
       "restoredMigrationRehearsal": true,
       "securityFingerprintsUnchanged": "guarded_pre_post_migration_comparison_passed",
-      "providerGenerationMismatch": 0,
-      "unresolvedProviderResetJobs": 0,
-      "previousWebRevision": "d6e2d355da255e03c257802c890c036c4d572a62",
-      "renderObservedAt": "2026-10-21T22:08:54.316Z",
+      "providerGenerationMismatch": "one_new_disposable_account_mismatch_in_current_snapshot",
+      "unresolvedProviderResetJobs": "two_manual_jobs_for_new_disposable_account",
+      "previousWebRevision": "3096ca776a04f3cf38ad835d7348329791c0385b",
+      "renderObservedAt": "2026-10-22T01:56:42.946Z",
       "databasePostflightObservedAt": "2026-10-21T22:10:58.209Z",
-      "guestObservedAt": "2026-10-21T22:09:27.913Z",
+      "guestObservedAt": "2026-10-22T01:58:01.352Z",
       "guestGroupsPassed": 7,
       "hostedAssetHashesMatched": 14,
       "readinessHttpStatus": 200,
       "retiredRegisterHttpStatus": 410,
       "anonymousEmbeddedWalletHttpStatus": 401,
       "anonymousEmbeddedWalletPrivateNoStoreNoCookie": true,
-      "guestAccountOrProviderMutations": 0
+      "guestAccountOrProviderMutations": 0,
+      "previousRecordedAccounts": 4,
+      "accountsObservedAt": "2026-10-22T00:19:44.300Z"
     },
     "requiredOpenGates": [
-      "Genuine returning email, Google, same-Privy-key activation/returning/native proof, recovery and user-controlled wallet creation/default recovery.",
+      "Current owned work: final source/evidence/privacy audit and PR publication; old-instance containment, exact reviewed disposable reset repair, genuine retest and guarded disposable cleanup. Combined870, all five exact819 CI checks and actualLIVE/guest7/assets14 passed.",
+      "Genuine returning email, Google/linking, recovery, default wallet recovery and remaining provider/device journeys. Founder reports successful key setup, returning passkey login and sandbox proof; separate read-only wallet ownership PASS is recorded with its limits.",
       "Physical-device/screen-reader and full WCAG acceptance.",
+      "Hosted Redis multi-instance/capacity and controlled outage acceptance; local two-process/outage evidence is not that trial.",
       "Actual activity/provider custody/signing/five-network eligibility and Canadian province/age/identity/retention review.",
       "Approved funded/allocated promotional backing and all financial live-release gates."
     ],
@@ -117,18 +126,33 @@
       "Interrupted/expired FIRSTsetup may use the approved same-DID single current Privy key if no original candidate was captured, only never-funded/never-strong plus fresh native verification; captured candidates remain exact.",
       "Automatically provision one empty user-controlled EVM wallet/default Privy recovery with no delegated app signer; signup is independent. New external-wallet linking/unknown-wallet signup in Privy mode is removed.",
       "No daily withdrawal cap; gross minimum 5USDC; displayed network fee is deducted inside gross. Completed purchases use USDC withdrawals, not original-route refunds.",
-      "Only original eligible balance sources may be restored from funded correction backing; cost consent records are not charges."
+      "Only original eligible balance sources may be restored from funded correction backing; cost consent records are not charges.",
+      "Founder selected continued payment-provider comparison; Tangem is their existing wallet, not an approved custody/signing design. No permission to send the NOWPayments inquiry has been given."
     ],
     "latestPushedReleaseCandidate": {
-      "revision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
-      "backendCommit": "2efc95c",
-      "retainedWalletVerifierCommit": "ce85b4a",
-      "ci": "all_five_success_run_39678375965_exact_merge_tree_verified",
-      "stagingRelease": "live_eba1dc5_readiness_guest7_assets14_passed_genuine_provider_pending",
-      "ciRunId": 39678375965,
+      "revision": "819421d30b10acb29b38a0f75ed46360af373870",
+      "ci": "all_five_passed_exact_tree",
+      "ciRunId": 39705118511,
       "pullRequest": "https://github.com/Boufe/YapArena/pull/42",
+      "sourcePushed": true,
+      "webDeployedRevision": "819421d30b10acb29b38a0f75ed46360af373870",
       "prBodyUpdatedForRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
-      "sourceAndEvidenceCommittedAndPushed": true
+      "pendingTestOnlyVerifier": "aa8449692d08734a4103f1c2febc7a6f4bd059fb4809f718faccfe9a964914d4",
+      "newEvidencePublication": "pending_private_scan_review_commit_and_push",
+      "deploymentRequest": {
+        "id": "dep-dbcmpbbncjis73cvs9pg",
+        "revision": "819421d30b10acb29b38a0f75ed46360af373870",
+        "lastObservedStatus": "live",
+        "liveAcceptance": true
+      },
+      "drainAttempt": {
+        "result": "INCOMPLETE",
+        "stage": "before",
+        "requests": 3,
+        "mutations": 0,
+        "cause": "Worker safe-shape mismatch under investigation; no automatic retry or owner rearm."
+      },
+      "guestAcceptance": "PASS_7_groups_14_matching_assets_readiness200_no_account_provider_mutations"
     },
     "focusedRetainedWalletRefresh": {
       "result": "passed_controlled_red_and_green",
@@ -142,26 +166,25 @@
     },
     "latestCiGate": {
       "result": "PASS",
-      "runId": 39678375965,
-      "revision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
-      "testedMergeCommit": "4f7f28a1aac35fd8da7197debbe5481757a11065",
-      "testedTree": "c1179532281a42b92094b52448d11e26c33404a0",
+      "runId": 39705118511,
+      "revision": "819421d30b10acb29b38a0f75ed46360af373870",
+      "testedMergeCommit": "73722bcb594736ded5ac6264ebcff142e37d05d8",
+      "testedTree": "bac02032063919d151880230769925c1d269734e",
       "allFiveCheckoutLogsVerified": true,
-      "qualityTestsPassed": 858,
+      "qualityTestsPassed": 870,
       "qualitySkipped": 0,
       "coveragePercent": {
-        "lines": 95.32,
-        "branches": 91.23,
-        "functions": 95.35
+        "lines": 93.8,
+        "branches": 91.28,
+        "functions": 95.12
       },
       "eachFreshAndUpgrade": {
-        "accountSecurityLedger": 239,
+        "accountSecurityLedger": 249,
         "a4": 17,
         "treasury": 5
       },
-      "retainedWalletGroups": 4,
-      "evidence": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/result.json",
-      "limitations": "Runner-local disposable/synthetic acceptance only; no hosted deployment, genuine provider or physical-device claim."
+      "evidence": "evidence/account-completion-baseline/ci-819421d-20261022/README.md",
+      "scope": "Exact candidate tree and all five actual checkout logs; disposable PostgreSQL and synthetic browser evidence. Deployment CI validates configuration, not Render deployment or genuine returning login."
     },
     "runtimeConfigurationSeparation": {
       "result": "PASS",
@@ -181,8 +204,15 @@
       "reviewedAt": "2026-10-21T22:22:04.107704+00:00",
       "requirementsReviewed": 52,
       "newIndependentApplicationSourceGapFound": false,
-      "currentScope": "Exact eba source, new CI logs/tree/artifacts, source-pinned local 858/239/native18, separate SDK111/coin22/cookie7-14 scopes and current 52-row checklist. Genuine, hosted, device and financial live-release obligations remain open. Actual migration/security preservation, Render LIVE and guest7/assets14/anonymous-wallet postflight now independently read; genuine provider inspection remains PENDING.",
-      "ongoingReleaseAndDelivery": [],
+      "currentScope": "Earlier audit records retain their own dated revision. Current full52 review is finding and correcting stale statuses; final frozen integrated source/evidence audit remains pending.",
+      "ongoingReleaseAndDelivery": [
+        "R17",
+        "R42",
+        "R43",
+        "R48",
+        "R49",
+        "R50"
+      ],
       "humanOrGenuineProviderJourneys": [
         "R04",
         "R05",
@@ -225,8 +255,12 @@
         "R34",
         "R36"
       ],
-      "controlledHostedOperationalAcceptance": ["R37", "R38", "R39"],
-      "recommendation": "Current owned-fixture cleanup R42 is satisfied. Track any future explicitly owned acceptance identity before separately scoped cleanup; no additional hosted deletion is authorized.",
+      "controlledHostedOperationalAcceptance": [
+        "R37",
+        "R38",
+        "R39"
+      ],
+      "recommendation": "Keep task incomplete. Complete final combined/CI/release, reviewed exact disposable repair, genuine acceptance and separately guarded disposable cleanup; protect original four accounts.",
       "satisfiedRecordedScopes": [
         "R01",
         "R02",
@@ -234,11 +268,7 @@
         "R20",
         "R35",
         "R40",
-        "R41",
-        "R42",
-        "R43",
-        "R48",
-        "R50"
+        "R41"
       ],
       "finalSecondDocumentReview": {
         "result": "PASS",
@@ -252,7 +282,14 @@
         "sourceCompiledHashes": 8,
         "newUnsupportedClaimOrBlockerFound": false,
         "scope": "Actual read-only reviewer confirmation; this later fixed-text outcome records that pass, not a new code/test/provider run."
-      }
+      },
+      "newContinuationSourceAudit": {
+        "result": "PASS_for_e8_and_deployed3096_source_scope_before_email_notice_change",
+        "requirementsReviewed": 52,
+        "newIndependentApplicationSourceGapFound": false,
+        "scope": "Wallet reviewer read all52 criteria and security/financial state transitions; owns wallet/classifier modules so authorship limits remain. New email-notice change and final frozen docs require separate review."
+      },
+      "newKnownGenuineFailure": "Disposable returning login failed after acknowledged reset overlapped logout. Exact frozen provider/key/job state verified. Local normal fix plus replay follow-up pass249perpath; combined/hosted repair/genuine retest pending."
     },
     "releaseEvidenceReview": {
       "reviewedAt": "2026-10-21T22:14:32.257574+00:00",
@@ -261,27 +298,407 @@
       "scope": "Guarded application-schema backup/rehearsal/migration, unchanged pre-resume security comparison, exact Render LIVE revision and guest/no-auth-mutation HTTP acceptance were observed. This is not genuine email/OAuth/passkey, wallet creation/recovery, physical-device or live-financial acceptance."
     },
     "providerWalletAcceptance": {
-      "result": "PENDING",
-      "reason": "credential_verification_required",
-      "observedAt": "2026-10-21T22:09:31.603Z",
-      "state": "retry_wait",
+      "result": "PASS",
+      "reason": "confirmed_user_owned_wallet",
+      "observedAt": "2026-10-21T22:38:05.119Z",
+      "revision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "deployedRevisionVerified": true,
+      "fixedTargetsVerified": true,
+      "ownerRoleVerified": true,
+      "tlsVerified": true,
+      "databaseReadOnlyVerified": true,
+      "ownerConnectionsClosedBeforeProvider": true,
+      "activeMappings": 1,
+      "jobPresent": true,
+      "state": "ready",
       "generationMatch": true,
       "acceptedCredentialSnapshot": true,
-      "providerCredentialsMatch": false,
+      "providerCredentialsMatch": true,
+      "userOnlyOwnerVerified": true,
+      "noAdditionalSignerOrPolicyVerified": true,
       "repeatedProviderReadsAgree": true,
       "repeatedDatabaseReadsAgree": true,
-      "providerRequests": 6,
+      "providerRequests": 8,
+      "providerMutationAttemptsBlocked": 0,
+      "renderRequests": 4,
+      "databaseSnapshots": 2,
+      "liveFundingVerified": false,
+      "physicalDeviceVerified": false,
+      "mutations": 0,
+      "evidence": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/wallet-ownership-pass.json",
+      "scope": "Actual read-only user-only ownership/no additional signer-policy PASS; no default recovery, signing, funds or physical-device execution. Earlier pending snapshots remain archived.",
+      "previousPendingEvidence": "evidence/account-completion-baseline/embedded-wallet-release/provider-wallet/acceptance-pending.json"
+    },
+    "repositoryPrivacy": {
+      "result": "PASS",
+      "testedHead": "7bb6e7f180b6346f7d880a7b66fe22084d775c31",
+      "textFilesScanned": 1121,
+      "binaryFilesSkipped": 799,
+      "actualSecretsChecked": 5,
+      "matchingFiles": 0,
+      "secretFileMatches": 0,
+      "readOnlyRequests": 2,
+      "databaseConnections": 0,
+      "mutations": 0,
+      "helperSha256": "2d85829fbb247f88e7d494a9cae37b9b0659d186fd254b62fa2d45e00ecf5b36",
+      "evidence": "evidence/account-completion-baseline/privacy-20261022/README.md",
+      "privateDisposableIdentifiersChecked": 2,
+      "privateDisposableIdentifierMatches": 0,
+      "scope": "Actual known-secret/raw-and-encoded and exact private recipient/DID text scans. The subsequent privacy/CI archives and later release artifacts require final review; binary pixels/history/unknown obfuscation excluded."
+    },
+    "publishedDocumentation": {
+      "revision": "1bec9898712955043c9298025b639051b2b1ed9e",
+      "pullRequest": "https://github.com/Boufe/YapArena/pull/42",
+      "prBodyUpdatedAt": "2026-10-21T22:24:50Z",
+      "runtimeSourceUnchangedFrom": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "laterDocumentationCi": "Current evidence-only head checks are visible on PR42; they do not replace or relabel exact deployed-source CI39678375965."
+    },
+    "genuineUserAcceptance": {
+      "runtimeRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "passkeySetup": "founder_reported_success",
+      "returningPasskeyLogin": "founder_initial_failure_then_later_success",
+      "operationProof": "founder_report_plus_independent_readonly_exact_consumed_privy_passkey_audit_terms_reservation_match_no_live_payout",
+      "embeddedWallet": "founder_reported_assigned_and_separate_readonly_provider_ownership_pass",
+      "deviceBrowserVersion": "not_recorded",
+      "evidence": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md"
+    },
+    "paymentProviderComparison": {
+      "selectedByFounder": "continue_comparing_payment_providers",
+      "existingWalletDevice": "Tangem",
+      "providerSelected": false,
+      "custodySelected": false,
+      "externalContactAuthorized": false,
+      "candidates": [
+        "NOWPayments",
+        "CoinGate",
+        "BitPay"
+      ],
+      "evidence": "provider-comparison-20261021.md",
+      "blocker": "Actual operator/activity/custody and all5 exact route contract require provider answer; public listings do not establish eligibility.",
+      "externalContactDecision": "Founder explicitly chose keep the inquiry unsent; do not contact NOWPayments."
+    },
+    "genuineSandboxAuthorization": {
+      "result": "PASS_for_exact_recorded_proof_and_reservation",
+      "runtimeRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "consumedPasskeyWithdrawalProofs": 1,
+      "matchedAuthorizedReservations": 1,
+      "simulationBooks": 1,
+      "completedSimulatedFundingRequests": 1,
+      "welcomeLots": 0,
+      "dailyLots": 0,
+      "grantEvents": 0,
+      "liveJournals": 0,
+      "liveGrantLots": 0,
+      "mutations": 0,
+      "evidence": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/sandbox-authorization-readonly.json",
+      "scope": "No manual approval/live payout/external funding/default recovery/device inference. Grant predicates are vacuous at0lots."
+    },
+    "previousLocalGate": {
+      "date": "2026-10-21",
+      "qualityTestsPassed": 858,
+      "qualitySkipped": 0,
+      "coveragePercent": {
+        "lines": 95.32,
+        "branches": 91.22,
+        "functions": 95.35
+      },
+      "accountSecurityLedgerTestsPerFreshAndUpgrade": 239,
+      "a4TestsPerFreshAndUpgrade": 17,
+      "treasuryTestsPerFreshAndUpgrade": 5,
+      "nativePasskeyGroups": 18,
+      "retainedWalletVerifierSha256": "05c0eae6d63f2a2f22d9cbff08af590f7321c41850ee5c25bfbd7dbe681ef3db",
+      "evidence": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+    },
+    "latestSdkGate": {
+      "applicationRevision": "819421d30b10acb29b38a0f75ed46360af373870",
+      "fullChecks": 184,
+      "fullResultSha256": "dba2d80a4fe09078a70c1feb0ff666cad23aae9e9768b5e61b508ca6446ca214",
+      "fullVerifierSha256": "b2c88ac79ad7a0a9011cf2bcfa7047b4cf42f49980cadf26e49ca119da6d27e3",
+      "fullFixtureBase": "7e5c0a3_plus_exact_frozen_application_hashes_later_committed819421d",
+      "focusedChecks": 32,
+      "focusedResultSha256": "3eff88a119b07fd18b1e51ac8e7b1363c2eb3c379aee5cbc2b324b16f8834eeb",
+      "focusedDerivedVerifierSha256": "7130b89d_prefix_matches_maintained_aa844969",
+      "maintainedVerifierSha256": "aa8449692d08734a4103f1c2febc7a6f4bd059fb4809f718faccfe9a964914d4",
+      "maintainedVerifierCommit": "7bb6e7f",
+      "overlappingRunsNot216Unique": true,
+      "errors": 0,
+      "requirementFailures": 0,
+      "newCardAxeReports": 9,
+      "newCardAxeViolations": 0,
+      "scope": "InstalledSDK_synthetic_provider_and_app_responses_virtual_authenticator_no_genuine_or_hosted_acceptance",
+      "limits": [
+        "Fullb2 initial-outage report incorrectly implied a prior draft; correctedfocused report records null. Normal draft assertions genuinely passed.",
+        "RawfullpageCSSzoomshotrepeatsstickycontent; preservedasartifactlimitation. Separatecleanviewportcapture11passeswithoneheader/card; notnativebrowserzoom/physicaldevice."
+      ],
+      "archive": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md",
+      "viewportOnlyZoomChecks": 11,
+      "viewportOnlyZoomScope": "Overlappingone_desktop_fixture_sameapp_clean1280x900_CSSzoom2_oneheader_onecard_nodocumentoverflow_notnativebrowserzoom"
+    },
+    "previousDeployedSourceCi": {
+      "result": "PASS",
+      "runId": 39678375965,
+      "revision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+      "testedMergeCommit": "4f7f28a1aac35fd8da7197debbe5481757a11065",
+      "testedTree": "c1179532281a42b92094b52448d11e26c33404a0",
+      "allFiveCheckoutLogsVerified": true,
+      "qualityTestsPassed": 858,
+      "qualitySkipped": 0,
+      "coveragePercent": {
+        "lines": 95.32,
+        "branches": 91.23,
+        "functions": 95.35
+      },
+      "eachFreshAndUpgrade": {
+        "accountSecurityLedger": 239,
+        "a4": 17,
+        "treasury": 5
+      },
+      "retainedWalletGroups": 4,
+      "evidence": "evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/result.json",
+      "limitations": "Runner-local disposable/synthetic acceptance only; no hosted deployment, genuine provider or physical-device claim."
+    },
+    "plannedDisposableAcceptance": {
+      "founderApproved": true,
+      "recipientProvidedPrivately": true,
+      "created": true,
+      "cleanupScope": "Only newly created explicitly tracked acceptance identities; preserve retained/manual accounts.",
+      "dependency": "Fix and test acknowledged-reset supersession and visible setup/wallet feedback; independently review exact owner repair; deploy combined exact source and repair only disposable state before genuine retest.",
+      "browserOpened": true,
+      "firstAttempt": "immediate_send_failure_in_Playwright_launched_Chrome_no_visible_CAPTCHA_cause_unknown",
+      "successfulAttempt": "founder_reported_success_in_ordinary_Chrome_Incognito_no_driver",
+      "serverAttribution": "ATTRIBUTED_one_new_account_and_mapping_readonly_b1",
+      "cleanupExecuted": false,
+      "subsequentJourney": "FAILED_INCOMPLETE_ambiguous_setup_and_returning_passkey_email_failure"
+    },
+    "latestOperatorGate": {
+      "revision": "e8fcdffb6e4e7a857cf761b136b40fc99807d1a4",
+      "qualityTestsPassed": 859,
+      "qualitySkipped": 0,
+      "coveragePercent": {
+        "lines": 95.32,
+        "branches": 91.23,
+        "functions": 95.35
+      },
+      "eachFreshAndUpgrade": {
+        "accountSecurityLedger": 240,
+        "a4": 17,
+        "treasury": 5
+      },
+      "evidence": "evidence/account-completion-baseline/operator-pooler-20261021/README.md",
+      "scope": "Full database-isolated local quality and fresh/upgrade verification for operator-only change; no new core-browser/native/SDK/provider/device run inferred."
+    },
+    "genuineSandboxManualReview": {
+      "result": "PASS_for_exact_existing_simulation_request",
+      "observedAt": "2026-10-21T23:55:48.527Z",
+      "runtimeRevision": "3096ca776a04f3cf38ad835d7348329791c0385b",
+      "operatorRevision": "e8fcdffb6e4e7a857cf761b136b40fc99807d1a4",
+      "helperSha256": "6b049c8f61ac4f50e640be1450ad68df2dc7d5691a83ad807aaf8790357ef938",
+      "approvedExistingRequests": 1,
+      "completedSimulationReceipts": 1,
+      "providerRequests": 0,
+      "chainRequests": 0,
+      "createdIdentities": 0,
+      "issuedGrants": 0,
+      "liveJournals": 0,
+      "liveGrantLots": 0,
+      "automaticRetry": false,
+      "evidence": "evidence/account-completion-baseline/operator-pooler-20261021/simulation/result.json",
+      "scope": "Actual maintained owner review and deterministic simulation settlement. Exact terms/reservation and source/identity fingerprints preserved; no new browser receipt, grant, external settlement or live acceptance."
+    },
+    "latestOperatorCi": {
+      "result": "PASS",
+      "runId": 39695525275,
+      "revision": "e8fcdffb6e4e7a857cf761b136b40fc99807d1a4",
+      "testedMergeCommit": "e9626bf6beb582b61a9c9a764176bb8569389503",
+      "testedTree": "35a3af3fd7e0b33a20ad1148e27b3e27766a73af",
+      "allFiveCheckoutLogsVerified": true,
+      "qualityTestsPassed": 859,
+      "qualitySkipped": 0,
+      "coveragePercent": {
+        "lines": 95.31,
+        "branches": 91.21,
+        "functions": 95.35
+      },
+      "eachFreshAndUpgrade": {
+        "accountSecurityLedger": 240,
+        "a4": 17,
+        "treasury": 5
+      },
+      "evidence": "evidence/account-completion-baseline/operator-pooler-20261021/ci/result.json",
+      "scope": "Exact owner-operator CI; application source unchanged from3096. Not new hosted/provider/native/SDK/device acceptance."
+    },
+    "genuineDisposableLocalState": {
+      "result": "ATTRIBUTED_not_feature_acceptance",
+      "observedAt": "2026-10-22T00:19:44.300Z",
+      "acceptedProviderKeys": 1,
+      "firstSetupConsumedCaptured": 1,
+      "walletLocalReady": true,
+      "providerResetJobs": 2,
+      "manualProviderResetJobs": 2,
+      "generationMatches": false,
+      "sessions": 0,
+      "newFinancialRows": 0,
+      "livePostings": 0,
+      "providerRequests": 0,
+      "mutations": 0,
+      "evidence": "evidence/account-completion-baseline/genuine-email-signup-20261022/identity-and-local-state.json",
+      "scope": "Actual read-only local state; provider freeze/preceding cause/ownership/device not inferred. Human journey failed/incomplete."
+    },
+    "genuineDisposableProviderState": {
+      "result": "PASS_for_exact_state_reads_not_feature_acceptance",
+      "providerFrozen": true,
+      "providerCredentialsMatch": true,
+      "acceptedProviderKeysMatch": true,
+      "frozenMatchesAcknowledgedLocalJob": true,
+      "walletInspection": "skipped_provider_frozen",
+      "providerRequests": 3,
       "renderRequests": 4,
       "databaseSnapshots": 2,
       "mutations": 0,
-      "userOnlyOwnershipAcceptance": "not_established",
-      "noAdditionalSignerOrPolicyAcceptance": "not_established",
-      "physicalDeviceVerified": false,
-      "liveFundingVerified": false,
-      "evidence": "evidence/account-completion-baseline/embedded-wallet-release/provider-wallet/acceptance-pending.json",
-      "scope": "Actual read-only provider inspection, not a successful wallet creation/recovery or genuine native-key activation. Human testing remains in progress; no result is assumed."
+      "independentBlock": "founder_reports_only_YapArena_used_no_separate_dashboard_block",
+      "repairExecuted": false,
+      "evidence": "evidence/account-completion-baseline/genuine-email-signup-20261022/provider-freeze-readonly.json"
     },
-    "repositoryPrivacy": {
+    "localResetOverlapCorrection": {
+      "revision": "92f11b449337ad12f2c2295d9b81fb72afb14634",
+      "focusedFreshPassed": 248,
+      "focusedUpgradePassed": 248,
+      "skipped": 0,
+      "treasuryPerPath": 5,
+      "independentReview": "exact_source_and_actual_logs_no_blocking_findings",
+      "scope": "local_disposable_PostgreSQL_with_synthetic_provider",
+      "combinedGate": "corrected_r3_running_after_documented_prior_failures",
+      "hostedRepair": "not_executed",
+      "evidence": "evidence/account-completion-baseline/logout-reset-overlap-20261022/README.md",
+      "replayFollowupRevision": "cf4249a",
+      "replayFollowupFocusedFreshPassed": 249,
+      "replayFollowupFocusedUpgradePassed": 249,
+      "replayFollowupEvidence": "evidence/account-completion-baseline/logout-reset-replay-20261022/README.md"
+    },
+    "localValkeyCompatibility": {
+      "revision": "0e226c9",
+      "engine": "Valkey 8.1.10",
+      "redisCompatibility": "7.2.4",
+      "operationalGroupsPassed": 10,
+      "offlineSafetyGroupsPassed": 2,
+      "cleanupVerified": true,
+      "scope": "local_owned_loopback_container_and_two_HTTP_worker_processes",
+      "hostedTopologyOutageAcceptance": false,
+      "evidence": "evidence/redis-acceptance/valkey-8.1.10-20261022/README.md"
+    },
+    "integratedCorrectionFindings": {
+      "firstCombinedRun": "build_passed_PostgreSQL_shared_memory_blocked_by_sandbox_no_quality_acceptance",
+      "secondCombinedRun": "FAILED_existing_accounting_fixture_never_reached_expected_ledger_barrier",
+      "focusedFollowup": "FAILED_246_of_248_fixture_uuid_type_error_and_new_owner_exact_replay_snapshot_race",
+      "accountingFixture": "bigint_ID_corrected_exact_user_definer_fixture_passed249fresh_upgrade_without_runtime_grant_change",
+      "ownerReplay": "fixed_cf4249a_deterministic_RED_and249fresh_upgrade_GREEN_independent_review_no_additional_budget_or_provider_IO_on_exact_replay",
+      "frontend": "application819_passed_full184_and_overlapping_focused32_all9newcard_axe_empty_source_and_assets_verified",
+      "release": "combined_r3_and_all_five_exact_CI_passed_exact819LIVE_guest_running_drain_before_stage_stopped_no_owner_repair"
+    },
+    "deployedClassifierLocalGate": {
+      "date": "2026-10-21",
+      "applicationSourceCommit": "3096ca776a04f3cf38ad835d7348329791c0385b",
+      "startedFrom": "5e5f1076e6bb607347e8eaaf187a12c1ed51c093 plus frozen application source554f8bff",
+      "qualityTestsPassed": 858,
+      "qualitySkipped": 0,
+      "coveragePercent": {
+        "lines": 95.32,
+        "branches": 91.22,
+        "functions": 95.35
+      },
+      "accountSecurityLedgerTestsPerFreshAndUpgrade": 239,
+      "a4TestsPerFreshAndUpgrade": 17,
+      "treasuryTestsPerFreshAndUpgrade": 5,
+      "coreBrowserSteps": 4,
+      "retainedWalletVerifierSha256": "3720a754856057a21398c2995a0fdb7733a258814aeea6d9ead66a07f2774287",
+      "evidence": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json",
+      "scope": "New combined quality/database/core-browser run, synthetic/isolation only. Separate native18/coin22/cookie7-14 not rerun. SDK verifier final ce97 runtime tested separately125."
+    },
+    "deployedClassifierCiGate": {
+      "result": "PASS",
+      "runId": 39690075806,
+      "revision": "3096ca776a04f3cf38ad835d7348329791c0385b",
+      "testedMergeCommit": "191504f207a1711f2e3fb13eaf44e43ff092f075",
+      "testedTree": "a44f97b393094eb09919cd8f6100be935f9a85f5",
+      "allFiveCheckoutLogsVerified": true,
+      "qualityTestsPassed": 858,
+      "qualitySkipped": 0,
+      "coveragePercent": {
+        "lines": 95.32,
+        "branches": 91.23,
+        "functions": 95.35
+      },
+      "eachFreshAndUpgrade": {
+        "accountSecurityLedger": 239,
+        "a4": 17,
+        "treasury": 5
+      },
+      "retainedWalletGroups": 4,
+      "evidence": "evidence/account-completion-baseline/passkey-signin-errors-20261021/ci/result.json",
+      "limitations": "Exact3096 repository gate; installedSDK125 is separate. Not hosted/provider/device/live-financial acceptance."
+    },
+    "latestAttemptedCombinedGate": {
+      "candidateRevision": "819421d30b10acb29b38a0f75ed46360af373870",
+      "start": "cf4249a_plus_frozen_frontend0823_walletaa4f_verifierb8deb_later_committed819421d",
+      "status": "passed_all_four_steps",
+      "qualityTestsPassed": 870,
+      "qualitySkipped": 0,
+      "coveragePercent": {
+        "lines": 93.79,
+        "branches": 91.28,
+        "functions": 95.12
+      },
+      "scope": "No app source changed during run; later verifier-only report/axe additions require their own focused acceptance."
+    },
+    "deployedClassifierSdkGate": {
+      "checks": 125,
+      "errors": 0,
+      "requirementFailures": 0,
+      "frontendSha256": "554f8bff0da7be8426dfea0297421dbbc5e4a46acc4f2d0a4632b97a7dfd38e4",
+      "verifierSha256": "ce97c3cfaab4dde356ec0b86110704838c99470cafea460c1102077b5b44a881",
+      "bundleSha256": "e739af3b12c31d92d26a7f5f7046a51eef4e2bd45e152fed5ecd6e3bd9545c15",
+      "evidence": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json",
+      "scope": "InstalledSDK+intercepted provider/application responses and real Chromium virtual native authenticator. Not original failed login diagnosis or provider/device acceptance."
+    },
+    "previousSuccessfulCombinedGate": {
+      "applicationSourceCommit": "7e5c0a38b9b474f1712d5d87454842c0c8a7f7ae",
+      "qualityTestsPassed": 859,
+      "qualitySkipped": 0,
+      "coveragePercent": {
+        "lines": 95.32,
+        "branches": 91.22,
+        "functions": 95.35
+      },
+      "accountSecurityLedgerTestsPerFreshAndUpgrade": 240,
+      "a4TestsPerFreshAndUpgrade": 17,
+      "treasuryTestsPerFreshAndUpgrade": 5,
+      "coreBrowserSteps": 4,
+      "evidence": "evidence/account-completion-baseline/email-send-errors-20261022/integrated/result.json",
+      "scope": "Latest successful combined local gate before subsequent reset/UX corrections. Later combined attempts failed; final corrected combined gate currently running, no PASS inferred."
+    },
+    "previousOwnerSourceCi": {
+      "result": "PASS",
+      "runId": 39695525275,
+      "revision": "e8fcdffb6e4e7a857cf761b136b40fc99807d1a4",
+      "testedMergeCommit": "e9626bf6beb582b61a9c9a764176bb8569389503",
+      "testedTree": "35a3af3fd7e0b33a20ad1148e27b3e27766a73af",
+      "allFiveCheckoutLogsVerified": true,
+      "qualityTestsPassed": 859,
+      "qualitySkipped": 0,
+      "coveragePercent": {
+        "lines": 95.31,
+        "branches": 91.21,
+        "functions": 95.35
+      },
+      "eachFreshAndUpgrade": {
+        "accountSecurityLedger": 240,
+        "a4": 17,
+        "treasury": 5
+      },
+      "evidence": "evidence/account-completion-baseline/operator-pooler-20261021/ci/result.json",
+      "scope": "Exact owner-operator CI; application source unchanged from3096. Not new hosted/provider/native/SDK/device acceptance."
+    },
+    "previousRepositoryPrivacy": {
       "result": "PASS",
       "textFilesScanned": 897,
       "binaryFilesSkipped": 763,
@@ -295,13 +712,7 @@
       "evidence": "evidence/account-completion-baseline/embedded-wallet-release/repository-privacy.json",
       "scope": "Current tracked/new-document text and five actual secret forms only; binary pixels/history/unknown obfuscation excluded. Later fixed-text result metadata is outside original scan."
     },
-    "publishedDocumentation": {
-      "revision": "1bec9898712955043c9298025b639051b2b1ed9e",
-      "pullRequest": "https://github.com/Boufe/YapArena/pull/42",
-      "prBodyUpdatedAt": "2026-10-21T22:24:50Z",
-      "runtimeSourceUnchangedFrom": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
-      "laterDocumentationCi": "Current evidence-only head checks are visible on PR42; they do not replace or relabel exact deployed-source CI39678375965."
-    }
+    "correctionHashesScope": "Earlier wallet/phase correction only; latest source pins are archived in reset-replay and account-setup-feedback receipts, not these historical hashes."
   },
   "evidenceCatalog": {
     "contract": {
@@ -624,7 +1035,7 @@
     },
     "securityPreservation": {
       "path": "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json",
-      "scope": "Actual stopped-writer pre/post comparison43→45: all14 account/session/provider/key/wallet security projections unchanged, four accounts/three retained, no mutations by comparison. Later legitimate runtime/user changes are not frozen by this historical comparison.",
+      "scope": "Actual stopped-writer pre/post comparison43\u219245: all14 account/session/provider/key/wallet security projections unchanged, four accounts/three retained, no mutations by comparison. Later legitimate runtime/user changes are not frozen by this historical comparison.",
       "reviewedAt": "2026-10-21T22:14:32.257574+00:00",
       "executionDateRule": "Actual execution time/revision and limits remain those in the linked sanitized output."
     },
@@ -657,6 +1068,118 @@
       "scope": "Actual eba LIVE/served-assets/readiness and seven guest groups plus anonymous private-wallet401 scope, matching screenshots and strict no-auth-mutation limits.",
       "reviewedAt": "2026-10-21T22:22:04.107704+00:00",
       "executionDateRule": "Review time does not replace actual dated execution/source boundaries in the linked artifact."
+    },
+    "genuinePasskeyWallet": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md",
+      "scope": "Founder-reported setup, initial failed then successful returning login, simulation-key use and assigned wallet; no identified device/browser/receipt or full recovery claim.",
+      "reviewedAt": "2026-10-21T22:46:03.285231+00:00",
+      "executionDateRule": "Actual timestamps/revision and limits remain those in linked reports; review is not another execution."
+    },
+    "providerWalletPass": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/wallet-ownership-pass.json",
+      "scope": "Actual22:38:05UTC exact eba1dc5 user-only ownership/no extra signer-policy PASS,8 providerGET/4RenderGET/2DBsnapshots,0mutations; no default recovery/funding/signing.",
+      "reviewedAt": "2026-10-21T22:46:03.285231+00:00",
+      "executionDateRule": "Actual timestamps/revision and limits remain those in linked reports; review is not another execution."
+    },
+    "providerPhaseCurrent": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/provider-phase-readonly.json",
+      "scope": "Actual22:37:59UTC local read-only snapshot,1 accepted active provider key,0generation mismatches,current/latest reset complete; historical2of5 completejobs not reclassified as new trials;0external requests/0mutations.",
+      "reviewedAt": "2026-10-21T22:46:03.285231+00:00",
+      "executionDateRule": "Actual timestamps/revision and limits remain those in linked reports; review is not another execution."
+    },
+    "providerComparison20261021": {
+      "path": "provider-comparison-20261021.md",
+      "scope": "Current official NOWPayments/CoinGate/BitPay comparison, all5route matrix and nativeUSDC constraints, product-specific individual restrictions, quote/fee/finality/sandbox limitations. Research only; no account/contact/custody/provider-sandbox/live approval. Tangem possession is context not selection.",
+      "reviewedAt": "2026-10-21T22:57:18.252751+00:00",
+      "executionDateRule": "Source access date is2026-10-21; no financial/provider API operations performed."
+    },
+    "genuineSandboxAuthorization": {
+      "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/sandbox-authorization-readonly.json",
+      "scope": "Actual22:59:27UTC one consumedPrivypasskey proof+audit+exact withdrawal terms/digest+two-posting sandbox reservation match.1book/1simulationfunding/1withdrawal,0grants/0live.1read-onlyTLSsnapshot,0externalcalls/mutations; not manualapproval/payout/externalfunding/device acceptance.",
+      "reviewedAt": "2026-10-21T23:01:14.401939+00:00",
+      "executionDateRule": "Actual execution timestamp/revision and negative/empty-result limits remain in linked report; independently read, not separately rerun."
+    },
+    "passkeyErrorSdk": {
+      "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json",
+      "scope": "Actual125 installedSDK synthetic/native-virtual checks, including14newprecompletion failure/cancellation paths;0errors/requirementFailures. Exact hashes/source boundaries recorded.",
+      "reviewedAt": "2026-10-21T23:02:34.253166+00:00",
+      "executionDateRule": "Actual source and synthetic/hosted/device distinctions remain in dated report."
+    },
+    "passkeyErrorIntegrated": {
+      "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json",
+      "scope": "Actual new combined build/full858quality with0skips,239+17+5per fresh/upgrade,retained4,allcorebrowsersteps. Application554f8bff stable; SDKfinalfixture tested separately, not run by combined coordinator.",
+      "reviewedAt": "2026-10-21T23:02:34.253389+00:00",
+      "executionDateRule": "Actual source and synthetic/hosted/device distinctions remain in dated report."
+    },
+    "classifierCi": {
+      "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/ci/result.json",
+      "scope": "Actual all5CI success for3096, testedmerge/tree independently verified,858/0skip239/17/5freshupgrade/retained4; not SDK execution/hosted.",
+      "reviewedAt": "2026-10-21T23:50:22.317998+00:00",
+      "executionDateRule": "Actual source/timestamp and scope in linked report, with control-plane identity distinct from hosted asset hash."
+    },
+    "classifierLive": {
+      "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json",
+      "scope": "Actual Render control-plane confirms dep-dbckm30473hc739catvg LIVE3096, workerfd unchanged andautoOFF; no config/schema/live-financial change. Config TLSflags do not attest driverhandshake.",
+      "reviewedAt": "2026-10-21T23:50:22.317998+00:00",
+      "executionDateRule": "Actual source/timestamp and scope in linked report, with control-plane identity distinct from hosted asset hash."
+    },
+    "classifierGuest": {
+      "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json",
+      "scope": "Actual hostedguest7/14 exactasset matches/readiness/private401/focus/mobile/oneboundedrealRedisprobe; no account/provider/financial mutation or genuine ceremony.",
+      "reviewedAt": "2026-10-21T23:50:22.317998+00:00",
+      "executionDateRule": "Actual source/timestamp and scope in linked report, with control-plane identity distinct from hosted asset hash."
+    },
+    "operatorLocal": {
+      "path": "evidence/account-completion-baseline/operator-pooler-20261021/README.md",
+      "scope": "Operator-only e8 local859/0skip,240/17/5 each fresh-upgrade; actual logs independently inspected. No new browser/provider/device inference.",
+      "reviewedAt": "2026-10-21T23:58:19.744045+00:00",
+      "executionDateRule": "Actual timestamps, source and acceptance limits are recorded in linked report; review is not another execution."
+    },
+    "simulationTrial": {
+      "path": "evidence/account-completion-baseline/operator-pooler-20261021/simulation/result.json",
+      "scope": "Actual guarded one-time maintained review+simulate of prior genuine proof-matched request, exact receipt and unchanged source/identity fingerprints, zero external calls or live funds.",
+      "reviewedAt": "2026-10-21T23:58:19.744045+00:00",
+      "executionDateRule": "Actual timestamps, source and acceptance limits are recorded in linked report; review is not another execution."
+    },
+    "genuineEmailSignup": {
+      "path": "evidence/account-completion-baseline/genuine-email-signup-20261022/README.md",
+      "scope": "Founder-reported failed automatedheaded attempt then successful ordinaryChromeIncognito email signup; no recipient/codes/privatepage data; server attribution and subsequent methods pending.",
+      "reviewedAt": "2026-10-22T00:10:52.945683+00:00",
+      "executionDateRule": "Actual observer timestamps and human-report distinctions retained; not a synthetic result or full device acceptance."
+    },
+    "logoutResetOverlap": {
+      "path": "evidence/account-completion-baseline/logout-reset-overlap-20261022/README.md",
+      "scope": "Exact92f11b4 local regression,248fresh/upgrade and independent security review; no hosted repair.",
+      "reviewedAt": "2026-10-22T01:01:41.092728+00:00",
+      "executionDateRule": "Actual execution timestamp/source remain those in the linked artifact."
+    },
+    "valkeyCompatibility": {
+      "path": "evidence/redis-acceptance/valkey-8.1.10-20261022/README.md",
+      "scope": "Actual local8.1.10 ten-group operational acceptance and two offline safety groups; no hosted topology/outage claim.",
+      "reviewedAt": "2026-10-22T01:01:41.092728+00:00",
+      "executionDateRule": "Actual execution timestamp/source remain those in the linked artifact."
+    },
+    "logoutResetReplay": {
+      "path": "evidence/account-completion-baseline/logout-reset-replay-20261022/README.md",
+      "scope": "Exactcf4249a replay follow-up with deterministic249RED/GREEN and corrected accounting fixture; earlier failed integrated attempts retained. No hosted repair.",
+      "reviewedAt": "2026-10-22T01:24:01.443856+00:00",
+      "executionDateRule": "Actual execution/source remains the linked artifact scope."
+    },
+    "accountSetupFeedback": {
+      "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md",
+      "scope": "Exact819 application local184SDK+overlapping32focused/9axe/11viewport and870combined with249perpath; no genuine/hosted/device acceptance.",
+      "reviewedAt": "2026-10-22T01:37:56.658390+00:00",
+      "executionDateRule": "Run revision/hash boundaries and reporting/capture limitations remain those in the archived README."
+    },
+    "ci819": {
+      "path": "evidence/account-completion-baseline/ci-819421d-20261022/README.md",
+      "scope": "All five actual checkout logs/tree and successful CI39705118511:870 tests,249/17/5 per fresh/upgrade path; no hosted/provider/device inference.",
+      "reviewedAt": "2026-10-22T01:55:45.984244+00:00"
+    },
+    "privacyCurrent": {
+      "path": "evidence/account-completion-baseline/privacy-20261022/README.md",
+      "scope": "Actual1121-text known-secret and two exact disposable identifier scans; later artifacts and binary/history/pixels excluded.",
+      "reviewedAt": "2026-10-22T01:55:45.984244+00:00"
     }
   },
   "requirements": [
@@ -664,7 +1187,9 @@
       "id": "R01",
       "requirement": "Establish checkout, fetch, PR and deployed revision; preserve existing work",
       "owner": "lead",
-      "dependencies": ["access"],
+      "dependencies": [
+        "access"
+      ],
       "implementationStatus": "baseline_preserved_exact_ci_migration_live_revision_and_guest_postflight_verified",
       "completionStatus": "satisfied_for_verified_staging_revision",
       "acceptanceCriteria": [
@@ -743,18 +1268,36 @@
         {
           "reference": "securityPreservation",
           "path": "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json"
+        },
+        {
+          "reference": "classifierCi",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/ci/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "operatorLocal",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/README.md"
         }
       ],
       "remainingBlockers": [],
       "limitations": [
-        "Baseline, exact eba1dc5 staging revision, guard/rehearsal/migration and guest postflight are verified. Genuine provider/device/financial acceptance remains explicitly assigned to other rows."
+        "Exact 3096ca7 staging revision, earlier guarded database/account preservation and new guest postflight are verified. Operator-only e8 requires no runtime deployment. Genuine provider/device/financial acceptance remains assigned to other rows."
       ]
     },
     {
       "id": "R02",
       "requirement": "Read governing PRD, plans, security, operations and recorded evidence",
       "owner": "all",
-      "dependencies": ["repository"],
+      "dependencies": [
+        "repository"
+      ],
       "implementationStatus": "governing_sources_read_ongoing_conformance_applies",
       "completionStatus": "read_requirement_satisfied_final_conformance_audit_separate",
       "acceptanceCriteria": [
@@ -832,6 +1375,14 @@
         {
           "reference": "manifest",
           "path": "evidence/account-completion-baseline/wallet-verification-pause/archive-manifest.json"
+        },
+        {
+          "reference": "classifierCi",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/ci/result.json"
+        },
+        {
+          "reference": "operatorLocal",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/README.md"
         }
       ],
       "remainingBlockers": [],
@@ -843,7 +1394,9 @@
       "id": "R04",
       "requirement": "Preserve public discovery/watch, theme/header and signed-in controls",
       "owner": "lead",
-      "dependencies": ["UI baseline"],
+      "dependencies": [
+        "UI baseline"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -879,18 +1432,36 @@
         {
           "reference": "anonymousWalletCurrent",
           "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
         }
       ],
       "remainingBlockers": [
-        "Genuine hosted signed-in/theme/account-switch acceptance remains open; local 111-scenario actor/draft/privacy regression and hosted guest layout/assets passed."
+        "Genuine hosted signed-in/theme/account-switch acceptance remains open; local 125-scenario actor/draft/privacy regression and hosted guest layout/assets passed."
       ]
     },
     {
       "id": "R05",
       "requirement": "Genuine Privy primary email-code signup and returning login",
       "owner": "auth/lead",
-      "dependencies": ["provider app"],
-      "implementationStatus": "implemented_required_acceptance_pending",
+      "dependencies": [
+        "provider app"
+      ],
+      "implementationStatus": "founder_reported_genuine_disposable_signup_success_normal_chrome_server_attribution_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
         "Use genuine hosted Privy email codes for primary signup/returning login; do not implement a duplicate OTP lifecycle.",
@@ -899,8 +1470,8 @@
       ],
       "verification": {
         "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
-        "hostedTested": "historical_genuine_signup_plus_current_eba_guest_release_verified_returning_auth_ceremony_pending",
-        "genuineProviderTested": "historical_or_partial_actual_evidence_required_full_journey_still_open",
+        "hostedTested": "historical_genuine_email_signup_plus_current_eba_user_reported_returning_passkey_success_returning_email_code_acceptance_still_open",
+        "genuineProviderTested": "Founder reports genuine email-code signup succeeded in ordinaryChromeIncognito; separate server attribution pending. Initial driver-launched attempt failed immediately with unknown cause.",
         "providerSandboxTested": "not_claimed",
         "physicallyDeviceTested": "not_established",
         "liveRelease": "does_not_authorize_live_financial_activity"
@@ -917,17 +1488,43 @@
         {
           "reference": "repair",
           "path": "evidence/account-completion-baseline/first-passkey-reset-repair/README.md"
+        },
+        {
+          "reference": "genuinePasskeyWallet",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "genuineEmailSignup",
+          "path": "evidence/account-completion-baseline/genuine-email-signup-20261022/README.md"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
         }
       ],
       "remainingBlockers": [
-        "Current genuine hosted returning login must pass after the corrective release; earlier manual signup alone does not satisfy it."
+        "Genuine disposable signup succeeded and server attribution passed, but returning email-code login failed with a generic code error. Diagnose actual provider/reset cause; do not infer wrong code from this notice."
       ]
     },
     {
       "id": "R06",
       "requirement": "Code lifecycle, paste/autofill, resend, cancellation, errors, delayed delivery",
       "owner": "lead",
-      "dependencies": ["Privy capabilities"],
+      "dependencies": [
+        "Privy capabilities"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -951,6 +1548,18 @@
         {
           "reference": "originalSignup",
           "path": "evidence/email-first/README.md"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
+        },
+        {
+          "reference": "genuineEmailSignup",
+          "path": "evidence/account-completion-baseline/genuine-email-signup-20261022/README.md"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
         }
       ],
       "remainingBlockers": [
@@ -961,7 +1570,9 @@
       "id": "R07",
       "requirement": "Refresh/back/multi-tab/network/initialization and duplicate-submit handling",
       "owner": "lead",
-      "dependencies": ["browser"],
+      "dependencies": [
+        "browser"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -989,6 +1600,18 @@
         {
           "reference": "integrated",
           "path": "evidence/account-completion-baseline/wallet-verification-pause/README.md"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
+        },
+        {
+          "reference": "genuineEmailSignup",
+          "path": "evidence/account-completion-baseline/genuine-email-signup-20261022/README.md"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
         }
       ],
       "remainingBlockers": [
@@ -999,7 +1622,9 @@
       "id": "R08",
       "requirement": "Optional Google and passkey enrollment/returning authentication",
       "owner": "auth/lead",
-      "dependencies": ["provider settings and proof"],
+      "dependencies": [
+        "provider settings and proof"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1009,8 +1634,8 @@
       ],
       "verification": {
         "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
-        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
-        "genuineProviderTested": "historical_or_partial_actual_evidence_required_full_journey_still_open",
+        "hostedTested": "actual_eba1dc5_partial_genuine_user_report_and_separate_readonly_provider_ownership_pass_see_limits",
+        "genuineProviderTested": "partial_actual_key_setup_returning_passkey_user_report_and_readonly_wallet_ownership_pass_default_recovery_and_other_journeys_open",
         "providerSandboxTested": "not_claimed",
         "physicallyDeviceTested": "not_established",
         "liveRelease": "does_not_authorize_live_financial_activity"
@@ -1047,17 +1672,47 @@
         {
           "reference": "providerWalletPending",
           "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-wallet/acceptance-pending.json"
+        },
+        {
+          "reference": "genuinePasskeyWallet",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md"
+        },
+        {
+          "reference": "providerWalletPass",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/wallet-ownership-pass.json"
+        },
+        {
+          "reference": "providerPhaseCurrent",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/provider-phase-readonly.json"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
         }
       ],
       "remainingBlockers": [
-        "The genuine saved/exportable provider key has not completed local activation or returning-login acceptance; genuine hosted Google linking/login also remains open."
+        "Original manual account later passkey login succeeded. New disposable setup confirmation was ambiguous; local accepted key exists but returning passkey login failed and two reset jobs are manual. Diagnose/repair/retest. Google acceptance remains open."
       ]
     },
     {
       "id": "R09",
       "requirement": "Minimal onboarding and exact safe local return/action",
       "owner": "lead",
-      "dependencies": ["browser"],
+      "dependencies": [
+        "browser"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1089,6 +1744,14 @@
         {
           "reference": "anonymousWalletCurrent",
           "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
+        },
+        {
+          "reference": "genuineEmailSignup",
+          "path": "evidence/account-completion-baseline/genuine-email-signup-20261022/README.md"
         }
       ],
       "remainingBlockers": [
@@ -1099,7 +1762,9 @@
       "id": "R10",
       "requirement": "Stable transactional identity provisioning, races and callback replay",
       "owner": "auth",
-      "dependencies": ["PostgreSQL"],
+      "dependencies": [
+        "PostgreSQL"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1135,17 +1800,27 @@
         {
           "reference": "anonymousWalletCurrent",
           "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "genuineEmailSignup",
+          "path": "evidence/account-completion-baseline/genuine-email-signup-20261022/README.md"
         }
       ],
       "remainingBlockers": [
-        "Genuine hosted callback/account journeys remain separate; the corrected source/schema is deployed at eba1dc5 and guest postflight passed."
+        "Genuine hosted callback/account journeys remain separate; corrected source is deployed at3096ca7 with unchanged45-migration schema and guest postflight passed."
       ]
     },
     {
       "id": "R11",
       "requirement": "Recovery/email changes/method linking/removal",
       "owner": "auth",
-      "dependencies": ["supported fresh proof, policy"],
+      "dependencies": [
+        "supported fresh proof, policy"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1182,6 +1857,10 @@
         {
           "reference": "authReview",
           "path": "evidence/account-completion-baseline/auth-independent-review.md"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
         }
       ],
       "remainingBlockers": [
@@ -1192,7 +1871,9 @@
       "id": "R12",
       "requirement": "Retained legacy dual-ownership reconciliation, no email-only merge",
       "owner": "auth",
-      "dependencies": ["fresh proofs"],
+      "dependencies": [
+        "fresh proofs"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1230,7 +1911,9 @@
       "id": "R13",
       "requirement": "Linked-wallet management preserves retained and final-method protections",
       "owner": "auth",
-      "dependencies": ["existing F02"],
+      "dependencies": [
+        "existing F02"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1268,7 +1951,9 @@
       "id": "R14",
       "requirement": "Cookie/domain/sender/branding/provider limits/pricing verified",
       "owner": "auth/provider",
-      "dependencies": ["official docs/settings"],
+      "dependencies": [
+        "official docs/settings"
+      ],
       "implementationStatus": "development_settings_and_unused_enterprise_capabilities_verified_actual_production_configuration_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1308,6 +1993,14 @@
         {
           "reference": "hostedCurrent",
           "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/acceptance.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
         }
       ],
       "remainingBlockers": [
@@ -1329,7 +2022,9 @@
       "id": "R15",
       "requirement": "Automatic user-controlled EVM wallet; signup independent of provisioning",
       "owner": "wallet/lead",
-      "dependencies": ["provider settings"],
+      "dependencies": [
+        "provider settings"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1339,8 +2034,8 @@
       ],
       "verification": {
         "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
-        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
-        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "hostedTested": "actual_eba1dc5_partial_genuine_user_report_and_separate_readonly_provider_ownership_pass_see_limits",
+        "genuineProviderTested": "partial_actual_key_setup_returning_passkey_user_report_and_readonly_wallet_ownership_pass_default_recovery_and_other_journeys_open",
         "providerSandboxTested": "not_claimed",
         "physicallyDeviceTested": "not_established",
         "liveRelease": "does_not_authorize_live_financial_activity"
@@ -1377,19 +2072,41 @@
         {
           "reference": "providerWalletPending",
           "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-wallet/acceptance-pending.json"
+        },
+        {
+          "reference": "genuinePasskeyWallet",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md"
+        },
+        {
+          "reference": "providerWalletPass",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/wallet-ownership-pass.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
         }
       ],
       "remainingBlockers": [
-        "Genuine user-controlled wallet creation/default recovery acceptance remains pending. Actual provider inspection reported credential_verification_required, not ownership/creation PASS. Exact release/guest postflight passed."
+        "Original manual account provider user-only ownership PASS remains recorded. New disposable wallet is locally ready but human did not observe readiness and returning login failed. Verify actual provider ownership and visible readiness after reset diagnosis; default recovery/device acceptance remains open."
       ]
     },
     {
       "id": "R16",
       "requirement": "Expiring replay-resistant operation proofs bound to exact sensitive terms",
       "owner": "auth/lead",
-      "dependencies": ["supported authenticators"],
-      "implementationStatus": "implemented_required_acceptance_pending",
-      "completionStatus": "incomplete",
+      "dependencies": [
+        "supported authenticators"
+      ],
+      "implementationStatus": "implemented_locally_tested_and_genuine_hosted_operation_matched",
+      "completionStatus": "satisfied_for_recorded_genuine_operation_and_local_negative_suite_scope",
       "acceptanceCriteria": [
         "Bind server-verifiable five-minute one-use proof to account/session/generation, operation/nonce/expiry and exact amount/asset/destination/terms.",
         "Use the accepted same Privy public key from trusted GET plus native UV, or retained authorized credentials; never use JWT iat/refresh/MFA flags as fresh authorization.",
@@ -1398,8 +2115,8 @@
       ],
       "verification": {
         "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
-        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
-        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "hostedTested": "actual_eba1dc5_consumed_privy_passkey_proof_audit_exact_terms_and_two_posting_reservation_matched_readonly",
+        "genuineProviderTested": "founder_reported_native_same_key_success_plus_actual_server_consumption_and_reservation_match_not_provider_or_chain_payout",
         "providerSandboxTested": "not_claimed",
         "physicallyDeviceTested": "not_established",
         "liveRelease": "does_not_authorize_live_financial_activity"
@@ -1420,18 +2137,34 @@
         {
           "reference": "authReview",
           "path": "evidence/account-completion-baseline/auth-independent-review.md"
+        },
+        {
+          "reference": "genuinePasskeyWallet",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md"
+        },
+        {
+          "reference": "genuineSandboxAuthorization",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/sandbox-authorization-readonly.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "simulationTrial",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/simulation/result.json"
         }
       ],
-      "remainingBlockers": [
-        "Genuine hosted same-key operation authorization and actual device ceremony remain unverified."
-      ]
+      "remainingBlockers": []
     },
     {
       "id": "R17",
       "requirement": "Logout current/others/all, suspension, credential revocation and stale-token fence",
       "owner": "auth",
-      "dependencies": ["PostgreSQL/provider"],
-      "implementationStatus": "implemented_required_acceptance_pending",
+      "dependencies": [
+        "PostgreSQL/provider"
+      ],
+      "implementationStatus": "local_overlap_correction_integrated_hosted_repair_and_genuine_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
         "Default Sign out revokes all sessions; retain explicitly scoped current/other/specific session controls, suspension and credential-change revocation.",
@@ -1440,8 +2173,8 @@
         "Keep logout responsive during outages and verify genuine current hosted reset/sign-out."
       ],
       "verification": {
-        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
-        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
+        "locallyTested": "249_each_fresh_upgrade_and_combined870_passed_independent_reviews_hosted_repair_pending",
+        "hostedTested": "original_manual_account_later_passkey_return_succeeded_separate_new_disposable_signup_return_FAILED_provider_frozen_with_two_manual_overlap_jobs",
         "genuineProviderTested": "historical_or_partial_actual_evidence_required_full_journey_still_open",
         "providerSandboxTested": "not_claimed",
         "physicallyDeviceTested": "not_established",
@@ -1475,17 +2208,55 @@
         {
           "reference": "anonymousWalletCurrent",
           "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "genuinePasskeyWallet",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md"
+        },
+        {
+          "reference": "providerPhaseCurrent",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/provider-phase-readonly.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "logoutResetOverlap",
+          "path": "evidence/account-completion-baseline/logout-reset-overlap-20261022/README.md"
+        },
+        {
+          "reference": "logoutResetReplay",
+          "path": "evidence/account-completion-baseline/logout-reset-replay-20261022/README.md"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
+        },
+        {
+          "reference": "ci819",
+          "path": "evidence/account-completion-baseline/ci-819421d-20261022/README.md"
         }
       ],
       "remainingBlockers": [
-        "Verify genuine hosted logout/reset without another manual repair assumption. The durable phase source/schema is deployed and guest postflight passed; no signed-in reset ceremony is inferred."
+        "Actual new disposable journey has an acknowledged older freeze superseded by logout-all; two manual jobs/mismatched generations, explicit provider frozen state and retained matching key are verified. Fix/review/test normal-engine overlap and separately reviewed exact owner repair, then genuinely retest revocation/returning login. No repair has run."
       ]
     },
     {
       "id": "R18",
       "requirement": "Provider-side credential changes invalidate existing application cookies",
       "owner": "auth",
-      "dependencies": ["supported affordable mechanism"],
+      "dependencies": [
+        "supported affordable mechanism"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1530,6 +2301,30 @@
         {
           "reference": "providerWalletPending",
           "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-wallet/acceptance-pending.json"
+        },
+        {
+          "reference": "genuinePasskeyWallet",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md"
+        },
+        {
+          "reference": "providerPhaseCurrent",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/provider-phase-readonly.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "logoutResetOverlap",
+          "path": "evidence/account-completion-baseline/logout-reset-overlap-20261022/README.md"
         }
       ],
       "remainingBlockers": [
@@ -1540,7 +2335,9 @@
       "id": "R19",
       "requirement": "Open connections, in-flight operations and media grant revocation boundaries",
       "owner": "auth/lead",
-      "dependencies": ["media provider"],
+      "dependencies": [
+        "media provider"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1583,7 +2380,9 @@
       "id": "R20",
       "requirement": "Preserve approved financial terms exactly",
       "owner": "lead",
-      "dependencies": ["founder prompt"],
+      "dependencies": [
+        "founder prompt"
+      ],
       "implementationStatus": "approved_financial_rule_source_copy_and_deployed_sandbox_preservation_audit_passed",
       "completionStatus": "approved_rule_preservation_satisfied_for_recorded_sandbox_and_release_scope",
       "acceptanceCriteria": [
@@ -1636,6 +2435,22 @@
         {
           "reference": "databasePostflight",
           "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-postflight.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "classifierCi",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/ci/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
         }
       ],
       "remainingBlockers": [],
@@ -1648,7 +2463,9 @@
       "id": "R21",
       "requirement": "Custody/signing/provider routes including all five requested networks",
       "owner": "provider",
-      "dependencies": ["actual activity approval"],
+      "dependencies": [
+        "actual activity approval"
+      ],
       "implementationStatus": "research_recorded_provider_custody_routes_unapproved",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1676,6 +2493,10 @@
         {
           "reference": "walletReview",
           "path": "evidence/account-completion-baseline/embedded-wallet-review/README.md"
+        },
+        {
+          "reference": "providerComparison20261021",
+          "path": "provider-comparison-20261021.md"
         }
       ],
       "remainingBlockers": [
@@ -1686,7 +2507,9 @@
       "id": "R22",
       "requirement": "Quotes/expiry/conversion/fees/settlement/finality/reorg handling",
       "owner": "provider/lead",
-      "dependencies": ["chosen routes"],
+      "dependencies": [
+        "chosen routes"
+      ],
       "implementationStatus": "implemented_in_sandbox_live_release_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1718,6 +2541,10 @@
         {
           "reference": "financialOps",
           "path": "financial-operations.md"
+        },
+        {
+          "reference": "providerComparison20261021",
+          "path": "provider-comparison-20261021.md"
         }
       ],
       "remainingBlockers": [
@@ -1728,7 +2555,9 @@
       "id": "R23",
       "requirement": "Canadian age/province/identity/retention eligibility",
       "owner": "provider",
-      "dependencies": ["qualified/provider review"],
+      "dependencies": [
+        "qualified/provider review"
+      ],
       "implementationStatus": "eligibility_unapproved_live_provinces_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1755,6 +2584,10 @@
         {
           "reference": "contract",
           "path": "email-first-completion.md"
+        },
+        {
+          "reference": "providerComparison20261021",
+          "path": "provider-comparison-20261021.md"
         }
       ],
       "remainingBlockers": [
@@ -1765,7 +2598,9 @@
       "id": "R24",
       "requirement": "Approved solvent finite promotional allocation and reserve caps",
       "owner": "lead/provider",
-      "dependencies": ["founder decision"],
+      "dependencies": [
+        "founder decision"
+      ],
       "implementationStatus": "implemented_in_sandbox_live_release_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1803,7 +2638,9 @@
       "id": "R25",
       "requirement": "Payout timing, refund/correction/dispute rules and instrument integration",
       "owner": "lead/provider",
-      "dependencies": ["founder decisions"],
+      "dependencies": [
+        "founder decisions"
+      ],
       "implementationStatus": "implemented_in_sandbox_live_release_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1836,6 +2673,10 @@
         {
           "reference": "financialReview",
           "path": "evidence/account-completion-baseline/financial-review/README.md"
+        },
+        {
+          "reference": "providerComparison20261021",
+          "path": "provider-comparison-20261021.md"
         }
       ],
       "remainingBlockers": [
@@ -1846,7 +2687,9 @@
       "id": "R26",
       "requirement": "Confirmed funding, conversion quotes and exactly-once funded issuance",
       "owner": "lead",
-      "dependencies": ["external contract"],
+      "dependencies": [
+        "external contract"
+      ],
       "implementationStatus": "implemented_in_sandbox_live_release_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1875,6 +2718,14 @@
         {
           "reference": "provider",
           "path": "email-first-provider-review.md"
+        },
+        {
+          "reference": "genuineSandboxAuthorization",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/sandbox-authorization-readonly.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
         }
       ],
       "remainingBlockers": [
@@ -1885,7 +2736,9 @@
       "id": "R27",
       "requirement": "Exactly-once welcome/daily Toronto-day grants and grant lots",
       "owner": "lead",
-      "dependencies": ["claim timing decision"],
+      "dependencies": [
+        "claim timing decision"
+      ],
       "implementationStatus": "implemented_in_sandbox_live_release_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1918,17 +2771,27 @@
         {
           "reference": "financialOps",
           "path": "financial-operations.md"
+        },
+        {
+          "reference": "genuineSandboxAuthorization",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/sandbox-authorization-readonly.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
         }
       ],
       "remainingBlockers": [
-        "No retained hosted account financial history is initialized and no real grant backing allocated; genuine proof/approved backing precede any live promise."
+        "Actual22:59UTC snapshot has0welcome/0daily lots and0grant events; no genuine hosted grant issuance is established. Real promotional backing remains unfunded/unallocated."
       ]
     },
     {
       "id": "R28",
       "requirement": "Source spending, proportional profit/loss, fees/rounding and permanent qualification",
       "owner": "lead",
-      "dependencies": ["examples approved"],
+      "dependencies": [
+        "examples approved"
+      ],
       "implementationStatus": "implemented_in_sandbox_live_release_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1961,6 +2824,10 @@
         {
           "reference": "a4",
           "path": "a4-mechanism.md"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
         }
       ],
       "remainingBlockers": [
@@ -1971,7 +2838,9 @@
       "id": "R29",
       "requirement": "Promotional backing and available/reserved/pending/promo/withdrawable projections",
       "owner": "lead",
-      "dependencies": ["R24/R28"],
+      "dependencies": [
+        "R24/R28"
+      ],
       "implementationStatus": "implemented_in_sandbox_live_release_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -1982,7 +2851,7 @@
       ],
       "verification": {
         "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
-        "hostedTested": "current_eba_guest_release_and_zero_live_catalog_verified_no_genuine_financial_initialization",
+        "hostedTested": "Actual genuine-account sandbox book/funding/proof/reservation inspected read-only; subsequent maintained owner simulation trial completed. No hosted grant issuance or complete projection journey is established.",
         "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
         "providerSandboxTested": "not_claimed",
         "physicallyDeviceTested": "not_established",
@@ -2004,18 +2873,32 @@
         {
           "reference": "preflight",
           "path": "evidence/account-completion-baseline/embedded-wallet-release/staging-database-preflight.json"
+        },
+        {
+          "reference": "genuineSandboxAuthorization",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/sandbox-authorization-readonly.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "simulationTrial",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/simulation/result.json"
         }
       ],
       "remainingBlockers": [
-        "Genuine hosted proof before financial initialization and real promotional backing allocation remain pending."
+        "One genuine sandbox book and exact withdrawal reservation match are recorded; remaining hosted projection/qualification/manual operation scenarios are unverified. Real promotional backing allocation and live eligibility remain pending."
       ]
     },
     {
       "id": "R30",
       "requirement": "Withdrawal request, specific proof, manual review and transactional reservation",
       "owner": "lead/auth",
-      "dependencies": ["R16/R25"],
-      "implementationStatus": "implemented_in_sandbox_live_release_disabled",
+      "dependencies": [
+        "R16/R25"
+      ],
+      "implementationStatus": "proof_matched_reservation_and_guarded_owner_review_completed_simulation_receipt_passed_live_provider_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
         "Quote gross/fee/net/network/destination, enforce gross minimum 5 and bind the exact stored request to fresh operation proof.",
@@ -2025,7 +2908,7 @@
       ],
       "verification": {
         "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
-        "hostedTested": "not_established_for_this_requirement_on_the_current_correction",
+        "hostedTested": "Actual one-time owner review and completed deterministic simulation at runtime3096/operator e8; exact existing proof/reservation preserved; zero external requests.",
         "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
         "providerSandboxTested": "not_claimed",
         "physicallyDeviceTested": "not_established",
@@ -2047,17 +2930,39 @@
         {
           "reference": "financialReview",
           "path": "evidence/account-completion-baseline/financial-review/README.md"
+        },
+        {
+          "reference": "genuinePasskeyWallet",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md"
+        },
+        {
+          "reference": "genuineSandboxAuthorization",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/sandbox-authorization-readonly.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "operatorLocal",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/README.md"
+        },
+        {
+          "reference": "simulationTrial",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/simulation/result.json"
         }
       ],
       "remainingBlockers": [
-        "Genuine hosted exact proof and live manual payout operations remain unverified."
+        "The exact hosted deterministic manual review/settlement trial passed. Selected-provider payout, reconciliation/finality and live operating acceptance remain unverified; no real funds or provider payouts are enabled."
       ]
     },
     {
       "id": "R31",
       "requirement": "Scoped idempotency and pending/completed/failed/uncertain external outcomes",
       "owner": "lead",
-      "dependencies": ["provider contract"],
+      "dependencies": [
+        "provider contract"
+      ],
       "implementationStatus": "implemented_in_sandbox_live_release_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -2085,6 +2990,10 @@
         {
           "reference": "financialReview",
           "path": "evidence/account-completion-baseline/financial-review/README.md"
+        },
+        {
+          "reference": "providerComparison20261021",
+          "path": "provider-comparison-20261021.md"
         }
       ],
       "remainingBlockers": [
@@ -2095,7 +3004,9 @@
       "id": "R32",
       "requirement": "Receipts, refunds, corrections and append-only auditable reversals",
       "owner": "lead",
-      "dependencies": ["approved policy"],
+      "dependencies": [
+        "approved policy"
+      ],
       "implementationStatus": "implemented_in_sandbox_live_release_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -2139,7 +3050,9 @@
       "id": "R33",
       "requirement": "Authenticated webhooks, duplicate/out-of-order events and reconciliation",
       "owner": "lead",
-      "dependencies": ["provider sandbox"],
+      "dependencies": [
+        "provider sandbox"
+      ],
       "implementationStatus": "implemented_in_sandbox_live_release_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -2167,6 +3080,10 @@
         {
           "reference": "provider",
           "path": "email-first-provider-review.md"
+        },
+        {
+          "reference": "providerComparison20261021",
+          "path": "provider-comparison-20261021.md"
         }
       ],
       "remainingBlockers": [
@@ -2177,7 +3094,9 @@
       "id": "R34",
       "requirement": "Prevent duplicate payout, overspend, double reserve and premature release",
       "owner": "lead/review",
-      "dependencies": ["transactional workflows"],
+      "dependencies": [
+        "transactional workflows"
+      ],
       "implementationStatus": "implemented_in_sandbox_live_release_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -2209,6 +3128,22 @@
         {
           "reference": "financialReview",
           "path": "evidence/account-completion-baseline/financial-review/README.md"
+        },
+        {
+          "reference": "providerComparison20261021",
+          "path": "provider-comparison-20261021.md"
+        },
+        {
+          "reference": "genuineSandboxAuthorization",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/sandbox-authorization-readonly.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "simulationTrial",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/simulation/result.json"
         }
       ],
       "remainingBlockers": [
@@ -2219,7 +3154,9 @@
       "id": "R35",
       "requirement": "Historical/sandbox/live and purchased/promo/fees/operating isolation",
       "owner": "lead",
-      "dependencies": ["asset contracts"],
+      "dependencies": [
+        "asset contracts"
+      ],
       "implementationStatus": "historical_rail_asset_backing_and_runtime_role_isolation_verified_local_and_staging",
       "completionStatus": "isolation_requirements_satisfied_for_recorded_local_and_staging_scope",
       "acceptanceCriteria": [
@@ -2279,6 +3216,26 @@
         {
           "reference": "securityPreservation",
           "path": "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json"
+        },
+        {
+          "reference": "genuineSandboxAuthorization",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/sandbox-authorization-readonly.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "simulationTrial",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/simulation/result.json"
         }
       ],
       "remainingBlockers": [],
@@ -2291,7 +3248,9 @@
       "id": "R36",
       "requirement": "Clearly label deterministic/provider sandbox/live evidence; keep live disabled",
       "owner": "all",
-      "dependencies": ["release gates"],
+      "dependencies": [
+        "release gates"
+      ],
       "implementationStatus": "implemented_in_sandbox_live_release_disabled",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -2341,7 +3300,9 @@
       "id": "R37",
       "requirement": "Redis multi-instance atomic IP/account/operation limits and privacy namespaces",
       "owner": "Redis",
-      "dependencies": ["isolated Redis"],
+      "dependencies": [
+        "isolated Redis"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -2377,6 +3338,10 @@
         {
           "reference": "anonymousWalletCurrent",
           "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "valkeyCompatibility",
+          "path": "evidence/redis-acceptance/valkey-8.1.10-20261022/README.md"
         }
       ],
       "remainingBlockers": [
@@ -2387,7 +3352,9 @@
       "id": "R38",
       "requirement": "Redis timeout/retry/outage and logout/revocation availability",
       "owner": "Redis/auth",
-      "dependencies": ["isolated instances"],
+      "dependencies": [
+        "isolated instances"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -2423,6 +3390,10 @@
         {
           "reference": "anonymousWalletCurrent",
           "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "valkeyCompatibility",
+          "path": "evidence/redis-acceptance/valkey-8.1.10-20261022/README.md"
         }
       ],
       "remainingBlockers": [
@@ -2433,7 +3404,9 @@
       "id": "R39",
       "requirement": "Redis restart/eviction/memory/availability and latency/error/throttle metrics",
       "owner": "Redis",
-      "dependencies": ["isolated Redis"],
+      "dependencies": [
+        "isolated Redis"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -2469,6 +3442,10 @@
         {
           "reference": "anonymousWalletCurrent",
           "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "valkeyCompatibility",
+          "path": "evidence/redis-acceptance/valkey-8.1.10-20261022/README.md"
         }
       ],
       "remainingBlockers": [
@@ -2479,7 +3456,9 @@
       "id": "R40",
       "requirement": "Preserve narrowed four-account reset, retained/manual accounts and guarded tooling",
       "owner": "lead",
-      "dependencies": ["reset reports"],
+      "dependencies": [
+        "reset reports"
+      ],
       "implementationStatus": "guarded_backup_rehearsal_migration_and_retained_reset_scope_verified",
       "completionStatus": "satisfied_for_guarded_release_preservation",
       "acceptanceCriteria": [
@@ -2539,6 +3518,18 @@
         {
           "reference": "securityPreservation",
           "path": "evidence/account-completion-baseline/embedded-wallet-release/security-preservation.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
         }
       ],
       "remainingBlockers": [],
@@ -2550,7 +3541,9 @@
       "id": "R41",
       "requirement": "Reject pre-reset credentials and delayed callbacks",
       "owner": "auth/lead",
-      "dependencies": ["original credentials or disposable reproduction"],
+      "dependencies": [
+        "original credentials or disposable reproduction"
+      ],
       "implementationStatus": "accepted_local_reproduction_original_hosted_replay_unavailable",
       "completionStatus": "satisfied_by_approved_local_reproduction",
       "acceptanceCriteria": [
@@ -2582,6 +3575,10 @@
         {
           "reference": "authReview",
           "path": "evidence/account-completion-baseline/auth-independent-review.md"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
         }
       ],
       "remainingBlockers": [],
@@ -2593,9 +3590,11 @@
       "id": "R42",
       "requirement": "Clean only explicitly created automated acceptance identities",
       "owner": "lead",
-      "dependencies": ["exact identity ledger"],
-      "implementationStatus": "current_owned_disposable_cleanup_recorded_no_hosted_fixture_identity_created",
-      "completionStatus": "current_owned_fixture_cleanup_satisfied",
+      "dependencies": [
+        "exact identity ledger"
+      ],
+      "implementationStatus": "new_disposable_identity_privately_attributed_cleanup_pending_acceptance",
+      "completionStatus": "incomplete",
       "acceptanceCriteria": [
         "Use explicit disposable local identities/environments for automated acceptance and clean only those owned fixtures.",
         "Track any newly created genuine hosted acceptance identity before separately scoped cleanup; preserve retained/manual accounts.",
@@ -2621,28 +3620,36 @@
         {
           "reference": "contract",
           "path": "email-first-completion.md"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
         }
       ],
-      "remainingBlockers": [],
+      "remainingBlockers": [
+        "The new disposable identity is privately attributed; cleanup is pending after acceptance and supported remote wallet/history review. No cleanup executed. Protect four pre-existing retained/manual accounts, append-only history and any remote assets."
+      ],
       "limitations": [
-        "All recorded owned disposable fixtures/clusters cleaned. Future genuine acceptance identities, if explicitly created, must be tracked before separately scoped cleanup; retained/manual accounts remain preserved."
+        "Earlier local automated fixtures and clusters were cleaned within their recorded scopes. The current fifth hosted identity is explicitly attributed and still retained pending acceptance and separately guarded cleanup; protected original four remain."
       ]
     },
     {
       "id": "R43",
       "requirement": "Combined quality, coverage, database isolation and browser release gates",
       "owner": "lead",
-      "dependencies": ["merged implementation"],
-      "implementationStatus": "recorded_combined_quality_ci_migration_live_and_guest_release_gates_passed",
-      "completionStatus": "required_repository_gates_satisfied_for_recorded_revision",
+      "dependencies": [
+        "merged implementation"
+      ],
+      "implementationStatus": "combined_870_and_all_five_exact_source_CI_passed_current_staging_release_in_progress",
+      "completionStatus": "incomplete",
       "acceptanceCriteria": [
         "Pass unchanged coverage/lint/format/strict inventories and all required fresh/upgrade database isolation/browser gates on the combined source.",
         "Preserve meaningful assertions and actual failures; do not lower thresholds, suppress types or count skipped suites as tested.",
         "Obtain all five required CI successes on the exact revised pushed source and complete guarded release/postflight."
       ],
       "verification": {
-        "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
-        "hostedTested": "actual_exact_live_revision_database_preservation_and_guest_postflight_passed_no_genuine_auth_claim",
+        "locallyTested": "870_zero_skips_249_17_5_each_fresh_upgrade_and_four_core_steps_passed_separate184plus32SDK",
+        "hostedTested": "Prior3096 guest7/assets14 passed; current819 deployment accepted/building, LIVE/guest pending. No genuine returning-login acceptance inferred.",
         "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
         "providerSandboxTested": "not_claimed",
         "physicallyDeviceTested": "not_established",
@@ -2704,18 +3711,63 @@
         {
           "reference": "anonymousWalletCurrent",
           "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "classifierCi",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/ci/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "operatorLocal",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/README.md"
+        },
+        {
+          "reference": "logoutResetOverlap",
+          "path": "evidence/account-completion-baseline/logout-reset-overlap-20261022/README.md"
+        },
+        {
+          "reference": "valkeyCompatibility",
+          "path": "evidence/redis-acceptance/valkey-8.1.10-20261022/README.md"
+        },
+        {
+          "reference": "logoutResetReplay",
+          "path": "evidence/account-completion-baseline/logout-reset-replay-20261022/README.md"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
+        },
+        {
+          "reference": "ci819",
+          "path": "evidence/account-completion-baseline/ci-819421d-20261022/README.md"
         }
       ],
-      "remainingBlockers": [],
+      "remainingBlockers": [
+        "Current819 staging LIVE/served-asset/guest acceptance and final release record remain pending; combined870 and all five exact-source CI checks passed."
+      ],
       "limitations": [
-        "CI 5/5 proves exact eba1dc5 tree,858 tests/zero skips,239/17/5 per fresh-upgrade path and retained-wallet 4 groups. Guarded migration and exact LIVE/readiness/guest7/assets14 passed. Genuine provider/device/financial acceptance remains separate."
+        "CI 5/5 proves exact eba1dc5 tree,858 tests/zero skips,239/17/5 per fresh-upgrade path and retained-wallet 4 groups. Guarded migration and exact LIVE/readiness/guest7/assets14 passed. Genuine provider/device/financial acceptance remains separate.",
+        "Operator-only local859/240 is a separate later database gate; existing application SDK125 and core-browser858 remain exact-scoped, not rerun by the operator harness."
       ]
     },
     {
       "id": "R44",
       "requirement": "Auth/financial/security/concurrency/provider failure acceptance coverage",
       "owner": "lead/review",
-      "dependencies": ["workflows"],
+      "dependencies": [
+        "workflows"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -2759,6 +3811,54 @@
         {
           "reference": "redis",
           "path": "evidence/redis-acceptance/embedded-wallet-scopes/results.json"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "classifierCi",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/ci/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "operatorLocal",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/README.md"
+        },
+        {
+          "reference": "simulationTrial",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/simulation/result.json"
+        },
+        {
+          "reference": "genuineEmailSignup",
+          "path": "evidence/account-completion-baseline/genuine-email-signup-20261022/README.md"
+        },
+        {
+          "reference": "logoutResetOverlap",
+          "path": "evidence/account-completion-baseline/logout-reset-overlap-20261022/README.md"
+        },
+        {
+          "reference": "valkeyCompatibility",
+          "path": "evidence/redis-acceptance/valkey-8.1.10-20261022/README.md"
+        },
+        {
+          "reference": "logoutResetReplay",
+          "path": "evidence/account-completion-baseline/logout-reset-replay-20261022/README.md"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
         }
       ],
       "remainingBlockers": [
@@ -2769,7 +3869,9 @@
       "id": "R45",
       "requirement": "WCAG 2.2 AA checks, keyboard/focus/announcements/mobile/200% zoom",
       "owner": "lead",
-      "dependencies": ["changed journeys"],
+      "dependencies": [
+        "changed journeys"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -2805,6 +3907,14 @@
         {
           "reference": "screenReader",
           "path": "evidence/account-completion-baseline/screen-reader-attempt.md"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
         }
       ],
       "remainingBlockers": [
@@ -2815,7 +3925,9 @@
       "id": "R46",
       "requirement": "Screen-reader and physical-device trials distinct from automation",
       "owner": "lead",
-      "dependencies": ["human/device access"],
+      "dependencies": [
+        "human/device access"
+      ],
       "implementationStatus": "automation_scopes_separated_physical_screen_reader_trials_incomplete",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -2842,6 +3954,10 @@
         {
           "reference": "coin",
           "path": "evidence/account-completion-baseline/coin-sandbox-browser/results.json"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
         }
       ],
       "remainingBlockers": [
@@ -2852,7 +3968,9 @@
       "id": "R47",
       "requirement": "Privacy-preserving signup/auth/resend/provider/recovery measurement",
       "owner": "lead/auth",
-      "dependencies": ["journeys"],
+      "dependencies": [
+        "journeys"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -2880,6 +3998,14 @@
         {
           "reference": "authReview",
           "path": "evidence/account-completion-baseline/auth-independent-review.md"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
+        },
+        {
+          "reference": "genuineEmailSignup",
+          "path": "evidence/account-completion-baseline/genuine-email-signup-20261022/README.md"
         }
       ],
       "remainingBlockers": [
@@ -2890,9 +4016,11 @@
       "id": "R48",
       "requirement": "Runtime vs owner separation; no secret/private-data exposure",
       "owner": "all/review",
-      "dependencies": ["deployment/config"],
+      "dependencies": [
+        "deployment/config"
+      ],
       "implementationStatus": "runtime_owner_tls_config_text_privacy_and_manual_artifact_scope_verified",
-      "completionStatus": "credential_config_text_and_recorded_artifact_privacy_scope_satisfied",
+      "completionStatus": "incomplete",
       "acceptanceCriteria": [
         "Keep owner/admin credentials out of web/worker, preserve strict verified TLS and private browser/runtime grants.",
         "Keep private configs/backups/signatures/financial data out of source/logs/screenshots/reports; inspect final artifact changes.",
@@ -2900,7 +4028,7 @@
         "Record denied advisor access and provider maintenance limits without inventing clean results."
       ],
       "verification": {
-        "locallyTested": "actual_current_secret_text_scan_and_scoped_artifact_review_passed_with_binary_history_limits",
+        "locallyTested": "dated897_text_scan_passed_current_tree_scan_pending_newsource_and_archives",
         "hostedTested": "actual_runtime_owner_configuration_strict_tls_private_role_backup_migration_and_guest_boundaries_verified",
         "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
         "providerSandboxTested": "not_claimed",
@@ -2975,29 +4103,59 @@
         {
           "reference": "providerCapabilityFollowup",
           "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-capability-followup.md"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "classifierCi",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/ci/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "logoutResetOverlap",
+          "path": "evidence/account-completion-baseline/logout-reset-overlap-20261022/README.md"
+        },
+        {
+          "reference": "logoutResetReplay",
+          "path": "evidence/account-completion-baseline/logout-reset-replay-20261022/README.md"
+        },
+        {
+          "reference": "privacyCurrent",
+          "path": "evidence/account-completion-baseline/privacy-20261022/README.md"
         }
       ],
-      "remainingBlockers": [],
+      "remainingBlockers": [
+        "Actual1121-text scan passed against five known secrets and two private disposable identifiers. Review subsequent CI/privacy/release archives and final changed text before publication; binary/pixel/history scope remains separate."
+      ],
       "limitations": [
-        "Actual current-secret scanner passed 897 text files/five privately loaded current secrets with zero matches; 763 binary files and screenshot pixels were skipped. Empty-form hosted screenshots/current artifacts were reviewed separately; this does not prove all historical, unknown or obfuscated secrets absent.",
-        "Strict TLS, browser/runtime private roles and separate owner migration/configuration are verified within their recorded boundaries. Supabase advisors access was denied; that is an explicit limitation, not a fabricated clean advisor result.",
-        "The scan output and later fixed-text completion/PR metadata were added after the actual scan and contain only allowlisted aggregate facts; the original scan is not relabelled as testing future bytes."
+        "Prior text-secret scan covered its recorded revision/files only. New source, genuine/operator archives and future release artifacts are not covered until a new frozen-tree scan; binary/history/pixel review remain distinct."
       ]
     },
     {
       "id": "R49",
       "requirement": "Focused commits, PR #42 update, screenshots, results/config/docs/status",
       "owner": "lead",
-      "dependencies": ["integration"],
-      "implementationStatus": "focused_source_and_reviewed_release_archive_published_in_existing_PR42",
-      "completionStatus": "satisfied_for_recorded_delivery_scope",
+      "dependencies": [
+        "integration"
+      ],
+      "implementationStatus": "current_evidence_and_PR_publication_in_progress",
+      "completionStatus": "current_evidence_and_pr_publication_in_progress",
       "acceptanceCriteria": [
         "Deliver focused strict-source commits in existing PR42 with implementation/configuration/docs/status and matching screenshots/results.",
         "Use secret variable names only and preserve a reviewable combined diff and exact tested revision/hash evidence.",
         "Update the PR, exact CI and final release/evidence handoff after remaining gates."
       ],
       "verification": {
-        "locallyTested": "reviewed_documentation_and_evidence_only_publication_lint_format_passed_runtime_source_unchanged",
+        "locallyTested": "new_source_7e92f0ecf_and_frontend_frozen_correction_gates_and_evidence_publication_in_progress_historical1bec_publication_preserved",
         "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
         "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
         "providerSandboxTested": "not_claimed",
@@ -3072,9 +4230,39 @@
         {
           "reference": "repositoryPrivacy",
           "path": "evidence/account-completion-baseline/embedded-wallet-release/repository-privacy.json"
+        },
+        {
+          "reference": "classifierCi",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/ci/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "operatorLocal",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/README.md"
+        },
+        {
+          "reference": "genuineEmailSignup",
+          "path": "evidence/account-completion-baseline/genuine-email-signup-20261022/README.md"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
+        },
+        {
+          "reference": "ci819",
+          "path": "evidence/account-completion-baseline/ci-819421d-20261022/README.md"
         }
       ],
-      "remainingBlockers": [],
+      "remainingBlockers": [
+        "Publish final reviewed archives/checklist and refresh PR42 after current email guidance source and genuine continuation are verified."
+      ],
       "limitations": [
         "Focused implementation commits and the reviewed documentation/screenshots/acceptance archive are published in PR42, including archive commit 1bec989 and the description updated at 22:24:50 UTC. Later documentation-head checks remain visible on the PR and do not relabel deployed-source CI or genuine acceptance."
       ]
@@ -3083,16 +4271,18 @@
       "id": "R50",
       "requirement": "Independent security/financial and full-prompt completion audit",
       "owner": "review/lead",
-      "dependencies": ["integrated revision"],
+      "dependencies": [
+        "integrated revision"
+      ],
       "implementationStatus": "independent_whole_contract_source_release_and_final_document_audit_performed",
-      "completionStatus": "independent_whole_contract_source_and_evidence_audit_satisfied_with_limits",
+      "completionStatus": "incomplete",
       "acceptanceCriteria": [
         "Have separate reviewers examine integrated sensitive auth/financial transitions and all 52 requirements, disclosing authorship limits.",
         "Investigate and fix independently actionable findings; agent reports alone are not acceptance.",
         "Audit all required evidence/status/blockers after final CI/release and keep the overall task explicitly incomplete while external requirements remain."
       ],
       "verification": {
-        "locallyTested": "source_record_or_research_review_only",
+        "locallyTested": "historical_full52_audit_retained_new_exact_overlap_source_review_passed_final_combined_full52_audit_pending",
         "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
         "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
         "providerSandboxTested": "not_claimed",
@@ -3175,11 +4365,49 @@
         {
           "reference": "providerCapabilityFollowup",
           "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-capability-followup.md"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "classifierCi",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/ci/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "operatorLocal",
+          "path": "evidence/account-completion-baseline/operator-pooler-20261021/README.md"
+        },
+        {
+          "reference": "logoutResetOverlap",
+          "path": "evidence/account-completion-baseline/logout-reset-overlap-20261022/README.md"
+        },
+        {
+          "reference": "logoutResetReplay",
+          "path": "evidence/account-completion-baseline/logout-reset-replay-20261022/README.md"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
+        },
+        {
+          "reference": "ci819",
+          "path": "evidence/account-completion-baseline/ci-819421d-20261022/README.md"
         }
       ],
-      "remainingBlockers": [],
+      "remainingBlockers": [
+        "Finish final frozen combined-source, full52 completion/evidence audit with authorship limits; current peer reviews do not assert whole-task completion."
+      ],
       "limitations": [
-        "The independent second reviewer actually read all52 final rows against source/contract/evidence at Markdown7d364ae5…/JSONf9e0d563…, validated321 references/59catalog entries/49local links/eight source-compiled hashes, and reported PASS with no new blocker. This fixed-text outcome entry records that completed review; it does not create a new runtime/source acceptance claim.",
+        "The independent second reviewer actually read all52 final rows against source/contract/evidence at Markdown7d364ae5\u2026/JSONf9e0d563\u2026, validated321 references/59catalog entries/49local links/eight source-compiled hashes, and reported PASS with no new blocker. This fixed-text outcome entry records that completed review; it does not create a new runtime/source acceptance claim.",
         "Independent authorship limits remain linked; review is not a fresh execution of tests/provider operations. Overall genuine/provider/device/legal/backing requirements remain incomplete."
       ]
     },
@@ -3187,7 +4415,9 @@
       "id": "R51",
       "requirement": "Automatically provision one user-controlled EVM wallet after verified account creation; survive redirect/outage; no app signer",
       "owner": "wallet/lead",
-      "dependencies": ["supported free-tier provider API, durable job"],
+      "dependencies": [
+        "supported free-tier provider API, durable job"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -3198,8 +4428,8 @@
       ],
       "verification": {
         "locallyTested": "passed_with_the_linked_scope_and_source_boundary",
-        "hostedTested": "actual_eba1dc5_guest_and_asset_postflight_only_no_genuine_signed_in_ceremony",
-        "genuineProviderTested": "not_established_or_not_applicable_see_evidence_scope",
+        "hostedTested": "actual_eba1dc5_partial_genuine_user_report_and_separate_readonly_provider_ownership_pass_see_limits",
+        "genuineProviderTested": "partial_actual_key_setup_returning_passkey_user_report_and_readonly_wallet_ownership_pass_default_recovery_and_other_journeys_open",
         "providerSandboxTested": "not_claimed",
         "physicallyDeviceTested": "not_established",
         "liveRelease": "does_not_authorize_live_financial_activity"
@@ -3252,17 +4482,51 @@
         {
           "reference": "providerWalletPending",
           "path": "evidence/account-completion-baseline/embedded-wallet-release/provider-wallet/acceptance-pending.json"
+        },
+        {
+          "reference": "genuinePasskeyWallet",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md"
+        },
+        {
+          "reference": "providerWalletPass",
+          "path": "evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/wallet-ownership-pass.json"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "classifierCi",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/ci/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
+        },
+        {
+          "reference": "accountSetupFeedback",
+          "path": "evidence/account-completion-baseline/account-setup-feedback-20261022/README.md"
         }
       ],
       "remainingBlockers": [
-        "Actual provider wallet creation/user-only ownership/default recovery acceptance is pending credential verification. Exact deployed source and read-only inspections pass their stated scopes; no native human key activation result is assumed."
+        "Original manual account provider user-only ownership PASS remains recorded. New disposable wallet is locally ready but human did not observe readiness and returning login failed. Verify actual provider ownership and visible readiness after reset diagnosis; default recovery/device acceptance remains open."
       ]
     },
     {
       "id": "R52",
       "requirement": "Remove new external-wallet linking while preserving retained wallet ownership/sign-in/security",
       "owner": "wallet/review",
-      "dependencies": ["existing retained-credential guards"],
+      "dependencies": [
+        "existing retained-credential guards"
+      ],
       "implementationStatus": "implemented_required_acceptance_pending",
       "completionStatus": "incomplete",
       "acceptanceCriteria": [
@@ -3334,11 +4598,47 @@
         {
           "reference": "anonymousWalletCurrent",
           "path": "evidence/account-completion-baseline/account-hosted-browser/wallet-phase-eba1dc5/embedded-wallet-anonymous.json"
+        },
+        {
+          "reference": "passkeyErrorSdk",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/sdk/browser-results.json"
+        },
+        {
+          "reference": "passkeyErrorIntegrated",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/integrated/result.json"
+        },
+        {
+          "reference": "classifierCi",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/ci/result.json"
+        },
+        {
+          "reference": "classifierLive",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/render-live.json"
+        },
+        {
+          "reference": "classifierGuest",
+          "path": "evidence/account-completion-baseline/passkey-signin-errors-20261021/release/guest/acceptance.json"
         }
       ],
       "remainingBlockers": [
         "Genuine hosted/physical retained-wallet acceptance remains pending. Corrected retained-wallet fixture passed four focused and four exact-tree CI groups; exact release and guest private-route postflight passed."
       ]
     }
-  ]
+  ],
+  "executionState": {
+    "status": "active_resumed_at_founder_request",
+    "pausedAt": "2026-10-21T23:03:15Z",
+    "resumeInstruction": "Execution resumed explicitly. Pause checkpoint remains historical; current status and final release evidence supersede it.",
+    "resumeDocument": "email-first-resume.md",
+    "localWorkersStopped": false,
+    "remoteCi": {
+      "runId": 39705118511,
+      "head": "819421d30b10acb29b38a0f75ed46360af373870",
+      "status": "completed_success_all_five",
+      "webDeployedSourceRemains": "3096ca776a04f3cf38ad835d7348329791c0385b"
+    },
+    "resumedAt": "2026-10-21T23:26:22.097435+00:00",
+    "currentBrowser": "Ordinary Chrome Incognito signup succeeded; subsequent passkey/email return FAILED and user retries stopped pending repair. First isolated observer closed/profile removed. No credentials or device prompts captured.",
+    "currentWork": "Exact819LIVE verified; guest browser/served assets running. First GET-only containment check stopped before snapshot on worker configuration shape; inspect actual safe fields before any reviewed correction/retry. No owner prepare/rearm executed. Docs/PR continue; live disabled."
+  }
 }

@@ -67,6 +67,15 @@ isolated Base Sepolia rail, `COIN_SANDBOX_CUSTODY_ADDRESS`. Webhook HTTP runtime
 configuration uses `COIN_SANDBOX_WEBHOOK_SECRET` separately. No owner connection
 is accepted by the webhook router.
 
+For Supabase's shared pooler, the configured custom-role login includes its
+project suffix. The command accepts that documented owner-login form only on
+Supabase's indexed AWS pooler hosts; direct/local owner logins still work.
+PostgreSQL must independently report both `current_user` and `session_user` as
+the exact dedicated owner before an operator action. The suffix does not grant
+ownership. Keep verified TLS and the reviewed CA in the private operator
+configuration; never put the owner connection in the web or worker environment.
+See [Supabase connection guidance](https://supabase.com/docs/guides/database/connecting-to-postgres).
+
 The operator accepts one JSON object on stdin, at most 32 KiB. It prints a bounded
 command/status summary, with no addresses, amounts, account identifiers, signing
 bytes, connection strings or provider error objects. Keep operator input private.

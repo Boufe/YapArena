@@ -1,0 +1,35 @@
+Sanitized allowlisted excerpts from actual CI logs. Not the full raw log.
+Raw-log SHA256 and job URL are recorded in result.json.
+
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 239
+ℹ pass 239
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 17
+ℹ pass 17
+ℹ fail 0
+ℹ skipped 0
+A4 execution repetition 1: exact offer, receipt, balances and reload PASS
+A4 no-trade repetition 1: exact offer, receipt, balances and reload PASS
+A4 execution repetition 2: exact offer, receipt, balances and reload PASS
+A4 no-trade repetition 2: exact offer, receipt, balances and reload PASS
+Fresh installation: inventory, browser denial, runtime login, backend journeys, worker, triggers and future defaults PASS.
+ℹ tests 239
+ℹ pass 239
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 17
+ℹ pass 17
+ℹ fail 0
+ℹ skipped 0
+Upgrade: inventory, browser denial, runtime login, backend journeys, worker, triggers and future defaults PASS.
+{"status": "passed", "groups": 4}
+{"trial":"community-http-load","result":"PASS","viewers":500,"rooms":50,"seconds":30,"writes":300,"deliverySamples":3000,"deliveryP50Ms":34,"deliveryP95Ms":124,"stormRecoveryMs":584,"restartRecoveryMs":4133,"maxStreams":500,"maxRooms":50,"rssGrowthMiB":17.15,"slowClientStressMutations":1500,"bufferPressure":10,"finalStreams":0,"maxRuntimeConnections":8,"secondProcessMutations":60}

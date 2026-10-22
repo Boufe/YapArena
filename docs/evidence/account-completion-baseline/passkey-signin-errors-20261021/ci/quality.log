@@ -1,0 +1,26 @@
+Sanitized allowlisted excerpts from actual CI logs. Not the full raw log.
+Raw-log SHA256 and job URL are recorded in result.json.
+
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 239
+ℹ pass 239
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 858
+ℹ pass 858
+ℹ fail 0
+ℹ skipped 0
+ℹ all files                                |  95.32 |    91.23 |   95.35 | 
+Fresh installation: inventory, browser denial, runtime login, backend journeys, worker, triggers and future defaults PASS.
+ℹ tests 239
+ℹ pass 239
+ℹ fail 0
+ℹ skipped 0
+Upgrade: inventory, browser denial, runtime login, backend journeys, worker, triggers and future defaults PASS.

@@ -1,0 +1,176 @@
+{
+  "result": "PASS",
+  "runId": 39690075806,
+  "runAttempt": 1,
+  "url": "https://github.com/Boufe/YapArena/actions/runs/39690075806",
+  "completedAt": "2026-10-21T23:19:42Z",
+  "reviewedAt": "2026-10-21T23:31:28.584642+00:00",
+  "branchRevision": "3096ca776a04f3cf38ad835d7348329791c0385b",
+  "testedMergeCommit": "191504f207a1711f2e3fb13eaf44e43ff092f075",
+  "mergeParents": [
+    "fd60543b5f6d8f0b65fe1f93807252064d9317f2",
+    "3096ca776a04f3cf38ad835d7348329791c0385b"
+  ],
+  "testedTree": "a44f97b393094eb09919cd8f6100be935f9a85f5",
+  "branchTree": "a44f97b393094eb09919cd8f6100be935f9a85f5",
+  "allFiveCheckoutLogsVerified": true,
+  "testedSourceHashes": {
+    "frontend/account-auth.tsx": "554f8bff0da7be8426dfea0297421dbbc5e4a46acc4f2d0a4632b97a7dfd38e4",
+    "scripts/verify-email-auth-browser.ts": "ce97c3cfaab4dde356ec0b86110704838c99470cafea460c1102077b5b44a881",
+    "scripts/verify-wallet-browser.ts": "3720a754856057a21398c2995a0fdb7733a258814aeea6d9ead66a07f2774287",
+    ".github/workflows/ci.yml": "4a609e84af78a8932b5059a38abf749cf51969d6a5a495c06e25efc959524672",
+    ".github/workflows/reusable-quality.yml": "78f246b5a0eb94745d70ea96e8bc59aca4162d9026708c7f4df95385ed549fcb"
+  },
+  "environment": {
+    "runner": "Ubuntu 24.04.5; ubuntu-24.04 image 20261018.339.1",
+    "qualityNode": "24.22.0",
+    "integrationNode": "24.22.0",
+    "databaseMode": "disposable Docker PostgreSQL; native PostgreSQL17 tools for Unicode/replay prerequisites",
+    "observedDockerPostgres": "18.4 (Debian 18.4-1.pgdg12+1)"
+  },
+  "quality": {
+    "tests": 858,
+    "passed": 858,
+    "failed": 0,
+    "skipped": 0,
+    "coverage": {
+      "lines": 95.32,
+      "branches": 91.23,
+      "functions": 95.35
+    },
+    "rawTestCountSequence": [5, 5, 239, 858, 239],
+    "eachFreshAndUpgrade": {
+      "accountSecurityLedger": 239,
+      "treasury": 5
+    }
+  },
+  "integration": {
+    "result": "success",
+    "eachFreshAndUpgrade": {
+      "accountSecurityLedger": 239,
+      "a4": 17,
+      "treasury": 5
+    },
+    "rawTestCountSequence": [5, 5, 239, 17, 239, 17],
+    "allSectionsZeroFailuresAndSkips": true,
+    "retainedWallet": {
+      "status": "passed",
+      "groups": 4,
+      "fixtureSha256": "3720a754856057a21398c2995a0fdb7733a258814aeea6d9ead66a07f2774287",
+      "fixtureHashProvenance": "Exact tested Git tree; actual status/groups independently read in integration stdout.",
+      "acceptanceJsonUploaded": false
+    },
+    "nativePostgresUnicodeSetup": "passed",
+    "replayPackagingAndPipeline": "passed",
+    "coreBrowser": "passed",
+    "community": {
+      "trial": "community-http-load",
+      "result": "PASS",
+      "viewers": 500,
+      "rooms": 50,
+      "seconds": 30,
+      "writes": 300,
+      "deliverySamples": 3000,
+      "deliveryP50Ms": 34,
+      "deliveryP95Ms": 124,
+      "stormRecoveryMs": 584,
+      "restartRecoveryMs": 4133,
+      "maxStreams": 500,
+      "maxRooms": 50,
+      "rssGrowthMiB": 17.15,
+      "slowClientStressMutations": 1500,
+      "bufferPressure": 10,
+      "finalStreams": 0,
+      "maxRuntimeConnections": 8,
+      "secondProcessMutations": 60
+    },
+    "backupIsolatedRestore": "passed",
+    "publicDiscoveryApiSmokeAndDesktopMobileBrowsers": "passed",
+    "cleanup": "passed"
+  },
+  "artifact": {
+    "id": 12388109831,
+    "name": "core-browser-evidence",
+    "bytes": 19165042,
+    "sha256": "1cf9e6ba444bda68dd70672b329cfc1fc447b9b04df4c4ed732848fff9d50145",
+    "entries": 37,
+    "privateDownload": true,
+    "parentStatus": "passed",
+    "parentPassedSteps": 4,
+    "childJsonCount": 5,
+    "explicitResultPassChildJsonCount": 4,
+    "a4AssertionEvidenceWithoutResultField": true,
+    "retainedWalletAcceptanceJsonUploaded": false
+  },
+  "jobs": [
+    {
+      "id": 119533797919,
+      "name": "deployment",
+      "conclusion": "success",
+      "checkout": "191504f207a1711f2e3fb13eaf44e43ff092f075",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39690075806/job/119533797919",
+      "startedAt": "2026-10-21T22:56:45Z",
+      "completedAt": "2026-10-21T22:56:58Z",
+      "rawLogSha256": "b3c633219540934de4d8cfb2d9994dd2b4cb1ec40cf5bdc1f05f190ad1497b6f",
+      "rawLogBytes": 14873,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119533798243,
+      "name": "monitoring",
+      "conclusion": "success",
+      "checkout": "191504f207a1711f2e3fb13eaf44e43ff092f075",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39690075806/job/119533798243",
+      "startedAt": "2026-10-21T22:56:45Z",
+      "completedAt": "2026-10-21T22:57:06Z",
+      "rawLogSha256": "fc5aece362cadee40f5ce5e340fffea611dd3f1fd4d58ac3e7478ea5c8268ad5",
+      "rawLogBytes": 18307,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119533798336,
+      "name": "quality / check",
+      "conclusion": "success",
+      "checkout": "191504f207a1711f2e3fb13eaf44e43ff092f075",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39690075806/job/119533798336",
+      "startedAt": "2026-10-21T22:56:45Z",
+      "completedAt": "2026-10-21T23:02:21Z",
+      "rawLogSha256": "ed223f9f69a95165c2965e6041b84a03d5dddcb987d5b9b70634862103038530",
+      "rawLogBytes": 108844,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119535939235,
+      "name": "container",
+      "conclusion": "success",
+      "checkout": "191504f207a1711f2e3fb13eaf44e43ff092f075",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39690075806/job/119535939235",
+      "startedAt": "2026-10-21T23:02:23Z",
+      "completedAt": "2026-10-21T23:08:43Z",
+      "rawLogSha256": "45ed888e4352115496f3cb9a865003b8a616eb02890284518514740f69a15275",
+      "rawLogBytes": 1231361,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119535939113,
+      "name": "integration",
+      "conclusion": "success",
+      "checkout": "191504f207a1711f2e3fb13eaf44e43ff092f075",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39690075806/job/119535939113",
+      "startedAt": "2026-10-21T23:02:24Z",
+      "completedAt": "2026-10-21T23:19:42Z",
+      "rawLogSha256": "933dc10f0d8ac685586478d8400c6b52fa243f2a4c04e85f4e8fcbfcd69c7890",
+      "rawLogBytes": 256470,
+      "rawLogPrivateMode": "0600"
+    }
+  ],
+  "limitations": [
+    "Runner-local disposable PostgreSQL and synthetic browser/media/retained-wallet fixtures; not hosted, genuine-provider or physical-device acceptance.",
+    "The deployment job validates production Compose only; it does not deploy Render.",
+    "The installed-SDK125 local browser run is separate evidence. This CI strictly checks/builds its verifier but does not execute that SDK suite.",
+    "The configured Trivy HIGH/CRITICAL ignore-unfixed policy passed for production and encoder images; this does not establish zero vulnerabilities.",
+    "Retained-wallet acceptance.json is excluded by the workflow artifact glob. Its passed/groups4 status is verified in actual stdout and the fixture hash is derived from the exact tested tree.",
+    "Raw CI logs and ZIP remain private0600. Published log excerpts are fixed-pattern allowlisted aggregates only; arbitrary log bodies, request data, credentials, tokens and provider responses are excluded.",
+    "This CI does not establish the cause of the earlier genuine passkey failure or change financial/provider/live-release eligibility."
+  ]
+}

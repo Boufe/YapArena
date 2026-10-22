@@ -7,6 +7,17 @@ provider-sandbox trial, chain testnet trial, or live-release authorization.
 No account was registered, provider contacted, plan bought, key provisioned,
 transaction signed, or money moved during this review.
 
+**Current comparison continuation (2026-10-21):** the founder selected continued
+provider comparison and identified Tangem as their existing wallet, without
+selecting custody/signing or authorizing external contact. The
+[new comparison](provider-comparison-20261021.md) checks NOWPayments, CoinGate
+and BitPay against all five requested inputs. CoinGate's current payment-processing and payout terms
+restrict both products to legal persons; BitPay's published invoice list omits
+BNB Smart Chain. NOWPayments' current custody/individual contract and Base route
+remain unverified. None is an approved complete fit. These current findings
+supersede earlier technical/cost observations where they differ, while preserving
+this dated review and the original acceptance limits.
+
 The approved commercial terms remain in [the decision sheet](email-first-accounts.md#financial-decision-sheet).
 The existing [A4 contract](a4-mechanism.md), [financial plan](financial-implementation-plan.md)
 and combined [pre-funds gates](product-specification-outlines.md#e-evidence-required-before-accepting-real-funds)

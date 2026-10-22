@@ -161,6 +161,12 @@ acknowledged freeze/unfreeze response enables GET-only confirmation across web
 instances and restarts. Each phase permits at most eight reads or 120 seconds,
 scheduled ten seconds apart. Unknown mutation outcomes, independent freezes and
 exhausted budgets remain fenced for review; do not reset their state to pending.
+An acknowledged reset superseded by an authenticated logout drains its own
+bounded confirmation before the newer logout runs a separate reset. Every
+intervening generation requires the exact successful application logout audit
+and an untouched same-identity job. The older job cannot advance the mapping's
+generation/token cutoff or wake wallet provisioning. Unacknowledged intents,
+changed credentials, suspension and unaudited generation changes remain fenced.
 Read-only propagation checks release database connections. The bounded mutation
 window retains account ordering. These authentication jobs run on the Privy-configured
 web service independently of general `RUN_BACKGROUND_JOBS`; the separate
@@ -176,6 +182,20 @@ Never repeat an unfreeze merely because its immediate read lagged. The
 [recorded repair](evidence/account-completion-baseline/provider-reset-repair/README.md)
 documents the concrete evidence and limitations. The operator inspection and
 repair processes must not run in the web or worker process.
+
+The separate owner repository methods `prepareAcknowledgedLogoutReset` and
+`resumeAcknowledgedLogoutReset` cover the reviewed stopped pair produced by the
+first-key/logout overlap. Preparation is read-only. Resume requires an explicit
+own-freeze review digest, exact snapshot fingerprint/generation/attempt, two
+expired job leases, unchanged provider identity/accepted public keys and a
+current freeze inside the acknowledged request window. It atomically audits
+and rearms only that acknowledged confirmation and its untouched inherited
+logout. It performs no freeze/unfreeze, changes no credentials or sessions and
+does not clear the token cutoff. A request UUID and durable control marker
+prevent a second budget allocation. Deploy the corrected normal engine before
+using a separately reviewed owner command. This is not an ordinary login or
+general account-unfreeze API; uncertain or independently imposed freezes still
+require separate investigation.
 
 The separate `repair-first-passkey` / `finalize-first-passkey` modes cover only
 the reviewed unfinished first-key case: an unchanged valid accepted baseline,

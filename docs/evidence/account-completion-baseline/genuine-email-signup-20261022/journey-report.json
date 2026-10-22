@@ -1,0 +1,60 @@
+{
+  "format": 1,
+  "recordedAt": "2026-10-22T00:10:52.944563+00:00",
+  "deployedRevision": "3096ca776a04f3cf38ad835d7348329791c0385b",
+  "firstAttempt": {
+    "environment": "Human input in isolated headed Chrome launched by Playwright",
+    "outcome": "founder_reported_immediate_code_send_failure_no_visible_captcha_prompt",
+    "exactNotice": "We couldn\u2019t send a code. Check your email address and try again shortly.",
+    "observerSha256": "e589acfddcb15baffd4d99c2a6e67e029beeb2805ed2a42a88091dd78a7a3a20",
+    "observationSha256": "fb5bee8dcf31eb91739f472d29a1419f50b659e21679c846ba1ebae1590615f8",
+    "capturedProviderInitRequests": 0,
+    "providerOrCaptchaActivityRuledOut": false,
+    "causeIdentified": false,
+    "ownedBrowserClosedAndProfileRemoved": true
+  },
+  "ordinaryBrowserAttempt": {
+    "environment": "Ordinary Chrome Incognito opened and verified through native accessibility UI, without Playwright launch/connection",
+    "outcome": "founder_reported_signup_succeeded",
+    "credentialsEnteredByHumanOnly": true,
+    "codesCapturedOrRequestedInChat": false,
+    "networkMetricsCaptured": false,
+    "serverIdentityAttribution": "ATTRIBUTED_by_separate_fixed_target_readonly_snapshot",
+    "exactReturnActionAcceptance": "not_established_by_signup_report_alone"
+  },
+  "currentPublicConfiguration": {
+    "captchaEnabled": true,
+    "captchaProvider": "turnstile",
+    "customApiUrl": false,
+    "stagingAllowedDomain": true,
+    "source": "Separate current public app metadata inspection by wallet reviewer; no credentials/account data"
+  },
+  "limitations": [
+    "The first observer ignored public metadata/CAPTCHA and unknown provider paths. Missing labels do not establish zero provider activity.",
+    "Cloudflare documents that automation browsers may be detected; ordinary-browser success supports an environment difference but does not prove the first failure cause.",
+    "Human signup success is not Google, passkey enrollment, recovery, exactly-once provisioning, all code-lifecycle scenarios, wallet recovery, full device/WCAG or financial acceptance.",
+    "No screenshots, DOM dump, request/response bodies, credentials, codes, recipient or private account identifiers are archived."
+  ],
+  "subsequentJourney": {
+    "humanReport": "Passkey setup did not clearly confirm; returning passkey and email-code attempts failed; wallet readiness was not observed",
+    "passkeyLoginNotice": "The sign-in provider could not accept this login. If you just signed out, wait a moment and try again. You can also try email.",
+    "emailVerificationNotice": "That code is incorrect, expired or already used. Try the newest code, or request another.",
+    "featureAcceptance": "FAILED_INCOMPLETE",
+    "readOnlyAttribution": "ATTRIBUTED_one_new_account_mapping_with_baseline4_preserved",
+    "localAcceptedProviderPasskeys": 1,
+    "consumedCapturedFirstSetupIntents": 1,
+    "localWalletState": "ready",
+    "localProviderResetJobs": 2,
+    "localManualProviderResetJobs": 2,
+    "localAccountMappingGenerationsMatch": false,
+    "latestResetFailureCategory": "inherited_manual",
+    "providerFrozenState": "confirmed_true_by_7555_exact_GET_inspector",
+    "originalFailureCause": "not_established",
+    "mutationsByInspector": 0,
+    "providerCredentialsAndAcceptedKeyMatch": true,
+    "acknowledgedFreezeWindowMatch": true,
+    "independentDashboardBlock": "founder_reports_none_only_used_YapArena",
+    "precedingState": "older_manual_freeze_confirm_after_ACK_superseded_by_newer_logout_all_inherited_manual",
+    "repairExecuted": false
+  }
+}

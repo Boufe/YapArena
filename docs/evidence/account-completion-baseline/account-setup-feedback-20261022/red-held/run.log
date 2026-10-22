@@ -1,0 +1,19 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: setup confirmation survives protected refresh
+
+false !== true
+
+    at verifyPrivyPasskeySetup (file:///private/tmp/yaparena-setup-status-7e/scripts/verify-email-auth-browser.ts:2105:12)
+    at async file:///private/tmp/yaparena-setup-status-7e/scripts/verify-email-auth-browser.ts:3107:5 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

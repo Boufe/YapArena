@@ -12,6 +12,30 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+Current web source is **`3096ca7`**, verified LIVE after all five exact-tree CI
+checks. The [latest correction and release evidence](evidence/account-completion-baseline/passkey-signin-errors-20261021/README.md)
+records 125 installed-SDK checks, a combined 858-test gate, seven hosted guest
+groups and 14 matching assets. The owner-only `e8fcdff` follow-up passed 859 local
+tests without skips and 240 focused cases on each fresh/upgraded database; it
+requires no runtime deployment or migration. All five exact-source CI checks
+also passed, with their separate measured coverage in the
+[CI review](evidence/account-completion-baseline/operator-pooler-20261021/ci-review.md). Its
+[guarded simulation trial](evidence/account-completion-baseline/operator-pooler-20261021/README.md)
+approved and completed the existing proof-matched request exactly once without
+provider/chain calls. Earlier results below retain their dated scope. Remaining
+genuine email/Google/recovery, device, hosted Redis and live financial gates keep
+the task incomplete. A new disposable account's genuine email signup succeeded
+in normal Chrome Incognito, according to the founder. An earlier immediate
+send-code failure in an automation-launched browser remains an undiagnosed
+separate result. See the [genuine continuation](evidence/account-completion-baseline/genuine-email-signup-20261022/README.md);
+subsequent passkey/email return failed and provider inspection confirms a frozen
+account after an acknowledged reset overlapped normal sign-out. The local
+`92f11b4` correction passed 248 focused PostgreSQL cases on both fresh/upgrade
+paths and independent security review; deployment and exact reviewed owner
+repair remain pending. Clear setup confirmation and wallet status retries are
+being verified separately. The local `0e226c9` Valkey8.1.10 trial passed ten
+operational groups; hosted topology/outage acceptance remains open.
+
 Email-first account work is tracked in the [implementation and financial decision
 record](email-first-accounts.md) and the detailed
 [completion matrix](email-first-completion.md). Baseline was fetched main
@@ -50,8 +74,11 @@ adds focused authentication, an account dashboard and clearer withdrawal progres
 The [shared header and authentication popup](evidence/shared-header/README.md)
 unify account entry points and navigation, hide member controls until the app
 session is verified, and load the provider bundle on demand from public pages.
-Current free development-app Google/passkey login options are enabled; genuine
-returning/linking/recovery journeys and final account acceptance remain open.
+Current free development-app Google/passkey login options are enabled. The founder
+now reports successful Privy passkey setup and later returning passkey login;
+remaining email-code/Google/linking/recovery journeys and final account acceptance
+remain open. The [genuine acceptance continuation](evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md)
+keeps the earlier failed login and the later success distinct.
 The reviewed delayed provider-reset repair is complete, preserving revocation
 cutoffs and all retained accounts. The Privy-only corrections are hosted. Final review then identified an additional
 account-switch race in ordinary provider settings; its correction and 99-scenario
@@ -61,8 +88,10 @@ a session; [actual evidence](evidence/account-completion-baseline/first-passkey-
 records its one mutation, GET-only finalization and preserved revocation fences.
 The founder then approved automatic user-controlled Privy EVM wallets and removal
 of new external-wallet linking. The [durable wallet design](embedded-wallets.md)
-is implemented with no app signing authority and deployed at `eba1dc5`; genuine
-provider acceptance remains pending. Unknown external-wallet signup is also disabled
+is implemented with no app signing authority and deployed at `eba1dc5`; actual
+read-only provider inspection confirms user-only ownership and no additional
+signer/policy. Default recovery and remaining genuine scenarios remain pending.
+Unknown external-wallet signup is also disabled
 in email-first mode; retained wallet login/removal stays available. See the
 completion matrix for exact acceptance status.
 The subsequent wallet/reset integration passed **854 tests with zero skips**,
@@ -73,8 +102,8 @@ cookie-coordination groups (14 issuer paths). The
 [new combined evidence](evidence/account-completion-baseline/wallet-phase-integrated/README.md)
 and individual reports bind those local results to their source and asset hashes.
 The current source includes durable user-only wallet provisioning and acknowledged
-provider-reset confirmation. The named staging web site now serves `eba1dc5`
-after the separate guarded release below. Genuine provider and physical acceptance remain open.
+provider-reset confirmation. The earlier staging release served `eba1dc5`
+after the guarded release below; the current `3096ca7` release preserves it. Genuine provider and physical acceptance remain open.
 The next credential-wait correction parks wallet work without spending creation
 attempts while verification is unfinished. Its complete local gate passed
 **858 tests with zero skips**, **239 focused cases on each fresh/upgrade path**,
@@ -92,8 +121,9 @@ accounts and all 14 security projections were preserved before writers resumed.
 The [release record](evidence/account-completion-baseline/embedded-wallet-release/README.md)
 confirms exact web revision `eba1dc5` live, unchanged replay-worker source,
 seven hosted guest groups, all 14 asset matches and anonymous wallet privacy.
-The actual read-only wallet result remains pending credential verification;
-genuine saved-key activation and wallet/default-recovery acceptance stay open.
+That earlier wallet snapshot was pending credential verification. The subsequent
+read-only ownership result passed and the founder reported saved-key activation
+and returning login; default recovery and remaining genuine scenarios stay open.
 Real Base Sepolia test-USDC receipt evidence is separate from labelled conversion
 simulations. No live financial routes are enabled. Existing A4 remains nonredeemable
 play money; the new 100 YC/USDC direction does not convert historical grants or

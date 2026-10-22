@@ -1,0 +1,46 @@
+{
+  "testedAt": "2026-10-22T00:51:23.265Z",
+  "revision": "7e5c0a38b9b474f1712d5d87454842c0c8a7f7ae",
+  "sourceHashes": {
+    "src/platform/shared-abuse.ts": "34a10238ac879bc89126c6d5e527f6e8e59174a640a727094199a5abeabf94f3",
+    "scripts/verify-auth-redis.ts": "3711e31405fc8701f37a76efc429f32d1f2afbabc3a171ab0c7a4b0011e2ea8b"
+  },
+  "environment": "isolated local loopback Redis and synthetic HTTP principals",
+  "runtime": "v24.19.0",
+  "serverName": "valkey",
+  "valkeyVersion": "8.1.10",
+  "redisVersion": "7.2.4",
+  "dockerImage": {
+    "tag": "valkey/valkey:8.1.10-alpine",
+    "id": "sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507",
+    "repositoryDigests": [
+      "valkey/valkey@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507"
+    ]
+  },
+  "mode": "verifier-owned disposable Docker instance",
+  "checks": [
+    "100 atomic concurrent increments through two clients; TTL expiry",
+    "two independent HTTP middleware instances: shared IP budget, account/operation/environment separation, opaque HMAC keys",
+    "two separate Node HTTP worker processes enforce one Redis IP/account budget under concurrent requests",
+    "two separate Node HTTP workers atomically share provider.passkey.link, provider.passkey.restart and embedded.wallet.retry attempt budgets; purpose, account and environment stay separate; stored keys are opaque HMACs with bounded TTL",
+    "closed-port and accepted-but-stalled handshake bounded; backoff fails immediately; protected mutation fails closed while public read works",
+    "evictable policy rejected before concurrent commands can execute",
+    "noeviction memory exhaustion fails closed and retains existing counters",
+    "paused Redis command deadline, connection destruction, retry cooldown and bounded uncertain counter execution",
+    "nonpersistent restart loses counters and permits a new window; this store cannot be financial security state",
+    "aggregate latency/error/throttle metrics contain no fixture identities, key namespace or key secret"
+  ],
+  "observedStoreSeconds": {
+    "samples": 179,
+    "p50": 0.011535958000000051,
+    "p95": 0.011921583999999938,
+    "max": 1.000191667
+  },
+  "limitations": [
+    "HTTP fixtures include separate Node processes, but synthetic principals are not PostgreSQL session acceptance.",
+    "Logout and revocation routing during outages is independently covered by the actual application unit suite.",
+    "No hosted Redis changes, provider acceptance, live financial authorization, physical-device or screen-reader claims.",
+    "Local engine compatibility does not establish hosted multi-host topology, ACL/INFO availability, eviction configuration or outage behavior.",
+    "Nonpersistent restarts reset abuse budgets. PostgreSQL must own financial and revocation state."
+  ]
+}

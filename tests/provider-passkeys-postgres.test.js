@@ -11,11 +11,8 @@ import { providerCredentialsDigest } from "../dist/platform/auth/provider-creden
 import { createAccountOperationRepository } from "../dist/platform/auth/account-operations.js";
 import { createAccountAccessRepository } from "../dist/platform/auth/account-access.js";
 import { createProviderIdentityRecovery } from "../dist/platform/auth/provider-identity-recovery.js";
-import { createProviderSessionMonitor } from "../dist/platform/auth/provider-session-monitor.js";
-import {
-  ProviderUnavailableError,
-  ProviderCredentialChangedError,
-} from "../dist/platform/auth/privy.js";
+import { createProviderRecheck } from "../dist/platform/auth/provider-recheck.js";
+import { ProviderCredentialChangedError } from "../dist/platform/auth/privy.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import {
   createSessionToken,
@@ -792,7 +789,18 @@ describe(
       );
     });
 
-    it("denies both valid sessions during one exact pending addition without letting either monitor revoke the account", async () => {
+    const recheck = (pool, inspector) =>
+      createProviderRecheck(pool, inspector, { staleAfterMs: 0 });
+    async function auditCount(f, eventType) {
+      return (
+        await owner.query(
+          "SELECT count(*)::int count FROM identity_audit_events WHERE user_id=$1 AND event_type=$2",
+          [f.f.userId, eventType],
+        )
+      ).rows[0].count;
+    }
+
+    it("keeps both sessions usable and leaves one exact pending addition to activation", async () => {
       const f = await fixture(),
         other = createSessionToken();
       const user = (
@@ -810,84 +818,32 @@ describe(
       const begin = await f.repo.begin(f.f),
         key = providerPasskeyFixture();
       f.add(key);
-      const before = await securitySnapshot(f),
-        bothInspecting = deferred(),
-        releaseInspection = deferred();
-      let inspections = 0;
-      const inspector = {
-        async inspect(subject) {
-          if (++inspections === 2) bothInspecting.resolve();
-          await releaseInspection.promise;
-          return f.verifier.inspect(subject);
-        },
-      };
-      const monitoring = Promise.allSettled([
-        createProviderSessionMonitor(a, inspector)(
+      const before = await securitySnapshot(f);
+      // Requests no longer read Privy, so neither session is denied.
+      for (const tokenHash of [f.f.sessionTokenHash, other.tokenHash])
+        assert.equal(
+          (await createSessionRepository(b).findUserByTokenHash(tokenHash)).id,
           f.f.userId,
-          f.f.sessionTokenHash,
-        ),
-        createProviderSessionMonitor(b, inspector)(f.f.userId, other.tokenHash),
-      ]);
-      await bothInspecting.promise;
-      releaseInspection.resolve();
-      const monitored = await monitoring;
+        );
       assert.deepEqual(
-        monitored.map((result) =>
-          result.status === "rejected"
-            ? {
-                result: result.status,
-                category: result.reason.constructor.name,
-                status: result.reason.status ?? null,
-              }
-            : { result: result.status },
-        ),
-        [
-          {
-            result: "rejected",
-            category: "ProviderUnavailableError",
-            status: null,
-          },
-          {
-            result: "rejected",
-            category: "ProviderUnavailableError",
-            status: null,
-          },
-        ],
+        await Promise.all([
+          recheck(a, f.verifier).run(f.f.userId),
+          recheck(b, f.verifier).run(f.f.userId),
+        ]),
+        ["deferred", "deferred"],
       );
-      for (const result of monitored) {
-        assert.equal(result.status, "rejected");
-        assert.ok(result.reason instanceof ProviderUnavailableError);
-      }
       assert.deepEqual(await securitySnapshot(f), before);
-      assert.equal(
-        (
-          await owner.query(
-            "SELECT count(*)::int count FROM provider_revocation_jobs WHERE user_id=$1",
-            [f.f.userId],
-          )
-        ).rows[0].count,
-        0,
+      // Signing in elsewhere meanwhile does not record the change either.
+      await createProviderAccounts(b).exchange(
+        { ...f.identity, sessionId: randomUUID() },
+        createSessionToken().tokenHash,
+        new Date(Date.now() + 600000),
       );
       const challenge = await f.repo.activationOptions({
         ...f.f,
         id: begin.id,
         token: "fixture-provider-token",
       });
-      for (const tokenHash of [f.f.sessionTokenHash, other.tokenHash])
-        await assert.rejects(
-          createProviderSessionMonitor(b, f.verifier)(f.f.userId, tokenHash),
-          ProviderUnavailableError,
-        );
-      assert.deepEqual(await securitySnapshot(f), before);
-      await assert.rejects(
-        f.repo.activationOptions({
-          ...f.f,
-          id: begin.id,
-          sessionTokenHash: other.tokenHash,
-          token: "fixture-provider-token",
-        }),
-        { status: 410 },
-      );
       const result = await f.repo.complete(completion(f, challenge, key));
       assert.ok(result.keyId);
       assert.equal(
@@ -898,18 +854,11 @@ describe(
         ).id,
         f.f.userId,
       );
-      assert.equal(
-        (
-          await owner.query(
-            "SELECT count(*)::int count FROM identity_audit_events WHERE user_id=$1 AND event_type='sessions.incident'",
-            [f.f.userId],
-          )
-        ).rows[0].count,
-        0,
-      );
+      assert.equal(await auditCount(f, "sessions.incident"), 0);
+      assert.equal(await auditCount(f, "provider.credentials.changed"), 0);
     });
 
-    it("still revokes another valid session when the initiating session is gone or the pending delta is not exact", async () => {
+    it("records, without ending sessions, a change that is not one exact pending addition", async () => {
       for (const scenario of [
         "original-session-ended",
         "multiple-added-keys",
@@ -967,20 +916,21 @@ describe(
           });
         }
         const before = await securitySnapshot(f);
-        await assert.rejects(
-          createProviderSessionMonitor(b, f.verifier)(
-            f.f.userId,
-            other.tokenHash,
-          ),
-          { status: 403 },
+        assert.equal(
+          await recheck(b, f.verifier).run(f.f.userId),
+          "recorded",
+          scenario,
         );
-        const after = await securitySnapshot(f);
-        assert.equal(after.sessions, 0, scenario);
-        assert.notEqual(after.generation, before.generation, scenario);
+        assert.deepEqual(await securitySnapshot(f), before, scenario);
+        assert.equal(
+          await auditCount(f, "provider.credentials.changed"),
+          1,
+          scenario,
+        );
       }
     });
 
-    it("fails temporarily without revocation when an accepted or pending provider public key is unavailable", async () => {
+    it("keeps sessions when Privy omits an accepted or pending passkey public key", async () => {
       for (const accepted of [false, true]) {
         const f = await fixture();
         let key;
@@ -999,20 +949,17 @@ describe(
           ),
         });
         const before = await securitySnapshot(f);
-        await assert.rejects(
-          createProviderSessionMonitor(a, f.verifier)(
-            f.f.userId,
-            f.f.sessionTokenHash,
-          ),
-          ProviderUnavailableError,
+        assert.equal(
+          await recheck(a, f.verifier).run(f.f.userId),
+          accepted ? "unchanged" : "recorded",
         );
         assert.deepEqual(await securitySnapshot(f), before);
       }
     });
 
-    it("revokes a changed accepted key even while another exact key addition is pending", async () => {
+    it("checks a changed accepted key at step-up, not on requests", async () => {
       const f = await fixture(),
-        { key } = await activate(f);
+        { key, result } = await activate(f);
       await f.repo.begin(f.f);
       f.add(providerPasskeyFixture());
       f.replace({
@@ -1027,16 +974,17 @@ describe(
         ),
       });
       const before = await securitySnapshot(f);
+      assert.equal(await recheck(a, f.verifier).run(f.f.userId), "deferred");
+      assert.deepEqual(await securitySnapshot(f), before);
       await assert.rejects(
-        createProviderSessionMonitor(a, f.verifier)(
-          f.f.userId,
-          f.f.sessionTokenHash,
-        ),
-        { status: 403 },
+        createAccountOperationRepository(a, f.verifier).create({
+          ...f.f,
+          purpose: "withdraw.request",
+          terms: { amount: "1", asset: "USDC", destination: "fixture" },
+          credential: { type: "passkey", keyId: result.keyId },
+        }),
+        { status: 410 },
       );
-      const after = await securitySnapshot(f);
-      assert.equal(after.sessions, 0);
-      assert.notEqual(after.generation, before.generation);
     });
 
     it("does not defer a provider delta after its original intent is consumed or expired", async () => {
@@ -1056,14 +1004,8 @@ describe(
         FROM provider_passkey_intents CROSS JOIN issued WHERE id=$1`,
         [begin.id, randomUUID()],
       );
-      await assert.rejects(
-        createProviderSessionMonitor(a, f.verifier)(
-          f.f.userId,
-          f.f.sessionTokenHash,
-        ),
-        { status: 403 },
-      );
-      assert.equal((await securitySnapshot(f)).sessions, 0);
+      assert.equal(await recheck(a, f.verifier).run(f.f.userId), "recorded");
+      assert.equal((await securitySnapshot(f)).sessions, 1);
     });
 
     it("rejects self-authorized provider passkey removal and changed exported keys for fresh operation proof", async () => {
@@ -1125,7 +1067,64 @@ describe(
       );
     });
 
-    it("temporarily denies an inspection failure during the matching active provider reset without revoking the rotated cookie", async () => {
+    it("records a method change that the stored methods have not caught up with, then sets up the passkey", async () => {
+      const f = await fixture();
+      const credentials = [
+        ...f.identity.credentials,
+        { type: "google_oauth", id: `google-${randomUUID()}` },
+      ];
+      f.replace({
+        ...f.identity,
+        credentials,
+        credentialsDigest: providerCredentialsDigest(credentials),
+        methods: [...new Set(credentials.map((entry) => entry.type))].sort(),
+      });
+      const before = await securitySnapshot(f);
+      const begin = await f.repo.begin(f.f);
+      assert.equal(begin.terms.beforeDigest, f.identity.credentialsDigest);
+      assert.deepEqual(await securitySnapshot(f), before);
+      const recorded = (
+        await owner.query(
+          `SELECT e.metadata->>'source' AS source,p.credentials_digest AS digest
+          FROM identity_audit_events e JOIN provider_identities p ON p.user_id=e.user_id
+          WHERE e.user_id=$1 AND e.event_type='provider.credentials.changed'`,
+          [f.f.userId],
+        )
+      ).rows;
+      assert.deepEqual(recorded, [
+        { source: "passkey_setup", digest: f.identity.credentialsDigest },
+      ]);
+      const key = providerPasskeyFixture();
+      const challenge = await options(f, begin, key);
+      assert.ok((await f.repo.complete(completion(f, challenge, key))).keyId);
+    });
+
+    it("approves step-up with the same key after another sign-in method changes", async () => {
+      const f = await fixture(),
+        { result } = await activate(f);
+      const credentials = [
+        ...f.identity.credentials,
+        { type: "google_oauth", id: `google-${randomUUID()}` },
+      ];
+      f.replace({
+        ...f.identity,
+        credentials,
+        credentialsDigest: providerCredentialsDigest(credentials),
+        methods: [...new Set(credentials.map((entry) => entry.type))].sort(),
+      });
+      const proof = await createAccountOperationRepository(
+        a,
+        f.verifier,
+      ).create({
+        ...f.f,
+        purpose: "withdraw.request",
+        terms: { amount: "1", asset: "USDC", destination: "fixture" },
+        credential: { type: "passkey", keyId: result.keyId },
+      });
+      assert.ok(proof.id);
+    });
+
+    it("takes no action on a frozen response during the matching active provider reset", async () => {
       for (const state of ["pending", "running", "manual"]) {
         const f = await fixture(),
           key = providerPasskeyFixture(),
@@ -1140,22 +1139,21 @@ describe(
           [f.f.userId, state],
         );
         const before = await securitySnapshot(f);
-        const monitor = createProviderSessionMonitor(a, {
-          async inspect() {
-            throw new ProviderCredentialChangedError(
-              "synthetic own-reset frozen response",
-            );
-          },
-        });
-        await assert.rejects(
-          monitor(f.f.userId, f.f.sessionTokenHash),
-          ProviderUnavailableError,
+        assert.equal(
+          await recheck(a, {
+            async inspect() {
+              throw new ProviderCredentialChangedError(
+                "synthetic own-reset frozen response",
+              );
+            },
+          }).run(f.f.userId),
+          "deferred",
         );
         assert.deepEqual(await securitySnapshot(f), before);
       }
     });
 
-    it("still revokes actual key changes or independent/mismatched freezes while a provider reset exists", async () => {
+    it("still revokes independent or unrelated freezes while a provider reset record exists", async () => {
       for (const mode of [
         "changed-key",
         "independent-freeze",
@@ -1180,7 +1178,9 @@ describe(
             mode === "wrong-subject",
           ],
         );
-        if (mode === "changed-key")
+        if (mode === "changed-key") {
+          // A key change is checked at step-up; with a reset running the
+          // re-check takes no action at all.
           f.replace({
             ...f.identity,
             passkeys: [
@@ -1190,23 +1190,25 @@ describe(
               },
             ],
           });
-        const inspector =
-          mode === "changed-key"
-            ? f.verifier
-            : {
-                async inspect() {
-                  throw new ProviderCredentialChangedError(
-                    "synthetic unowned freeze",
-                  );
-                },
-              };
+          const before = await securitySnapshot(f);
+          assert.equal(
+            await recheck(a, f.verifier).run(f.f.userId),
+            "deferred",
+          );
+          assert.deepEqual(await securitySnapshot(f), before);
+          continue;
+        }
         const before = await securitySnapshot(f);
-        await assert.rejects(
-          createProviderSessionMonitor(a, inspector)(
-            f.f.userId,
-            f.f.sessionTokenHash,
-          ),
-          { status: 403 },
+        assert.equal(
+          await recheck(a, {
+            async inspect() {
+              throw new ProviderCredentialChangedError(
+                "synthetic unowned freeze",
+              );
+            },
+          }).run(f.f.userId),
+          "revoked",
+          mode,
         );
         const after = await securitySnapshot(f);
         assert.equal(after.sessions, 0);

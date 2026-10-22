@@ -27,7 +27,7 @@ import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createProviderAccounts } from "../dist/platform/auth/provider-accounts.js";
 import { createProviderIdentityRecovery } from "../dist/platform/auth/provider-identity-recovery.js";
 import { createProviderRevocation } from "../dist/platform/auth/provider-revocation.js";
-import { createProviderSessionMonitor } from "../dist/platform/auth/provider-session-monitor.js";
+import { createProviderRecheck } from "../dist/platform/auth/provider-recheck.js";
 import { providerCredentialsDigest } from "../dist/platform/auth/provider-credentials.js";
 import {
   ProviderCredentialChangedError,
@@ -67,6 +67,7 @@ let browser: Browser | undefined;
 let lastPage: Page | undefined;
 let runtime: pg.Pool | undefined;
 let owner: pg.Pool | undefined;
+let providerRecheck: ReturnType<typeof createProviderRecheck> | undefined;
 let httpServer: ReturnType<express.Express["listen"]> | undefined;
 let phase = "start disposable PostgreSQL";
 const checks: string[] = [];
@@ -289,8 +290,9 @@ try {
   };
   const operations = createAccountOperationRepository(runtimePool, verifier);
   const providerPasskeys = createProviderPasskeys(runtimePool, verifier);
+  providerRecheck = createProviderRecheck(runtimePool, verifier);
   const providerSessions = createSessionRepository(runtimePool, {
-    verifyProviderSession: createProviderSessionMonitor(runtimePool, verifier),
+    providerCheck: providerRecheck,
   });
   const providerIdentityRecovery = createProviderIdentityRecovery(
     runtimePool,
@@ -1627,9 +1629,11 @@ try {
       WHERE user_id=$1 AND subject=$2`,
       [identity.userId, identity.providerIdentity.subject],
     );
-    await createProviderSessionMonitor(runtimePool, verifier)(
-      identity.userId,
-      newSessionHash,
+    assert.notEqual(
+      await createProviderRecheck(runtimePool, verifier, {
+        staleAfterMs: 0,
+      }).run(identity.userId),
+      "revoked",
     );
     assert.equal(
       (await sessions.findUserByTokenHash(newSessionHash))?.id,
@@ -1640,7 +1644,7 @@ try {
       replacement.subject,
     );
     checks.push(
-      `${name}: an adversarial current-generation job for the retired DID completes without any external provider call; an old-subject manual fence cannot invalidate the replacement identity's current session monitor`,
+      `${name}: an adversarial current-generation job for the retired DID completes without any external provider call; an old-subject manual fence cannot invalidate the replacement identity's current session through the provider re-check`,
     );
     phase = `${name}: permanently fence recovered provider identity and replay`;
     assert.equal(
@@ -1721,7 +1725,7 @@ try {
               "src/platform/auth/provider-accounts.ts",
               "src/platform/auth/provider-credentials.ts",
               "src/platform/auth/provider-revocation.ts",
-              "src/platform/auth/provider-session-monitor.ts",
+              "src/platform/auth/provider-recheck.ts",
               "src/platform/auth/provider-passkeys.ts",
               "src/platform/auth/privy.ts",
               "src/features/identity/repository.ts",
@@ -1735,7 +1739,7 @@ try {
               "dist/platform/auth/provider-accounts.js",
               "dist/platform/auth/provider-credentials.js",
               "dist/platform/auth/provider-revocation.js",
-              "dist/platform/auth/provider-session-monitor.js",
+              "dist/platform/auth/provider-recheck.js",
               "dist/platform/auth/provider-passkeys.js",
               "dist/platform/auth/privy.js",
               "dist/features/identity/repository.js",
@@ -1784,6 +1788,7 @@ try {
       httpServer!.close((error) => (error ? fail(error) : done())),
     );
   }
+  await providerRecheck?.drain();
   await Promise.all([runtime?.end(), owner?.end()]);
   if (started)
     await exec("pg_ctl", [

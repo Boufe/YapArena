@@ -1192,12 +1192,241 @@ async function verifyEmailSendFailureClassification(
     }
   }
 }
+async function verifyEmailCodeFailureClassification(
+  name: string,
+  viewport: { width: number; height: number },
+) {
+  const origin = new URL(base).origin;
+  const scenarios = [
+    {
+      id: "provider-denied",
+      status: 403,
+      code: "synthetic_denied",
+      calls: 1,
+      notice: "The sign-in provider could not verify this sign-in.",
+    },
+    {
+      id: "ambiguous-provider-denied",
+      status: 403,
+      code: "invalid_credentials",
+      calls: 1,
+      notice: "The sign-in provider could not verify this sign-in.",
+    },
+    {
+      id: "provider-unavailable",
+      status: 503,
+      code: "synthetic_unavailable",
+      calls: 4,
+      notice: "Code verification is temporarily unavailable.",
+    },
+    {
+      id: "provider-network",
+      status: 0,
+      code: "synthetic_network",
+      calls: 4,
+      notice: "The connection to secure sign-in was interrupted.",
+    },
+    {
+      id: "provider-rate-limit",
+      status: 429,
+      code: "too_many_requests",
+      calls: 1,
+      notice: "Too many verification attempts.",
+    },
+    {
+      id: "provider-configuration",
+      status: 400,
+      code: "disallowed_login_method",
+      calls: 1,
+      notice: "Email sign-in is unavailable for this app right now.",
+    },
+    {
+      id: "provider-unknown",
+      status: 400,
+      code: "synthetic_unknown",
+      calls: 1,
+      notice: "We couldn’t verify the code.",
+    },
+    {
+      id: "invalid-code",
+      status: 400,
+      code: "invalid_credentials",
+      calls: 1,
+      notice: "That code is incorrect, expired or already used.",
+    },
+  ];
+  for (const scenario of scenarios) {
+    const context = await browser.newContext({ viewport });
+    try {
+      await context.addInitScript(() => {
+        if (window === window.top)
+          localStorage.setItem("yaparena-measurement-declined", "1");
+      });
+      const page = await context.newPage();
+      page.on("pageerror", (error) => errors.push(error.message));
+      let initCalls = 0,
+        authenticateCalls = 0,
+        exchanges = 0;
+      const unexpected: string[] = [];
+      await context.route(
+        (url) =>
+          url.origin === "https://auth.privy.io" &&
+          url.pathname.startsWith("/api/"),
+        (route) => {
+          const path = new URL(route.request().url()).pathname;
+          const headers = {
+            "access-control-allow-origin": origin,
+            "access-control-allow-credentials": "true",
+            "access-control-allow-methods": "GET, POST, OPTIONS",
+            "access-control-allow-headers":
+              route.request().headers()["access-control-request-headers"] ??
+              "authorization, content-type, privy-app-id",
+          };
+          if (route.request().method() === "OPTIONS")
+            return route.fulfill({ status: 204, headers });
+          if (path === `/api/v1/apps/${appId}`)
+            return route.fulfill({
+              headers,
+              json: {
+                ...providerSettings,
+                captcha_enabled: false,
+                enabled_captcha_provider: null,
+              },
+            });
+          if (path === "/api/v1/passwordless/init") {
+            initCalls++;
+            return route.fulfill({ headers, json: { success: true } });
+          }
+          if (path === "/api/v1/passwordless/authenticate") {
+            authenticateCalls++;
+            if (scenario.status === 0) return route.abort("failed");
+            return route.fulfill({
+              status: scenario.status,
+              headers,
+              json: {
+                code: scenario.code,
+                error: "SYNTHETIC_PRIVATE_VERIFICATION_DETAIL_MUST_NOT_APPEAR",
+              },
+            });
+          }
+          if (path === "/api/v1/analytics_events")
+            return route.fulfill({ headers, json: { success: true } });
+          unexpected.push(path);
+          return route.abort();
+        },
+      );
+      await page.route("**/api/auth/me", (route) =>
+        route.fulfill({
+          status: 401,
+          json: { error: "authentication required" },
+        }),
+      );
+      await page.route("**/api/auth/privy/exchange", (route) => {
+        exchanges++;
+        return route.abort();
+      });
+      await page.goto(`${origin}/account`);
+      const auth = page.locator("#email-auth");
+      await page.waitForFunction(
+        () =>
+          document.querySelector<HTMLButtonElement>(
+            '#email-auth button[type="submit"]',
+          )?.disabled === false,
+      );
+      await auth
+        .getByLabel("Email address", { exact: true })
+        .fill("synthetic-verification@example.invalid");
+      await auth
+        .getByRole("button", { name: "Continue with email", exact: false })
+        .click();
+      const code = auth.getByLabel("Verification code", { exact: true });
+      await code.fill("123456");
+      const verify = auth.getByRole("button", {
+        name: "Verify and continue",
+        exact: false,
+      });
+      for (const attempt of [1, 2]) {
+        await verify.click();
+        await auth
+          .getByText(scenario.notice, { exact: false })
+          .waitFor()
+          .catch(async (error: unknown) => {
+            await capture(
+              page,
+              `verify-email-${scenario.id}-${name}.png`,
+              true,
+            );
+            await writeFile(
+              resolve(directory, `verify-email-${scenario.id}-${name}.json`),
+              JSON.stringify({
+                phase: `email verification ${scenario.id} before application exchange`,
+                attempt,
+                initCalls,
+                authenticateCalls,
+                exchanges,
+                invalidCodeNoticeVisible: await auth
+                  .getByText(
+                    "That code is incorrect, expired or already used.",
+                    { exact: false },
+                  )
+                  .isVisible(),
+                expectedNoticeVisible: await auth
+                  .getByText(scenario.notice, { exact: false })
+                  .isVisible(),
+              }) + "\n",
+            );
+            throw error;
+          });
+        await page.waitForFunction(
+          () =>
+            document.querySelector<HTMLButtonElement>(
+              '#email-auth button[type="submit"]',
+            )?.disabled === false,
+        );
+        assert.equal(
+          initCalls,
+          1,
+          "verification errors cannot send another code automatically",
+        );
+        assert.equal(authenticateCalls, scenario.calls * attempt);
+        assert.equal(exchanges, 0);
+        assert.equal(await code.isEnabled(), true);
+      }
+      assert.equal(await page.locator("#signed-in").isVisible(), false);
+      assert.equal(
+        await page
+          .getByText("SYNTHETIC_PRIVATE_VERIFICATION_DETAIL_MUST_NOT_APPEAR", {
+            exact: false,
+          })
+          .count(),
+        0,
+      );
+      assert.equal(
+        await auth
+          .getByText("That code is incorrect, expired or already used.", {
+            exact: false,
+          })
+          .count(),
+        scenario.id === "invalid-code" ? 1 : 0,
+      );
+      assert.deepEqual(unexpected, []);
+      await capture(page, `verify-email-${scenario.id}-${name}.png`, true);
+      checks.push(
+        `${name}: email verification ${scenario.id} uses the actual installed SDK error wrapper, shows its bounded notice, retains explicit retry with exact request counts, sends no replacement code or application exchange and hides private provider detail; provider response is synthetic`,
+      );
+    } finally {
+      await context.close();
+    }
+  }
+}
 async function verifyPrivyPasskeySetup(
   name: string,
   viewport: { width: number; height: number },
   expiredRestart = false,
   queuedCompletion = false,
   settingsRaces = false,
+  setupReplacement = false,
+  initialReadUnavailable = false,
 ) {
   // WebAuthn accepts localhost for a local secure-context fixture, not an IP RP.
   const fixtureOrigin = new URL(base);
@@ -1206,6 +1435,25 @@ async function verifyPrivyPasskeySetup(
   const context = await browser.newContext({ viewport });
   let stage = "initialize";
   let counters = () => ({});
+  let releaseSetupRefresh = () => {};
+  let releaseSetupConfirmation = () => {};
+  async function waitSetupGate(promise: Promise<void>) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        promise,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(new Error(`Passkey fixture barrier missing: ${stage}`)),
+            10000,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
   try {
     await context.addInitScript(() => {
       if (window === window.top)
@@ -1276,7 +1524,18 @@ async function verifyPrivyPasskeySetup(
       beginUnavailable = false,
       fixtureAccount = "single-passkey-account",
       replacementActor = false,
-      holdBegin = false;
+      holdBegin = false,
+      holdSetupRefresh = false,
+      denySetupCheck = true,
+      setupCheckCalls = 0,
+      holdSetupConfirmation = false;
+    const setupRefreshGate = deferred(),
+      setupRefreshArrived = deferred();
+    releaseSetupRefresh = setupRefreshGate.release;
+    const setupConfirmationGate = deferred(),
+      setupConfirmationArrived = deferred(),
+      setupConfirmationFinished = deferred();
+    releaseSetupConfirmation = setupConfirmationGate.release;
     const beginGate = deferred(),
       heldBeginArrived = deferred(),
       heldBeginFinished = deferred();
@@ -1437,8 +1696,17 @@ async function verifyPrivyPasskeySetup(
         return route.abort();
       },
     );
-    await page.route("**/api/auth/me", (route) =>
-      route.fulfill(
+    await page.route("**/api/auth/me", async (route) => {
+      if (activated && holdSetupRefresh) {
+        setupRefreshArrived.release();
+        await setupRefreshGate.promise;
+      }
+      if (activated && initialReadUnavailable && denySetupCheck)
+        return route.fulfill({
+          status: 503,
+          json: { error: "Synthetic initial account inspection unavailable." },
+        });
+      return route.fulfill(
         protectedReadsBlocked
           ? {
               status: 503,
@@ -1456,8 +1724,8 @@ async function verifyPrivyPasskeySetup(
                 },
               }
             : { status: 401, json: { error: "authentication required" } },
-      ),
-    );
+      );
+    });
     await page.route("**/api/auth/privy/exchange", (route) => {
       // The original valid cookie reaches the provider-session monitor before
       // ordinary exchange; its exact pending delta denies that lookup with503.
@@ -1491,8 +1759,43 @@ async function verifyPrivyPasskeySetup(
         },
       }),
     );
-    await page.route("**/api/auth/methods", (route) =>
-      route.fulfill(
+    await page.route("**/api/auth/methods", async (route) => {
+      const checking =
+        route.request().headers()["x-yaparena-setup-check"] === "passkey";
+      if (checking) setupCheckCalls++;
+      if (checking && holdSetupConfirmation) {
+        const saved = {
+          accountId: fixtureAccount,
+          provider: {
+            subject: sdkSubject,
+            email: sdkEmail,
+            methods: ["email", "passkey"],
+            credentials: [
+              { type: "email", id: sdkEmail },
+              { type: "passkey", id: credentialId },
+            ],
+          },
+          legacyPassword: !expiredRestart,
+        };
+        setupConfirmationArrived.release();
+        await setupConfirmationGate.promise;
+        try {
+          await route.fulfill({ json: saved });
+        } finally {
+          setupConfirmationFinished.release();
+        }
+        return;
+      }
+      if (activated && holdSetupRefresh) {
+        setupRefreshArrived.release();
+        await setupRefreshGate.promise;
+      }
+      if (checking && denySetupCheck)
+        return route.fulfill({
+          status: 503,
+          json: { error: "synthetic secure access check unavailable" },
+        });
+      return route.fulfill(
         protectedReadsBlocked
           ? {
               status: 503,
@@ -1520,8 +1823,8 @@ async function verifyPrivyPasskeySetup(
                 legacyPassword: !expiredRestart,
               },
             },
-      ),
-    );
+      );
+    });
     await page.route("**/api/auth/security/passkeys", (route) =>
       route.fulfill(
         !authenticated
@@ -1873,7 +2176,7 @@ async function verifyPrivyPasskeySetup(
         .click();
     }
     await page
-      .locator("#provider-settings")
+      .locator("#passkey-setup-resume")
       .getByText("Synthetic interruption. Choose Finish passkey setup.", {
         exact: true,
       })
@@ -2009,6 +2312,7 @@ async function verifyPrivyPasskeySetup(
     await approval
       .getByLabel("Current password", { exact: true })
       .fill("synthetic-retained-passphrase");
+    holdSetupRefresh = !queuedCompletion;
     await approval
       .getByRole("button", { name: "Approve change", exact: true })
       .click();
@@ -2055,12 +2359,261 @@ async function verifyPrivyPasskeySetup(
       );
       return;
     }
+    stage = "visible passkey confirmation during held account refresh";
+    let refreshDeadline: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        setupRefreshArrived.promise,
+        new Promise<never>((_resolve, reject) => {
+          refreshDeadline = setTimeout(
+            () => reject(new Error("Setup refresh barrier missing")),
+            10000,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(refreshDeadline);
+    }
+    assert.equal(completeCalls, 1);
+    assert.equal(providerInitCalls, 1);
+    assert.equal(providerLinkCalls, 1);
+    assert.equal(await page.locator("#signed-in").isVisible(), false);
+    const setupCard = page.locator("#passkey-setup-resume");
+    const setupVisible = await setupCard.isVisible();
+    await writeFile(
+      resolve(directory, `passkey-confirmation-held-${name}.json`),
+      JSON.stringify({
+        stage,
+        completeCalls,
+        providerInitCalls,
+        providerLinkCalls,
+        signedInVisible: await page.locator("#signed-in").isVisible(),
+        setupVisible,
+      }) + "\n",
+    );
+    await capture(page, `passkey-confirmation-held-${name}.png`, true);
+    assert.equal(
+      setupVisible,
+      true,
+      "setup confirmation survives protected refresh",
+    );
+    await setupCard
+      .getByText("Passkey verified. Finishing secure account access…", {
+        exact: true,
+      })
+      .waitFor();
+    assert.equal(
+      await page
+        .getByText(
+          "Passkey ready for sign-in and account approvals. Other sessions were signed out.",
+          { exact: true },
+        )
+        .count(),
+      0,
+    );
+    const heading = setupCard.getByRole("heading", {
+      name: "Passkey setup",
+      exact: true,
+    });
+    await page.waitForFunction(
+      () => document.activeElement?.id === "passkey-setup-heading",
+    );
+    const headingBox = await heading.boundingBox();
+    assert.ok(
+      headingBox &&
+        headingBox.y >= 0 &&
+        headingBox.y + headingBox.height <= viewport.height,
+    );
+    holdSetupRefresh = false;
+    setupRefreshGate.release();
+    const profileHandle = page.locator('#profile-form input[name="handle"]');
+    if (!initialReadUnavailable) {
+      await page.locator("#signed-in").waitFor({ state: "visible" });
+      await profileHandle.focus();
+    }
+    await setupCard
+      .getByText(
+        "Your passkey was verified, but secure account access is still being checked.",
+        { exact: false },
+      )
+      .waitFor();
+    assert.equal(setupCheckCalls, 3);
+    if (initialReadUnavailable) {
+      assert.equal(await page.locator("#signed-in").isVisible(), false);
+      assert.equal(
+        await page.evaluate(() => window.yapCurrentSessionAccount?.() ?? null),
+        null,
+      );
+    } else {
+      assert.equal(
+        await profileHandle.evaluate(
+          (element) => document.activeElement === element,
+        ),
+        true,
+        "a pending check must not steal focus from the user's profile field",
+      );
+    }
+    await page.waitForTimeout(2500);
+    assert.equal(
+      setupCheckCalls,
+      3,
+      "confirmation polling stops after its bounded budget",
+    );
+    assert.equal(providerInitCalls, 1);
+    assert.equal(providerLinkCalls, 1);
+    const profileDraft = "passkey_profile_draft";
+    if (!initialReadUnavailable) {
+      await page.waitForFunction(() =>
+        Boolean(document.querySelector("#profile-state")?.textContent),
+      );
+      await profileHandle.fill(profileDraft);
+    }
+    denySetupCheck = false;
+    if (setupReplacement) holdSetupConfirmation = true;
+    await setupCard
+      .getByRole("button", { name: "Check setup status", exact: true })
+      .click();
+    if (setupReplacement) {
+      stage =
+        "held passkey confirmation cannot restore old status over a replacement SDK account";
+      let deadline: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          setupConfirmationArrived.promise,
+          new Promise<never>((_resolve, reject) => {
+            deadline = setTimeout(
+              () => reject(new Error("Confirmation barrier missing")),
+              10000,
+            );
+          }),
+        ]);
+      } finally {
+        clearTimeout(deadline);
+      }
+      fixtureAccount = "replacement-passkey-account";
+      sdkSubject = "did:privy:synthetic-replacement";
+      sdkEmail = "replacement-passkey@example.invalid";
+      token = makeToken("synthetic-replacement-passkey-session");
+      replacementActor = true;
+      authenticated = false;
+      await page.evaluate(() => {
+        window.yapRememberSessionAccount?.(null);
+        window.dispatchEvent(new Event("yap:provider-logout"));
+        window.dispatchEvent(new Event("yap:account-changed"));
+        window.dispatchEvent(
+          new CustomEvent("yap:request-auth", { detail: { mode: "login" } }),
+        );
+      });
+      await page.waitForFunction(
+        () =>
+          document.querySelector<HTMLButtonElement>(
+            '#email-auth button[type="submit"]',
+          )?.disabled === false,
+      );
+      const nextEmail = auth.getByLabel("Email address", { exact: true });
+      if (!(await nextEmail.isVisible()))
+        await auth
+          .getByRole("button", { name: "Change email", exact: true })
+          .click();
+      await nextEmail.fill(sdkEmail);
+      await auth
+        .getByRole("button", { name: "Continue with email", exact: false })
+        .click();
+      await auth
+        .getByLabel("Verification code", { exact: true })
+        .fill("123456");
+      await auth
+        .getByRole("button", { name: "Verify and continue", exact: false })
+        .click();
+      await page.waitForFunction(
+        (id) => window.yapCurrentSessionAccount?.() === id,
+        fixtureAccount,
+      );
+      await page.locator("#signed-in").waitFor({ state: "visible" });
+      await profileHandle.focus();
+      assert.equal(await setupCard.locator("section").count(), 0);
+      setupConfirmationGate.release();
+      await waitSetupGate(setupConfirmationFinished.promise);
+      await page.evaluate(
+        () =>
+          new Promise<void>((done) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => done())),
+          ),
+      );
+      assert.equal(await setupCard.locator("section").count(), 0);
+      assert.equal(
+        await profileHandle.evaluate(
+          (field) => document.activeElement === field,
+        ),
+        true,
+      );
+      assert.equal(providerInitCalls, 1);
+      assert.equal(providerLinkCalls, 1);
+      assert.equal(completeCalls, 1);
+      assert.equal(providerLogins, 2);
+      checks.push(
+        `${name}: a held original passkey-confirmation response cannot restore progress, success or focus over a replacement installed-SDK account and never creates another credential`,
+      );
+      return;
+    }
     await page
       .getByText(
         "Passkey ready for sign-in and account approvals. Other sessions were signed out.",
         { exact: true },
       )
       .waitFor();
+    await page.waitForFunction(
+      () => document.activeElement?.id === "passkey-setup-heading",
+    );
+    assert.equal(
+      setupCheckCalls,
+      4,
+      "a new read requires the explicit check action",
+    );
+    const confirmedBox = await setupCard
+      .getByRole("heading", { name: "Passkey setup complete", exact: true })
+      .boundingBox();
+    assert.ok(
+      confirmedBox &&
+        confirmedBox.y >= 0 &&
+        confirmedBox.y + confirmedBox.height <= viewport.height,
+    );
+    await capture(page, `passkey-confirmation-complete-${name}.png`, true);
+    if (name === "desktop") {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.evaluate(() => {
+        document.documentElement.style.zoom = "2";
+      });
+      try {
+        assert.equal(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1,
+          ),
+          true,
+        );
+        assert.equal(
+          await setupCard.locator("button").evaluateAll((buttons) =>
+            buttons.every((button) => {
+              const box = button.getBoundingClientRect();
+              return box.left >= -1 && box.right <= innerWidth + 1;
+            }),
+          ),
+          true,
+        );
+        await capture(page, "passkey-confirmation-zoom.png", true);
+        checks.push(
+          `${name}: the persistent passkey confirmation reflows with reachable controls at 200% CSS zoom`,
+        );
+      } finally {
+        await page.evaluate(() => {
+          document.documentElement.style.zoom = "";
+        });
+        await page.setViewportSize(viewport);
+      }
+    }
+    checks.push(
+      `${name}: passkey confirmation stays visible and focused through a held protected refresh, never reports ready before a matching protected response, stops after three failed checks, respects later profile focus and confirms one explicit check without reenrollment`,
+    );
     assert.equal(providerInitCalls, 1);
     assert.equal(providerLinkCalls, 1);
     assert.equal(completeCalls, 1);
@@ -2083,6 +2636,65 @@ async function verifyPrivyPasskeySetup(
       ),
       null,
     );
+    await page.locator("#signed-in").waitFor({ state: "visible" });
+    await page.waitForFunction(() =>
+      Boolean(document.querySelector("#profile-state")?.textContent),
+    );
+    await page.evaluate(
+      () =>
+        new Promise<void>((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => done())),
+        ),
+    );
+    const profileDraftPreserved = initialReadUnavailable
+      ? null
+      : (await profileHandle.inputValue()) === profileDraft;
+    stage =
+      "passkey confirmation Done restores focus without resetting a profile draft";
+    await setupCard.getByRole("button", { name: "Done", exact: true }).click();
+    await setupCard.locator("section").waitFor({ state: "detached" });
+    await page.evaluate(
+      () =>
+        new Promise<void>((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => done())),
+        ),
+    );
+    const doneFocusRestored = await page
+      .locator("#account-security h2")
+      .evaluate((heading) => document.activeElement === heading);
+    await writeFile(
+      resolve(directory, `passkey-done-${name}.json`),
+      JSON.stringify({
+        stage,
+        profileDraftPreserved,
+        doneFocusRestored,
+        completeCalls,
+        providerInitCalls,
+        providerLinkCalls,
+        initialReadUnavailable,
+      }) + "\n",
+    );
+    await capture(page, `passkey-done-${name}.png`, true);
+    if (!initialReadUnavailable)
+      assert.equal(
+        profileDraftPreserved,
+        true,
+        "successful setup must preserve an already-loaded profile draft",
+      );
+    assert.equal(
+      doneFocusRestored,
+      true,
+      "Done returns keyboard focus to the visible Security heading",
+    );
+    checks.push(
+      initialReadUnavailable
+        ? `${name}: dismissing confirmed setup restores Security focus after protected initial-account recovery; no prior profile draft exists in this case`
+        : `${name}: dismissing confirmed setup restores Security focus and preserves an existing unsaved profile draft without another account reload`,
+    );
+    if (initialReadUnavailable)
+      checks.push(
+        `${name}: an initial protected account outage keeps profile data hidden; a later explicit setup check pairs fresh protected methods and identity before restoring the same account without reenrollment`,
+      );
     await capture(page, `single-privy-passkey-${name}.png`, true);
     checks.push(
       `${name}: installed Privy SDK creates one virtual-authenticator passkey through intercepted link endpoints; refresh preserves only its exact intent, keeps protected account data hidden, obtains a new scoped retained proof, and activates the same credential without a second registration`,
@@ -2545,6 +3157,8 @@ async function verifyPrivyPasskeySetup(
     );
     throw error;
   } finally {
+    releaseSetupRefresh();
+    releaseSetupConfirmation();
     await context.close();
   }
 }
@@ -2590,11 +3204,17 @@ async function verifyEmbeddedWalletStatus(
       address: string | null = null,
       canRetry = true,
       failStatus = false,
+      getCalls = 0,
+      retryAt: string | null = null,
       holdGet = false,
       holdPost = false;
     let gate = deferred(),
       arrived = deferred(),
       finished = deferred();
+    let readTarget: {
+      count: number;
+      arrived: ReturnType<typeof deferred>;
+    } | null = null;
     const projection = (): WalletStatus => ({
       accountId: account,
       subject,
@@ -2602,7 +3222,7 @@ async function verifyEmbeddedWalletStatus(
       chain: "ethereum",
       address,
       canRetry,
-      retryAt: null,
+      retryAt,
     });
     const user = () => ({
       id: subject,
@@ -2737,7 +3357,11 @@ async function verifyEmbeddedWalletStatus(
           route.request().headers()["x-yaparena-expected-account"],
           account,
         );
-      } else assert.equal(route.request().method(), "GET");
+      } else {
+        assert.equal(route.request().method(), "GET");
+        getCalls++;
+        if (readTarget?.count === getCalls) readTarget.arrived.release();
+      }
       const saved = projection(),
         held = posting ? holdPost : holdGet;
       if (held) {
@@ -2947,6 +3571,72 @@ async function verifyEmbeddedWalletStatus(
       `${name}: unavailable provider status and an ownership-review state hide the address, preserve account/logout access, and cannot silently replace a wallet or submit another creation/retry`,
     );
     stage =
+      "wallet ownership and credential waits are not automatically polled";
+    const reviewedReads = getCalls;
+    await page.waitForTimeout(2500);
+    assert.equal(getCalls, reviewedReads);
+    status = "retry_wait";
+    canRetry = false;
+    retryAt = null;
+    await check.click();
+    await wallet
+      .getByText(
+        "Wallet setup is waiting to be confirmed. Your account is still available.",
+        { exact: true },
+      )
+      .waitFor();
+    const parkedReads = getCalls;
+    await page.waitForTimeout(2500);
+    assert.equal(getCalls, parkedReads);
+    assert.equal(retryCalls, 1);
+    checks.push(
+      `${name}: ownership review and a credential-verification wallet wait with no retry timestamp stop automatic reads and never submit a retry`,
+    );
+    stage = "due wallet status refresh reveals the server-confirmed wallet";
+    retryAt = new Date(Date.now() - 1000).toISOString();
+    await check.click();
+    await wallet
+      .getByText(
+        "Wallet setup is waiting to be confirmed. Your account is still available.",
+        { exact: true },
+      )
+      .waitFor();
+    const dueReads = getCalls;
+    status = "ready";
+    retryAt = null;
+    address = addressA;
+    await wallet.getByText(addressA, { exact: true }).waitFor();
+    assert.equal(getCalls, dueReads + 1);
+    assert.equal(retryCalls, 1);
+    checks.push(
+      `${name}: a due server retry timestamp prompts one bounded read that shows the confirmed owned wallet without a browser retry, creation, signing or funding call`,
+    );
+    stage = "transient wallet failures have a bounded read-only retry budget";
+    failStatus = true;
+    await check.click();
+    await wallet
+      .getByText(
+        "Wallet status is temporarily unavailable. Your account is still available.",
+        { exact: true },
+      )
+      .waitFor();
+    const failedReads = getCalls;
+    readTarget = { count: failedReads + 2, arrived: deferred() };
+    await waitGate(readTarget.arrived.promise);
+    readTarget = null;
+    assert.equal(getCalls, failedReads + 2);
+    await page.waitForTimeout(2500);
+    assert.equal(getCalls, failedReads + 2);
+    assert.equal(await wallet.locator("code").count(), 0);
+    assert.equal(retryCalls, 1);
+    failStatus = false;
+    await check.click();
+    await wallet.getByText(addressA, { exact: true }).waitFor();
+    assert.equal(getCalls, failedReads + 3);
+    checks.push(
+      `${name}: transient wallet status failures stop after three total GETs, hide the address throughout, and require an explicit check for recovery without another provisioning retry`,
+    );
+    stage =
       "held original wallet read cannot reveal old address after SDK switch";
     status = "ready";
     address = addressA;
@@ -3046,11 +3736,22 @@ try {
     ["desktop", { width: 1440, height: 1000 }],
     ["mobile", { width: 390, height: 844 }],
   ] as const) {
+    await verifyEmailCodeFailureClassification(name, viewport);
     await verifyExchangeFailureClassification(name, viewport);
     await verifyPasskeyFailureClassification(name, viewport);
     await verifyEmailSendFailureClassification(name, viewport);
     await verifyPrivyPasskeySetup(name, viewport);
     await verifyEmbeddedWalletStatus(name, viewport);
+    if (name === "desktop")
+      await verifyPrivyPasskeySetup(
+        "desktop-initial-account-outage",
+        viewport,
+        false,
+        false,
+        false,
+        false,
+        true,
+      );
     if (name === "desktop")
       await verifyPrivyPasskeySetup("desktop-expired-restart", viewport, true);
     if (name === "desktop")
@@ -3064,6 +3765,15 @@ try {
       await verifyPrivyPasskeySetup(
         "desktop-provider-settings-races",
         viewport,
+        false,
+        false,
+        true,
+      );
+    if (name === "desktop")
+      await verifyPrivyPasskeySetup(
+        "desktop-setup-replacement",
+        viewport,
+        false,
         false,
         false,
         true,

@@ -283,6 +283,46 @@ function emailCodeSendFailure(error: unknown) {
   return "We couldn’t request a code. Try again shortly.";
 }
 
+function emailCodeVerificationFailure(error: unknown) {
+  const details = error !== null && typeof error === "object" ? error : null;
+  const code =
+    details && "privyErrorCode" in details ? details.privyErrorCode : undefined;
+  const status =
+    details && "status" in details && typeof details.status === "number"
+      ? details.status
+      : undefined;
+  if (code === "too_many_requests" || status === 429)
+    return "Too many verification attempts. Wait a moment, then try again.";
+  if (status !== undefined && status >= 500)
+    return "Code verification is temporarily unavailable. Try again shortly.";
+  if (
+    code === "client_request_timeout" ||
+    (details &&
+      "type" in details &&
+      details.type === "api_error" &&
+      "status" in details &&
+      details.status === null)
+  )
+    return "The connection to secure sign-in was interrupted. Reconnect and try again.";
+  if (status === 403)
+    return "The sign-in provider could not verify this sign-in. Try again shortly.";
+  if (
+    code === "invalid_credentials" &&
+    (status === 400 || status === undefined)
+  )
+    return "That code is incorrect, expired or already used. Try the newest code, or request another.";
+  if (
+    code === "missing_or_invalid_privy_app_id" ||
+    code === "missing_or_invalid_privy_account_id" ||
+    code === "disallowed_login_method" ||
+    code === "max_accounts_reached"
+  )
+    return "Email sign-in is unavailable for this app right now. Try again later.";
+  if (status === 401 || status === 403)
+    return "The sign-in provider could not verify this sign-in. Try again shortly.";
+  return "We couldn’t verify the code. Try again, or request a new code.";
+}
+
 function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
   const [intent, setIntent] = useState<AuthMode | null>(
     root?.dataset.authMode === "signup"
@@ -791,7 +831,7 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
             event.preventDefault();
             void run(async () => {
               await loginWithCode({ code });
-            }, "That code is incorrect, expired or already used. Try the newest code, or request another.");
+            }, emailCodeVerificationFailure);
           }}
         >
           <label htmlFor="auth-code">Verification code</label>
@@ -1045,7 +1085,10 @@ const passkeyResumeMount = document.querySelector("#provider-settings")
   : null;
 if (passkeyResumeMount) {
   passkeyResumeMount.id = "passkey-setup-resume";
-  document.querySelector("#account-notice")?.after(passkeyResumeMount);
+  document
+    .querySelector("#account-notice")
+    ?.closest(".account-status-row")
+    ?.after(passkeyResumeMount);
 }
 function rememberPasskeySetup(id: string | null) {
   try {
@@ -1635,6 +1678,22 @@ function Settings({
   const passkeyEpoch = useRef(0);
   const activePasskeyActor = useRef<PasskeyActor | null>(null);
   const completedPasskeySubject = useRef<string | null>(null);
+  type SetupFeedback = {
+    flow: number;
+    accountId: string | null;
+    subject: string;
+    phase: "working" | "checking" | "waiting" | "ready" | "error";
+    text: string;
+    credentialId: string | null;
+  };
+  const [setupFeedback, setSetupFeedback] = useState<SetupFeedback | null>(
+    null,
+  );
+  const setupFeedbackRef = useRef<SetupFeedback | null>(null);
+  const setupSequence = useRef(0);
+  const setupCheck = useRef<AbortController | null>(null);
+  const setupHeading = useRef<HTMLHeadingElement | null>(null);
+  const setupOpener = useRef<HTMLElement | undefined>(undefined);
   const settingsEpoch = useRef(0);
   const activeSettingsActor = useRef<PasskeyActor | null>(null);
   const [provider, setProvider] = useState<{
@@ -1661,6 +1720,238 @@ function Settings({
   });
   liveProvider.current = { ready, authenticated, subject: user?.id ?? null };
   const priorProvider = useRef(liveProvider.current);
+  function updateSetup(value: SetupFeedback | null) {
+    const prior = setupFeedbackRef.current;
+    if (
+      value &&
+      prior?.flow === value.flow &&
+      value.accountId === null &&
+      prior.accountId !== null
+    )
+      value = { ...value, accountId: prior.accountId };
+    setupFeedbackRef.current = value;
+    setSetupFeedback(value);
+  }
+  function clearSetup() {
+    setupCheck.current?.abort();
+    setupCheck.current = null;
+    updateSetup(null);
+  }
+  function sameSetupProvider(value: SetupFeedback) {
+    const current = liveProvider.current;
+    return (
+      current.ready &&
+      current.authenticated &&
+      current.subject === value.subject
+    );
+  }
+  function setupVisible(value: SetupFeedback) {
+    const comparison = window.yapCurrentSessionAccount?.() ?? null;
+    return (
+      sameSetupProvider(value) &&
+      (value.accountId === comparison ||
+        (comparison === null && value.phase !== "ready"))
+    );
+  }
+  useEffect(() => {
+    if (
+      !setupFeedback ||
+      setupFeedback.phase === "working" ||
+      setupFeedback.phase === "error"
+    )
+      return;
+    const frame = requestAnimationFrame(() => {
+      if (
+        setupFeedbackRef.current !== setupFeedback ||
+        !setupVisible(setupFeedback)
+      )
+        return;
+      const active = document.activeElement;
+      if (
+        active === document.body ||
+        active === setupOpener.current ||
+        (active && passkeyResumeMount?.contains(active))
+      ) {
+        setupHeading.current?.scrollIntoView({ block: "nearest" });
+        setupHeading.current?.focus({ preventScroll: true });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [setupFeedback]);
+  async function checkSetup(value: SetupFeedback) {
+    setupCheck.current?.abort();
+    const current = new AbortController();
+    setupCheck.current = current;
+    const active = () =>
+      !current.signal.aborted &&
+      setupCheck.current === current &&
+      setupFeedbackRef.current?.flow === value.flow &&
+      sameSetupProvider(value) &&
+      (setupFeedbackRef.current?.accountId === null ||
+        (window.yapCurrentSessionAccount?.() ?? null) === null ||
+        setupFeedbackRef.current?.accountId ===
+          window.yapCurrentSessionAccount?.());
+    updateSetup({
+      ...value,
+      phase: "checking",
+      text: "Passkey verified. Finishing secure account access…",
+    });
+    for (let attempt = 0; attempt < 3 && active(); attempt++) {
+      let retry = true;
+      try {
+        const signal = AbortSignal.any([
+          current.signal,
+          AbortSignal.timeout(10000),
+        ]);
+        const response = await fetch("/api/auth/methods", {
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { "X-YapArena-Setup-Check": "passkey" },
+          signal,
+        });
+        const data: unknown = await response.json();
+        if (!active()) return;
+        if (response.ok) {
+          if (
+            data === null ||
+            typeof data !== "object" ||
+            !("accountId" in data) ||
+            typeof data.accountId !== "string" ||
+            !("provider" in data) ||
+            data.provider === null ||
+            typeof data.provider !== "object" ||
+            !("subject" in data.provider) ||
+            data.provider.subject !== value.subject ||
+            !("credentials" in data.provider) ||
+            !Array.isArray(data.provider.credentials) ||
+            !data.provider.credentials.some(
+              (entry: unknown) =>
+                entry !== null &&
+                typeof entry === "object" &&
+                "type" in entry &&
+                entry.type === "passkey" &&
+                "id" in entry &&
+                entry.id === value.credentialId,
+            )
+          )
+            break;
+          const accountId = data.accountId;
+          let comparison = window.yapCurrentSessionAccount?.() ?? null;
+          if (
+            (value.accountId !== null && value.accountId !== accountId) ||
+            (comparison !== null && comparison !== accountId)
+          ) {
+            clearSetup();
+            return;
+          }
+          if (comparison === null) {
+            const identityResponse = await fetch("/api/auth/me", {
+              credentials: "same-origin",
+              cache: "no-store",
+              signal,
+            });
+            if (!active()) return;
+            if (identityResponse.ok) {
+              const identity: unknown = await identityResponse.json();
+              if (!active()) return;
+              if (
+                identity === null ||
+                typeof identity !== "object" ||
+                !("user" in identity) ||
+                identity.user === null ||
+                typeof identity.user !== "object" ||
+                !("id" in identity.user) ||
+                identity.user.id !== accountId
+              ) {
+                clearSetup();
+                return;
+              }
+              comparison = window.yapCurrentSessionAccount?.() ?? null;
+              if (comparison !== null && comparison !== accountId) {
+                clearSetup();
+                return;
+              }
+              if (comparison === null)
+                window.yapRememberSessionAccount?.(accountId);
+              comparison = window.yapCurrentSessionAccount?.() ?? null;
+            } else {
+              retry = identityResponse.status >= 500;
+              if (!retry) break;
+            }
+          }
+          if (comparison === accountId) {
+            updateSetup({
+              ...value,
+              accountId,
+              phase: "ready",
+              text: "Passkey ready for sign-in and account approvals. Other sessions were signed out.",
+            });
+            setupCheck.current = null;
+            // A usable account may contain an unsaved profile draft. Recheck
+            // only its wallet; an interrupted initial load still needs the
+            // normal full read, using the server-confirmed account context.
+            const account = document.querySelector<HTMLElement>("#signed-in");
+            const profileLoaded = Boolean(
+              document.querySelector("#profile-state")?.textContent,
+            );
+            window.dispatchEvent(
+              new Event(
+                account && !account.hidden && profileLoaded
+                  ? "yap:wallet-status-refresh"
+                  : "yap:account-changed",
+              ),
+            );
+            return;
+          }
+        } else retry = response.status >= 500;
+      } catch {
+        if (!active()) return;
+      }
+      if (!retry || attempt === 2) break;
+      await new Promise<void>((done) => {
+        const finish = () => {
+          clearTimeout(timer);
+          current.signal.removeEventListener("abort", finish);
+          done();
+        };
+        const timer = setTimeout(finish, 2000);
+        current.signal.addEventListener("abort", finish, { once: true });
+      });
+    }
+    if (active()) {
+      updateSetup({
+        ...value,
+        phase: "waiting",
+        text: "Your passkey was verified, but secure account access is still being checked. Check setup status before signing out.",
+      });
+      setupCheck.current = null;
+    }
+  }
+  function dismissSetup(value: SetupFeedback, button: HTMLButtonElement) {
+    if (value.phase !== "ready" || !setupVisible(value)) return;
+    const sequence = setupSequence.current;
+    clearSetup();
+    completedPasskeySubject.current = null;
+    setMessage("");
+    requestAnimationFrame(() => {
+      if (
+        setupSequence.current !== sequence ||
+        setupFeedbackRef.current !== null ||
+        !sameSetupProvider(value) ||
+        value.accountId !== (window.yapCurrentSessionAccount?.() ?? null)
+      )
+        return;
+      const active = document.activeElement;
+      if (active !== document.body && active !== button) return;
+      let target = document.querySelector<HTMLElement>("#account-security h2");
+      if (!target?.getClientRects().length)
+        target = document.querySelector<HTMLElement>("#account-notice");
+      if (target) {
+        target.tabIndex = -1;
+        target.focus();
+      }
+    });
+  }
   type GoogleIntent = {
     id: string;
     kind: "google_oauth";
@@ -1733,9 +2024,15 @@ function Settings({
     if (
       !completedPasskeySubject.current ||
       completedPasskeySubject.current !== liveProvider.current.subject ||
-      !liveProvider.current.authenticated
+      !liveProvider.current.authenticated ||
+      !liveProvider.current.ready ||
+      (setupFeedbackRef.current?.accountId !== null &&
+        setupFeedbackRef.current?.accountId !== undefined &&
+        setupFeedbackRef.current.accountId !==
+          (window.yapCurrentSessionAccount?.() ?? null))
     ) {
       completedPasskeySubject.current = null;
+      clearSetup();
       setMessage("");
     }
     setProvider(null);
@@ -1789,6 +2086,7 @@ function Settings({
     activePasskeyActor.current = null;
     passkeyApproval.current = undefined;
     if (active) {
+      clearSetup();
       WebAuthnAbortService.cancelCeremony();
       pending.current = false;
       setBusy(false);
@@ -1834,6 +2132,16 @@ function Settings({
         ? error.message
         : "Passkey setup could not be confirmed. Choose Finish passkey setup to check its state.",
     );
+    const value = setupFeedbackRef.current;
+    if (value)
+      updateSetup({
+        ...value,
+        phase: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Passkey setup could not be confirmed. Choose Finish passkey setup to check its state.",
+      });
   }
   async function finishPasskey(
     id: string,
@@ -1869,6 +2177,13 @@ function Settings({
       optionsJSON: activation.authenticationOptions,
     });
     assertPasskeyActor(actor);
+    setMessage("");
+    const feedback = setupFeedbackRef.current;
+    if (feedback)
+      updateSetup({
+        ...feedback,
+        text: "Checking your passkey with YapArena…",
+      });
     await securityRequest(
       `provider/passkeys/${encodeURIComponent(id)}/complete`,
       { authentication, approval: passkeyApproval.current },
@@ -1884,10 +2199,17 @@ function Settings({
     pending.current = false;
     setBusy(false);
     completedPasskeySubject.current = actor.subject;
+    const verified = setupFeedbackRef.current;
+    if (verified)
+      updateSetup({
+        ...verified,
+        phase: "checking",
+        credentialId: authentication.id,
+        text: "Passkey verified. Finishing secure account access…",
+      });
     announceSession();
-    setMessage(
-      "Passkey ready for sign-in and account approvals. Other sessions were signed out.",
-    );
+    setMessage("");
+    if (setupFeedbackRef.current) void checkSetup(setupFeedbackRef.current);
   }
   async function addPasskey(
     credentialId?: string,
@@ -1907,6 +2229,16 @@ function Settings({
     let actor: PasskeyActor | undefined;
     try {
       actor = passkeyActor(Boolean(resumeId));
+      clearSetup();
+      setupOpener.current = opener;
+      updateSetup({
+        flow: ++setupSequence.current,
+        accountId: actor.accountId,
+        subject: actor.subject,
+        phase: "working",
+        credentialId: null,
+        text: "Preparing your passkey setup…",
+      });
       activePasskeyActor.current = actor;
       if (resumeId) {
         await finishPasskey(resumeId, actor, opener);
@@ -1959,7 +2291,11 @@ function Settings({
     }
   }
   useEffect(() => {
-    const cancel = () => {
+    const cancel = (event?: Event) => {
+      if (event?.type === "yap:provider-logout") {
+        completedPasskeySubject.current = null;
+        clearSetup();
+      }
       cancelPasskeyActor();
       cancelSettingsActor();
     };
@@ -1968,6 +2304,7 @@ function Settings({
     return () => {
       window.removeEventListener("yap:account-changed", cancel);
       window.removeEventListener("yap:provider-logout", cancel);
+      clearSetup();
       cancel();
     };
   }, []);
@@ -2000,6 +2337,7 @@ function Settings({
       return;
     }
     activeSettingsActor.current = actor;
+    clearSetup();
     completedPasskeySubject.current = null;
     pending.current = true;
     setBusy(true);
@@ -2100,6 +2438,7 @@ function Settings({
         });
         if (!response.ok) return;
         const value: {
+          accountId: string;
           provider: {
             subject?: string;
             methods: string[];
@@ -2115,6 +2454,21 @@ function Settings({
           ? await keyResponse.json()
           : null;
         if (current === refreshVersion.current) {
+          const feedback = setupFeedbackRef.current;
+          const comparison = window.yapCurrentSessionAccount?.() ?? null;
+          if (
+            feedback &&
+            feedback.accountId === null &&
+            sameSetupProvider(feedback) &&
+            value.provider?.subject === feedback.subject &&
+            typeof value.accountId === "string" &&
+            (comparison === null || comparison === value.accountId) &&
+            value.provider.credentials?.some(
+              (entry) =>
+                entry.type === "passkey" && entry.id === feedback.credentialId,
+            )
+          )
+            updateSetup({ ...feedback, accountId: value.accountId });
           if (
             completedPasskeySubject.current &&
             completedPasskeySubject.current !== value.provider?.subject
@@ -2146,46 +2500,85 @@ function Settings({
   // portal, preserving all existing profile and wallet controllers.
   return settingsRoot ? (
     <>
-      {pendingPasskey &&
+      {(pendingPasskey || (setupFeedback && setupVisible(setupFeedback))) &&
         passkeyResumeMount &&
         createSettingsPortal(
-          <section className="information-card">
-            <h3>Passkey setup</h3>
-            <p>
-              Finish verifying the passkey you added before continuing to your
-              account.
-            </p>
-            <button
-              className="button-secondary"
-              type="button"
-              disabled={busy || !ready || !authenticated}
-              onClick={(event) =>
-                void addPasskey(undefined, pendingPasskey, event.currentTarget)
-              }
-            >
-              Finish passkey setup
-            </button>
-            <button
-              className="button-secondary"
-              type="button"
-              disabled={busy}
-              onClick={(event) =>
-                window.dispatchEvent(
-                  new CustomEvent("yap:request-auth", {
-                    detail: {
-                      mode: "login",
-                      source: event.currentTarget,
-                      returnTo: "/account#account-security",
-                    },
-                  }),
-                )
-              }
-            >
-              Sign in again to restart setup
-            </button>
+          <section
+            className="information-card account-card"
+            aria-labelledby="passkey-setup-heading"
+          >
+            <h3 id="passkey-setup-heading" ref={setupHeading} tabIndex={-1}>
+              {setupFeedback?.phase === "ready"
+                ? "Passkey setup complete"
+                : "Passkey setup"}
+            </h3>
             <p role="status" aria-live="polite" aria-atomic="true">
-              {message}
+              {setupFeedback && setupVisible(setupFeedback)
+                ? setupFeedback.phase === "working"
+                  ? message || setupFeedback.text
+                  : setupFeedback.text
+                : "Finish verifying the passkey you added before continuing to your account."}
             </p>
+            {pendingPasskey && (
+              <>
+                <button
+                  className="button-secondary"
+                  type="button"
+                  disabled={busy || !ready || !authenticated}
+                  onClick={(event) =>
+                    void addPasskey(
+                      undefined,
+                      pendingPasskey,
+                      event.currentTarget,
+                    )
+                  }
+                >
+                  Finish passkey setup
+                </button>
+                <button
+                  className="button-secondary"
+                  type="button"
+                  disabled={busy}
+                  onClick={(event) =>
+                    window.dispatchEvent(
+                      new CustomEvent("yap:request-auth", {
+                        detail: {
+                          mode: "login",
+                          source: event.currentTarget,
+                          returnTo: "/account#account-security",
+                        },
+                      }),
+                    )
+                  }
+                >
+                  Sign in again to restart setup
+                </button>
+              </>
+            )}
+            {setupFeedback?.phase === "waiting" && (
+              <button
+                className="button-secondary"
+                type="button"
+                disabled={!setupVisible(setupFeedback)}
+                onClick={(event) => {
+                  setupOpener.current = event.currentTarget;
+                  void checkSetup(setupFeedback);
+                }}
+              >
+                Check setup status
+              </button>
+            )}
+            {setupFeedback?.phase === "ready" && (
+              <button
+                className="button-secondary"
+                type="button"
+                onClick={(event) =>
+                  dismissSetup(setupFeedback, event.currentTarget)
+                }
+              >
+                Done
+              </button>
+            )}
           </section>,
           passkeyResumeMount,
         )}
@@ -2204,9 +2597,9 @@ function Settings({
             )}
           </div>
           <p>
-            Your passkey works for sign-in and secure account approvals. Keep
-            another sign-in method available in case you lose access to a
-            device.
+            {securityKeys.some((key) => key.provenance === "privy")
+              ? "Use your verified passkey for sign-in and secure account approvals. Keep another sign-in method available in case you lose access to a device."
+              : "Add a passkey to sign in and approve sensitive account changes. Keep another sign-in method available in case you lose access to a device."}
           </p>
           {provider ? (
             <>
@@ -2520,10 +2913,12 @@ function Settings({
             </button>
           )}
           <p role="status" aria-live="polite" aria-atomic="true">
-            {completedPasskeySubject.current &&
-            provider?.subject !== completedPasskeySubject.current
+            {setupFeedback || pendingPasskey
               ? ""
-              : message}
+              : completedPasskeySubject.current &&
+                  provider?.subject !== completedPasskeySubject.current
+                ? ""
+                : message}
           </p>
           <p className="form-note">
             Keep at least one provider sign-in method. Changes require a

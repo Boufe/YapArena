@@ -108,10 +108,12 @@ export function EmbeddedWallet() {
         : null;
     if (channel) channel.onmessage = cancel;
     window.addEventListener("yap:account-changed", cancel);
+    window.addEventListener("yap:wallet-status-refresh", cancel);
     window.addEventListener("yap:provider-logout", cancel);
     return () => {
       actor.current?.abort();
       window.removeEventListener("yap:account-changed", cancel);
+      window.removeEventListener("yap:wallet-status-refresh", cancel);
       window.removeEventListener("yap:provider-logout", cancel);
       channel?.close();
     };
@@ -126,14 +128,30 @@ export function EmbeddedWallet() {
     actor.current = current;
     let timer: number | undefined;
     let polls = 0;
+    let failures = 0;
+    const deadline = Date.now() + 60000;
     const expectedAccount = window.yapCurrentSessionAccount?.() ?? null;
+    function schedule(delay: number) {
+      if (polls < 15 && Date.now() + delay < deadline)
+        timer = window.setTimeout(() => void refresh(), delay);
+    }
     async function refresh() {
+      if (current.signal.aborted || polls >= 15 || Date.now() >= deadline)
+        return;
+      polls++;
+      let transient = true;
       try {
         const response = await fetch("/api/auth/embedded-wallet", {
           credentials: "same-origin",
           cache: "no-store",
-          signal: AbortSignal.any([current.signal, AbortSignal.timeout(10000)]),
+          signal: AbortSignal.any([
+            current.signal,
+            AbortSignal.timeout(
+              Math.max(1, Math.min(10000, deadline - Date.now())),
+            ),
+          ]),
         });
+        transient = response.status >= 500;
         if (!response.ok) throw new Error("Wallet status unavailable");
         const value = projection(await response.json());
         if (
@@ -145,17 +163,18 @@ export function EmbeddedWallet() {
           return;
         setWallet(value);
         setMessage("");
-        if (
-          (value.state === "pending" || value.state === "provisioning") &&
-          ++polls < 15
-        )
-          timer = window.setTimeout(() => void refresh(), 2000);
+        failures = 0;
+        if (value.state === "pending" || value.state === "provisioning")
+          schedule(2000);
+        else if (value.state === "retry_wait" && value.retryAt !== null)
+          schedule(Math.max(2000, Date.parse(value.retryAt) - Date.now()));
       } catch {
         if (!current.signal.aborted && actor.current === current) {
           setWallet(null);
           setMessage(
             "Wallet status is temporarily unavailable. Your account is still available.",
           );
+          if (transient && ++failures < 3) schedule(failures * 2000);
         }
       }
     }
@@ -244,8 +263,8 @@ export function EmbeddedWallet() {
           )}
           {visible?.retryAt && (
             <p className="form-note">
-              Next automatic check: {new Date(visible.retryAt).toLocaleString()}
-              .
+              Wallet setup can retry after{" "}
+              {new Date(visible.retryAt).toLocaleString()}.
             </p>
           )}
           {visible?.canRetry && (

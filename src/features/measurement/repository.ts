@@ -34,7 +34,7 @@ interface WatchSummaryRow {
   sessions: string;
   watchedSeconds: string;
 }
-interface AffiliationRow {
+export interface AffiliationRow {
   handle: string;
   affiliation: "founder" | "independent";
   reason: string;

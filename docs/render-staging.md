@@ -2,7 +2,8 @@
 
 The staging stack uses one Render web service, a separately configured replay encoder, Supabase
 Postgres, LiveKit Cloud, and Cloudflare R2.
-Render runs the existing Node app and its background clock in one process. Supabase only hosts
+Until the [worker cut-over](#move-background-jobs-to-the-worker), the Render web process also runs
+every background job: clocks, revocation, wallet provisioning and cleanup. Supabase only hosts
 PostgreSQL; the application continues to own accounts, sessions, and authorization. LiveKit carries
 the live video and records it to a private R2 bucket. The browser reads verified adaptive replays
 through the authenticated private edge; eligible recordings without a ready adaptive package retain
@@ -16,17 +17,20 @@ web/worker builds at `b11a11b` on October 15. Those historical checks supersede 
 deleted-canary notes; they do not establish today's live versions or a matching build pair.
 The October 19 documentation audit did not inspect live providers or deploy current main.
 
-`render.yaml` creates **one Free Render web service**. It does not create a Render database or
-worker. Its start command only starts the runtime application; migrations run in a separate
+`render.yaml` defines **one Free Render web service** and the paid `yaparena-staging-jobs`
+background worker, which the operator creates manually for the
+[cut-over](#move-background-jobs-to-the-worker). It does not create a Render database or the replay
+encoder. Its start commands only start runtime processes; migrations run in a separate
 operator process. Render Free has no pre-deploy command, so `render.yaml` disables automatic
 deployment and the operator completes migrations before manually deploying the same reviewed
 commit. A second migration URL in the web service environment would expose that privilege to a
-compromised app and is prohibited. Keep this deployment to one instance. Review current provider
+compromised app and is prohibited. Keep each service to one instance. Review current provider
 allowances and billing settings before use.
 
 This is a small trial environment. Render Free sleeps after 15 minutes without inbound traffic and
 can take about a minute to wake. A live debate page polls the app every three seconds, but an
-instance restart can still interrupt the turn clock. Supabase Free can pause after a week of low
+instance restart can still interrupt the turn clock. While web runs the background jobs, they stop
+while it sleeps; the paid jobs worker does not sleep. Supabase Free can pause after a week of low
 activity. Do not use this environment for promised live events or real user data.
 
 ## Create the database
@@ -131,6 +135,60 @@ If LiveKit Egress reports `CreateMultipartUpload` with HTTP 401, verify that
 with **Object Read & Write** access to `MEDIA_S3_BUCKET`. Confirm the S3 endpoint belongs to the
 same Cloudflare account. Replace both Render secrets together and redeploy before starting a new
 trial. [Cloudflare identifies 401 as missing or invalid credentials](https://developers.cloudflare.com/r2/api/error-codes/).
+
+## Move background jobs to the worker
+
+While `RUN_BACKGROUND_JOBS` is true (the default), the web process runs the one-second A4/coin
+debate, media clock/recording-stop and speaker-revocation jobs, the ten-second Privy revocation and
+embedded-wallet jobs, and the hourly cleanup. `node dist/worker.js` builds the same jobs from the
+same factory (`src/services.ts`) and always runs them, whatever `RUN_BACKGROUND_JOBS` says. It
+serves no HTTP and starts no community stream. The worker is paid compute and needs the separate
+hosted-change/deployment authorization.
+
+Release tooling does not know this worker yet. `scripts/release-account-render.ts` operates only
+web and the replay encoder, and its `deploy` mode refuses web while `RUN_BACKGROUND_JOBS=false`.
+Until it is updated, suspend the jobs worker yourself whenever a release stops web/worker writers
+(including migrations that require stopped background jobs), and deploy web from the dashboard.
+
+1. Create the worker from the `yaparena-staging-jobs` Blueprint entry (Starter or larger) and deploy
+   the same reviewed commit as web, after its migrations. Give it the runtime `DATABASE_URL` and DB
+   TLS settings used by web, never an owner/migration URL, plus web's `A4_MODE`/`A4_*`,
+   `COIN_SANDBOX_ENABLED`, all `LIVEKIT_*`/`MEDIA_*` media and replay variables and, when web uses
+   Privy, `PRIVY_*` and `REDIS_*`. The worker validates but never connects to Redis. Keep
+   `LOG_LEVEL` at `info` or more verbose, and leave web's `RUN_BACKGROUND_JOBS=true`.
+2. Confirm the worker ticks. Its Render logs show `background worker started` with `media` and
+   `privy` matching web, then one `background job ran` line per job: `a4-recovery` within a second,
+   `media-clock` and `speaker-revocation` with media, `provider-revocation` and `embedded-wallet`
+   with Privy, and `cleanup` after the first hour. Repeating errors block the cut-over, for example
+   `A4 recovery tick failed`, `media clock failed`, `recording stop queue failed`,
+   `speaker access revocation failed` or `... cleanup failed`. Render's metrics for the worker
+   should show steady CPU/memory and no restarts. The worker has no `/metrics` endpoint, so its
+   Prometheus counters (`yaparena_auth_journey_total`, `yaparena_media_control_total`) are not
+   scraped.
+3. Set `RUN_BACKGROUND_JOBS=false` on the web service in the dashboard. `render.yaml` still says
+   `true`, so a Blueprint sync can restore it until a follow-up change updates the file.
+4. Manually redeploy web. Its `server started` log shows `backgroundJobs: false` and no
+   `background job ran` lines follow; `/ready` returns 200. Check the worker log for new errors.
+
+Rollback: set web `RUN_BACKGROUND_JOBS` back to `true` and redeploy web. Both processes then run
+the jobs, as during steps 1–3; suspend the worker afterwards to return to a single process.
+
+Both processes may run every job at once. PostgreSQL coordinates them: row locks and leases for
+A4, recording stops, speaker revocation, Privy revocation and wallet provisioning, advisory locks
+for the coin-debate and media clocks, and idempotent cleanup deletes. A second process can wait on
+an account lock or skip an A4 session for 30 seconds after a lock timeout; it does not repeat
+the settlement, clock step or provider freeze. Two caveats remain:
+
+- **Media permission repair.** Each process repairs speaker permissions under a per-room advisory
+  try-lock and gives up after about 12 attempts (1.2–2.4 seconds). When LiveKit is slower than
+  that, the other process fails closed and pauses a running debate ("Speaker permissions
+  unavailable"). One process used to deduplicate this work in memory. The risk stays after the
+  cut-over because web API and webhook routes still reconcile permissions while the worker repairs
+  rooms. Avoid live events during the cut-over and resume an affected debate as operator.
+- **Embedded-wallet creation.** A process that stalls past its 90-second lease while a Privy
+  create is in flight lets the other process send a second create with the same permanent
+  external ID. Privy's external-ID uniqueness (not verified here) and the review state are the
+  fence, as with two web instances.
 
 ## Later scale-up
 

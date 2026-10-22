@@ -1,0 +1,49 @@
+{
+  "observedAt": "2026-10-20T20:00:55.931529+00:00",
+  "headRevision": "d6e2d355da255e03c257802c890c036c4d572a62",
+  "runId": 39483112893,
+  "allFiveRequiredChecks": "success",
+  "quality": {
+    "tests": 798,
+    "failures": 0,
+    "skips": 0,
+    "coverage": {
+      "lines": 95.29,
+      "branches": 91.23,
+      "functions": 95.19
+    }
+  },
+  "postgres": {
+    "accountCasesPerPath": 198,
+    "freshAndUpgrade": true,
+    "a4CasesPerPath": 17,
+    "separateTreasuryCasesPerPath": 5,
+    "failures": 0,
+    "skips": 0
+  },
+  "testedPullRequestMerge": {
+    "parents": [
+      "fd60543b5f6d8f0b65fe1f93807252064d9317f2",
+      "d6e2d355da255e03c257802c890c036c4d572a62"
+    ],
+    "sha": "1b515f3d40c7c320be2a16aadcb887bec7b57bbc",
+    "tree": "213981d61583b02fd28dc4dac12ad8355f72e99c",
+    "selectedHeadTree": "213981d61583b02fd28dc4dac12ad8355f72e99c",
+    "identicalTree": true
+  },
+  "logs": [
+    {
+      "job": "quality",
+      "sha256": "fdfcf46b3023a583641992cb7e5d4cd065a7682e0b9c190798013aea7ded0de4",
+      "bytes": 119469,
+      "keptPrivate": true
+    },
+    {
+      "job": "integration",
+      "sha256": "4ee51bc776c1c8862f4f30d535d4b9ebe6d86d65f304f89c04c9685c5ab70b68",
+      "bytes": 393902,
+      "keptPrivate": true
+    }
+  ],
+  "scope": "GitHub-hosted isolated CI and synthetic browser/media/provider fixtures. No staging deployment, genuine provider, chain conversion, live funds, physical-device or screen-reader acceptance."
+}

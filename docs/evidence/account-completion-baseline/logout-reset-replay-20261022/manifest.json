@@ -1,0 +1,126 @@
+{
+  "format": 1,
+  "sourceCommit": "cf4249a979b61dfa30a6f444027bc8992410ba1a",
+  "sourceHashes": {
+    "src/platform/auth/provider-control-phases.ts": "a69efe833a44fe3183b239507fa5ecee450fd1c09dd8131aeb106c923e6e315a",
+    "src/platform/auth/provider-revocation.ts": "afe22136550c7bd87ab37c43593a5bc5f1e5598eee282525a5ef5b7dfd309f15",
+    "tests/provider-control-phases-postgres.test.js": "1b5c0c896ec934691c0ae413fa1e78976a391c0a3b5eaa270d2878586661c4f8",
+    "tests/coin-debate-postgres.test.js": "589bf70a32b0e9e7b5f9af8bf097aa28a1c88ec3c1b36267faaa30a37619fc87"
+  },
+  "artifacts": [
+    {
+      "path": "history/integrated-permission-failure.log",
+      "sha256": "7cb313ea7ae858cb96570cb4719d0c4976f787eb4024e7e0565b508b7d273557",
+      "bytes": 1685,
+      "kind": "infrastructure permission failure before tests"
+    },
+    {
+      "path": "history/integrated-barrier-failure.log",
+      "sha256": "97b12e524936216c6d995f4003659f160f74b8dbd99b57126fa9d4d530a8982d",
+      "bytes": 36220,
+      "kind": "controlled ledger barrier failure; pending request rejection not captured"
+    },
+    {
+      "path": "history/fixture-and-replay-failure.log",
+      "sha256": "125378a90b6875bff9ca9525b475481fcd58272f689f40aafec3fd7be41f00e0",
+      "bytes": 36320,
+      "kind": "wrong fixture ID type plus real owner-replay race"
+    },
+    {
+      "path": "red/run.log",
+      "sha256": "cd962d69068b0f86e55215cb0c51f8e5811c28d53c67e7e6c1135527b6ebe28a",
+      "bytes": 36387,
+      "kind": "old backend controlled two-failure reproduction"
+    },
+    {
+      "path": "final/run.log",
+      "sha256": "96ef04b84efb04d034e454f07f2581df758aea74e3ec603dacda01b19bdc956a",
+      "bytes": 66526,
+      "kind": "corrected249-case focused gate"
+    },
+    {
+      "path": "history/integrated-r1-result.json.raw",
+      "sha256": "9573fc82f974e87e8c0ed1a0958f0790137fc506eaba1ee14202c23f98d3b068",
+      "bytes": 437,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "history/integrated-r1-result.json",
+      "sha256": "9573fc82f974e87e8c0ed1a0958f0790137fc506eaba1ee14202c23f98d3b068",
+      "bytes": 437,
+      "kind": "failed combined coordinator result",
+      "original": "history/integrated-r1-result.json.raw"
+    },
+    {
+      "path": "history/integrated-r2-result.json.raw",
+      "sha256": "9573fc82f974e87e8c0ed1a0958f0790137fc506eaba1ee14202c23f98d3b068",
+      "bytes": 437,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "history/integrated-r2-result.json",
+      "sha256": "9573fc82f974e87e8c0ed1a0958f0790137fc506eaba1ee14202c23f98d3b068",
+      "bytes": 437,
+      "kind": "failed combined coordinator result",
+      "original": "history/integrated-r2-result.json.raw"
+    },
+    {
+      "path": "final/database/fresh-account-security.log",
+      "sha256": "9aedf510459b000a52e43309fc81365d7bd3c10aee2cf319e2fd8d032eb70a3f",
+      "bytes": 31897,
+      "kind": "final focused raw test log"
+    },
+    {
+      "path": "final/database/fresh-inventory.json.raw",
+      "sha256": "35eb6dc873d8e0c4021e27cc8fac8143064602929eba9677d5d433f7aa0bb03b",
+      "bytes": 409274,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "final/database/fresh-inventory.json",
+      "sha256": "e9a81816f9284ff3bef3f301ac0c89a2b90d5f5c9cd97a32e5e20ea1c00e7839",
+      "bytes": 407786,
+      "kind": "final disposable catalog inventory",
+      "original": "final/database/fresh-inventory.json.raw"
+    },
+    {
+      "path": "final/database/treasury-fresh.log",
+      "sha256": "f617b86c7082e455a9638ef5a7ff02328698907fa7b0c95992a919ba041345b4",
+      "bytes": 943,
+      "kind": "final focused raw test log"
+    },
+    {
+      "path": "final/database/treasury-upgrade.log",
+      "sha256": "8058321bd62dd8b6c0e51d205c368944ec2c6e629e84de9b025ebe7f88375105",
+      "bytes": 941,
+      "kind": "final focused raw test log"
+    },
+    {
+      "path": "final/database/upgrade-account-security.log",
+      "sha256": "cb7e6fed4b837d54f7264b687c3bf175e394fc607b26d2582d19d01d1fa1eb71",
+      "bytes": 31840,
+      "kind": "final focused raw test log"
+    },
+    {
+      "path": "final/database/upgrade-inventory.json.raw",
+      "sha256": "ca78cf6df129c40bd9ce8851443fe61bec430eb8cae274b6c1fa200c772efc39",
+      "bytes": 409288,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "final/database/upgrade-inventory.json",
+      "sha256": "04f2ca921d54d75306803875a64f06fca232909d047b34c433053bb8fb9eedbd",
+      "bytes": 407800,
+      "kind": "final disposable catalog inventory",
+      "original": "final/database/upgrade-inventory.json.raw"
+    },
+    {
+      "path": "summary.json",
+      "sha256": "f5050c266dad63f2d60f174dfbf52039fd0ec2763b9d2f8ccd240291aa99436d",
+      "bytes": 4604,
+      "kind": "independent chronology/source/result summary"
+    }
+  ],
+  "scope": "Independent source and actual-log review of author-run isolated PostgreSQL17.10/Node24 focused suites, synthetic provider only. No hosted repair/provider mutation/CI/deployment inferred.",
+  "hashPolicy": "README/manifest excluded; original JSON bytes preserved with equal-value formatted counterparts."
+}

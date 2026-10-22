@@ -12,6 +12,7 @@ import type {
   CollectionPage,
   AccountError,
 } from "./account-types.js";
+import type {} from "./auth-events.js";
 interface ProfileForm extends HTMLFormElement {
   readonly elements: HTMLFormControlsCollection & {
     handle: HTMLInputElement;
@@ -30,10 +31,21 @@ interface WalletChangeForm extends HTMLFormElement {
 const notice = document.querySelector<HTMLElement>("#account-notice")!;
 const signedOut = document.querySelector<HTMLElement>("#signed-out")!;
 const signedIn = document.querySelector<HTMLElement>("#signed-in")!;
+const checkingSignOut = document.createElement("button");
+checkingSignOut.id = "account-checking-sign-out";
+checkingSignOut.type = "button";
+checkingSignOut.className = "button-secondary account-checking-signout";
+checkingSignOut.textContent = "Sign out";
+checkingSignOut.setAttribute("aria-label", "Sign out all sessions");
+checkingSignOut.hidden = true;
+notice.parentElement!.append(checkingSignOut);
 const profileForm = document.querySelector<ProfileForm>("#profile-form")!;
 let currentProfile: Profile | null = null;
 let linkedWallets: LinkedWallet[] = [];
 let passwordAvailable = false;
+let accountVersion = 0;
+let signOutPending = false;
+let endedSessionNotice = "";
 let pendingChange: PendingWalletChange | null = null;
 let expiryTimer: number | undefined;
 const changeDialog =
@@ -53,12 +65,20 @@ async function api<T = void>(
   path: string,
   method = "GET",
   body?: unknown,
+  signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(path, {
+  const coordinated = path.startsWith("/api/auth/") && method !== "GET";
+  const send = coordinated ? window.yapSessionFetch : fetch;
+  if (!send)
+    throw new Error(
+      "Secure account controls are unavailable. Reload and try again.",
+    );
+  const response = await send(path, {
     method,
     credentials: "same-origin",
     headers: body === undefined ? {} : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
   });
   if (response.status === 204) return null as T;
   const json = response.headers
@@ -99,7 +119,7 @@ function walletMessageHex(message: string) {
   );
 }
 
-async function walletAction(purpose: "login" | "link") {
+async function walletAction() {
   const provider = window.ethereum;
   if (!provider?.request) {
     say(
@@ -117,10 +137,6 @@ async function walletAction(purpose: "login" | "link") {
       throw new Error(
         "Your wallet did not provide a valid account and network.",
       );
-    if (purpose === "link") {
-      openWalletChange({ purpose, address: address.toLowerCase(), chainId });
-      return;
-    }
     const base = "/api/auth/wallet/login";
     const challenge = await api<WalletChallenge>(`${base}/challenge`, "POST", {
       address,
@@ -137,8 +153,8 @@ async function walletAction(purpose: "login" | "link") {
       challengeId: challenge.id,
       signature,
     });
-    say((purpose as string) === "link" ? "Wallet linked." : "Signed in.");
-    if (purpose === "login" && returnToRequestedPage()) return;
+    say("Signed in.");
+    if (returnToRequestedPage()) return;
     await loadAccount();
   } catch (error) {
     say(
@@ -160,13 +176,14 @@ function returnToRequestedPage() {
   return true;
 }
 
-async function loadProfile() {
+async function loadProfile(version = accountVersion) {
   let profile: Profile | null = null;
   try {
     profile = (await api<{ profile: Profile }>("/api/me/profile")).profile;
   } catch (error) {
     if ((error as AccountError).message !== "profile not found") throw error;
   }
+  if (version !== accountVersion) return;
   currentProfile = profile;
   profileForm.elements.handle.value = profile?.handle ?? "";
   profileForm.elements.handle.disabled = Boolean(profile);
@@ -184,13 +201,15 @@ async function loadProfile() {
   )!.disabled = profile?.publicationState === "hidden";
 }
 
-async function loadWallets() {
+async function loadWallets(version = accountVersion) {
   const list = document.querySelector<HTMLElement>("#wallet-list")!;
   list.replaceChildren();
   const wallets = (await api<{ wallets: LinkedWallet[] }>("/api/auth/wallets"))
     .wallets;
+  if (version !== accountVersion) return;
   linkedWallets = wallets;
-  if (!wallets.length) list.append(item("No wallet linked yet."));
+  const retained = document.querySelector<HTMLElement>("#retained-wallets");
+  if (retained) retained.hidden = wallets.length === 0;
   for (const wallet of wallets) {
     const row = item(
       `${wallet.address.slice(0, 8)}…${wallet.address.slice(-6)} · chain ${wallet.chainId}`,
@@ -216,6 +235,7 @@ async function loadCollection<T>(
   path: string,
   selector: string,
   render: (entry: T) => HTMLLIElement,
+  version = accountVersion,
 ) {
   const list = document.querySelector<HTMLElement>(selector)!;
   list.replaceChildren();
@@ -224,6 +244,7 @@ async function loadCollection<T>(
     const data = await api<CollectionPage<T>>(
       `${path}?limit=20&offset=${offset}`,
     );
+    if (version !== accountVersion) return;
     if (!offset && !data.items.length) list.append(item("Nothing here yet."));
     for (const entry of data.items) list.append(render(entry));
     offset += data.items.length;
@@ -248,13 +269,43 @@ async function loadCollection<T>(
 }
 
 async function loadAccount() {
+  clearAccountState(true);
+  say("Checking your account…");
+  const version = accountVersion;
   try {
     const { user } = await api<{ user: AccountUser }>("/api/auth/me");
+    if (version !== accountVersion) return;
+    window.yapRememberSessionAccount?.(user.id);
+    endedSessionNotice = "";
     passwordAvailable = Boolean(user.email);
+    checkingSignOut.hidden = true;
     signedOut.hidden = true;
     signedIn.hidden = false;
     document.querySelector<HTMLElement>("#account-name")!.textContent =
       user.email || "Wallet account";
+    if (document.querySelector("#email-auth")) {
+      const methods = await api<{
+        provider: { email: string | null } | null;
+        legacyPassword: boolean;
+      }>("/api/auth/methods");
+      if (version !== accountVersion) return;
+      passwordAvailable = methods.legacyPassword;
+      document.querySelector<HTMLElement>("#account-name")!.textContent =
+        methods.provider?.email || user.email || "Your account";
+      const balance = await api<{
+        available: string;
+        reserved: string;
+        pending: string;
+        promotional: string;
+      }>("/api/account-wallet");
+      if (version !== accountVersion) return;
+      for (const [kind, amount] of Object.entries(balance)) {
+        const target = document.querySelector<HTMLElement>(
+          `[data-funds="${kind}"]`,
+        );
+        if (target) target.textContent = `${amount} YC`;
+      }
+    }
     await Promise.all([
       loadProfile(),
       loadWallets(),
@@ -276,12 +327,17 @@ async function loadAccount() {
           ),
       ),
     ]);
+    if (version !== accountVersion) return;
     say("Account ready.");
   } catch (error) {
-    if ((error as AccountError).message === "authentication required") {
-      signedIn.hidden = true;
-      signedOut.hidden = false;
-      say("Sign in to create a profile and follow people or topics.");
+    if (version !== accountVersion) return;
+    if ((error as AccountError).status === 401) {
+      window.yapRememberSessionAccount?.(null);
+      clearAccountState();
+      say(
+        endedSessionNotice ||
+          "Sign in to create a profile and follow people or topics.",
+      );
       return;
     }
     say((error as AccountError).message);
@@ -290,18 +346,56 @@ async function loadAccount() {
 
 document
   .querySelector<HTMLElement>("#wallet-login")!
-  .addEventListener("click", () => walletAction("login"));
-document
-  .querySelector<HTMLElement>("#wallet-link")!
-  .addEventListener("click", () => walletAction("link"));
-document
-  .querySelector<HTMLElement>("#sign-out")!
-  .addEventListener("click", async () => {
+  .addEventListener("click", () => walletAction());
+const signOutButtons = [
+  document.querySelector<HTMLButtonElement>("#sign-out")!,
+  checkingSignOut,
+];
+for (const button of signOutButtons)
+  button.addEventListener("click", async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    if (signOutPending || button.disabled) return;
+    signOutPending = true;
+    const version = accountVersion;
+    const expectedAccount = window.yapCurrentSessionAccount?.();
+    for (const control of signOutButtons) control.disabled = true;
+    say("Finishing account changes and signing out…");
+    let expired = false;
     try {
-      await api("/api/auth/logout", "POST");
-      await loadAccount();
+      try {
+        await api(
+          "/api/auth/logout",
+          "POST",
+          undefined,
+          AbortSignal.timeout(45000),
+        );
+      } catch (error) {
+        if ((error as AccountError).status !== 401) throw error;
+        expired = true;
+      }
+      if (version !== accountVersion) {
+        if (
+          expectedAccount &&
+          expectedAccount === window.yapCurrentSessionAccount?.()
+        )
+          window.dispatchEvent(new Event("yap:account-changed"));
+        return;
+      }
+      window.dispatchEvent(
+        new CustomEvent("yap:provider-logout", { detail: expired }),
+      );
+      window.dispatchEvent(new Event("yap:account-changed"));
+      if ("BroadcastChannel" in window) {
+        const channel = new BroadcastChannel("yaparena-account");
+        channel.postMessage("changed");
+        channel.close();
+      }
+      document.querySelector<HTMLButtonElement>("#wallet-login")?.focus();
     } catch (error) {
-      say((error as AccountError).message);
+      if (version === accountVersion) say((error as AccountError).message);
+    } finally {
+      signOutPending = false;
+      for (const control of signOutButtons) control.disabled = false;
     }
   });
 
@@ -354,12 +448,13 @@ profileForm.addEventListener("submit", async (event) => {
   }
 });
 
-async function loadNotifications() {
+async function loadNotifications(version = accountVersion) {
   const list = document.querySelector<HTMLElement>("#account-notifications")!;
   list.replaceChildren();
   const { notifications } = await api<{ notifications: { message: string }[] }>(
     "/api/matching/notifications",
   );
+  if (version !== accountVersion) return;
   if (!notifications.length) list.append(item("No account notifications."));
   for (const notification of notifications)
     list.append(item(notification.message));
@@ -373,7 +468,36 @@ function resetWalletChange() {
   document.querySelector<HTMLElement>("#new-wallet-proof")!.hidden = true;
 }
 
+function clearAccountState(checking = false) {
+  ++accountVersion;
+  currentProfile = null;
+  linkedWallets = [];
+  passwordAvailable = false;
+  signedIn.hidden = true;
+  signedOut.hidden = checking;
+  checkingSignOut.hidden = !checking;
+  document.querySelector<HTMLElement>("#account-name")!.textContent = "";
+  profileForm.reset();
+  profileForm.elements.handle.disabled = false;
+  document.querySelector<HTMLElement>("#profile-state")!.textContent = "";
+  for (const selector of [
+    "#wallet-list",
+    "#follow-list",
+    "#activity-list",
+    "#account-notifications",
+  ])
+    document.querySelector<HTMLElement>(selector)!.replaceChildren();
+  for (const target of document.querySelectorAll<HTMLElement>("[data-funds]"))
+    target.textContent = "—";
+  if (changeDialog.open) changeDialog.close();
+  resetWalletChange();
+}
+
 function openWalletChange(target: WalletChangeTarget) {
+  if (window.yapSecurityWalletChange) {
+    void window.yapSecurityWalletChange(target);
+    return;
+  }
   resetWalletChange();
   pendingChange = { target: target! };
   changeNotice.textContent =
@@ -572,4 +696,20 @@ document
     }
   });
 
+window.addEventListener("yap:provider-logout", (event) => {
+  const expired: unknown = event instanceof CustomEvent ? event.detail : false;
+  endedSessionNotice =
+    expired === true
+      ? "This session has ended. Sign in again to sign out other devices."
+      : "";
+  clearAccountState();
+  say(
+    endedSessionNotice ||
+      "Sign in to create a profile and follow people or topics.",
+  );
+});
+window.addEventListener("yap:account-changed", () => void loadAccount());
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) void loadAccount();
+});
 loadAccount();

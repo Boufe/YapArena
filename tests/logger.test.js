@@ -97,6 +97,69 @@ function captureLogger(options = {}) {
   };
 }
 
+it("redacts sandbox webhook authentication proofs and never logs the notification body", async () => {
+  const capture = captureLogger(),
+    app = express();
+  app.use(createHttpLogger(capture.logger));
+  app.post(
+    "/api/coin-sandbox/webhook",
+    express.raw({ type: "application/json" }),
+    (_r, s) => s.status(202).json({ accepted: true }),
+  );
+  const signature = "synthetic-private-sandbox-signature",
+    privateBody = "synthetic-private-financial-event";
+  await request(app)
+    .post("/api/coin-sandbox/webhook")
+    .set("Content-Type", "application/json")
+    .set("x-request-id", "sandbox-webhook-redaction")
+    .set("x-yap-signature", signature)
+    .send(JSON.stringify({ event: privateBody }));
+  const record = await capture.completion("sandbox-webhook-redaction", 202, 30);
+  capture.assertAbsent([signature, privateBody]);
+  assert.equal(record.req.headers["x-yap-signature"], "[REDACTED]");
+});
+
+it("redacts the browser's account comparison hint from sign-out logs", async () => {
+  const capture = captureLogger(),
+    app = express(),
+    accountHint = "synthetic-private-account-comparison";
+  app.use(createHttpLogger(capture.logger));
+  app.post("/api/auth/logout", (_r, s) => s.status(204).end());
+  await request(app)
+    .post("/api/auth/logout")
+    .set("x-request-id", "logout-account-comparison-redaction")
+    .set("x-yaparena-expected-account", accountHint);
+  const record = await capture.completion(
+    "logout-account-comparison-redaction",
+    204,
+    30,
+  );
+  capture.assertAbsent([accountHint]);
+  assert.equal(record.req.headers["x-yaparena-expected-account"], "[REDACTED]");
+});
+
+it("redacts the financial browser session comparison hint from HTTP logs", async () => {
+  const capture = captureLogger(),
+    app = express(),
+    sessionHint = "synthetic-private-financial-session";
+  app.use(createHttpLogger(capture.logger));
+  app.post("/api/coin-sandbox/withdrawals", (_r, s) =>
+    s.status(409).json({ error: "account changed" }),
+  );
+  await request(app)
+    .post("/api/coin-sandbox/withdrawals")
+    .set("x-request-id", "financial-session-comparison-redaction")
+    .set("x-yaparena-session", sessionHint);
+  const record = await capture.completion(
+    "financial-session-comparison-redaction",
+    409,
+    40,
+  );
+  capture.assertAbsent([sessionHint]);
+  assert.equal(record.req.headers["x-yaparena-session"], "[REDACTED]");
+  assert.equal(record.req.url, "/api/coin-sandbox/withdrawals");
+});
+
 function fixture({ environment = "development", ...overrides } = {}) {
   const capture = captureLogger();
   const sessionRecords = new Map();
@@ -113,6 +176,7 @@ function fixture({ environment = "development", ...overrides } = {}) {
       findByEmail: async () => registered ?? null,
     },
     sessions: {
+      revoke: async () => sessionRecords.clear(),
       create: async (_userId, hash) => sessionRecords.set(hash, user),
       findUserByTokenHash: async (hash) => sessionRecords.get(hash) ?? null,
       deleteByTokenHash: async (hash) => sessionRecords.delete(hash),
@@ -227,6 +291,32 @@ function credentialError(signature = "synthetic-wallet-signature") {
 }
 
 describe("credential-safe HTTP logs", () => {
+  it("omits account OAuth query credentials from HTTP completion logs", async () => {
+    const { app, capture } = fixture();
+    const requestId = "logger-oauth-return";
+    await request(app)
+      .get(
+        "/account?privy_oauth_code=synthetic-oauth-secret&privy_oauth_state=synthetic-state",
+      )
+      .set("X-Request-Id", requestId);
+    const record = await capture.completion(requestId, 404, 40);
+    assert.equal(record.req.url, "/account");
+    capture.assertAbsent(["synthetic-oauth-secret", "synthetic-state"]);
+  });
+  it("omits OAuth credentials on public popup return routes, including encoded keys", async () => {
+    const { app, capture } = fixture();
+    for (const [index, path] of ["/live", "/debates/fixture", "/"].entries()) {
+      const requestId = `logger-public-oauth-${index}`;
+      await request(app)
+        .get(
+          `${path}?%70rivy_oauth_code=synthetic-popup-secret&privy_oauth_state=synthetic-popup-state`,
+        )
+        .set("X-Request-Id", requestId);
+      const record = await capture.completion(requestId, 404, 40);
+      assert.equal(record.req.url, path);
+      capture.assertAbsent(["synthetic-popup-secret", "synthetic-popup-state"]);
+    }
+  });
   it("redacts registration response cookies with the real app logger", async () => {
     const { app, capture, sessionRecords } = fixture();
     const requestId = "logger-registration";
@@ -320,9 +410,7 @@ describe("credential-safe HTTP logs", () => {
         "logout",
         204,
       );
-      const cleared = clientCookie(logout, sessionName, environment, {
-        cleared: true,
-      });
+      assert.equal(logout.headers["set-cookie"], undefined);
       assert.equal(
         sessionRecords.has(hashSessionToken(walletCookie.token)),
         false,
@@ -340,7 +428,6 @@ describe("credential-safe HTTP logs", () => {
         loginCookie.token,
         walletCookie.cookie,
         walletCookie.token,
-        cleared.cookie,
         password,
         signature,
       ]);

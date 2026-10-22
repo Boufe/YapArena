@@ -1,0 +1,25 @@
+# Allowlisted exact quality-log lines; omitted bodies remain private.
+2026-10-22T01:22:49.3445302Z ℹ tests 5
+2026-10-22T01:22:49.3446290Z ℹ pass 5
+2026-10-22T01:22:49.3446712Z ℹ fail 0
+2026-10-22T01:22:49.3447614Z ℹ skipped 0
+2026-10-22T01:22:51.4110469Z ℹ tests 5
+2026-10-22T01:22:51.4111203Z ℹ pass 5
+2026-10-22T01:22:51.4111555Z ℹ fail 0
+2026-10-22T01:22:51.4112289Z ℹ skipped 0
+2026-10-22T01:23:22.9705398Z ℹ tests 249
+2026-10-22T01:23:22.9705838Z ℹ pass 249
+2026-10-22T01:23:22.9706048Z ℹ fail 0
+2026-10-22T01:23:22.9706480Z ℹ skipped 0
+2026-10-22T01:25:55.7592280Z ℹ tests 870
+2026-10-22T01:25:55.7592666Z ℹ pass 870
+2026-10-22T01:25:55.7592941Z ℹ fail 0
+2026-10-22T01:25:55.7593203Z ℹ skipped 0
+2026-10-22T01:25:55.7593988Z ℹ all files                                |  93.80 |    91.28 |   95.12 | 
+2026-10-22T01:25:55.7594991Z Full quality gate with A4, wallet and revocation PostgreSQL identities PASS.
+2026-10-22T01:25:55.8023159Z Fresh installation: inventory, browser denial, runtime login, backend journeys, worker, triggers and future defaults PASS.
+2026-10-22T01:26:27.4218352Z ℹ tests 249
+2026-10-22T01:26:27.4219413Z ℹ pass 249
+2026-10-22T01:26:27.4219789Z ℹ fail 0
+2026-10-22T01:26:27.4220549Z ℹ skipped 0
+2026-10-22T01:26:27.4353782Z Upgrade: inventory, browser denial, runtime login, backend journeys, worker, triggers and future defaults PASS.

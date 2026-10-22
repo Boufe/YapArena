@@ -4,6 +4,12 @@ Wallets are alternative account sign-in credentials. Connection alone is not aut
 SIWE messages authorize only the stated account operation, never spending. This gate does not
 add MFA, automatic recovery, email delivery, or financial functionality.
 
+This guide records the retained wallet credential-change protocol. The later
+[email-first account contract](../email-first-accounts.md) governs current
+account entry, separate security passkeys, recovery and financial operation
+proofs. Wallets remain optional retained credentials; this protocol never
+authorizes spending or changes the new coin-source accounting rules.
+
 ## Operation flow
 
 1. The signed-in account chooses **link** or **unlink**, a full address and chain, and an
@@ -69,8 +75,12 @@ out-of-band delivery claim. Both audit and notification writes share the mutatio
 
 Cookie-origin protection and no-store responses remain. Issuance uses the existing wallet IP
 limiter (40/15 minutes by default); completion uses the authentication limiter (10/15 minutes
-by default), covering unlink and password verification too. F07's distributed/account-scoped
-throttling remains separate work; these existing process-local limits are not claimed to solve it.
+by default), covering unlink and password verification too. Those original
+per-route limits remain process-local. The later
+[shared Redis controls](../email-first-accounts.md#redis-configuration-and-measurements)
+add cross-instance protection to eligible `/api/auth` POST mutations, including
+these operations. Their documented hosted acceptance limits remain; Redis never
+replaces PostgreSQL authorization, revocation or financial history.
 No request body or proof is added to logs.
 
 SIWE checks the exact stored message's origin, URI, scheme, address, chain, nonce, issuance and

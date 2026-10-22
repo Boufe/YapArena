@@ -1,0 +1,1 @@
+{"result":"PASS","checks":7,"evidence":"/Users/felixboucher/Documents/Codex/YapArena/docs/evidence/account-completion-baseline/single-privy-passkey-bootstrap-cookie-browser"}

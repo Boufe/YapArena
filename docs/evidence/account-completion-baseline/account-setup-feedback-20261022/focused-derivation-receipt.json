@@ -1,0 +1,60 @@
+{
+  "maintainedSHA": "aa8449692d08734a4103f1c2febc7a6f4bd059fb4809f718faccfe9a964914d4",
+  "maintainedCommit": "7bb6e7f",
+  "executedDerivedSHA": "7130b89de044fcf5836f7e918d270034f8003bcf7617798fb92fe03679de2b23",
+  "prefixSHA": "a2b97586fc502768a36ad5b8acd715bad7d4810ae8265799c7384bc5026387a2",
+  "prefixIdentical": true,
+  "topLevelFunctionCount": 8,
+  "topLevelFunctions": [
+    {
+      "name": "deferred",
+      "maintainedSHA": "ab65165d62e6af5a2c1e1d6569270724a619d7b84198b88b851f7778a4a43fdf",
+      "derivedSHA": "ab65165d62e6af5a2c1e1d6569270724a619d7b84198b88b851f7778a4a43fdf",
+      "identical": true
+    },
+    {
+      "name": "capture",
+      "maintainedSHA": "564276c8a36599a2daa62015dcaee9679f41e799323367e32c155b4ff6666e55",
+      "derivedSHA": "564276c8a36599a2daa62015dcaee9679f41e799323367e32c155b4ff6666e55",
+      "identical": true
+    },
+    {
+      "name": "verifyExchangeFailureClassification",
+      "maintainedSHA": "594aace544cbd8b277f45dd309877debd9cd5cdc61013a75c8a8f4ace654b476",
+      "derivedSHA": "594aace544cbd8b277f45dd309877debd9cd5cdc61013a75c8a8f4ace654b476",
+      "identical": true
+    },
+    {
+      "name": "verifyPasskeyFailureClassification",
+      "maintainedSHA": "56484e23a00c4f513438d345aabf6c80ed1e4d4202285627e4867ca36ed61b88",
+      "derivedSHA": "56484e23a00c4f513438d345aabf6c80ed1e4d4202285627e4867ca36ed61b88",
+      "identical": true
+    },
+    {
+      "name": "verifyEmailSendFailureClassification",
+      "maintainedSHA": "a81f9a8ec7dc04ef9f754b1bc4c5bda2f55c1071e7103febefcfa4b0bcfcc0cc",
+      "derivedSHA": "a81f9a8ec7dc04ef9f754b1bc4c5bda2f55c1071e7103febefcfa4b0bcfcc0cc",
+      "identical": true
+    },
+    {
+      "name": "verifyEmailCodeFailureClassification",
+      "maintainedSHA": "24d8c68511c406fa782f7dab571cce0d8a87086b82233fa7fc5107ab750768e0",
+      "derivedSHA": "24d8c68511c406fa782f7dab571cce0d8a87086b82233fa7fc5107ab750768e0",
+      "identical": true
+    },
+    {
+      "name": "verifyPrivyPasskeySetup",
+      "maintainedSHA": "b8b97981a1224e59a4c7289fbf6816a8aeccfc910301af52a8eb7c7222cc6a7c",
+      "derivedSHA": "b8b97981a1224e59a4c7289fbf6816a8aeccfc910301af52a8eb7c7222cc6a7c",
+      "identical": true
+    },
+    {
+      "name": "verifyEmbeddedWalletStatus",
+      "maintainedSHA": "9dfcfc053ec8b9189eb5de3d15bf357254b8fbf7f221507b5717df46c5f2e491",
+      "derivedSHA": "9dfcfc053ec8b9189eb5de3d15bf357254b8fbf7f221507b5717df46c5f2e491",
+      "identical": true
+    }
+  ],
+  "onlyRemainingChanges": "Main selects the three passkey setup scenarios, and result.scope gains an explicit focused-only prefix; no selected helper assertions change.",
+  "prefixUtf16CodeUnits": 130657
+}

@@ -1,0 +1,42 @@
+{
+  "result": "PASS",
+  "exitCode": 0,
+  "at": "2026-10-20T17:59:09.674Z",
+  "launchHead": "edbed1f4ff68320e74c3d58afd07a2c58ce5a0d5",
+  "phase": "after",
+  "checkGroups": 78,
+  "newClassificationGroups": 8,
+  "pageErrors": [],
+  "requirementFailures": [],
+  "sourceState": "Working-tree structured exchange-failure UI and 8 classification fixtures, with corrected fixture-only top-level storage setup. Recorded before the next passkey-UI build. Built asset hashes identify the actual executed browser implementation.",
+  "recordedSourceHashes": {
+    "frontend/account-auth.tsx": "2c6bcd63fcda0ffe0a1a3d57842e39475840ea2214a0e840420f90988fb8f6b3",
+    "scripts/verify-email-auth-browser.ts": "975461a25eb6bd988daa00b199b3efc59fde70839f3ed89daa6aa87af40be997"
+  },
+  "assetHashes": {
+    "session-coordination.js": "62fdfdbec9f5d42c20f06846e3c32758ed8e3b6bc79d165455ed758c0ea477f9",
+    "account-auth.bundle.js": "74a8a6b7946395fa3a7a1bbb7586161220049ecace074dec29a12bae1c133b3e",
+    "account-security.bundle.js": "fbd23da267408af036e9ec32f1e844f9ad2bd678fb4978a95cfd41a76d598c21",
+    "account-session-list.js": "1e4da048f89dcea314e10483dc10ea046fb4efae47fe9d4069b1f01373bb49c5",
+    "account-sessions.js": "e544082c908e37d08cb5e05d3e2f72a57556770fba72fa7ab33c05e65b283aef",
+    "account.js": "120efb4ec74cfd49cd897c408939a2b4780165cdb04f0bc771f79e528fa1d62d",
+    "site-header.js": "5fcf24e395827bc16da0014318da0b998b4f20af5846d45c77cabb98307eebe5",
+    "auth-return.js": "891d6907811a6a507800ddb475ace41786885d69448ac699cb7c435029f0626d",
+    "site.js": "0543de8bf00750b5ca1544f3d24502ed11193f00f9289320d6905cacff692dd8",
+    "matching.js": "abc5751fe076f0e8669e7accc003c7aba353ea968935026684b362327729750e",
+    "a4-inline.js": "625070053237abf10adf576b79dd5ebca45d0643fe54ee855464a683a5f88317",
+    "arena-chart.js": "224103157fb3998d1183189bbf900d2396db2cc6d2fdb75533628f516548e126",
+    "arena-price.js": "8d9bf7e9a7ead29652c66a73931238c4af15fa222e06fc74b028b3471fd38b90",
+    "account-auth.css": "dfa7bfe18baa0a76c45a9974aa24785f868f71ca31497794dfcaf11815c12da7",
+    "site-header.css": "e55326946fef05d5f21a7954ec6fa9d6895a620d3491de52a0c3fdcc42ec6518",
+    "site.css": "c2481b6017fb564fdaff0bf437a18f64f56e6dbb2492f2047199a93f06514bd7",
+    "arena.css": "087928e12c8be4a87d006b22b91f1534a647b44425d1129b1d54c2d3d4dc3cb1"
+  },
+  "rendererAndVerifierHashes": {
+    "scripts/verify-email-auth-browser.ts": "975461a25eb6bd988daa00b199b3efc59fde70839f3ed89daa6aa87af40be997",
+    "dist/features/discovery/web.js": "1a4130fd43e222d154a5e894a7ca5ae128fcdb96e2ca8a98f3681afd1239c9d0",
+    "dist/features/discovery/account-web.js": "f1c287a85d3929d75e18d8ef8bfd7b4f6ee2be76d48e5d74abe8df35d5753f8a",
+    "dist/features/discovery/debate-web.js": "88bf0e55a53e3b89f48c769dd02fbc0bdb3cd74bf09f987f5b8cac778764992d"
+  },
+  "scope": "Local HTTP/SDK fixture. Synthetic provider OTP/session success and denied application responses. No real email delivery, genuine provider signup/login, hosted identity mutation, physical-device or screen-reader acceptance."
+}

@@ -13,6 +13,11 @@ import {
   MatchNotFoundError,
 } from "../matching/repository.ts";
 import { createRequireRole } from "../identity/router.ts";
+import {
+  MediaRevocationPendingError,
+  type createMediaAccountRevocation,
+} from "./account-revocation.ts";
+import { hashSessionToken } from "../../platform/auth/session-tokens.ts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const idOf = (request: Request) =>
@@ -20,6 +25,10 @@ const idOf = (request: Request) =>
     ? request.params.id
     : null;
 function problem(response: Response, error: unknown) {
+  if (error instanceof MediaRevocationPendingError)
+    return response
+      .status(409)
+      .json({ error: error.message, code: "speaking_access_moving" });
   if (
     error instanceof MediaNotFoundError ||
     error instanceof MatchNotFoundError
@@ -51,6 +60,8 @@ export function createMediaRouter({
   identity,
   requireAuth,
   recordPlayback = () => {},
+  accountRevocation,
+  environment = "development",
 }: {
   media: ReturnType<typeof createMediaRepository>;
   provider: ReturnType<typeof createMediaProvider>;
@@ -58,6 +69,8 @@ export function createMediaRouter({
   identity: ReturnType<typeof createIdentityRepository>;
   requireAuth: RequestHandler;
   recordPlayback?: (rows: PlaybackReport[]) => void;
+  accountRevocation?: ReturnType<typeof createMediaAccountRevocation>;
+  environment?: string;
 }) {
   const router = Router();
   const participant = createRequireRole(identity, ["participant"]);
@@ -210,6 +223,17 @@ export function createMediaRouter({
     async (request, response) => {
       const id = idOf(request);
       if (!id) return response.status(404).json({ error: "event not found" });
+      const body: unknown = request.body ?? {};
+      if (
+        !body ||
+        typeof body !== "object" ||
+        Array.isArray(body) ||
+        Object.keys(body).some((key) => key !== "replaceExisting") ||
+        ("replaceExisting" in body && typeof body.replaceExisting !== "boolean")
+      )
+        return response
+          .status(400)
+          .json({ error: "invalid speaker request fields" });
       const [event, side] = await Promise.all([
         media.getPublicEvent(id),
         media.sideFor(id, request.user!.id),
@@ -224,6 +248,20 @@ export function createMediaRouter({
           .json({ error: "speaker seat not available" });
       try {
         await media.assertDeviceReady(id, request.user!.id);
+        if (accountRevocation) {
+          const grant = await accountRevocation.issueSpeakerGrant({
+            userId: request.user!.id,
+            sessionTokenHash: hashSessionToken(
+              request.cookies[
+                environment === "production" ? "__Host-session" : "session"
+              ],
+            ),
+            debateId: id,
+            allowReplacement:
+              "replaceExisting" in body && body.replaceExisting === true,
+          });
+          return response.json({ ...grant, url: provider.publicUrl });
+        }
         return response.json({
           token: await provider.token(id, request.user!.id, true, side),
           url: provider.publicUrl,
@@ -465,9 +503,11 @@ export function createMediaRouter({
 export function createMediaWebhookRouter({
   media,
   provider,
+  accountRevocation,
 }: {
   media: ReturnType<typeof createMediaRepository>;
   provider: ReturnType<typeof createMediaProvider>;
+  accountRevocation?: ReturnType<typeof createMediaAccountRevocation>;
 }) {
   const router = Router();
   router.post("/", async (request, response) => {
@@ -483,6 +523,16 @@ export function createMediaWebhookRouter({
       ) {
         const id = event.room.name.replace(/^debate-/, "");
         if (uuid.test(id)) {
+          if (
+            accountRevocation &&
+            !(await accountRevocation.isCurrentGrant(
+              id,
+              event.participant.identity,
+            ))
+          ) {
+            await provider.removeSpeaker(id, event.participant.identity);
+            return response.status(204).end();
+          }
           const state = await media.get(id);
           await provider.setTurn(
             id,
@@ -498,12 +548,24 @@ export function createMediaWebhookRouter({
         const id = event.room.name.replace(/^debate-/, "");
         if (uuid.test(id)) {
           try {
-            await media.pause(
-              id,
-              null,
-              "Speaker disconnected. Operator review required.",
-            );
-            await provider.setTurn(id, null);
+            const reason = "Speaker disconnected. Operator review required.";
+            if (accountRevocation) {
+              const applied = await accountRevocation.withSpeakerDeparture(
+                id,
+                event.participant.identity,
+                (client) => media.pauseWithClient(client, id, null, reason),
+              );
+              if (applied) {
+                const current = await media.get(id);
+                await provider.setTurn(
+                  id,
+                  current?.state === "running" ? current.activeSide : null,
+                );
+              }
+            } else {
+              await media.pause(id, null, reason);
+              await provider.setTurn(id, null);
+            }
           } catch (error) {
             if (!(error instanceof MediaConflictError)) throw error;
           }

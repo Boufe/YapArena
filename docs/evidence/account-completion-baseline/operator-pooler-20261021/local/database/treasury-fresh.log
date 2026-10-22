@@ -1,0 +1,15 @@
+▶ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger
+  ✔ reserves only owner-admitted signed payout identities and fences duplicate sender nonces (115.929208ms)
+  ✔ credits only separately identified system treasury buckets without issuing purchased coins, grants or cash to the audit account (18.231834ms)
+  ✔ consumes one exact external receipt and immutable idempotency scope across concurrent owner instances (8.486458ms)
+  ✔ globally rejects reassigning a treasury receipt to another operator or a purchased funding request (7.608625ms)
+  ✔ rejects runtime authority, simulation credits, mismatched receipts and ordinary funding completion of treasury requests (10.189959ms)
+✔ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger (194.065958ms)
+ℹ tests 5
+ℹ suites 1
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 568.277292

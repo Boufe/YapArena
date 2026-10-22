@@ -39,6 +39,9 @@ export function createMediaProvider(
     key: string,
   ) => Promise<{ packageKey: string; hasCaptions: boolean } | null>,
 ) {
+  const controlUrl = new URL(config.livekitUrl);
+  const supportsTokenRevocation =
+    controlUrl.hostname.endsWith(".livekit.cloud");
   const rooms = new RoomServiceClient(
     config.livekitUrl,
     config.livekitKey,
@@ -90,6 +93,38 @@ export function createMediaProvider(
     ? new URL(config.replayEdgeUrl).origin
     : storageOrigin;
   return Object.freeze({
+    supportsTokenRevocation,
+    async removeSpeaker(id: string, identity: string) {
+      if (
+        !supportsTokenRevocation ||
+        !/^speaker-(?:[1-9][0-9]*|[a-f0-9-]{36})$/.test(identity)
+      )
+        throw new Error("protected speaker token revocation is unavailable");
+      const clockUrl = new URL(controlUrl.origin);
+      clockUrl.protocol = "https:";
+      const started = Date.now();
+      const clock = await fetch(clockUrl, {
+        method: "HEAD",
+        redirect: "error",
+        cache: "no-store",
+        signal: AbortSignal.timeout(1500),
+      });
+      const providerTime = Date.parse(clock.headers.get("date") ?? "");
+      await clock.body?.cancel();
+      // HTTP Date is a clock-health check, not an authentication proof. Cloud's
+      // implicit one-minute buffer can permit recently refreshed token replay.
+      // Fail closed on missing/stale clock evidence; never fall back to omission.
+      if (
+        !Number.isFinite(providerTime) ||
+        Date.now() - started > 1500 ||
+        Math.abs(providerTime - Date.now()) > 5000 ||
+        ![null, "0"].includes(clock.headers.get("age"))
+      )
+        throw new Error("media provider clock could not be verified");
+      await rooms.removeParticipant(roomName(id), identity, {
+        revokeTokenTs: BigInt(Math.floor(Date.now() / 1000) + 30),
+      });
+    },
     publicUrl: config.livekitPublicUrl,
     adaptiveReplay: Boolean(config.replayEdgeUrl),
     playbackOrigin,

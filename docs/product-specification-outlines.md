@@ -12,6 +12,17 @@ rules below remain provenance, not the A4 implementation contract. A4 neither ch
 winner nor implements the ongoing market or sponsor/creator payouts. Other product decisions
 and real-fund release dependencies remain unchanged. See [current financial work](financial-implementation-plan.md).
 
+**Later account/currency authority:** the
+[email-first account contract](email-first-accounts.md) and
+[approved execution decisions](email-first-completion.md#decisions-received-during-this-execution)
+supersede the historical wallet-first preference and initial Canada/US scope in
+D1 for the current account/YC flow. Email-first signup does not require wallet
+provisioning; Canada is the initial target, subject to actual eligibility review.
+Those later decisions also govern grants, gross withdrawal amounts, displayed
+network fees and error corrections. The historical examples below do not change
+those policies or convert play balances. The broader instrument specifications
+and pre-funds evidence gates remain required; no live release is authorized.
+
 ## A. Event-market economics specification outline
 
 ### A1. Purpose, definitions, and source of truth

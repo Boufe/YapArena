@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "auditedAt": "2026-10-22T01:44:33.757623+00:00",
+  "archivedAt": "2026-10-22T01:50:49.192240+00:00",
+  "runId": 39705118511,
+  "runUrl": "https://github.com/Boufe/YapArena/actions/runs/39705118511",
+  "candidate": "819421d30b10acb29b38a0f75ed46360af373870",
+  "inputs": {
+    "run-final.json": "3dd466795bed17dea5aca31e7420d334f1c23cc78dd093cd1b4a97250689412b",
+    "jobs-final.json": "f9ec369ffbbfd0e3c68ae518ea08b971503663f668593a03eef0201a7d6e42d3",
+    "artifacts-final.json": "7a8635968de2eeb48f455df34ca60eb97a2339ddeabf1a17fc0bff79749de25a",
+    "merge-commit.json": "80d4336de9ba2162c0df545c8aad6f48dc0dda210bf1d200ca9e300e1aa046ad",
+    "run-logs.zip": "ae994ffb25872178bbb834c3980ca34aada349c314d5a8f96acc5894755a23e9",
+    "core-browser-evidence.zip": "25edcec604a87e56f0269805da3ed8371d27ce3e773d9e5f79280659cad8076f",
+    "audit-final.json": "89d4ef84d9e3684f32a84326198611654e9e59cad96b91fd9fe3122137d071d0"
+  },
+  "primaryJobLogs": {
+    "0_container.txt": "54c57a22bca4db53d44ef157b83ec964473452e4277efcdddb15e5869cac68b8",
+    "1_integration.txt": "fa6b70b1dbb2169b9b0da47321c90e0a267c4c4390822b893b3957d95971e999",
+    "2_quality _ check.txt": "75abb08d77342a0f704c97591f64a1491dfd0b493ed36ff1a21273e1b03e1a1d",
+    "3_monitoring.txt": "02229dfdb64559b22be39bdcbfff391042ae1c804911585c2cdd1e5873628888",
+    "4_deployment.txt": "cbb2d3536efb031864b3e249e51be2ddb8d41bb0cbbf0c5541ecf929f953ba57"
+  },
+  "sanitization": "Fixed status/count/check/hash projections and allowlisted exact raw checkout/Node summary lines only. Full job/API/ZIP bodies are not copied. No genuine account identifiers, email, credential descriptors, tokens, cookies or private configuration are included.",
+  "actions": "Read-only GitHub download, offline inspection and documentation archive only; no CI rerun/cancel, source build, provider/database/service mutation or deployment."
+}

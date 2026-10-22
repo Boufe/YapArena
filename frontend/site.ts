@@ -27,91 +27,14 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-const headerBalance = document.querySelector<HTMLElement>(
-  "[data-header-balance]",
-)!;
-if (headerBalance) {
-  const reserved = document.querySelector<HTMLElement>(
-    "[data-header-reserved]",
-  )!;
-  const avatar = document.querySelector<HTMLElement>("[data-header-account]")!;
-  const coins = (value: string) => {
-    const n = BigInt(value);
-    return `${n / 1000000n}.${String(n % 1000000n)
-      .padStart(6, "0")
-      .slice(0, 2)} YC`;
-  };
-  function showBalance(value: HeaderBalance | null) {
-    headerBalance.textContent = value ? coins(value.available) : "Yap Coins";
-    reserved.textContent = value
-      ? `${value.scope} · reserved ${coins(value.reserved)}`
-      : "Sign in to view balances.";
-  }
-  async function refreshHeader() {
-    try {
-      const auth = await fetch("/api/auth/me", {
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (!auth.ok) {
-        showBalance(null);
-        avatar.textContent = "↗";
-        return;
-      }
-      avatar.textContent = "You";
-      const profileResponse = await fetch("/api/me/profile", {
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (profileResponse.ok) {
-        const { profile }: { profile: { displayName: string } | null } =
-          await profileResponse.json();
-        if (profile?.displayName)
-          avatar.textContent = profile.displayName
-            .trim()
-            .split(/\s+/)
-            .slice(0, 2)
-            .map((part) => part[0])
-            .join("")
-            .toUpperCase();
-      }
-      avatar.setAttribute("aria-label", "Your signed-in account");
-      if (document.querySelector("[data-a4-inline]")) return;
-      const response = await fetch("/api/a4/wallet", {
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        showBalance(null);
-        return;
-      }
-      const result: { balances: { kind: string; amount: string }[] } =
-        await response.json();
-      showBalance({
-        available:
-          result.balances.find((b) => b.kind === "available")?.amount ?? "0",
-        reserved:
-          result.balances.find((b) => b.kind === "reserved")?.amount ?? "0",
-        scope: "Ordinary balance",
-      });
-    } catch {
-      showBalance(null);
-    }
-  }
-  window.addEventListener("yap:balance", (event) => showBalance(event.detail));
-  window.addEventListener("focus", refreshHeader);
-  setInterval(() => {
-    if (!document.hidden) void refreshHeader();
-  }, 45000);
-  void refreshHeader();
-}
-
 // One shared follow controller handles initial and progressively inserted controls.
 const followReads = new Map<string, Promise<boolean>>();
 const initializedFollows = new WeakMap<
   Element,
   { set(value: boolean): void }
 >();
+const refreshingFollows = new WeakSet<HTMLButtonElement>();
+let followAccountEpoch = 0;
 const followKey = (type: string, slug: string) => `${type}/${slug}`;
 function readFollow(type: string, slug: string) {
   const key = followKey(type, slug);
@@ -155,8 +78,10 @@ function initializeFollows(scope: ParentNode = document) {
           : "+ Follow"
         : `${following ? "Following" : "Follow"} ${type === "topics" ? "topic" : "person"}`;
     }
+    const readEpoch = followAccountEpoch;
     readFollow(type, slug)
       .then((value) => {
+        if (readEpoch !== followAccountEpoch) return;
         following = value;
         label();
       })
@@ -168,16 +93,30 @@ function initializeFollows(scope: ParentNode = document) {
       },
     });
     button.addEventListener("click", async () => {
+      const epoch = followAccountEpoch;
       button.disabled = true;
       try {
         const response = await fetch(endpoint, {
           method: following ? "DELETE" : "PUT",
           credentials: "same-origin",
         });
+        if (epoch !== followAccountEpoch) return;
         if (response.status === 401) {
-          window.location.assign(
-            `/account?next=${encodeURIComponent(window.location.pathname)}`,
-          );
+          const returnTo =
+            window.location.pathname +
+            window.location.search +
+            window.location.hash;
+          if (
+            window.dispatchEvent(
+              new CustomEvent("yap:request-auth", {
+                cancelable: true,
+                detail: { returnTo, source: button },
+              }),
+            )
+          )
+            window.location.assign(
+              `/account?next=${encodeURIComponent(returnTo)}`,
+            );
           return;
         }
         if (!response.ok) {
@@ -194,9 +133,12 @@ function initializeFollows(scope: ParentNode = document) {
           new CustomEvent("yap:follow", { detail: { type, slug, following } }),
         );
       } catch (error) {
-        message.textContent = (error as Error).message;
+        if (epoch === followAccountEpoch)
+          message.textContent = (error as Error).message;
       } finally {
         button.disabled = false;
+        if (epoch !== followAccountEpoch)
+          refreshFollowButton(button, followAccountEpoch);
       }
     });
   }
@@ -214,3 +156,55 @@ window.addEventListener("yap:follow", (event) => {
 });
 window.yapFollows = { initialize: initializeFollows, read: readFollow };
 initializeFollows();
+function refreshFollowButton(button: HTMLButtonElement, epoch: number) {
+  if (button.disabled && !refreshingFollows.has(button)) return;
+  refreshingFollows.add(button);
+  button.disabled = true;
+  void readFollow(button.dataset.followType!, button.dataset.followSlug!)
+    .then((following) => {
+      if (epoch === followAccountEpoch)
+        initializedFollows.get(button)?.set(following);
+    })
+    .catch(() => {})
+    .finally(() => {
+      if (epoch === followAccountEpoch) {
+        refreshingFollows.delete(button);
+        button.disabled = false;
+      }
+    });
+}
+window.addEventListener("yap:account-changed", () => {
+  const epoch = ++followAccountEpoch;
+  followReads.clear();
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    ".follow-button",
+  )) {
+    initializedFollows.get(button)?.set(false);
+    if (button.nextElementSibling) button.nextElementSibling.textContent = "";
+    refreshFollowButton(button, epoch);
+  }
+});
+
+// Retain the current round/action when this page's sign-in link returns here.
+document.addEventListener("click", (event) => {
+  if (!(event.target instanceof Element)) return;
+  const link = event.target.closest<HTMLAnchorElement>(
+    'a[href^="/account?next="]',
+  );
+  if (!link) return;
+  const account = new URL(link.href, window.location.origin);
+  const next = account.searchParams.get("next");
+  if (!next?.startsWith("/") || next.startsWith("//") || next.includes("\\"))
+    return;
+  const destination = new URL(next, window.location.origin);
+  if (
+    destination.origin === window.location.origin &&
+    destination.pathname === window.location.pathname
+  ) {
+    account.searchParams.set(
+      "next",
+      window.location.pathname + window.location.search + window.location.hash,
+    );
+    link.href = account.pathname + account.search;
+  }
+});

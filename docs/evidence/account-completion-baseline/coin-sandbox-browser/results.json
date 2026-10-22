@@ -1,0 +1,94 @@
+{
+  "at": "2026-10-21T14:54:31.305Z",
+  "revision": "030b60ea0974b70edecf74b322935dc991a17fb1",
+  "revisionAtEnd": "50eebbaae7b66972b3e8f5fb2e63a1b21d8d1ee4",
+  "sourceHashes": {
+    "scripts/verify-coin-sandbox-browser.ts": "233f0b036a125417e0bbd78b1d567dadd3e5a151e79571dfb45599430b516630",
+    "public/account-coins.js": "18f9676e53a859a75a35531736b469675e3e680a0bd8931dd1d106880f18341d",
+    "public/session-coordination.js": "30664c91796e6a18fd69569750e5baa8809674572913116c0126b8213166507b",
+    "public/account-security.bundle.js": "f930ea833e8ef511035234e72179b1f84ed03f890accfadabdd3734cc0063bd0",
+    "public/account-auth.css": "dfa7bfe18baa0a76c45a9974aa24785f868f71ca31497794dfcaf11815c12da7",
+    "frontend/account-coins.ts": "81be0dc95359e5bda452d0ce24da49ebd055eb16c910c5492106820978f28613",
+    "frontend/account-security.ts": "2c9225f704d5b6ec0b270f1557f9af8658e2ac18f27a7dde2082736f5245a1d0",
+    "frontend/session-coordination.ts": "3015f1d94b82c79355b712a42c2fc0245e4f1b1bb47dc7850bb1b3a9c8bfa8bf",
+    "frontend/auth-events.ts": "7973873d9720246ccf6045881dd1bff9ca2bcf81f0965ba4bc3885ba8e773e82",
+    "src/features/account-wallet/sandbox-repository.ts": "1531dc00ae2f40885fe39e91e4346eb583f643beb4073522b30f9eb936ea1416",
+    "dist/features/account-wallet/sandbox-repository.js": "7e4d040317e1365825a99c7917a9a8b6223282cca7a99b1017ec03d2168b01c4",
+    "src/features/account-wallet/sandbox-router.ts": "e801ef3a5a05a4a70b52f279c83b3f1e4fb308dd3caaa7cedb939a59d4c70e89",
+    "dist/features/account-wallet/sandbox-router.js": "5451d053cbb7c63e4d202ff96660dc7af4e0418579fb17d261342d38ccfbb151",
+    "src/features/account-wallet/sandbox-reports.ts": "25add5d8508bec3a921fd2fc606b43847cf6ec41d43c7cf0855966c0abbdd20f",
+    "dist/features/account-wallet/sandbox-reports.js": "f19bce0bca1d3caf5ae7ad97f07f43986029b0e5fc24a463212918368dc2367a",
+    "src/features/account-wallet/debate-sandbox.ts": "5d7c1099b052168db47f424e254f0b1ef3c1a4880a9bb4abc91bd9c8edf27eed",
+    "dist/features/account-wallet/debate-sandbox.js": "1b0f4b277f361e43eb445d4bb5b75c230191e693609f040df1c095f58ba34fd5",
+    "src/features/account-wallet/grant-accounting.ts": "9b965bafb4012a9286cfc75f44943bab1788987b1a404c2cee923e4d1f18b0b5",
+    "dist/features/account-wallet/grant-accounting.js": "fa4ebed7af12e18c079d8ba66db16c877b98bd0d029da7c267e14b21da85972f",
+    "src/features/account-wallet/ledger.ts": "0086f6107ea50bdaa64a187d2d49a27ce4785009efbc55dcd5c91b713658e862",
+    "dist/features/account-wallet/ledger.js": "65843c1acb496fea64c9abd3b02f1a98278dc688e6b40afe23d17efd1d3c3df7",
+    "src/features/account-wallet/external-operations.ts": "a421fb42de5f673e4ac50dd994f107434526a2e3f0c80da68025ebf74c4524f2",
+    "dist/features/account-wallet/external-operations.js": "705b091d3d0c90b127ecfadbe2af105396d5f10bd75906d3b61ac74d44442ec8",
+    "src/platform/auth/security-passkeys.ts": "4ae5e5eb6cd361c915b91984e2db332d4ec2df7d99947b0978e3a95493441255",
+    "dist/platform/auth/security-passkeys.js": "cec214bbcc6db78ebf23240ff6a24c924157b5a6263cdc21241324d68b3fe6df",
+    "src/platform/auth/security-router.ts": "96f0e7b0774e482442bd12a305a360c943599a649b3dc0f9c60c42299b89b53c",
+    "dist/platform/auth/security-router.js": "206b40d96ce449cf77f1c2e37c4508634a372853d84e2892533d3a13c3e0ed91",
+    "src/platform/auth/account-operations.ts": "909bd5467b6b30ee183eed4c7cb9057f24a154a5d40d5927e2093538d274d61d",
+    "dist/platform/auth/account-operations.js": "1dd773f12e4b5583bb03b34f4d20f6ece0116c48ebb12a5d93b9880332e90932",
+    "src/platform/auth/sessions.ts": "9622e4a3b57ed5d0c992cb9d592ba7bfc81e4e1bdee385aa9d8b49f688666e5c",
+    "dist/platform/auth/sessions.js": "be340ddbc411bbe298c669225e3cabca1d265a718b2dfede53f15dc2fa16038a"
+  },
+  "postgres": "PostgreSQL 17.10 (Homebrew)",
+  "browser": "155.0.8059.85",
+  "scope": "Real application browser assets and runtime-role PostgreSQL API in a new disposable native cluster; synthetic identities and deterministic financial simulation; retained legacy key prepared by explicit password-authorized real API/native fixture, not removed enrollment controls or current Privy enrollment UI; Chrome virtual WebAuthn, no genuine Privy/hosted/provider-chain/physical-device/screen-reader acceptance; CSS200% zoom is layout emulation.",
+  "checks": [
+    "desktop: actual runtime-role API issues one welcome/daily grant, preserves spend-only principal, and confirms a 10 simulated USDC purchase as 1000 withdrawal-eligible YC without any grant target",
+    "desktop: native WebAuthn proof approves exactly 5 gross / 0.1 fee / 4.9 net USDC to the displayed destination; transactionally reserved funds await manual review with a receipt",
+    "desktop: a receipt opens an accessible real error-report form; literal markup stays text, owner evidence stays private, and another actual account receives no report or cost quote; reporting/review changes no funds or external records",
+    "desktop: real virtual-authenticator WebAuthn authorization binds the displayed 0.1 USDC recovery quote to the current account/session; one append-only consent authorizes neither a charge nor recovery, leaves all balances/journals/receipts/requests unchanged, and restores keyboard focus to the report notice",
+    "desktop: a quote that genuinely expires while its dialog is open is rejected by the real server with 410, announces the error, permits keyboard cancellation, disappears after refresh and creates no second consent or financial change",
+    "desktop: owner-process simulated center/promotional treasury funds a real existing YES/NO round; first commitment and its source reservation are recorded without changing historical A4 tables",
+    "desktop: real cookie switch while the native confirmation blocks browser events is rejected by comparison-only session context; a held replacement summary leaves no old balances, receipts, round, report or destination in hidden DOM, and the new account receives no stake or funds",
+    "desktop: delayed actual daily-claim response from the old account cannot repopulate its balances in the replacement account or leave replacement controls disabled",
+    "desktop: the actual logout event removes unfinished security approval, erases its detached password input and does not create another reserve; a subsequent account refresh restores working controls",
+    "desktop: an actual evidence-reviewed uncertain funding correction holds financial mutations; Refresh sandbox still loads both reports and the owner's current recovery quote after settlement403, while new withdrawals remain403 and reserves/journals/receipts stay unchanged",
+    "desktop: keyboard activation of financial retained-proof controls, explicitly fixture-only native legacy enrollment, native-dialog focus, automated WCAG2.2AA tags and no horizontal overflow at normal and CSS200% layout zoom; not current Privy enrollment UI, screen-reader or physical-device evidence",
+    "mobile: actual runtime-role API issues one welcome/daily grant, preserves spend-only principal, and confirms a 10 simulated USDC purchase as 1000 withdrawal-eligible YC without any grant target",
+    "mobile: retained-password proof approves exactly 5 gross / 0.1 fee / 4.9 net USDC to the displayed destination; transactionally reserved funds await manual review with a receipt",
+    "mobile: a receipt opens an accessible real error-report form; literal markup stays text, owner evidence stays private, and another actual account receives no report or cost quote; reporting/review changes no funds or external records",
+    "mobile: retained-password authorization binds the displayed 0.1 USDC recovery quote to the current account/session; one append-only consent authorizes neither a charge nor recovery, leaves all balances/journals/receipts/requests unchanged, and restores keyboard focus to the report notice",
+    "mobile: a quote that genuinely expires while its dialog is open is rejected by the real server with 410, announces the error, permits keyboard cancellation, disappears after refresh and creates no second consent or financial change",
+    "mobile: owner-process simulated center/promotional treasury funds a real existing YES/NO round; first commitment and its source reservation are recorded without changing historical A4 tables",
+    "mobile: real cookie switch while the native confirmation blocks browser events is rejected by comparison-only session context; a held replacement summary leaves no old balances, receipts, round, report or destination in hidden DOM, and the new account receives no stake or funds",
+    "mobile: delayed actual daily-claim response from the old account cannot repopulate its balances in the replacement account or leave replacement controls disabled",
+    "mobile: the actual logout event removes unfinished security approval, erases its detached password input and does not create another reserve; a subsequent account refresh restores working controls",
+    "mobile: an actual evidence-reviewed uncertain funding correction holds financial mutations; Refresh sandbox still loads both reports and the owner's current recovery quote after settlement403, while new withdrawals remain403 and reserves/journals/receipts stay unchanged",
+    "mobile: keyboard activation of financial retained-proof controls, explicitly fixture-only native legacy enrollment, native-dialog focus, automated WCAG2.2AA tags and no horizontal overflow at normal and CSS200% layout zoom; not current Privy enrollment UI, screen-reader or physical-device evidence"
+  ],
+  "errors": [],
+  "expectedRejections": [
+    {
+      "route": "/api/coin-sandbox/reports/:id/recovery-consents/authorization",
+      "status": 410
+    },
+    {
+      "route": "/api/coin-sandbox/rounds/:id/submit",
+      "status": 409
+    },
+    {
+      "route": "/api/coin-sandbox/settlements",
+      "status": 403
+    },
+    {
+      "route": "/api/coin-sandbox/reports/:id/recovery-consents/authorization",
+      "status": 410
+    },
+    {
+      "route": "/api/coin-sandbox/rounds/:id/submit",
+      "status": 409
+    },
+    {
+      "route": "/api/coin-sandbox/settlements",
+      "status": 403
+    }
+  ],
+  "accessibilityFailures": [],
+  "layoutFailures": []
+}

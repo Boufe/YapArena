@@ -165,7 +165,10 @@ export async function verifyPublicBotsBrowser({
       (await home.locator("#ya-metric-label").textContent())!,
       /Synthetic/,
     );
-    assert.equal(await home.locator('.ya-nav a[href="/live"]').count(), 1);
+    assert.equal(
+      await home.locator('[data-site-header] nav a[href="/live"]').count(),
+      1,
+    );
     const before = await api<PublicBotActivity>(
       `public/debates/${debate}/activity`,
     );
@@ -403,7 +406,7 @@ export async function verifyPublicBotsBrowser({
     );
     checks.consentWithdrawalRemovesPersonalRoundsEverywhere = true;
     await home.setViewportSize({ width: 1440, height: 1100 });
-    await home.locator('.ya-nav a[href="/live"]').click();
+    await home.locator('[data-site-header] nav a[href="/live"]').click();
     assert.ok(home.url().endsWith("/live"));
     assert.equal(await home.locator(".arena-featured").count(), 1);
     assert.equal(

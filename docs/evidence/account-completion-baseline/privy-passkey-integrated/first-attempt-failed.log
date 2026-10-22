@@ -1,0 +1,546 @@
+
+> yaparena@1.0.0 verify:browser
+> node scripts/verify-browser-release.ts
+
+Synthetic browser artifacts: /private/tmp/yaparena-privy-only-core-release
+Browser release gate: build
+
+> yaparena@1.0.0 build
+> npm run typecheck && tsc --project tsconfig.json && npm run build:frontend
+
+
+> yaparena@1.0.0 typecheck
+> npm run typecheck:operations && npm run typecheck:frontend
+
+
+> yaparena@1.0.0 typecheck:operations
+> tsc --project tsconfig.json --emitDeclarationOnly && tsc --project tsconfig.database-tools.json && tsc --project tsconfig.browser-automation.json && tsc --project tsconfig.community-tools.json && tsc --project tsconfig.replay-tools.json && tsc --project tsconfig.edge.json
+
+
+> yaparena@1.0.0 typecheck:frontend
+> node scripts/build-frontend.ts --check-sources && tsc --project tsconfig.frontend.json && tsc --project tsconfig.frontend-auth.json && tsc --project tsconfig.service-worker.json && tsc --project tsconfig.frontend-build.json
+
+
+> yaparena@1.0.0 build:frontend
+> node scripts/build-frontend.ts
+
+Browser release gate: fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers
+PostgreSQL 17.10 (Homebrew)
+▶ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger
+  ✔ reserves only owner-admitted signed payout identities and fences duplicate sender nonces (149.285208ms)
+  ✔ credits only separately identified system treasury buckets without issuing purchased coins, grants or cash to the audit account (18.763375ms)
+  ✔ consumes one exact external receipt and immutable idempotency scope across concurrent owner instances (8.937167ms)
+  ✔ globally rejects reassigning a treasury receipt to another operator or a purchased funding request (8.460167ms)
+  ✔ rejects runtime authority, simulation credits, mismatched receipts and ordinary funding completion of treasury requests (12.313208ms)
+✔ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger (229.303875ms)
+ℹ tests 5
+ℹ suites 1
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 527.7975
+
+▶ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger
+  ✔ reserves only owner-admitted signed payout identities and fences duplicate sender nonces (128.7325ms)
+  ✔ credits only separately identified system treasury buckets without issuing purchased coins, grants or cash to the audit account (18.64525ms)
+  ✔ consumes one exact external receipt and immutable idempotency scope across concurrent owner instances (9.004875ms)
+  ✔ globally rejects reassigning a treasury receipt to another operator or a purchased funding request (7.73075ms)
+  ✔ rejects runtime authority, simulation credits, mismatched receipts and ordinary funding completion of treasury requests (10.454041ms)
+✔ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger (201.065833ms)
+ℹ tests 5
+ℹ suites 1
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 489.509417
+
+{"trial":"isolation-database-encoding","database":"revocation_test_a4_fresh","server":"UTF8","client":"UTF8","locale":"C","collation":"C"}
+Creator and API mediator membership guards: 19 denial/acceptance cases PASS.
+✔ binds every exact term independent of object insertion order and rejects unsafe representations (7.175625ms)
+▶ purpose-bound account approvals in disposable PostgreSQL
+  ✔ consumes exactly once with the authorized mutation across application pools (119.936917ms)
+  ✔ rejects cross-account/session, changed purpose/terms, and wrong or absent password (99.193917ms)
+  ✔ rolls back mutation and proof consumption together and rejects stale generations/sessions (65.133833ms)
+  ✔ validates exact operation SIWE and rechecks the retained wallet at commit (42.917959ms)
+  ✔ rolls back a mutation when its approval or current session expires during the mutation (669.066667ms)
+  ✔ fails closed for absent credentials, unsupported purpose and expiry (3.232292ms)
+✔ purpose-bound account approvals in disposable PostgreSQL (1037.562125ms)
+(node:180) ExperimentalWarning: The supports Web Crypto API method is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:180) ExperimentalWarning: The ML-DSA-44 Web Crypto API algorithm is an experimental feature and might change at any time
+▶ separate YapArena security passkeys in disposable PostgreSQL
+  ✔ enrolls an independently verified key, revokes old app cookies and preserves retained account ownership (115.069917ms)
+  ✔ permits first setup only before financial history and never permits bootstrap over a previous key or retained credential (48.256458ms)
+  ✔ rolls back authenticator counters when the authorized mutation fails (48.179291ms)
+  ✔ links the first wallet to an email-only account with its security passkey and permits deliberate unlink while email remains (66.416333ms)
+  ✔ requires an exact fresh passkey assertion for every operation and consumes it atomically across pools (63.19425ms)
+  ✔ requires retained proof for enrollment/removal and preserves immutable revoked key history (86.375333ms)
+  ✔ rejects enrollment responses for a different origin/challenge before adding any key (18.3535ms)
+  ✔ replaces a lost sole email sign-in with a verified email using its retained key, preserving account/profile/funds and permanently retiring the old identity (1589.363875ms)
+  ✔ replaces a lost sole google_oauth sign-in with a verified email using its retained key, preserving account/profile/funds and permanently retiring the old identity (1555.738666ms)
+  ✔ requires the retained security key and exact new server-verified email/SID, without consuming a changed or cross-account proof (61.585417ms)
+  ✔ refuses already bound or tombstoned new identities and unsupported multi-method old/new provider states without moving either account (58.110375ms)
+  ✔ rolls a fresh-key counter and replacement back when a competing provider claim wins, and permits only one concurrent recovery (71.350708ms)
+  ✔ does not hold a pool connection or account lock while inspecting providers; local revocation wins the held recovery (38.339125ms)
+  ✔ restricts SQL ownership/history privileges and rolls back a direct unconsumed-proof recovery at commit (41.53875ms)
+  ✔ signs in with a discoverable retained security key, checks provider state every time, and rejects wrong user handles and replay (35.408834ms)
+  ✔ rejects discoverable login challenges issued before any later account revocation (26.455083ms)
+  ✔ accepts a newer same-millisecond challenge without weakening the database generation fence (26.656625ms)
+  ✔ requires an exact displayed provider delta and bound SID before atomically restoring one session with a retained key (35.665833ms)
+  ✔ permits a retained password reconciliation without treating a provider token as fresh proof (67.040042ms)
+  ✔ releases its only runtime connection during reconciliation inspection so local revocation wins without accepting the delta (27.639333ms)
+  ✔ requires a retained wallet signature for the exact displayed method changes and rejects another wallet (27.289125ms)
+  ✔ checks challenge expiry after provider inspection and rolls back key use and provisional session creation (524.346625ms)
+  ✔ applies account and operation abuse limits after server-side identity resolution and before checking proof (35.159833ms)
+  ✔ does not guess an unknown old provider snapshot or cross a later revocation while reconciling (24.761833ms)
+  ✔ fails closed on provider outage and rolls back a verified key counter with no new cookie (22.908625ms)
+  ✔ allows a verified Google-only first security key at the same before-funds bootstrap boundary (4.039125ms)
+✔ separate YapArena security passkeys in disposable PostgreSQL (4759.629292ms)
+▶ security passkey HTTP boundaries
+  ✔ restarts a first provider passkey only through server-verified bearer context and a native proof (67.559125ms)
+  ✔ scopes interrupted Privy setup to its original cookie and provider evidence without reopening ordinary protected actions (36.286ms)
+  ✔ uses authenticated Privy enrollment intents and disables the second registration API when the provider owns enrollment (13.291583ms)
+  ✔ fails closed on a missing or exhausted server-derived account budget before checking resumed proofs (11.985333ms)
+  ✔ provides sessionless key login without trusting an app cookie, account selector or browser credential flags (7.916583ms)
+  ✔ binds sessionless reconciliation to bearer identity and one exact proof ID without browser ownership fields (11.794541ms)
+  ✔ consumes an operation-specific prior approval before allowing the provider-change UI (5.731708ms)
+  ✔ requires an application cookie and exact origin and rejects account selectors or arbitrary operations (10.08375ms)
+  ✔ binds operation issuance to the verified account/cookie and omits private stored fields (2.740959ms)
+  ✔ returns bootstrap eligibility from the server and publishes a secure cookie only after completion (2.636541ms)
+  ✔ fixes sensitive purpose/target on the server and validates WebAuthn and proof payloads (7.722875ms)
+  ✔ does not publish replacement cookies for rejected or expired approvals (1.764041ms)
+  ✔ binds the security-key wallet path to the authenticated account and exact stored operation (8.201167ms)
+  ✔ requires provider evidence in a redacted authorization header and binds legacy linking to the live account (5.908958ms)
+✔ security passkey HTTP boundaries (194.647375ms)
+▶ owned-session HTTP management
+  ✔ lists metadata without bearer values and derives owner from the cookie (29.919833ms)
+  ✔ rejects account selectors and invalid target IDs (9.000583ms)
+  ✔ compares the observed account before removing a session and still requires a cookie (12.332958ms)
+  ✔ revokes one owned session without deleting a potentially newer browser cookie (22.841292ms)
+✔ owned-session HTTP management (75.016417ms)
+▶ session management across PostgreSQL instances
+  ✔ normal sign out revokes every device across application instances (56.178375ms)
+  ✔ lists only the current owner's live sessions and revokes across instances (19.042375ms)
+  ✔ refuses inactive accounts without listing or changing sessions (6.906833ms)
+✔ session management across PostgreSQL instances (83.105792ms)
+▶ isolated currency attached to existing YES/NO debates
+  ✔ serializes purchased A4 stakes against fresh-authorized withdrawals without partial reservations in either lock order (438.664417ms)
+  ✔ rolls back ordered settlements when a create caller expires during ledger waits on either existing-round return path (3236.683375ms)
+  ✔ locks every due account before shared ledger rows so unrelated payout reconciliation remains available (118.092209ms)
+  ✔ applies grant qualification in closing order even when the later debate asks to open its next round first (171.9ms)
+  ✔ voids only through a guarded operator command and restores exact sources without profit (31.714958ms)
+  ✔ reserves independent center/promo backing, fixes first commitment, and never reveals pre-cutoff information (46.039583ms)
+  ✔ settles the real A4 algorithm using actual charged source weights and isolates historical play, virtual principal and backed profit (63.159709ms)
+  ✔ rejects late or revoked commitments and preserves fixed terms and closed receipts (33.763875ms)
+✔ isolated currency attached to existing YES/NO debates (4141.465292ms)
+▶ external financial operation contracts
+  ✔ keeps exact positive 36-digit atomic values and validates fee zero (1.351458ms)
+  ✔ binds every financial term and isolates owner/environment/precision (0.534666ms)
+  ✔ never releases reserves for failure webhooks, timeouts or uncertain retries (0.290833ms)
+  ✔ releases once only after authoritative no-transfer reconciliation (0.266875ms)
+  ✔ settles once with final reconciled evidence and ignores delayed pending events (0.249583ms)
+  ✔ rejects cross-operation evidence and invalid external identifiers (1.858625ms)
+✔ external financial operation contracts (6.525666ms)
+▶ exact coin journal contracts
+  ✔ aggregates same-account entries and conserves exact signed atomic values (4.784042ms)
+  ✔ scopes business references to owner, environment, operation and exact key (0.712125ms)
+✔ exact coin journal contracts (6.029916ms)
+▶ balanced coin writer in disposable PostgreSQL
+  ✔ funds exactly once across concurrent retries and rejects changed terms (95.855875ms)
+  ✔ serializes competing reservations, prevents overspend and reverses exactly (30.3075ms)
+  ✔ isolates environments and keeps web runtime read-only (25.177584ms)
+  ✔ rolls back projections and exact reversals when transaction fails (10.059792ms)
+✔ balanced coin writer in disposable PostgreSQL (163.743625ms)
+▶ owned error reports and funded original-source corrections in disposable PostgreSQL
+  ✔ accepts completed request reports without a time cutoff, scopes races/idempotency and never holds or debits on submission (129.586125ms)
+  ✔ separates owner evidence from public outcomes and makes report/review history immutable (60.909166ms)
+  ✔ orders reviews numerically across a sequence digit boundary and refuses an older superseded quote (125.407167ms)
+  ✔ consumes exact retained authorization for consent once, without charging, recovery execution or owner-note disclosure (134.68625ms)
+  ✔ rejects expired or superseded cost quotes and revoked sessions without consuming authorization (3184.480042ms)
+  ✔ restores only evidence-reviewed missing principal from a finite operator reserve exactly once across instances (40.022167ms)
+  ✔ partially restores completed payout sources across all reports without converting grant principal or changing qualification (116.047125ms)
+  ✔ blocks restoration while original principal remains reserved and requires reviewed evidence in configured correction commands (80.979625ms)
+✔ owned error reports and funded original-source corrections in disposable PostgreSQL (3903.141958ms)
+✔ requires an explicit isolated rail and exact server fee (0.508125ms)
+▶ persistent financial sandbox in disposable PostgreSQL
+  ✔ enforces withdrawal operator status and audit authority with real runtime SQL privileges (303.355875ms)
+  ✔ refuses new payout approval after suspension or loss of stronger credentials while permitting safe rejection (3143.909959ms)
+  ✔ blocks approval and signing authority under an uncertain funding correction but still reconciles an already submitted payout (91.723667ms)
+  ✔ runs the authenticated HTTP quote, fresh proof and reservation against the real ledger (92.061292ms)
+  ✔ keeps read-only summary empty until strong setup, and separates rails and owner review authority (21.68625ms)
+  ✔ queues authenticated notifications exactly once and reconciles only in the separate owner process (98.702334ms)
+  ✔ issues welcome and each Toronto day's daily principal exactly once across pools, with no cash backing minted (52.677167ms)
+  ✔ quotes exact simulated conversion and confirms one globally identified receipt across concurrent retries (35.378167ms)
+  ✔ rejects expired quote use without trusting application clocks or issuing balances (3.762042ms)
+  ✔ rolls back funding and withdrawal quotes that expire during a real ledger lock wait (6155.015458ms)
+  ✔ binds gross/fee/net/destination to fresh proof and reserves exactly the gross debit (54.483959ms)
+  ✔ prevents concurrent over-reservation and rolls source/proof changes back on failure (89.579041ms)
+  ✔ has no obsolete 100-USDC daily cap and never charges the fee on top (60.844667ms)
+  ✔ keeps uncertain payment reserves, ignores delayed pending events, and releases only final no-transfer reconciliation (49.497292ms)
+  ✔ settles one reconciled transfer, records fees separately and rejects foreign operation or receipt reuse (76.311541ms)
+  ✔ manually rejects an undispatched request exactly once and restores original sources (38.015542ms)
+  ✔ uses append-only correction reversals and pauses only financial entry if original value has left (71.166542ms)
+  ✔ keeps books/events/ledger history immutable and live financial writes unavailable to runtime (8.892792ms)
+  ✔ restores funded qualified grant profit without touching virtual principal or purchased backing (64.849458ms)
+✔ persistent financial sandbox in disposable PostgreSQL (10556.795084ms)
+✔ requires supported token revocation and a bounded provider deadline (1.352542ms)
+▶ account media containment in isolated PostgreSQL
+  ✔ issues only to the assigned, device-ready speaker in the permitted phase (67.636834ms)
+  ✔ reuses one session's opaque identity across simultaneous retries and protects tracking history (115.690875ms)
+  ✔ orders all-session logout against issuance and contains only the retired identity across pools (60.293958ms)
+  ✔ preserves the actual retained SID after logout-others generation changes (93.527584ms)
+  ✔ requires confirmed old-token revocation before moving the publishing device and retries provider outages (72.286167ms)
+  ✔ binds a pending replacement to its owned current session and requires manual Join after intent expiry (172.327666ms)
+  ✔ ignores delayed departures for replaced UUID and legacy identities while pausing current or unknown departures (35.089167ms)
+  ✔ fences the departure relevance check and database pause against replacement issuance (17.857125ms)
+  ✔ contains suspension, credential changes and a raw generation advance while keeping logout independent of provider calls (44.399209ms)
+  ✔ reconciles a naturally expired session even if its cookie row has not been deleted (1062.092041ms)
+  ✔ rolls back an in-flight minted token when its application session expires before commit (2107.738875ms)
+  ✔ claims a removal across workers without holding the account lock during the provider request (17.551583ms)
+  ✔ recovers an expired worker lease and ignores its delayed acknowledgement without kicking a new identity (12.214792ms)
+  ✔ times out failed removal, retains the publishing fence, and never calls self-hosted token invalidation complete (111.294583ms)
+✔ account media containment in isolated PostgreSQL (3992.674792ms)
+▶ provider ownership and financial isolation in PostgreSQL
+  ✔ reopens a fence only after provider revocation and rejects pre-freeze tokens (74.399ms)
+  ✔ rejects an unapproved provider credential change without merging accounts (15.586584ms)
+  ✔ reports pending, uncertain and unmatched session-reset fences without accepting an unchanged credential or consuming its SID (22.079708ms)
+  ✔ links a never-provisioned verified provider identity to the retained legacy ID using fresh retained proof (100.69525ms)
+  ✔ never moves a previously provisioned manual identity or accepts a changed candidate credential digest (33.193959ms)
+  ✔ serializes legacy linking against a simultaneous ordinary provisioning callback without merging IDs (57.633291ms)
+  ✔ inspects every protected cookie lookup, fails closed on outages and leaves local revocation available (16.99325ms)
+  ✔ revokes existing app cookies across instances for provider credential changes or removed/frozen accounts (18.368708ms)
+  ✔ releases the only runtime connection during a held provider inspection so local logout finishes first (24.218875ms)
+  ✔ rejects an older inspection after logout-others advances the retained session without revoking that survivor (10.65175ms)
+  ✔ does not turn a transient owned provider freeze into an incident after the provider-control job changes (16.006583ms)
+  ✔ reads each owned grant separately and retains qualification after later losses (26.978792ms)
+  ✔ keeps provider read outages fenced and retries without changing external state (21.157166ms)
+  ✔ keeps uncertain provider mutations and later generations fenced for manual reconciliation (10.880208ms)
+  ✔ reconciles only the exact owner-reviewed delayed freeze once, confirms unfreeze and preserves the old-token cutoff (1524.565166ms)
+  ✔ rejects runtime, missing review, mismatched audit, changed provider and out-of-window freeze without unfreezing (51.152042ms)
+  ✔ durably records the one unfreeze attempt and leaves generation fenced on an uncertain or unconfirmed result (7546.966083ms)
+  ✔ polls only bounded GET confirmations while making each normal reset mutation once (6017.318958ms)
+  ✔ finalizes an already reviewed and actually unfrozen reset through GET-only verification, with replay and old-token protection (19.995833ms)
+  ✔ refuses finalization for runtime, missing reviewed intent, changed terms, frozen provider or a concurrent generation without repeating mutations (49.048208ms)
+  ✔ rolls back finalization's provisional mapping and job updates if the completion audit fails (8.337709ms)
+  ✔ atomically claims one owner-reviewed uncertain reset, excludes a competing worker and makes only the same completed retry idempotent (16.432792ms)
+  ✔ denies runtime authority and unsafe operator reset evidence before claiming or changing a fence (17.225209ms)
+  ✔ releases its only owner connection during inspection and rejects a generation change before claiming (7.870333ms)
+  ✔ retains the manual fence and reports only bounded stage/status when an owner retry has an uncertain provider mutation (4.040291ms)
+  ✔ keeps an owner retry manual after its post-claim provider read fails so an older worker cannot take over (9.472333ms)
+  ✔ rejects an expired operator claim before external mutation and does not let a worker reuse it (3.897709ms)
+  ✔ does not freeze a superseded generation between claiming and provider control (4.536167ms)
+  ✔ orders a new generation after in-flight provider control across application pools (4.179666ms)
+  ✔ never unfreezes suspended accounts or independent provider freezes (3.580292ms)
+  ✔ provisions once under simultaneous callbacks without merging legacy email ownership (3.713208ms)
+  ✔ rejects a consumed sid after current logout and any old/unknown provider sid after account-wide revocation (2.754333ms)
+  ✔ enforces suspension across application pools and retains deleted-identity fences (7.547041ms)
+  ✔ enforces balanced immutable journals, exact projections and environment isolation (23.206917ms)
+✔ provider ownership and financial isolation in PostgreSQL (15777.747167ms)
+▶ first Privy passkey restart in disposable PostgreSQL
+  ✖ restarts expired email first setup with the same provider key and a new nonce, preserving all ownership fences (54.147917ms)
+  ✖ restarts expired google_oauth first setup with the same provider key and a new nonce, preserving all ownership fences (11.200166ms)
+  ✖ requires the same credential, origin, fresh challenge and user verification without consuming failed proofs (6.760833ms)
+  ✖ keeps previously captured key identity exact and accepts only the approved sole-current-key fallback when no candidate was recorded (8.424875ms)
+  ✖ rejects an expired new restart challenge without extending it or consuming its still-live sibling (5.610042ms)
+  ✔ rejects prior wallet/password/key audit history, even when all current strong methods are absent (23.272083ms)
+  ✔ rejects funding history, unexplained deltas, retired or already consumed provider sessions and pending/manual resets (17.39625ms)
+  ✖ rechecks never-funded policy and generation at completion and never authorizes only an email token (2.339291ms)
+  ✖ allows only one concurrent completion and leaves immutable authorization and schema permissions enforced (2.273917ms)
+  ✖ rolls back provisional key, generation, session and SID consumption if completion fails, allowing the exact unconsumed proof to retry (2.118875ms)
+✖ first Privy passkey restart in disposable PostgreSQL (142.153709ms)
+▶ same Privy credential activation in disposable PostgreSQL
+  ✔ activates one new email user's same provider key, rotates local session and retains provider fences (50.681125ms)
+  ✔ activates one new google_oauth user's same provider key, rotates local session and retains provider fences (11.686125ms)
+  ✔ activates an existing linked provider credential without a second registration or credential delta (8.990416ms)
+  ✔ never bootstraps an additional key over an existing provider key or newly created financial history (10.861625ms)
+  ✔ requires unchanged selected mode, same DID, supported public key and only the intended provider delta (8.519ms)
+  ✔ verifies challenge, RP, origin, user verification and exact credential before activating (7.989917ms)
+  ✔ permits only exact live addition deferral and consumes an intent once under concurrent completion (9.30675ms)
+  ✔ rejects an expired or consumed intent without accepting its provider delta or issuing a cookie (4.052375ms)
+  ✔ does not occupy a pool connection during provider inspection and rejects a logout that wins the race (1.669ms)
+  ✔ uses the same provider credential for operation-bound proof but rejects independent local login and new-DID replacement (12.831041ms)
+  ✔ requires an existing operation-bound proof for later addition and atomically consumes both signatures (22.800542ms)
+  ✔ denies ordinary access during only the exact original-session pending addition without revocation (8.8515ms)
+  ✔ fails temporarily without revocation when an accepted or pending provider public key is unavailable (10.097875ms)
+  ✔ revokes a changed accepted key even while another exact key addition is pending (7.0845ms)
+  ✔ does not defer a provider delta after its original intent is consumed or expired (4.204084ms)
+  ✔ rejects self-authorized provider passkey removal and changed exported keys for fresh operation proof (7.11325ms)
+  ✔ temporarily denies an inspection failure during the matching active provider reset without revoking the rotated cookie (14.939334ms)
+  ✔ still revokes actual key changes or independent/mismatched freezes while a provider reset exists (19.780333ms)
+✔ same Privy credential activation in disposable PostgreSQL (230.620667ms)
+▶ wallet authorization with PostgreSQL runtime role
+  ✔ locally reproduces rejection of pre-deletion cookies, passwords and a delayed known-wallet callback without recreating the retired account (69.860292ms)
+  ✔ a stolen cookie and attacker-wallet signature cannot link or unlink (13.22825ms)
+  ✔ current password authorizes each exact operation and rotates only its session (27.781584ms)
+  ✔ linked-wallet authorization supports wallet-only and password accounts (12.8505ms)
+  ✔ the proposed wallet cannot approve itself, and only retained credentials can approve unlink (9.06725ms)
+  ✔ missing, expired, reused, mismatched account/session/purpose/target proofs fail (45.152417ms)
+  ✔ login and proposed-wallet signatures cannot be used as authorizing signatures (8.174667ms)
+  ✔ wrong signing accounts fail and unavailable contract verification fails closed (7.827958ms)
+  ✔ removing then re-adding an authorizer or restoring a password cannot revive a proof (32.673209ms)
+  ✔ unlink proof is purpose-specific and password unlink retains password access (24.148167ms)
+  ✔ logout wins during cryptographic verification and creates neither wallet nor replacement session (14.226583ms)
+  ✔ account-wide revocation wins before a waiting link, and link-first ordering is explicit (35.678875ms)
+  ✔ concurrent proof consumption and concurrent links allow one committed operation (70.195334ms)
+  ✔ cross-account simultaneous linking cannot assign a wallet twice (39.943375ms)
+  ✔ concurrent final-method removals leave a retained usable credential (20.340167ms)
+  ✔ an approval expiring while verification waits cannot commit (14.979625ms)
+  ✔ an expired session after lock waiting and a late failure roll back mutation/audit/notification (37.244167ms)
+  ✔ runtime role cannot retarget an operation, and cleanup removes expired operations (4.878833ms)
+  ✔ SIWE checks chain, URI, scheme, nonce and expiry before accepting an operation signature (0.494542ms)
+✔ wallet authorization with PostgreSQL runtime role (520.486833ms)
+ℹ tests 198
+ℹ suites 16
+ℹ pass 190
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16495.52675
+
+✖ failing tests:
+
+test at tests/provider-passkey-bootstrap-postgres.test.js:174:7
+✖ restarts expired email first setup with the same provider key and a new nonce, preserving all ownership fences (54.147917ms)
+  error: invalid regular expression: invalid repetition count(s)
+      at /Users/felixboucher/Documents/Codex/YapArena/node_modules/pg/lib/client.js:652:17
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:121:30
+      at async transaction (file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:98:28)
+      at async TestContext.<anonymous> (file:///Users/felixboucher/Documents/Codex/YapArena/tests/provider-passkey-bootstrap-postgres.test.js:180:27)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1869:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    length: 120,
+    severity: 'ERROR',
+    code: '2201B',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'regexp.c',
+    line: '223',
+    routine: 'RE_compile_and_cache'
+  }
+
+test at tests/provider-passkey-bootstrap-postgres.test.js:174:7
+✖ restarts expired google_oauth first setup with the same provider key and a new nonce, preserving all ownership fences (11.200166ms)
+  error: invalid regular expression: invalid repetition count(s)
+      at /Users/felixboucher/Documents/Codex/YapArena/node_modules/pg/lib/client.js:652:17
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:121:30
+      at async transaction (file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:98:28)
+      at async TestContext.<anonymous> (file:///Users/felixboucher/Documents/Codex/YapArena/tests/provider-passkey-bootstrap-postgres.test.js:180:27)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    length: 120,
+    severity: 'ERROR',
+    code: '2201B',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'regexp.c',
+    line: '223',
+    routine: 'RE_compile_and_cache'
+  }
+
+test at tests/provider-passkey-bootstrap-postgres.test.js:238:5
+✖ requires the same credential, origin, fresh challenge and user verification without consuming failed proofs (6.760833ms)
+  error: invalid regular expression: invalid repetition count(s)
+      at /Users/felixboucher/Documents/Codex/YapArena/node_modules/pg/lib/client.js:652:17
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:121:30
+      at async transaction (file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:98:28)
+      at async TestContext.<anonymous> (file:///Users/felixboucher/Documents/Codex/YapArena/tests/provider-passkey-bootstrap-postgres.test.js:240:21)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    length: 120,
+    severity: 'ERROR',
+    code: '2201B',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'regexp.c',
+    line: '223',
+    routine: 'RE_compile_and_cache'
+  }
+
+test at tests/provider-passkey-bootstrap-postgres.test.js:260:5
+✖ keeps previously captured key identity exact and accepts only the approved sole-current-key fallback when no candidate was recorded (8.424875ms)
+  error: invalid regular expression: invalid repetition count(s)
+      at /Users/felixboucher/Documents/Codex/YapArena/node_modules/pg/lib/client.js:652:17
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:121:30
+      at async transaction (file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:98:28)
+      at async TestContext.<anonymous> (file:///Users/felixboucher/Documents/Codex/YapArena/tests/provider-passkey-bootstrap-postgres.test.js:262:21)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    length: 120,
+    severity: 'ERROR',
+    code: '2201B',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'regexp.c',
+    line: '223',
+    routine: 'RE_compile_and_cache'
+  }
+
+test at tests/provider-passkey-bootstrap-postgres.test.js:318:5
+✖ rejects an expired new restart challenge without extending it or consuming its still-live sibling (5.610042ms)
+  error: invalid regular expression: invalid repetition count(s)
+      at /Users/felixboucher/Documents/Codex/YapArena/node_modules/pg/lib/client.js:652:17
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:121:30
+      at async transaction (file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:98:28)
+      at async TestContext.<anonymous> (file:///Users/felixboucher/Documents/Codex/YapArena/tests/provider-passkey-bootstrap-postgres.test.js:320:21)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    length: 120,
+    severity: 'ERROR',
+    code: '2201B',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'regexp.c',
+    line: '223',
+    routine: 'RE_compile_and_cache'
+  }
+
+test at tests/provider-passkey-bootstrap-postgres.test.js:408:5
+✖ rechecks never-funded policy and generation at completion and never authorizes only an email token (2.339291ms)
+  error: invalid regular expression: invalid repetition count(s)
+      at /Users/felixboucher/Documents/Codex/YapArena/node_modules/pg/lib/client.js:652:17
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:121:30
+      at async transaction (file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:98:28)
+      at async TestContext.<anonymous> (file:///Users/felixboucher/Documents/Codex/YapArena/tests/provider-passkey-bootstrap-postgres.test.js:417:23)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    length: 120,
+    severity: 'ERROR',
+    code: '2201B',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'regexp.c',
+    line: '223',
+    routine: 'RE_compile_and_cache'
+  }
+
+test at tests/provider-passkey-bootstrap-postgres.test.js:452:5
+✖ allows only one concurrent completion and leaves immutable authorization and schema permissions enforced (2.273917ms)
+  error: invalid regular expression: invalid repetition count(s)
+      at /Users/felixboucher/Documents/Codex/YapArena/node_modules/pg/lib/client.js:652:17
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:121:30
+      at async transaction (file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:98:28)
+      at async TestContext.<anonymous> (file:///Users/felixboucher/Documents/Codex/YapArena/tests/provider-passkey-bootstrap-postgres.test.js:454:21)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    length: 120,
+    severity: 'ERROR',
+    code: '2201B',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'regexp.c',
+    line: '223',
+    routine: 'RE_compile_and_cache'
+  }
+
+test at tests/provider-passkey-bootstrap-postgres.test.js:484:5
+✖ rolls back provisional key, generation, session and SID consumption if completion fails, allowing the exact unconsumed proof to retry (2.118875ms)
+  error: invalid regular expression: invalid repetition count(s)
+      at /Users/felixboucher/Documents/Codex/YapArena/node_modules/pg/lib/client.js:652:17
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:121:30
+      at async transaction (file:///Users/felixboucher/Documents/Codex/YapArena/dist/platform/auth/provider-passkey-bootstrap.js:98:28)
+      at async TestContext.<anonymous> (file:///Users/felixboucher/Documents/Codex/YapArena/tests/provider-passkey-bootstrap-postgres.test.js:486:21)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    length: 120,
+    severity: 'ERROR',
+    code: '2201B',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'regexp.c',
+    line: '223',
+    routine: 'RE_compile_and_cache'
+  }
+
+
+Database isolation verification failed (assertion): Focused account security/ledger PostgreSQL checks failed
+Browser release gate FAILED: fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers failed; inspect the assertion and synthetic artifacts
+
+1 !== 0
+

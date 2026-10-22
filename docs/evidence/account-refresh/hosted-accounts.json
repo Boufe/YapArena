@@ -1,0 +1,19 @@
+{
+  "at": "2026-10-19T22:43:22.055Z",
+  "origin": "https://yaparena-staging-web.onrender.com",
+  "revision": "a1dcf40abadf6dcfdb861fbb78870aad05d712c2",
+  "scope": "Read-only PostgreSQL and provider inspection after visual refresh; no user, credential, session or financial mutation",
+  "providerIdentities": 1,
+  "verifiedEmailMatchesProvider": true,
+  "activeManualAccountSessions": 1,
+  "consumedProviderSessions": 2,
+  "originalSelectedAccountsAbsent": true,
+  "retainedAccounts": 3,
+  "totalAccounts": 4,
+  "liveMoneyJournals": 0,
+  "liveGrantLotsIssued": 0,
+  "manualUserAccountPreserved": true,
+  "automationAcceptanceAccountsCreated": 0,
+  "financialFeaturesEnabled": false,
+  "note": "Provider-session exchanges are cumulative; a later exchange did not create another account. This read is not a captured returning-user or revocation acceptance trial."
+}

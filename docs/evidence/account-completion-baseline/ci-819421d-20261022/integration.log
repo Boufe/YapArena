@@ -1,0 +1,30 @@
+# Allowlisted exact integration-log lines; synthetic runner paths only.
+2026-10-22T01:29:12.4018096Z ℹ tests 5
+2026-10-22T01:29:12.4018583Z ℹ pass 5
+2026-10-22T01:29:12.4018820Z ℹ fail 0
+2026-10-22T01:29:12.4019493Z ℹ skipped 0
+2026-10-22T01:29:13.5017932Z ℹ tests 5
+2026-10-22T01:29:13.5018646Z ℹ pass 5
+2026-10-22T01:29:13.5018931Z ℹ fail 0
+2026-10-22T01:29:13.5019797Z ℹ skipped 0
+2026-10-22T01:29:38.6859473Z ℹ tests 249
+2026-10-22T01:29:38.6859703Z ℹ pass 249
+2026-10-22T01:29:38.6859814Z ℹ fail 0
+2026-10-22T01:29:38.6860053Z ℹ skipped 0
+2026-10-22T01:29:41.0281108Z ℹ tests 17
+2026-10-22T01:29:41.0281335Z ℹ pass 17
+2026-10-22T01:29:41.0281447Z ℹ fail 0
+2026-10-22T01:29:41.0281679Z ℹ skipped 0
+2026-10-22T01:33:27.4708584Z {"status":"passed","groups":4,"artifactDirectory":"/home/runner/work/_temp/yaparena-browser-release/a4/retained-wallet"}
+2026-10-22T01:33:27.4709190Z A4 browser PASS; evidence /home/runner/work/_temp/yaparena-browser-release/a4
+2026-10-22T01:33:27.5981300Z Fresh installation: inventory, browser denial, runtime login, backend journeys, worker, triggers and future defaults PASS.
+2026-10-22T01:33:53.0412650Z ℹ tests 249
+2026-10-22T01:33:53.0412879Z ℹ pass 249
+2026-10-22T01:33:53.0412991Z ℹ fail 0
+2026-10-22T01:33:53.0413224Z ℹ skipped 0
+2026-10-22T01:33:55.3831661Z ℹ tests 17
+2026-10-22T01:33:55.3831886Z ℹ pass 17
+2026-10-22T01:33:55.3831995Z ℹ fail 0
+2026-10-22T01:33:55.3832228Z ℹ skipped 0
+2026-10-22T01:33:55.4045974Z Upgrade: inventory, browser denial, runtime login, backend journeys, worker, triggers and future defaults PASS.
+2026-10-22T01:34:39.8609026Z Browser release gate PASS. Synthetic evidence: /home/runner/work/_temp/yaparena-browser-release

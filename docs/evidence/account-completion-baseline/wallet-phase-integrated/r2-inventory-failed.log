@@ -1,0 +1,70 @@
+
+> yaparena@1.0.0 verify:browser
+> node scripts/verify-browser-release.ts
+
+Synthetic browser artifacts: /private/tmp/yaparena-wallet-phase-integrated-r2
+Browser release gate: build
+
+> yaparena@1.0.0 build
+> npm run typecheck && tsc --project tsconfig.json && npm run build:frontend
+
+
+> yaparena@1.0.0 typecheck
+> npm run typecheck:operations && npm run typecheck:frontend
+
+
+> yaparena@1.0.0 typecheck:operations
+> tsc --project tsconfig.json --emitDeclarationOnly && tsc --project tsconfig.database-tools.json && tsc --project tsconfig.browser-automation.json && tsc --project tsconfig.community-tools.json && tsc --project tsconfig.replay-tools.json && tsc --project tsconfig.edge.json
+
+
+> yaparena@1.0.0 typecheck:frontend
+> node scripts/build-frontend.ts --check-sources && tsc --project tsconfig.frontend.json && tsc --project tsconfig.frontend-auth.json && tsc --project tsconfig.service-worker.json && tsc --project tsconfig.frontend-build.json
+
+
+> yaparena@1.0.0 build:frontend
+> node scripts/build-frontend.ts
+
+Browser release gate: fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers
+PostgreSQL 17.10 (Homebrew)
+▶ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger
+  ✔ reserves only owner-admitted signed payout identities and fences duplicate sender nonces (116.759625ms)
+  ✔ credits only separately identified system treasury buckets without issuing purchased coins, grants or cash to the audit account (18.412583ms)
+  ✔ consumes one exact external receipt and immutable idempotency scope across concurrent owner instances (8.970417ms)
+  ✔ globally rejects reassigning a treasury receipt to another operator or a purchased funding request (7.477833ms)
+  ✔ rejects runtime authority, simulation credits, mismatched receipts and ordinary funding completion of treasury requests (10.525208ms)
+✔ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger (193.230125ms)
+ℹ tests 5
+ℹ suites 1
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 512.582125
+
+▶ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger
+  ✔ reserves only owner-admitted signed payout identities and fences duplicate sender nonces (128.744708ms)
+  ✔ credits only separately identified system treasury buckets without issuing purchased coins, grants or cash to the audit account (18.849667ms)
+  ✔ consumes one exact external receipt and immutable idempotency scope across concurrent owner instances (8.173667ms)
+  ✔ globally rejects reassigning a treasury receipt to another operator or a purchased funding request (8.042709ms)
+  ✔ rejects runtime authority, simulation credits, mismatched receipts and ordinary funding completion of treasury requests (10.974416ms)
+✔ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger (208.469791ms)
+ℹ tests 5
+ℹ suites 1
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 568.131584
+
+{"trial":"isolation-database-encoding","database":"revocation_test_a4_fresh","server":"UTF8","client":"UTF8","locale":"C","collation":"C"}
+Creator and API mediator membership guards: 19 denial/acceptance cases PASS.
+Database isolation verification failed (ERR_ASSERTION): Expected values to be strictly equal:
+
+85 !== 84
+
+Browser release gate FAILED: fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers failed; inspect the assertion and synthetic artifacts
+
+1 !== 0
+

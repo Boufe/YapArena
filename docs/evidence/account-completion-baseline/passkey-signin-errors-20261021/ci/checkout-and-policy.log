@@ -1,0 +1,12 @@
+Sanitized allowlisted excerpts from actual CI logs. Not the full raw log.
+Raw-log SHA256 and job URL are recorded in result.json.
+
+deployment (job 119533797919): actual checkout 191504f207a1711f2e3fb13eaf44e43ff092f075; terminal success.
+monitoring (job 119533798243): actual checkout 191504f207a1711f2e3fb13eaf44e43ff092f075; terminal success.
+quality / check (job 119533798336): actual checkout 191504f207a1711f2e3fb13eaf44e43ff092f075; terminal success.
+container (job 119535939235): actual checkout 191504f207a1711f2e3fb13eaf44e43ff092f075; terminal success.
+integration (job 119535939113): actual checkout 191504f207a1711f2e3fb13eaf44e43ff092f075; terminal success.
+
+Configured container policy: Trivy HIGH,CRITICAL; --ignore-unfixed --exit-code 1.
+Production and dedicated encoder scans completed successfully under that policy.
+Deployment means production Compose validation; no staging deployment is inferred.

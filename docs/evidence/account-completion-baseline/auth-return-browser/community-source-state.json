@@ -1,0 +1,12 @@
+{
+  "scope": "Community sources and generated assets captured immediately after terminal PASS and before the next coordinated build; matching and inline A4 changes are unrelated and unbuilt.",
+  "featureCommit": "10d3730",
+  "files": {
+    "frontend/community.ts": "44200b0cdabd12e783c0aaeddbb2db6fc16af36ec46baeaa364a1ed063e1823c",
+    "scripts/verify-chat-client.ts": "45d569413a05d404dfd68046db5efbacc5fad66b64f72c10fb82e8b73c75c139",
+    "scripts/verify-community-local.ts": "ee51cef8df488d1f2c3ae261bcb5a5a5227e7cda5a21ca8f50f35dcd3f20374f",
+    "scripts/verify-community-browser.ts": "cfc61e1769baff662dda05b7670e374147e97375cac48c3a437e51ec3721eb93",
+    "public/community.js": "5e8f429f07dbafb6326a82a4fa3d03b050e83c97c806eee72c61e143dd7c53aa",
+    "dist/features/community/repository.js": "03b42b5c501c708d64136ce7c6f65764f9489b63054884a35621ecf3917eadbf"
+  }
+}

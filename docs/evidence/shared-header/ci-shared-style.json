@@ -1,0 +1,14 @@
+{
+  "revision": "c1f2c3fc1dab0f673b87083e899217e4b2074108",
+  "run": "https://github.com/Boufe/YapArena/actions/runs/39347465148",
+  "status": "completed",
+  "conclusion": "success",
+  "checks": [
+    "quality / check",
+    "container",
+    "integration",
+    "deployment",
+    "monitoring"
+  ],
+  "scope": "Full GitHub CI on the shared-style source revision. The subsequent native-search preservation has separate local/hosted browser evidence and its own CI run; see PR #42 for current status."
+}

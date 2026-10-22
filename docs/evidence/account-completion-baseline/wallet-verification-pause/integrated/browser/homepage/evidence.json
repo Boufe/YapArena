@@ -1,0 +1,28 @@
+{
+  "result": "PASS",
+  "referenceComparison": "not requested; functional checks use checked-in fixtures",
+  "comparisons": [],
+  "checks": {
+    "responsiveScreenshots": true,
+    "everySlideHasItsOwnArgumentsAndDebate": true,
+    "slideDirectionsTimingAndRapidNavigation": true,
+    "mainExpandedPointerTouchAndKeyboardCharts": true,
+    "independentExpansionPlacementAndDebateFilters": true,
+    "searchCategoriesSortingAndLocalDemoFollows": true,
+    "manualArgumentScrollAndContinuousResume": true,
+    "upwardArgumentLoopAndPause": true,
+    "synchronizedProgressPauseResumeAndRepeatedCycles": true,
+    "manualPauseAttentionAndOffscreenHold": true,
+    "reducedMotionManualNavigation": true,
+    "coarsePointerMobileTouchInspection": true,
+    "realNullableDataWalletFollowsAndCanonicalDebates": true,
+    "accessibilityAndCsp": true,
+    "serverRenderedNoJavaScriptFallback": true,
+    "realDebateAndAccountNavigation": true,
+    "unavailableNeverSubstitutesConceptData": true,
+    "slowTickerDirectionPauseKeyboardCopiesReducedMotionAndNoSeparators": true
+  },
+  "errors": [],
+  "violations": [],
+  "scope": "Loopback Express application with synthetic public records/auth responses and checked-in concept fixtures; optional original-export comparison is reported separately. No hosted writes or media sessions."
+}

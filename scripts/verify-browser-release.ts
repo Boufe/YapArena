@@ -169,6 +169,7 @@ try {
     ["scripts/verify-database-isolation.ts"],
     {
       A4_VERIFY: "true",
+      ACCOUNT_SECURITY_VERIFY: "true",
       A4_BROWSER: "true",
       A4_QUALITY: integrationOnly ? "false" : "true",
       BROWSER_ARTIFACT_DIR: join(directory, "a4"),

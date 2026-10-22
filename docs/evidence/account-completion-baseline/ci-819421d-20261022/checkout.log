@@ -1,0 +1,16 @@
+# Exact allowlisted checkout command/result lines from all five jobs.
+# 0_container.txt
+2026-10-22T01:26:43.5163367Z [command]/usr/bin/git log -1 --format=%H
+2026-10-22T01:26:43.5201520Z 73722bcb594736ded5ac6264ebcff142e37d05d8
+# 1_integration.txt
+2026-10-22T01:26:43.8033455Z [command]/usr/bin/git log -1 --format=%H
+2026-10-22T01:26:43.8057518Z 73722bcb594736ded5ac6264ebcff142e37d05d8
+# 2_quality _ check.txt
+2026-10-22T01:20:50.0871902Z [command]/usr/bin/git log -1 --format=%H
+2026-10-22T01:20:50.0919990Z 73722bcb594736ded5ac6264ebcff142e37d05d8
+# 3_monitoring.txt
+2026-10-22T01:20:51.0708183Z [command]/usr/bin/git log -1 --format=%H
+2026-10-22T01:20:51.0738857Z 73722bcb594736ded5ac6264ebcff142e37d05d8
+# 4_deployment.txt
+2026-10-22T01:20:50.2162345Z [command]/usr/bin/git log -1 --format=%H
+2026-10-22T01:20:50.2205207Z 73722bcb594736ded5ac6264ebcff142e37d05d8

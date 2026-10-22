@@ -1,0 +1,9 @@
+{
+  "stage": "passkey confirmation Done restores focus without resetting a profile draft",
+  "profileDraftPreserved": true,
+  "doneFocusRestored": true,
+  "completeCalls": 1,
+  "providerInitCalls": 1,
+  "providerLinkCalls": 1,
+  "initialReadUnavailable": false
+}

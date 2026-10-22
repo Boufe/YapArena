@@ -1,0 +1,8 @@
+{"trial":"replay-database-encoding","server":"UTF8","client":"UTF8","locale":"C","collation":"C"}
+PostgreSQL concurrent enqueue/claim, source pin, transaction rollback, atomic automatic publication and idempotent completion PASS
+Runtime publication backend termination: error handled, rollback complete, ready pointer absent PASS
+PostgreSQL removal/complete race, stale lease fencing, caption invalidation, deletion tombstones, five-attempt budget and topic revocation PASS
+Runtime-only RLS/grants, immutable binding columns and bounded tombstone retention PASS
+Real PostgreSQL room-scoped canary enqueue/claim/completion isolation PASS
+{"result":"PASS","node":"v24.19.0","postgres":"initdb (PostgreSQL) 17.10 (Homebrew)","ffmpeg":"ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers","sourceSeconds":6,"encoderThreads":2,"elapsedSeconds":0.786,"peakEncoderRssMiB":98.38,"workerPeakRssMiB":132.77,"packageFiles":13,"thumbnailBytes":36946,"packageBytes":3059629,"scope":"real PostgreSQL runtime transactions + FFmpeg, synthetic in-memory object adapter; no hosted storage/edge or physical-device evidence"}
+{"result":"PASS","scenario":"worker shutdown while real PostgreSQL heartbeat is stalled","shutdownMs":1515.86,"deadlineMs":8000}

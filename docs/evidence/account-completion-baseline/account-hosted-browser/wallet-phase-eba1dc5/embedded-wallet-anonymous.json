@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-10-21T22:09:47.394Z",
+  "expectedRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+  "result": "PASS",
+  "status": 401,
+  "private": true,
+  "noStore": true,
+  "variesByCookie": true,
+  "noCookie": true,
+  "exactAnonymousErrorOnly": true,
+  "walletStateExposed": false,
+  "requests": 1,
+  "credentialHeadersSent": false,
+  "accountOrProviderMutations": 0,
+  "helperSha256": "f530220400e8934abe93349e1c93c2eaad7caf14b17abdb98f15be14d6327e26",
+  "revisionBoundary": "Expected exact local revision; pair with lead's independent Render LIVE evidence and main verifier's exact asset hashes."
+}

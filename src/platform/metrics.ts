@@ -14,6 +14,31 @@ type ProductSummary = Awaited<
 
 export function createMetrics() {
   const registry = new Registry();
+  const authJourney = new Counter({
+    name: "yaparena_auth_journey_total",
+    help: "Aggregate authentication flow outcomes without identifiers",
+    labelNames: ["event"],
+    registers: [registry],
+  });
+  const authLatency = new Histogram({
+    name: "yaparena_auth_latency_seconds",
+    help: "Authentication phase latency without identifiers",
+    labelNames: ["phase"],
+    buckets: [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300],
+    registers: [registry],
+  });
+  const redisOutcome = new Counter({
+    name: "yaparena_redis_security_total",
+    help: "Shared abuse store outcomes",
+    labelNames: ["outcome"],
+    registers: [registry],
+  });
+  const redisLatency = new Histogram({
+    name: "yaparena_redis_security_seconds",
+    help: "Shared abuse store latency",
+    buckets: [0.001, 0.01, 0.05, 0.1, 0.5, 1, 5],
+    registers: [registry],
+  });
   const mediaControl = new Counter({
     name: "yaparena_media_control_total",
     help: "Bounded media clock, permission repair and delivery admission outcomes",
@@ -161,6 +186,10 @@ export function createMetrics() {
     handler,
     registry,
     poolWait,
+    authJourney,
+    authLatency,
+    redisOutcome,
+    redisLatency,
     mediaControl,
     community: {
       count(kind: string) {

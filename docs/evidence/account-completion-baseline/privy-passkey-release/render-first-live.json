@@ -1,0 +1,77 @@
+{
+  "observedAt": "2026-10-20T20:05:42.537555+00:00",
+  "evidence": "Independent read-only Render GET after accepted exact-commit deployment",
+  "at": "2026-10-20T20:05:27.923Z",
+  "mode": "inspect",
+  "revision": "d6e2d355da255e03c257802c890c036c4d572a62",
+  "helperSha256": "92189db587279f683a13c51e4965610339017f071af2da7bf2c90fa07615695e",
+  "mutations": [],
+  "services": [
+    {
+      "id": "srv-datv1kjncjis73a500cg",
+      "name": "yaparena-staging-web",
+      "type": "web_service",
+      "suspended": "not_suspended",
+      "autoDeploy": "no",
+      "branch": "main",
+      "plan": "free",
+      "latestDeploy": {
+        "id": "dep-dbbshb0473hc73ccs24g",
+        "status": "live",
+        "commit": "d6e2d355da255e03c257802c890c036c4d572a62"
+      },
+      "database": {
+        "runtimeRole": true,
+        "expectedProject": true,
+        "sslmode": "verify-full",
+        "certificateParameterPresent": true,
+        "certificateContentParameter": false,
+        "sameAsWeb": true
+      },
+      "tlsEnvironment": {
+        "validationExplicitlyDisabled": false,
+        "extraCaPathConfigured": false,
+        "pgRootCertConfigured": false
+      },
+      "coinSandboxEnabled": true,
+      "sandboxWebhookConfigured": false,
+      "backgroundJobsEnabledByConfiguration": true
+    },
+    {
+      "id": "srv-db38jiid0e5s73ffr2cg",
+      "name": "yaparena-replay-worker",
+      "type": "background_worker",
+      "suspended": "not_suspended",
+      "autoDeploy": "no",
+      "branch": "main",
+      "plan": null,
+      "latestDeploy": {
+        "id": "dep-dbbsh75pkucs73ebtjd0",
+        "status": "live",
+        "commit": "fd60543b5f6d8f0b65fe1f93807252064d9317f2"
+      },
+      "database": {
+        "runtimeRole": true,
+        "expectedProject": true,
+        "sslmode": "verify-full",
+        "certificateParameterPresent": true,
+        "certificateContentParameter": false,
+        "sameAsWeb": true
+      },
+      "tlsEnvironment": {
+        "validationExplicitlyDisabled": false,
+        "extraCaPathConfigured": false,
+        "pgRootCertConfigured": false
+      },
+      "coinSandboxEnabled": false,
+      "sandboxWebhookConfigured": false,
+      "backgroundJobsEnabledByConfiguration": true
+    }
+  ],
+  "limitations": [
+    "Control-plane configuration evidence; URL sslmode/CA flags alone do not prove the running driver's TLS handshake.",
+    "No raw environment values, URLs, credentials, owner identities, deploy messages or error bodies are exported.",
+    "Deploy acceptance is not live-revision/readiness/browser acceptance; verify that separately.",
+    "No plan, provider identity, live funds, retained account, recording, egress, allowlist or SSH configuration is changed."
+  ]
+}

@@ -1,0 +1,71 @@
+
+> yaparena@1.0.0 verify:database-isolation
+> npm run build && node scripts/verify-database-isolation.ts
+
+
+> yaparena@1.0.0 build
+> npm run typecheck && tsc --project tsconfig.json && npm run build:frontend
+
+
+> yaparena@1.0.0 typecheck
+> npm run typecheck:operations && npm run typecheck:frontend
+
+
+> yaparena@1.0.0 typecheck:operations
+> tsc --project tsconfig.json --emitDeclarationOnly && tsc --project tsconfig.database-tools.json && tsc --project tsconfig.browser-automation.json && tsc --project tsconfig.community-tools.json && tsc --project tsconfig.replay-tools.json && tsc --project tsconfig.edge.json
+
+
+> yaparena@1.0.0 typecheck:frontend
+> node scripts/build-frontend.ts --check-sources && tsc --project tsconfig.frontend.json && tsc --project tsconfig.frontend-auth.json && tsc --project tsconfig.service-worker.json && tsc --project tsconfig.frontend-build.json
+
+
+> yaparena@1.0.0 build:frontend
+> node scripts/build-frontend.ts
+
+PostgreSQL 17.10 (Homebrew)
+▶ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger
+  ✔ reserves only owner-admitted signed payout identities and fences duplicate sender nonces (120.119ms)
+  ✔ credits only separately identified system treasury buckets without issuing purchased coins, grants or cash to the audit account (18.298458ms)
+  ✔ consumes one exact external receipt and immutable idempotency scope across concurrent owner instances (8.871125ms)
+  ✔ globally rejects reassigning a treasury receipt to another operator or a purchased funding request (8.159625ms)
+  ✔ rejects runtime authority, simulation credits, mismatched receipts and ordinary funding completion of treasury requests (10.653084ms)
+✔ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger (197.001042ms)
+ℹ tests 5
+ℹ suites 1
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 516.27875
+
+▶ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger
+  ✔ reserves only owner-admitted signed payout identities and fences duplicate sender nonces (147.288041ms)
+  ✔ credits only separately identified system treasury buckets without issuing purchased coins, grants or cash to the audit account (27.3695ms)
+  ✔ consumes one exact external receipt and immutable idempotency scope across concurrent owner instances (17.437084ms)
+  ✔ globally rejects reassigning a treasury receipt to another operator or a purchased funding request (16.498459ms)
+  ✔ rejects runtime authority, simulation credits, mismatched receipts and ordinary funding completion of treasury requests (16.9735ms)
+✔ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger (265.555791ms)
+ℹ tests 5
+ℹ suites 1
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 643.496708
+
+{"trial":"isolation-database-encoding","database":"revocation_test_a4_fresh","server":"UTF8","client":"UTF8","locale":"C","collation":"C"}
+Creator and API mediator membership guards: 19 denial/acceptance cases PASS.
+ℹ tests 854
+ℹ pass 854
+ℹ fail 0
+ℹ skipped 0
+ℹ all files                                     |  95.36 |    91.21 |   95.35 | 
+Full quality gate with A4, wallet and revocation PostgreSQL identities PASS.
+Fresh installation: inventory, browser denial, runtime login, backend journeys, worker, triggers and future defaults PASS.
+{"trial":"isolation-database-encoding","database":"revocation_test_a4_upgrade","server":"UTF8","client":"UTF8","locale":"C","collation":"C"}
+Creator and API mediator membership guards: 19 denial/acceptance cases PASS.
+Upgrade: inventory, browser denial, runtime login, backend journeys, worker, triggers and future defaults PASS.
+Local SQL isolation verified. This verifier does not inspect hosted Data API/GraphQL/Realtime configuration.
+Sanitized catalog snapshots: /tmp/yaparena-isolation-71305e98-evidence

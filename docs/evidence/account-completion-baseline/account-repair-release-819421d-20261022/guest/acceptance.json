@@ -1,0 +1,92 @@
+{
+  "observedAt": "2026-10-22T01:58:01.352Z",
+  "passed": true,
+  "origin": "https://yaparena-staging-web.onrender.com",
+  "expectedRevision": "819421d30b10acb29b38a0f75ed46360af373870",
+  "localRevision": "819421d30b10acb29b38a0f75ed46360af373870",
+  "revisionEvidence": "Expected operator-selected revision plus exact served asset hashes; this does not independently attest server commit identity.",
+  "elapsedMs": 10949,
+  "checks": [
+    "all fourteen hosted authentication/header/security assets match the selected local build",
+    "public health and PostgreSQL-backed readiness return 200",
+    "real public provider metadata and app flags agree; email/Google/passkeys enabled and merging/automatic wallets off",
+    "five private routes deny a fresh guest with 401/no-store and issue no application cookie",
+    "desktop: real SDK ready, guest header, empty login popup, Google/passkey availability, Escape focus, private account hidden, layout/CSP and no account mutation/media join",
+    "mobile: real SDK ready, guest header, empty login popup, Google/passkey availability, Escape focus, private account hidden, layout/CSP and no account mutation/media join",
+    "guarded retired-register request returned 410 without identity/cookie and increased successful Redis operation/latency aggregates"
+  ],
+  "failures": [],
+  "sourceHashes": {
+    "scripts/verify-account-hosted-browser.ts": "0a22618885f0b65ffd0252c1319d55370dcd189ae72c0036a85c51e1d4d74845",
+    "src/platform/auth/router.ts": "e55b2ebc2ce4b91526a9b2be1f7e2b1cc0c2e0292da67c74da1e120a25423e02",
+    "src/platform/shared-abuse.ts": "34a10238ac879bc89126c6d5e527f6e8e59174a640a727094199a5abeabf94f3",
+    "src/platform/auth/browser-security.ts": "5beed60186ee941bb68338273c8dc1577ccd91f3a996720e7f952bebca136e04",
+    "src/platform/viewer-admission.ts": "5fc51c9e6d22b98b066e097c9241ee1447791d8b904ff42710f694b473818e13",
+    "frontend/site-header.ts": "a43c6d8a62dc765afab7dbc7d5979986b7d45ab9bbb6eee1a3a7245eac9e7b00",
+    "dist/platform/auth/router.js": "2e02b134a02830eee30a5a1229c5bf4309965e28f8aa3b9f1f9553e9d969f605",
+    "dist/platform/shared-abuse.js": "4dd08cf9e940d48595f72d1450590d2e5fa7a0a76052c0043108ae28a2451e40"
+  },
+  "assetHashes": {
+    "session-coordination.js": "30664c91796e6a18fd69569750e5baa8809674572913116c0126b8213166507b",
+    "auth-return.js": "891d6907811a6a507800ddb475ace41786885d69448ac699cb7c435029f0626d",
+    "site-header.js": "5fcf24e395827bc16da0014318da0b998b4f20af5846d45c77cabb98307eebe5",
+    "site.js": "0543de8bf00750b5ca1544f3d24502ed11193f00f9289320d6905cacff692dd8",
+    "account.js": "bce87601d7c0f8aa764fdb988cb19f04e0d28d3974ac09f2496c7f012dc3d516",
+    "account-session-list.js": "1e4da048f89dcea314e10483dc10ea046fb4efae47fe9d4069b1f01373bb49c5",
+    "account-sessions.js": "e544082c908e37d08cb5e05d3e2f72a57556770fba72fa7ab33c05e65b283aef",
+    "account-auth.bundle.js": "152ebb6c132b9285231377867e7260eca93b9cd568542e0e35032fadae446345",
+    "account-security.bundle.js": "f930ea833e8ef511035234e72179b1f84ed03f890accfadabdd3734cc0063bd0",
+    "account-coins.js": "18f9676e53a859a75a35531736b469675e3e680a0bd8931dd1d106880f18341d",
+    "account-auth.css": "dfa7bfe18baa0a76c45a9974aa24785f868f71ca31497794dfcaf11815c12da7",
+    "site-header.css": "e55326946fef05d5f21a7954ec6fa9d6895a620d3491de52a0c3fdcc42ec6518",
+    "site.css": "c2481b6017fb564fdaff0bf437a18f64f56e6dbb2492f2047199a93f06514bd7",
+    "arena.css": "087928e12c8be4a87d006b22b91f1534a647b44425d1129b1d54c2d3d4dc3cb1"
+  },
+  "providerMetadata": {
+    "appId": "cmvfjb3r800vy0hl3heg2cuvv",
+    "email": true,
+    "google": true,
+    "passkeys": true,
+    "automaticEthereumWallet": false,
+    "automaticSolanaWallet": false,
+    "mergeAccountsByEmail": false
+  },
+  "redisObservation": {
+    "before": {
+      "ok": 0,
+      "observations": 0,
+      "seconds": 0
+    },
+    "after": {
+      "ok": 1,
+      "observations": 1,
+      "seconds": 0.5476485169999942
+    },
+    "minimumAdditionalSuccessfulOperations": 1
+  },
+  "accountResponses": [
+    {
+      "viewport": "desktop",
+      "status": 200,
+      "origin": "https://yaparena-staging-web.onrender.com",
+      "pathname": "/account",
+      "fromServiceWorker": true,
+      "redirects": []
+    },
+    {
+      "viewport": "mobile",
+      "status": 200,
+      "origin": "https://yaparena-staging-web.onrender.com",
+      "pathname": "/account",
+      "fromServiceWorker": true,
+      "redirects": []
+    }
+  ],
+  "navigationFailures": [],
+  "completedHistoryBarriers": ["desktop", "mobile"],
+  "limitations": [
+    "Guest browser only; no OTP, OAuth or provider-passkey ceremony, account creation, signed-in financial action or identity mutation.",
+    "Headless emulated viewports; no physical device, screen-reader or full WCAG conformance claim.",
+    "Redis probe is behavioral code-enforced noeviction/Lua evidence; it is not raw hosted INFO, a hosted outage drill or a multi-instance topology test."
+  ]
+}

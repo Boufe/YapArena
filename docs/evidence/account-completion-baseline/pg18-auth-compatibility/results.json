@@ -1,0 +1,114 @@
+{
+  "recordedAt": "2026-10-20T16:32:25.060748+00:00",
+  "revisionAtReport": "abad6cfd0a73606b087b587200a5ffe179d7e419",
+  "runSource": "Application/backend source frozen from the passing 63eada6 integrated gate; the three test fixture files were uncommitted during this focused run. Exact test/source/dist hashes below identify the tested files. Concurrent CSS/evidence commits are not covered by this database result.",
+  "postgres": "PostgreSQL 18.4 (Debian 18.4-1.pgdg12+1)",
+  "image": "postgres:18.4-bookworm",
+  "command": "LC_ALL=C LANG=C DATABASE_TEST_MODE=docker DATABASE_TEST_IMAGE=postgres:18.4-bookworm ACCOUNT_SECURITY_VERIFY=true A4_QUALITY=false node scripts/verify-database-isolation.ts",
+  "firstAttempt": {
+    "exitCode": 1,
+    "fresh": {
+      "tests": 151,
+      "pass": 148,
+      "fail": 3,
+      "skipped": 0
+    },
+    "baseFresh": {
+      "tests": 5,
+      "pass": 5
+    },
+    "baseUpgrade": {
+      "tests": 5,
+      "pass": 5
+    },
+    "cause": "Instant synthetic SIWE signing ran before host time reached the database-issued timestamp; actual VM-clock samples below establish positive host/VM skew. Application validity checks correctly rejected the messages. The exact RESTRICT/tombstone assertions passed. Upgrade main suite was not reached after the fresh failure."
+  },
+  "clockSamples": [
+    {
+      "minimumVmAheadMs": 11,
+      "maximumVmAheadMs": 232
+    },
+    {
+      "minimumVmAheadMs": 4,
+      "maximumVmAheadMs": 144
+    },
+    {
+      "minimumVmAheadMs": 9,
+      "maximumVmAheadMs": 136
+    },
+    {
+      "minimumVmAheadMs": 3,
+      "maximumVmAheadMs": 132
+    },
+    {
+      "minimumVmAheadMs": 9,
+      "maximumVmAheadMs": 131
+    }
+  ],
+  "clockMethod": "Host Date.now() immediately before and after synchronous docker run date +%s%3N. VM epoch milliseconds exceeded the host after-return value. No shared VM/container/host clock was changed.",
+  "finalAttempt": {
+    "exitCode": 0,
+    "fresh": {
+      "tests": 151,
+      "pass": 151,
+      "fail": 0,
+      "skipped": 0
+    },
+    "upgrade": {
+      "tests": 151,
+      "pass": 151,
+      "fail": 0,
+      "skipped": 0
+    },
+    "baseFresh": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0
+    },
+    "baseUpgrade": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0
+    }
+  },
+  "changes": [
+    "Accept only PostgreSQL documented 23503 foreign_key_violation or 23001 restrict_violation for deletion, require the exact provider_identity_recoveries_provider_old_subject_fkey and assert unchanged retired mapping/history.",
+    "A central test-only helper waits for actual parsed SIWE issuedAt to reach host time, bounded by one second; larger drift or failure to reach the boundary fails fixture setup. It does not alter messages, signatures, validity tolerances or negative expiry assertions."
+  ],
+  "sourceHashes": {
+    "tests/account-operation-auth.test.js": "f0145ecb0997809c61f4dde83706b1e464b7f6d8efa4bee34bea258d7c87cfed",
+    "tests/account-security-passkeys-postgres.test.js": "3f623e4c58e02ef5182f2a8dc26245e546c44e715a872c26df3cee0af7ac7b2e",
+    "tests/siwe-fixture-clock.js": "dda51343951d7191592abf35c28570d69b52a03b66925f1918b1ea8468bdf41a",
+    "src/platform/auth/account-operations.ts": "72246fc6de70eeb90bec291224d3b0eb5983eec596edc82aef01af4c8b27d1d4",
+    "src/platform/auth/account-access.ts": "3c5e0fb26cf3762681abbd0a20c2dab51864d71a6c3f8d4f16a1531ef1009afe",
+    "src/platform/auth/provider-wallet-operations.ts": "cd97e15e845f59985f9b25567ebce8b751ed5e703f7591a0ddc1f136262fa8b7",
+    "src/platform/auth/provider-identity-recovery.ts": "ba607a7275ffde5a292ae1c048ba205b916be82d31db30983188a77a7b351cfa",
+    "src/platform/auth/router.ts": "72e4e1daa21152a147c4e360b3b13cbe520d6ac7b1bdf43014ff8a4598283803",
+    "migrations/1792426011000_add-provider-identity-recovery.js": "ad9ba0ba7abf1f12199b4a24736f2c11818aae05e4fe555d720f6d5ef37b1bfb",
+    "dist/platform/auth/account-operations.js": "ca2f9cd30d0c7e534c0893e68c3b2b087185c3a338ad948f2e47762a72874080",
+    "dist/platform/auth/account-access.js": "8e0c2546b9e23bf434f08ffdaec6959c8980f90f41db18c3ad79699fc834e779",
+    "dist/platform/auth/provider-wallet-operations.js": "e3a8395c56cca459b787d830ffa589be83ffd56e750b7e9608a09600bec2e1df",
+    "dist/platform/auth/provider-identity-recovery.js": "65c8eb10c9a9990bca75d870aa6693e28a2da6c2f34e7f6aa5d52a4fcdc6d402",
+    "dist/platform/auth/router.js": "9d593d8c0384635cc7ecd6a7916ec030fb35ed36ede1270298ef18370f04a61d"
+  },
+  "outputHashes": {
+    "first-clock-failure.txt": "b2aeb52b4b14fbf7e02a44ce7fb8faeed0235b9e8f36a04e68a9672c5c991512",
+    "focused-postgres.txt": "10a65e4928111f5330315c56385b1c661d79c8feede932a1d7afa3d36cfb3cb6"
+  },
+  "limitations": [
+    "Focused disposable local PostgreSQL compatibility/role/concurrency acceptance only; not another full coverage/browser gate.",
+    "No application, migration, financial threshold, VM clock, provider configuration or live funds changed.",
+    "No hosted Privy email code, hosted staging deployment, physical device, screen reader or live financial acceptance.",
+    "The subsequent CI run must cover the committed fixtures; this record does not claim that remote CI has passed."
+  ],
+  "imageId": "sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296",
+  "repositoryDigest": "postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296",
+  "versionEvidence": {
+    "command": "docker run --rm --entrypoint postgres postgres:18.4-bookworm --version",
+    "stdout": "postgres (PostgreSQL) 18.4 (Debian 18.4-1.pgdg12+1)",
+    "imageCommand": "docker image inspect --format '{{.Id}} {{json .RepoDigests}}' postgres:18.4-bookworm",
+    "scope": "Read-only identity inspection of the local image used by the completed suite; no database rerun or shared clock change."
+  }
+}

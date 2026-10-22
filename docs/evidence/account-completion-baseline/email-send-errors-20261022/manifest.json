@@ -1,0 +1,224 @@
+{
+  "format": 1,
+  "sourceCommit": "7e5c0a38b9b474f1712d5d87454842c0c8a7f7ae",
+  "recordedAt": "2026-10-22T00:40:50Z",
+  "artifacts": [
+    {
+      "path": "sdk/browser-results.json.raw",
+      "sha256": "1c9e373e6f46517be63df50cb61c10373aff8eb5ab13eaad93b7c3cbd2d8201e",
+      "bytes": 31017,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "sdk/browser-results.json",
+      "sha256": "1c9e373e6f46517be63df50cb61c10373aff8eb5ab13eaad93b7c3cbd2d8201e",
+      "bytes": 31017,
+      "kind": "installed-SDK browser result",
+      "original": "sdk/browser-results.json.raw"
+    },
+    {
+      "path": "sdk/before-captcha-failure-desktop.json.raw",
+      "sha256": "e1ea5de7b9ac6516b0717ad5084b33db5d6b54f589258dda9901a37fe07db945",
+      "bytes": 191,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "sdk/before-captcha-failure-desktop.json",
+      "sha256": "116e36f92b73c458b0b83a725998be56cc97c85f054a4449a36dbe8562aa0ea5",
+      "bytes": 220,
+      "kind": "controlled RED diagnostic",
+      "original": "sdk/before-captcha-failure-desktop.json.raw"
+    },
+    {
+      "path": "sdk/before-run.log",
+      "sha256": "6a028b5b74e8b46c75c79356e341e5a712fd0fcf254ae343b172c726166f07f4",
+      "bytes": 669,
+      "kind": "controlled RED raw log"
+    },
+    {
+      "path": "sdk/before-captcha-failure-desktop.png",
+      "sha256": "394096c4b15b6bd0876ec7c225dabd5c8e04169cd012a0cbfcc33faf1447c78d",
+      "bytes": 271426,
+      "kind": "synthetic fixture screenshot"
+    },
+    {
+      "path": "sdk/after-captcha-failure-desktop.png",
+      "sha256": "60e6e8aa3129ad930ec24d173c6788b08e1d58b54490400962a1463deba156fc",
+      "bytes": 273501,
+      "kind": "synthetic fixture screenshot"
+    },
+    {
+      "path": "sdk/after-captcha-failure-mobile.png",
+      "sha256": "5964394459c50c3df87690a9b491f3b9dfe18753b4d370fa3777390afc6d06f2",
+      "bytes": 99766,
+      "kind": "synthetic fixture screenshot"
+    },
+    {
+      "path": "sdk/after-captcha-timeout-mobile.png",
+      "sha256": "4b85a263a4966f987f1da034053cea18a5ec8e2fc545c45eca223bf688f7c0d5",
+      "bytes": 98415,
+      "kind": "synthetic fixture screenshot"
+    },
+    {
+      "path": "integrated/run.log",
+      "sha256": "c95d8606b42563d403224051ea0b9a6bab6ef4e0d08e5c27f4dd8fc247b44dcb",
+      "bytes": 73626,
+      "kind": "combined coordinator raw log"
+    },
+    {
+      "path": "integrated/result.json.raw",
+      "sha256": "2cbddf007bcfa56fffd10ffd423378ebc1949d4c40d4941dbc228b47df3ab908",
+      "bytes": 659,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "integrated/result.json",
+      "sha256": "2cbddf007bcfa56fffd10ffd423378ebc1949d4c40d4941dbc228b47df3ab908",
+      "bytes": 659,
+      "kind": "combined coordinator result",
+      "original": "integrated/result.json.raw"
+    },
+    {
+      "path": "integrated/a4.json.raw",
+      "sha256": "556f18bb93fe68e16a222d55e10a9f6b7d5dd95f6e8c8b42a5f2dfd61cabf4d9",
+      "bytes": 4208,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "integrated/a4.json",
+      "sha256": "1f050d080c559e60da8fdaa03c17ba08b6f397d54d0d12d2210b8ec0aed40855",
+      "bytes": 4188,
+      "kind": "combined child result",
+      "original": "integrated/a4.json.raw"
+    },
+    {
+      "path": "integrated/arena.json.raw",
+      "sha256": "ab111ab3cc4f8e5ab8b24e085aff31008aba74095787780aa228667af4a7977b",
+      "bytes": 881,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "integrated/arena.json",
+      "sha256": "a88850850e74acbf8eee9df1903adad1d04b3e78c38dc88fee52ce8c5004e60c",
+      "bytes": 882,
+      "kind": "combined child result",
+      "original": "integrated/arena.json.raw"
+    },
+    {
+      "path": "integrated/shared-bots.json.raw",
+      "sha256": "49838fdce2b6c7e36a82df38f8af354e06262e6bd13d5cada9553c012495a2ef",
+      "bytes": 924,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "integrated/shared-bots.json",
+      "sha256": "49838fdce2b6c7e36a82df38f8af354e06262e6bd13d5cada9553c012495a2ef",
+      "bytes": 924,
+      "kind": "combined child result",
+      "original": "integrated/shared-bots.json.raw"
+    },
+    {
+      "path": "integrated/retained-wallet.json.raw",
+      "sha256": "96de1098f14d016a23e7c913b4d8c381096110110752036c9da86df1a334e3e2",
+      "bytes": 1467,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "integrated/retained-wallet.json",
+      "sha256": "96de1098f14d016a23e7c913b4d8c381096110110752036c9da86df1a334e3e2",
+      "bytes": 1467,
+      "kind": "combined child result",
+      "original": "integrated/retained-wallet.json.raw"
+    },
+    {
+      "path": "integrated/homepage.json.raw",
+      "sha256": "763363865dea851fb4a524779dd1eb13b420bcfde361a0e73be39990f5679b3d",
+      "bytes": 1324,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "integrated/homepage.json",
+      "sha256": "763363865dea851fb4a524779dd1eb13b420bcfde361a0e73be39990f5679b3d",
+      "bytes": 1324,
+      "kind": "combined child result",
+      "original": "integrated/homepage.json.raw"
+    },
+    {
+      "path": "integrated/live.json.raw",
+      "sha256": "3f9efe5cb49cdea40d79d60f8eaa4e04f7b98f3fd16f26b24cd940c3c9131d5d",
+      "bytes": 788,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "integrated/live.json",
+      "sha256": "3f9efe5cb49cdea40d79d60f8eaa4e04f7b98f3fd16f26b24cd940c3c9131d5d",
+      "bytes": 788,
+      "kind": "combined child result",
+      "original": "integrated/live.json.raw"
+    },
+    {
+      "path": "integrated/database/fresh-account-security.log",
+      "sha256": "5c4bea6ae281b80477b9df4c1c2daaa889e221f7bcd930f07037c27953f14c3a",
+      "bytes": 30694,
+      "kind": "disposable database raw log"
+    },
+    {
+      "path": "integrated/database/fresh-inventory.json.raw",
+      "sha256": "8a82e08f5d4a7cd128cf139ee781fa246799334cc10b6f83a5dee2d2cb5bf3e0",
+      "bytes": 409272,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "integrated/database/fresh-inventory.json",
+      "sha256": "d9fdb7048ce5fb7e9c692554ad05f045f28befcf954fb1436dff9e00fb4c58c3",
+      "bytes": 407784,
+      "kind": "disposable database catalog inventory",
+      "original": "integrated/database/fresh-inventory.json.raw"
+    },
+    {
+      "path": "integrated/database/quality.log",
+      "sha256": "469bfa644b7401d3bc04affc072c6383b2c3ec201cb6ad3f981ab19cbc10987b",
+      "bytes": 109305,
+      "kind": "disposable database raw log"
+    },
+    {
+      "path": "integrated/database/treasury-fresh.log",
+      "sha256": "ef4149675a321dcd2a79278c9616d892e959dd88c0db285006c64ea6a2892df5",
+      "bytes": 943,
+      "kind": "disposable database raw log"
+    },
+    {
+      "path": "integrated/database/treasury-upgrade.log",
+      "sha256": "10bfabb7611ee8586095125c265e325c24e885c9eb1edce663d1b45c5e7cb35c",
+      "bytes": 945,
+      "kind": "disposable database raw log"
+    },
+    {
+      "path": "integrated/database/upgrade-account-security.log",
+      "sha256": "6a25ff4add508c8d162b4871c0e946ec20334cf0245151a499617d43f299094c",
+      "bytes": 30712,
+      "kind": "disposable database raw log"
+    },
+    {
+      "path": "integrated/database/upgrade-inventory.json.raw",
+      "sha256": "1667230ff95eb75545dc50ba7533254f1425aadd6c339bae9cef59a6f19a83e2",
+      "bytes": 409287,
+      "kind": "original JSON bytes"
+    },
+    {
+      "path": "integrated/database/upgrade-inventory.json",
+      "sha256": "7114c7406e449b78fb37ef1ff8f15d4d172f1d38a082fe56b56994a6c496a124",
+      "bytes": 407799,
+      "kind": "disposable database catalog inventory",
+      "original": "integrated/database/upgrade-inventory.json.raw"
+    },
+    {
+      "path": "summary.json",
+      "sha256": "ed2c974e840c9e9d78ecfdcfb5e2c35803c919d08cd376b4b297357e9ebd1323",
+      "bytes": 6776,
+      "kind": "independent derived result and source-boundary summary"
+    }
+  ],
+  "sourceBoundary": "Committed locally after both runs with identical tested source bytes; no push, CI or hosted deployment acceptance is asserted here.",
+  "rawJsonPolicy": "Files ending .json.raw preserve original bytes; formatted .json counterparts retain equal parsed values. Hashes cover archived bytes after scoped formatting. README and manifest are excluded to avoid self-reference."
+}

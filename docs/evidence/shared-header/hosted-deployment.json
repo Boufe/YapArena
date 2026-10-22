@@ -1,0 +1,19 @@
+{
+  "at": "2026-10-20T00:43:03.587Z",
+  "origin": "https://yaparena-staging-web.onrender.com",
+  "serviceId": "srv-datv1kjncjis73a500cg",
+  "deployId": "dep-dbbbgek9v7es73ekde80",
+  "commitId": "f942dc6290e5794395c380612abc826ea7952b16",
+  "status": "live",
+  "finishedAt": "2026-10-20T00:42:04.900042Z",
+  "accountReset": false,
+  "financialFeaturesEnabled": false,
+  "automaticDeploymentChanged": false,
+  "workerRevisionChanged": false,
+  "readyStatus": 200,
+  "accountStatus": 200,
+  "discoveryStatus": 200,
+  "livePageStatus": 200,
+  "anonymousSessionStatus": 401,
+  "refreshedMarkupVerified": true
+}

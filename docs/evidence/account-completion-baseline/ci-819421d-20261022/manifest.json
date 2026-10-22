@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "runId": 39705118511,
+  "candidate": "819421d30b10acb29b38a0f75ed46360af373870",
+  "files": {
+    "README.md": "e64b7e80d8f23d1403e6d65fb4a6e7c156cc04de851c25c2f82db784bec1954a",
+    "audit.json": "07146f96e80b2fd881600e3407fedb47e664c0ff7ebc41aeb917ece102cbb64f",
+    "checkout-merge.json": "95d17353e295e43a8b763ae6cf70b2b49dbf8052fd470d489597444abc2c4b18",
+    "checkout.log": "9345c1d555e03db120e4d89b09807bfe0cca54737b5709fd295c2ffff4caf034",
+    "core-artifact-summary.json": "73111e07932148564fb3deb05abcd42f03b8a33cf2e8088d93320572fb88fc1c",
+    "integration.log": "ebb0a3a707f92283c19c9b3508ad23f0efc7db1af56ea7bd69c6772716231de5",
+    "jobs.json": "39bc8cdc74777747f564ba95e322a1cea7631e7280b8d58fda3fad2b25e16850",
+    "provenance.json": "62e7eec0820e9fcda3904043e7df45b5465c610079003424b52316d058caeb96",
+    "quality.log": "0f4bccb04b5a3e3f190ec55157baf1c818766c76c563396b5d3d9c50b87e3718"
+  },
+  "manifestExcludesItself": true,
+  "upstreamArtifact": {
+    "entries": 37,
+    "json": 6,
+    "png": 31,
+    "zipSha256": "25edcec604a87e56f0269805da3ed8371d27ce3e773d9e5f79280659cad8076f"
+  },
+  "publicArchiveScope": "Sanitized text evidence only; no screenshots or raw account/API payloads."
+}

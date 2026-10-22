@@ -1,0 +1,23 @@
+{
+  "result": "PASS",
+  "exitCode": 0,
+  "sourceRevision": "8dad4dd",
+  "command": "LC_ALL=C LANG=C DATABASE_TEST_MODE=host A4_QUALITY=true npm run verify:database-isolation",
+  "checks": {
+    "fullQuality": {
+      "tests": 854,
+      "passed": 854,
+      "failed": 0,
+      "skipped": 0,
+      "coverage": {
+        "lines": 95.36,
+        "branches": 91.21,
+        "functions": 95.35
+      },
+      "thresholdEach": 90
+    },
+    "freshAndUpgradeIsolation": true
+  },
+  "scope": "Final local quality after adding reviewed read-only operator source and faithful native browser harness; no app/migration changes since preceding complete browser gate",
+  "outputSha256": "ce2676537ad8c6b5cc782350a474f58eb48c43b03bcf55868cbc302ae12fcb2e"
+}

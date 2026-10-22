@@ -1,0 +1,57 @@
+Independent CI audit; raw logs remain private.
+Branch eba1dc5cfe6680a9a41e98482b64d3c725163a1b
+Tested merge 4f7f28a1aac35fd8da7197debbe5481757a11065
+Exact branch/merge tree c1179532281a42b92094b52448d11e26c33404a0
+All five job checkout logs verified against the merge.
+
+[quality / check]
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 239
+ℹ pass 239
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 858
+ℹ pass 858
+ℹ fail 0
+ℹ skipped 0
+ℹ all files                                |  95.32 |    91.23 |   95.35 |
+ℹ tests 239
+ℹ pass 239
+ℹ fail 0
+ℹ skipped 0
+[integration]
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 239
+ℹ pass 239
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 17
+ℹ pass 17
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 239
+ℹ pass 239
+ℹ fail 0
+ℹ skipped 0
+ℹ tests 17
+ℹ pass 17
+ℹ fail 0
+ℹ skipped 0
+{"status":"passed","groups":4}
+
+All five jobs succeeded. Integration steps succeeded, with only the intentional show-logs-after-failure step skipped.
+No hosted/provider/physical-device acceptance inferred.

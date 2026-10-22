@@ -1,0 +1,123 @@
+{
+  "at": "2026-10-21T21:50:55.021Z",
+  "phase": "preflight",
+  "passed": true,
+  "revision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+  "helperSha256": "17523538c2d96068d46a62cd2f4221078769a02f398abc24cab5ea38785405f4",
+  "projectRef": "ypteqfmjietdqjzyvgtk",
+  "targetVerified": true,
+  "tls": {
+    "certificateAuthorityProvided": true,
+    "rejectUnauthorized": true,
+    "hostnameVerification": true,
+    "certificateAuthoritySha256": "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7"
+  },
+  "readOnly": true,
+  "ownerRoleVerified": true,
+  "runtimeRoleVerified": true,
+  "serverVersion": "17.6",
+  "migrations": {
+    "applied": [
+      "1785874888369_create-message",
+      "1785881158553_add-authentication",
+      "1785920000000_add_public_discovery",
+      "1785921000000_add_identity_social",
+      "1785922000000_add_matching_lifecycle",
+      "1785922001000_add_matching_lookup_indexes",
+      "1785923000000_add_live_media",
+      "1785923001000_add_recording_stop_retry",
+      "1785924000000_add_community_moderation",
+      "1785924001000_add_like_change_limits",
+      "1785925000000_add_product_measurement",
+      "1785925000001_filter_product_completion",
+      "1791158400000_isolate_server_database",
+      "1791158500000_account_session_revocation",
+      "1791158501000_limit_revocation_privileges",
+      "1791158600000_wallet_operation_authorization",
+      "1791244800000_add_chat_submissions",
+      "1791335211412_durable-community-delivery",
+      "1791345540042_preserve-chat-idempotency",
+      "1791385198189_automatic-replay-packaging",
+      "1792093616251_add-a4-yap-coins",
+      "1792094255152_harden-a4-terms-and-journals",
+      "1792095078306_enforce-a4-transition-guards",
+      "1792195231830_add-public-bot-discovery",
+      "1792426000000_add-provider-identities",
+      "1792426001000_add-backed-coin-ledger",
+      "1792426002000_preserve-retired-account-history",
+      "1792426003000_add-grant-progress",
+      "1792426004000_add-account-operation-proofs",
+      "1792426005000_add-account-security-passkeys",
+      "1792426006000_add-isolated-coin-sandbox",
+      "1792426006100_add-coin-debate-rounds",
+      "1792426006200_add-sandbox-webhook-inbox",
+      "1792426006300_allow-guarded-sandbox-void",
+      "1792426006400_add-account-media-revocation",
+      "1792426006500_add-sandbox-treasury-funding",
+      "1792426007000_add-account-access-reconciliation",
+      "1792426008000_bind-media-replacement-intent",
+      "1792426009000_add-sandbox-error-reports",
+      "1792426010000_enforce-sandbox-withdrawal-operator-boundary",
+      "1792426011000_add-provider-identity-recovery",
+      "1792426012000_add-provider-passkey-provenance",
+      "1792426013000_add-provider-passkey-bootstrap"
+    ],
+    "pending": [
+      "1792426014000_add-embedded-wallet-provisioning",
+      "1792426015000_add-provider-control-phases"
+    ],
+    "unknownApplied": []
+  },
+  "accounts": {
+    "total": 4,
+    "retained": 3,
+    "selectedResetAbsent": true,
+    "otherAccounts": 1,
+    "otherProviderMappedAccounts": 1
+  },
+  "providerSessionFences": {
+    "activeMappings": 1,
+    "generationMismatch": 0,
+    "complete": 2,
+    "pending": 0,
+    "running": 0,
+    "manualUncertain": 0,
+    "manualInherited": 0,
+    "manualIndependentFreeze": 0,
+    "manualOther": 0
+  },
+  "liveJournals": 0,
+  "liveGrantLots": 0,
+  "legacySpeakerInventory": {
+    "activeStatusEventsWithPublishedTopic": 1,
+    "assignedSeats": 0,
+    "activeParticipantRoleSeats": 0,
+    "assignedSeatsWithFreshDeviceChecks": 0,
+    "deviceReadyActiveParticipantSeats": 0,
+    "eventsWithDeviceReadyActiveParticipants": 0,
+    "liveViewerEligibleEvents": 0
+  },
+  "browserBoundary": {
+    "schemaAccess": 0,
+    "relationAccess": 0,
+    "sequenceAccess": 0,
+    "routineAccess": 0,
+    "publicSchemaGrants": 0
+  },
+  "runtimeBoundary": {
+    "ownedObjects": 0,
+    "memberships": 0,
+    "canAssumeOwner": false,
+    "schemaCreate": false,
+    "migrationRead": true,
+    "migrationWrite": false
+  },
+  "mutations": 0,
+  "limitations": [
+    "Read-only SQL connection and catalog evidence; not hosted REST/browser identity or returning-user authentication acceptance.",
+    "One non-retained Privy-mapped account and all three retained accounts exist; no email, DID, wallet, cookie or individual row is exported.",
+    "TLS configuration verifies this client connection; no database URL, endpoint, credential or CA file path is exported.",
+    "No migration, backup, reset, provider mutation, financial operation, service suspension or deployment is performed.",
+    "Legacy speaker counts mirror old event/seat/role/device predicates before cookie authentication; no valid session, provider state or active Cloud connection is inferred. Eligibility can change after this read-only snapshot."
+  ]
+}

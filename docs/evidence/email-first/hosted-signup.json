@@ -1,0 +1,26 @@
+{
+  "at": "2026-10-19T22:07:07.691Z",
+  "origin": "https://yaparena-staging-web.onrender.com",
+  "revision": "f8c26a9770a32a87d1f8f5bc8921487810fa0d33",
+  "userReportedSuccessfulEmailSignup": true,
+  "backend": {
+    "providerIdentities": 1,
+    "verifiedEmailMatchesProvider": true,
+    "stableNewAccountProvisionedExactlyOnce": true,
+    "activeNewAccountSessions": 1,
+    "consumedProviderSessions": 1,
+    "originalSelectedAccountsAbsent": true,
+    "retainedAccounts": 3,
+    "totalAccounts": 4,
+    "liveMoneyJournals": 0,
+    "liveGrantLotsIssued": 0
+  },
+  "manualUserAccountPreserved": true,
+  "automationAcceptanceAccountsCreated": 0,
+  "limits": [
+    "Manual user report and backend/provider inspection; no inbox or OTP captured",
+    "Not returning-user recovery, passkey, Google, browser-cookie replay or hosted suspension/revocation evidence",
+    "Financial grants and funding/redemption are not implemented; no cash-backed starter grant issued",
+    "The user narrowed the reset scope; environment intentionally retains three old accounts plus the new manual signup"
+  ]
+}

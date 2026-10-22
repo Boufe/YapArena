@@ -1,0 +1,100 @@
+{
+  "format": 1,
+  "recordedAt": "2026-10-22T00:40:50Z",
+  "sourceCommit": "7e5c0a38b9b474f1712d5d87454842c0c8a7f7ae",
+  "sourceCommitScope": "Committed locally after both runs with identical tested source bytes; no push, CI or hosted deployment acceptance is asserted here.",
+  "installedSdk": {
+    "checks": 145,
+    "retained": 125,
+    "new": 20,
+    "pageErrors": 0,
+    "requirementFailures": 0,
+    "at": "2026-10-22T00:20:43.661Z",
+    "baseRevision": "e8fcdffb6e4e7a857cf761b136b40fc99807d1a4",
+    "sourceHashes": {
+      "scripts/verify-email-auth-browser.ts": "b484baa7644bfd25765ab92b32572cd2aac95ba16ae268459f0f58644b9cd464",
+      "dist/features/discovery/web.js": "c86500ba9fda3704034315ce5b8c60a886f6dc838fb884fe2220c73e85bd06b8",
+      "dist/features/discovery/account-web.js": "cf4473610c9580994dff537498cb26cc2b971fbb4ea4b7a96a635e817ae6bd4d",
+      "dist/features/discovery/debate-web.js": "88bf0e55a53e3b89f48c769dd02fbc0bdb3cd74bf09f987f5b8cac778764992d",
+      "frontend/account-auth.tsx": "78cceda379d8574647707cb721cacc7e483ba8467f49f3d81e88217c246c9bae",
+      "frontend/embedded-wallet.tsx": "9a91a1700b8758614ad0dee75ba5f9c6e8cd2d95fbb83a7d2596286c0db799c4",
+      "src/platform/auth/embedded-wallet-provisioning.ts": "afadf4f70fc737d033320cb9e6172073282f512dcb845aff8fdb058a9ef325ba",
+      "src/platform/auth/embedded-wallet-provider.ts": "3476ec1d15d40e940ee1ec0686a63d34029dc3ebbbf2d14473eeb86410aedc2d"
+    },
+    "assetHashes": {
+      "session-coordination.js": "30664c91796e6a18fd69569750e5baa8809674572913116c0126b8213166507b",
+      "account-auth.bundle.js": "bf7b23378b4ead1e2a87413a35beb852051d51c881e497ac6a45f8f44404d35c",
+      "account-security.bundle.js": "f930ea833e8ef511035234e72179b1f84ed03f890accfadabdd3734cc0063bd0",
+      "account-session-list.js": "1e4da048f89dcea314e10483dc10ea046fb4efae47fe9d4069b1f01373bb49c5",
+      "account-sessions.js": "e544082c908e37d08cb5e05d3e2f72a57556770fba72fa7ab33c05e65b283aef",
+      "account.js": "bce87601d7c0f8aa764fdb988cb19f04e0d28d3974ac09f2496c7f012dc3d516",
+      "site-header.js": "5fcf24e395827bc16da0014318da0b998b4f20af5846d45c77cabb98307eebe5",
+      "auth-return.js": "891d6907811a6a507800ddb475ace41786885d69448ac699cb7c435029f0626d",
+      "site.js": "0543de8bf00750b5ca1544f3d24502ed11193f00f9289320d6905cacff692dd8",
+      "matching.js": "abc5751fe076f0e8669e7accc003c7aba353ea968935026684b362327729750e",
+      "a4-inline.js": "625070053237abf10adf576b79dd5ebca45d0643fe54ee855464a683a5f88317",
+      "arena-chart.js": "224103157fb3998d1183189bbf900d2396db2cc6d2fdb75533628f516548e126",
+      "arena-price.js": "8d9bf7e9a7ead29652c66a73931238c4af15fa222e06fc74b028b3471fd38b90",
+      "account-auth.css": "dfa7bfe18baa0a76c45a9974aa24785f868f71ca31497794dfcaf11815c12da7",
+      "site-header.css": "e55326946fef05d5f21a7954ec6fa9d6895a620d3491de52a0c3fdcc42ec6518",
+      "site.css": "c2481b6017fb564fdaff0bf437a18f64f56e6dbb2492f2047199a93f06514bd7",
+      "arena.css": "087928e12c8be4a87d006b22b91f1534a647b44425d1129b1d54c2d3d4dc3cb1"
+    },
+    "scope": "Local SSR fixture and installed Privy SDK; public provider metadata fetched live and intercepted for fixtures. Most fixtures disable CAPTCHA; two email-send cases enable a synthetic Turnstile API to exercise the installed SDK callback and unmodified timeout paths. OTP/passkey provider endpoints and application responses, including durable wallet status/retry projections, are synthetic. Wallet fixtures assert no browser provider creation, signing, funding or transfer call. Real Chromium virtual-authenticator ceremonies exercise native passkey creation/assertion; real PostgreSQL acceptance is recorded separately. No real CAPTCHA validation, email delivery, genuine provider login/link/wallet creation, hosted session, physical device or complete WCAG conformance evidence."
+  },
+  "integrated": {
+    "status": "passed",
+    "exitCode": 0,
+    "rootSession": 58972,
+    "command": "DATABASE_TEST_MODE=host BROWSER_ARTIFACT_DIR=/private/tmp/yaparena-email-send-integrated-r1 /Users/felixboucher/.nvm/versions/node/v24.19.0/bin/node scripts/verify-browser-release.ts > /private/tmp/yaparena-email-send-integrated-r1.log 2>&1",
+    "postgres": "explicit disposable host clusters",
+    "quality": {
+      "tests": 859,
+      "passed": 859,
+      "failed": 0,
+      "skipped": 0,
+      "coveragePercent": {
+        "lines": 95.32,
+        "branches": 91.22,
+        "functions": 95.35
+      }
+    },
+    "fresh": {
+      "accountSecurity": 240,
+      "a4": 17,
+      "treasury": 5
+    },
+    "upgrade": {
+      "accountSecurity": 240,
+      "a4": 17,
+      "treasury": 5
+    },
+    "retainedWalletGroups": 4,
+    "coordinatorStepsPassed": 4,
+    "scope": "Synthetic local browser/media fixtures and real disposable PostgreSQL/runtime HTTP; no hosted, genuine provider or physical-device acceptance."
+  },
+  "red": {
+    "status": "expected failure",
+    "exitCode": 1,
+    "verifierSha256": "dc1fa01d8ac79803bf3c71cccfc8a8735d1d94996455de3683cc582ccefdded0",
+    "baselineFrontendSha256": "554f8bff0da7be8426dfea0297421dbbc5e4a46acc4f2d0a4632b97a7dfd38e4",
+    "baselineBundleSha256": "e739af3b12c31d92d26a7f5f7046a51eef4e2bd45e152fed5ecd6e3bd9545c15",
+    "diagnostic": "sdk/before-captcha-failure-desktop.json",
+    "boundary": "Only first CAPTCHA-failure scenario ran. Later final-verifier changes fix an unreached timeout stub and clarify synthetic CAPTCHA scope. RED diagnostic has no embedded source/asset manifest; baseline build provenance is the recorded run plus independently checked pre-classifier Git/source and bundle receipt, not GREEN relabeled as RED."
+  },
+  "independentReview": {
+    "at": "2026-10-22T00:40:50Z",
+    "sourceHashesMatched": 8,
+    "assetHashesMatched": 17,
+    "sourceComparison": "Tracked paths compared with Git7e5c0a3; compiled discovery modules and all17 public assets compared with frozen local build bytes.",
+    "allCheckNamesUnique": true,
+    "matchedScreenshotsVisuallyInspected": true,
+    "logMarkerScan": "No PostgreSQL URLs, JWT-shaped values, private-key blocks or secret assignments found in copied logs; bounded heuristic review is not a full current-secret/history/pixel scan."
+  },
+  "limitations": [
+    "No genuine CAPTCHA validation, email delivery, OTP correctness, provider account mutation or returning hosted login is established by these fixtures.",
+    "The genuine new-signup returning-login failure is separately under investigation; fixed guidance does not diagnose or repair that state.",
+    "This combined coordinator does not invoke the separate145-check SDK harness; both results are retained independently.",
+    "No financial, recovery, custody or physical-device release gate is closed by this frontend wording correction."
+  ]
+}

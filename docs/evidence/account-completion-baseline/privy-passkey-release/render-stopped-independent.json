@@ -1,0 +1,67 @@
+{
+  "result": "PASS",
+  "mode": "inspect",
+  "operations": [],
+  "services": [
+    {
+      "id": "srv-datv1kjncjis73a500cg",
+      "name": "yaparena-staging-web",
+      "type": "web_service",
+      "suspended": "suspended",
+      "autoDeploy": "no",
+      "branch": "main",
+      "plan": "free",
+      "latestDeploy": {
+        "id": "dep-dbbptn8n74is739a7tag",
+        "status": "live",
+        "commit": "93952425100d15bde110a0b1b38b04e35d653b9b"
+      },
+      "database": {
+        "runtimeRole": true,
+        "expectedProject": true,
+        "sslmode": "verify-full",
+        "certificateParameterPresent": true,
+        "certificateContentParameter": false,
+        "sameAsWeb": true
+      },
+      "tlsEnvironment": {
+        "validationExplicitlyDisabled": false,
+        "extraCaPathConfigured": false,
+        "pgRootCertConfigured": false
+      },
+      "coinSandboxEnabled": true,
+      "sandboxWebhookConfigured": false,
+      "backgroundJobsEnabledByConfiguration": true
+    },
+    {
+      "id": "srv-db38jiid0e5s73ffr2cg",
+      "name": "yaparena-replay-worker",
+      "type": "background_worker",
+      "suspended": "suspended",
+      "autoDeploy": "no",
+      "branch": "main",
+      "plan": null,
+      "latestDeploy": {
+        "id": "dep-dbbptkvavr4c73dquqpg",
+        "status": "live",
+        "commit": "fd60543b5f6d8f0b65fe1f93807252064d9317f2"
+      },
+      "database": {
+        "runtimeRole": true,
+        "expectedProject": true,
+        "sslmode": "verify-full",
+        "certificateParameterPresent": true,
+        "certificateContentParameter": false,
+        "sameAsWeb": true
+      },
+      "tlsEnvironment": {
+        "validationExplicitlyDisabled": false,
+        "extraCaPathConfigured": false,
+        "pgRootCertConfigured": false
+      },
+      "coinSandboxEnabled": false,
+      "sandboxWebhookConfigured": false,
+      "backgroundJobsEnabledByConfiguration": true
+    }
+  ]
+}

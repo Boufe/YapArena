@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "recordedAt": "2026-10-22T01:43:29.006476+00:00",
+  "testedRevision": "7bb6e7f180b6346f7d880a7b66fe22084d775c31",
+  "artifacts": {
+    "README.md": "90b30de9dd0638c16b81fa9923585dfdd00f67399b430267e44365ed900e96af",
+    "identifier-scan.json": "72f72f68e8ae81db6ff2f63f3d6a40b2dec14d6daee1960ccc0710be5b5999dd",
+    "secret-scan.json": "11c3a0b352a84c9db095b563037b82f79f599f5d4f30f19e85ac5e99a7481e83"
+  }
+}

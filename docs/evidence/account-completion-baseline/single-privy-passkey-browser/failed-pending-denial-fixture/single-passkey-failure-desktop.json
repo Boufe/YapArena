@@ -1,0 +1,20 @@
+{
+  "stage": "refresh interrupted exact intent with protected reads unavailable",
+  "settings": "Sign-in methodsSign-in methods are unavailable. Refresh to check again.Your passkey works for sign-in and secure account approvals. Keep another sign-in method available in case you lose access to a device.Link email, Google or provider passkey to this existing accountKeep at least one provider sign-in method. Changes require a retained security credential. If all stronger methods are lost, ownership review is required; an email code cannot reset them.",
+  "resume": "Passkey setup\n\nFinish verifying the passkey you added before continuing to your account.\n\nFinish passkey setupSign in again to restart setup",
+  "intentRetained": true,
+  "focus": {
+    "tag": "H2",
+    "button": null
+  },
+  "errors": [],
+  "counters": {
+    "beginCalls": 2,
+    "operationCalls": 1,
+    "resumedOperationCalls": 0,
+    "scopedCandidateCalls": 1,
+    "providerInitCalls": 1,
+    "providerLinkCalls": 1,
+    "completeCalls": 0
+  }
+}

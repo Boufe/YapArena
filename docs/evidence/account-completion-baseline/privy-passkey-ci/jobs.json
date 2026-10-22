@@ -1,0 +1,438 @@
+{
+  "jobs": [
+    {
+      "completed_at": "2026-10-20T19:24:09Z",
+      "conclusion": "success",
+      "html_url": "https://github.com/Boufe/YapArena/actions/runs/39483112893/job/118836512976",
+      "id": 118836512976,
+      "name": "deployment",
+      "started_at": "2026-10-20T19:23:59Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-20T19:24:00Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "started_at": "2026-10-20T19:24:00Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:07Z",
+          "conclusion": "success",
+          "name": "Download repository",
+          "started_at": "2026-10-20T19:24:00Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:07Z",
+          "conclusion": "success",
+          "name": "Validate production Compose configuration",
+          "started_at": "2026-10-20T19:24:07Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:07Z",
+          "conclusion": "success",
+          "name": "Post Download repository",
+          "started_at": "2026-10-20T19:24:07Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:07Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "started_at": "2026-10-20T19:24:07Z",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "completed_at": "2026-10-20T19:24:15Z",
+      "conclusion": "success",
+      "html_url": "https://github.com/Boufe/YapArena/actions/runs/39483112893/job/118836513604",
+      "id": 118836513604,
+      "name": "monitoring",
+      "started_at": "2026-10-20T19:23:59Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-20T19:24:00Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "started_at": "2026-10-20T19:24:00Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:10Z",
+          "conclusion": "success",
+          "name": "Download repository",
+          "started_at": "2026-10-20T19:24:00Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:11Z",
+          "conclusion": "success",
+          "name": "Validate monitoring Compose configuration",
+          "started_at": "2026-10-20T19:24:10Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:13Z",
+          "conclusion": "success",
+          "name": "Validate Prometheus configuration and rules",
+          "started_at": "2026-10-20T19:24:11Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:14Z",
+          "conclusion": "success",
+          "name": "Post Download repository",
+          "started_at": "2026-10-20T19:24:13Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:14Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "started_at": "2026-10-20T19:24:14Z",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "completed_at": "2026-10-20T19:28:13Z",
+      "conclusion": "success",
+      "html_url": "https://github.com/Boufe/YapArena/actions/runs/39483112893/job/118836513627",
+      "id": 118836513627,
+      "name": "quality / check",
+      "started_at": "2026-10-20T19:23:59Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-20T19:24:01Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "started_at": "2026-10-20T19:24:00Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:09Z",
+          "conclusion": "success",
+          "name": "Download repository",
+          "started_at": "2026-10-20T19:24:01Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:11Z",
+          "conclusion": "success",
+          "name": "Set up Node.js",
+          "started_at": "2026-10-20T19:24:09Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:48Z",
+          "conclusion": "success",
+          "name": "Install locked dependencies",
+          "started_at": "2026-10-20T19:24:11Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:24:55Z",
+          "conclusion": "success",
+          "name": "Check strict frontend types and generated-asset source policy",
+          "started_at": "2026-10-20T19:24:48Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:28:10Z",
+          "conclusion": "success",
+          "name": "Check formatting, types, coverage, isolated migrations and PostgreSQL races",
+          "started_at": "2026-10-20T19:24:55Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:28:10Z",
+          "conclusion": "success",
+          "name": "Post Set up Node.js",
+          "started_at": "2026-10-20T19:28:10Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:28:11Z",
+          "conclusion": "success",
+          "name": "Post Download repository",
+          "started_at": "2026-10-20T19:28:10Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:28:11Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "started_at": "2026-10-20T19:28:11Z",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "completed_at": "2026-10-20T19:34:11Z",
+      "conclusion": "success",
+      "html_url": "https://github.com/Boufe/YapArena/actions/runs/39483112893/job/118838613138",
+      "id": 118838613138,
+      "name": "container",
+      "started_at": "2026-10-20T19:28:15Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-20T19:28:17Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "started_at": "2026-10-20T19:28:16Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:28:22Z",
+          "conclusion": "success",
+          "name": "Download repository",
+          "started_at": "2026-10-20T19:28:17Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:31:21Z",
+          "conclusion": "success",
+          "name": "Build production image",
+          "started_at": "2026-10-20T19:28:22Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:31:56Z",
+          "conclusion": "success",
+          "name": "Scan production image",
+          "started_at": "2026-10-20T19:31:21Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:33:33Z",
+          "conclusion": "success",
+          "name": "Build dedicated encoder image",
+          "started_at": "2026-10-20T19:31:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:34:08Z",
+          "conclusion": "success",
+          "name": "Verify encoder tools and scan image",
+          "started_at": "2026-10-20T19:33:33Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:34:08Z",
+          "conclusion": "success",
+          "name": "Post Download repository",
+          "started_at": "2026-10-20T19:34:08Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:34:08Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "started_at": "2026-10-20T19:34:08Z",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "completed_at": "2026-10-20T19:45:37Z",
+      "conclusion": "success",
+      "html_url": "https://github.com/Boufe/YapArena/actions/runs/39483112893/job/118838613355",
+      "id": 118838613355,
+      "name": "integration",
+      "started_at": "2026-10-20T19:28:15Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-20T19:28:17Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "started_at": "2026-10-20T19:28:16Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:28:24Z",
+          "conclusion": "success",
+          "name": "Download repository",
+          "started_at": "2026-10-20T19:28:17Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:28:28Z",
+          "conclusion": "success",
+          "name": "Set up Node.js for browser and smoke checks",
+          "started_at": "2026-10-20T19:28:24Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:29:26Z",
+          "conclusion": "success",
+          "name": "Install browser test dependencies",
+          "started_at": "2026-10-20T19:28:28Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:29:53Z",
+          "conclusion": "success",
+          "name": "Install FFmpeg and native PostgreSQL verification tools",
+          "started_at": "2026-10-20T19:29:26Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:30:37Z",
+          "conclusion": "success",
+          "name": "Verify native PostgreSQL Unicode setup under the C locale",
+          "started_at": "2026-10-20T19:29:53Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:30:42Z",
+          "conclusion": "success",
+          "name": "Verify adaptive replay packaging and decoding",
+          "started_at": "2026-10-20T19:30:37Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:31:38Z",
+          "conclusion": "success",
+          "name": "Verify durable automatic replay publication and failure recovery",
+          "started_at": "2026-10-20T19:30:42Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:31:38Z",
+          "conclusion": "success",
+          "name": "Create local test configuration",
+          "started_at": "2026-10-20T19:31:38Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:31:44Z",
+          "conclusion": "success",
+          "name": "Start PostgreSQL",
+          "started_at": "2026-10-20T19:31:38Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:39:01Z",
+          "conclusion": "success",
+          "name": "Verify core browser workflows and fresh/upgrade database isolation",
+          "started_at": "2026-10-20T19:31:44Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:39:03Z",
+          "conclusion": "success",
+          "name": "Preserve synthetic browser evidence",
+          "started_at": "2026-10-20T19:39:01Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:41:19Z",
+          "conclusion": "success",
+          "name": "Verify durable community transactions, fanout, recovery and browsers",
+          "started_at": "2026-10-20T19:39:03Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:44:25Z",
+          "conclusion": "success",
+          "name": "Provision separate database identities",
+          "started_at": "2026-10-20T19:41:19Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:44:27Z",
+          "conclusion": "success",
+          "name": "Apply database migrations with the migration identity",
+          "started_at": "2026-10-20T19:44:25Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:44:34Z",
+          "conclusion": "success",
+          "name": "Start application",
+          "started_at": "2026-10-20T19:44:27Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:44:40Z",
+          "conclusion": "success",
+          "name": "Verify public discovery against PostgreSQL",
+          "started_at": "2026-10-20T19:44:34Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:44:42Z",
+          "conclusion": "success",
+          "name": "Verify backup and isolated restore",
+          "started_at": "2026-10-20T19:44:40Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:44:42Z",
+          "conclusion": "success",
+          "name": "Smoke test the running app",
+          "started_at": "2026-10-20T19:44:42Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:45:33Z",
+          "conclusion": "success",
+          "name": "Verify desktop and mobile browser journeys and accessibility",
+          "started_at": "2026-10-20T19:44:42Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:45:33Z",
+          "conclusion": "success",
+          "name": "Verify persisted API request",
+          "started_at": "2026-10-20T19:45:33Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:45:33Z",
+          "conclusion": "skipped",
+          "name": "Show logs after failure",
+          "started_at": "2026-10-20T19:45:33Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:45:34Z",
+          "conclusion": "success",
+          "name": "Clean up containers and volumes",
+          "started_at": "2026-10-20T19:45:33Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:45:34Z",
+          "conclusion": "success",
+          "name": "Post Set up Node.js for browser and smoke checks",
+          "started_at": "2026-10-20T19:45:34Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:45:34Z",
+          "conclusion": "success",
+          "name": "Post Download repository",
+          "started_at": "2026-10-20T19:45:34Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-20T19:45:34Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "started_at": "2026-10-20T19:45:34Z",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "total_count": 5
+}

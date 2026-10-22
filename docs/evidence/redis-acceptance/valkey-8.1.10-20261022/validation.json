@@ -1,0 +1,47 @@
+{
+  "format": 1,
+  "sourceBaseRevision": "7e5c0a38b9b474f1712d5d87454842c0c8a7f7ae",
+  "uncommittedVerifierSha256": "3711e31405fc8701f37a76efc429f32d1f2afbabc3a171ab0c7a4b0011e2ea8b",
+  "testSha256": "2408e39b516b5ca545b6d471a22ff265ea94fa58bce51206d78bd5dfb0da9b52",
+  "commands": {
+    "offline": "/Users/felixboucher/.nvm/versions/node/v24.19.0/bin/node --test tests/auth-redis-verifier.test.js",
+    "strict": "/Users/felixboucher/.nvm/versions/node/v24.19.0/bin/node node_modules/typescript/bin/tsc --project tsconfig.database-tools.json --noEmit",
+    "lint": "node node_modules/eslint/bin/eslint.js scripts/verify-auth-redis.ts tests/auth-redis-verifier.test.js",
+    "format": "node node_modules/prettier/bin/prettier.cjs --check scripts/verify-auth-redis.ts tests/auth-redis-verifier.test.js",
+    "realTrial": "env -u REDIS_TEST_URL /Users/felixboucher/.nvm/versions/node/v24.19.0/bin/node scripts/verify-auth-redis.ts --disposable --disposable-engine=valkey-8.1.10 --evidence=/private/tmp/yaparena-valkey-8.1.10-20261022/result.json"
+  },
+  "outcomes": {
+    "offlineTests": 2,
+    "offlinePass": 2,
+    "offlineFailed": 0,
+    "offlineSkipped": 0,
+    "strict": "PASS",
+    "lint": "PASS",
+    "format": "PASS",
+    "realTrialExitCode": 0,
+    "realTrialGroups": 10,
+    "ownedAcceptanceContainersAfterCleanup": 0
+  },
+  "processSession": 46344,
+  "docker": {
+    "engineClient": "29.7.0",
+    "engineServer": "29.5.2",
+    "context": "colima",
+    "architecture": "arm64"
+  },
+  "officialReferences": [
+    {
+      "url": "https://valkey.io/",
+      "supports": "Official8.1.10 and exact Docker tag8.1.10-alpine."
+    },
+    {
+      "url": "https://github.com/valkey-io/valkey-container",
+      "supports": "Valkey community-maintained official container source."
+    },
+    {
+      "url": "https://valkey.io/commands/info/",
+      "supports": "valkey_version is release; redis_version is protocol compatibility."
+    }
+  ],
+  "scope": "Local disposable engine compatibility. No stagingRedis connections, hosted resources, faults, configuration, keys, allowlists or plans changed. Hosted version8.1.10 was control-plane reported elsewhere, not established by this localINFO trial."
+}

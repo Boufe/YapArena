@@ -1,0 +1,117 @@
+{
+  "format": 1,
+  "result": "OBSERVED_NOT_FEATURE_ACCEPTANCE",
+  "startedAt": "2026-10-21T23:56:17.442Z",
+  "finishedAt": "2026-10-22T00:00:31.495Z",
+  "durationMs": 254050,
+  "stage": "human_operates_real_site_only",
+  "stopReason": "SIGINT",
+  "accountDocumentOpened": true,
+  "headedChromeLaunched": true,
+  "isolatedFreshProfile": true,
+  "interceptionOrMocks": false,
+  "virtualAuthenticator": false,
+  "automatedCredentialEntry": false,
+  "automatedAccountActions": false,
+  "screenshots": 0,
+  "videos": 0,
+  "traces": 0,
+  "harFiles": 0,
+  "requestContentsCaptured": false,
+  "domTextCaptured": false,
+  "headersOrCookiesCaptured": false,
+  "observedRequestAttempts": 22,
+  "unfinishedRequests": 0,
+  "metricsTruncated": false,
+  "metrics": [
+    {
+      "label": "app.accepted_passkey_list",
+      "method": "GET",
+      "status": 401,
+      "count": 1,
+      "responseHeadersLatencyTotalMs": 68,
+      "responseHeadersLatencyMaximumMs": 68
+    },
+    {
+      "label": "app.account_document",
+      "method": "GET",
+      "status": 200,
+      "count": 1,
+      "responseHeadersLatencyTotalMs": 69,
+      "responseHeadersLatencyMaximumMs": 69
+    },
+    {
+      "label": "app.account_document",
+      "method": "GET",
+      "status": 503,
+      "count": 2,
+      "responseHeadersLatencyTotalMs": 339,
+      "responseHeadersLatencyMaximumMs": 274
+    },
+    {
+      "label": "app.bounded_journey_event",
+      "method": "POST",
+      "status": 204,
+      "count": 7,
+      "responseHeadersLatencyTotalMs": 1986,
+      "responseHeadersLatencyMaximumMs": 723
+    },
+    {
+      "label": "app.embedded_wallet",
+      "method": "GET",
+      "status": 401,
+      "count": 1,
+      "responseHeadersLatencyTotalMs": 175,
+      "responseHeadersLatencyMaximumMs": 175
+    },
+    {
+      "label": "app.method_inspection",
+      "method": "GET",
+      "status": 401,
+      "count": 2,
+      "responseHeadersLatencyTotalMs": 142,
+      "responseHeadersLatencyMaximumMs": 88
+    },
+    {
+      "label": "app.provider_configuration",
+      "method": "GET",
+      "status": 200,
+      "count": 1,
+      "responseHeadersLatencyTotalMs": 1211,
+      "responseHeadersLatencyMaximumMs": 1211
+    },
+    {
+      "label": "app.session_inspection",
+      "method": "GET",
+      "status": 401,
+      "count": 5,
+      "responseHeadersLatencyTotalMs": 482,
+      "responseHeadersLatencyMaximumMs": 152
+    },
+    {
+      "label": "app.session_list",
+      "method": "GET",
+      "status": 401,
+      "count": 1,
+      "responseHeadersLatencyTotalMs": 98,
+      "responseHeadersLatencyMaximumMs": 98
+    },
+    {
+      "label": "sandbox.summary",
+      "method": "GET",
+      "status": 401,
+      "count": 1,
+      "responseHeadersLatencyTotalMs": 95,
+      "responseHeadersLatencyMaximumMs": 95
+    }
+  ],
+  "ownedBrowserConfirmedClosed": true,
+  "ownedProfileRemoved": true,
+  "limitations": [
+    "Status/latency observations alone establish no authentication, ownership, operation-proof, grant, payout or complete accessibility acceptance.",
+    "Requests count attempts, including provider retries; they do not independently distinguish resends or unique user journeys. Latency stops at response headers, not body completion.",
+    "No device/OS/browser version or screen-reader behavior is independently recorded. Human outcomes need a separate explicit report.",
+    "The user may perform authorized actions on the real site; the observer itself only navigates once and never changes account/provider state.",
+    "No page content, response bodies, headers, cookies, codes, email, URL queries, destinations, screenshots, traces or storage state are written."
+  ]
+}

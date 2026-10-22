@@ -71,6 +71,13 @@ export async function verifyChatClient({
   let nextCursor = 0n;
   const log: { cursor: string; id: string }[] = [];
   const versions = new Map<string, { fingerprint: string; cursor: string }>();
+  let fixtureAccount = "synthetic";
+  const submissionOwners = new Map<string, string>();
+  let heldReconciliation: {
+    promise: Promise<void>;
+    entered(): void;
+    release(): void;
+  } | null = null;
   function capture() {
     for (const item of feed) {
       const fingerprint = `${item.state}:${item.revision}:${item.body}`;
@@ -122,7 +129,7 @@ export async function verifyChatClient({
     );
   const initialCursor = feed.at(-1)!.id;
   await page.route("**/api/auth/me", (route) =>
-    route.fulfill({ json: { id: "synthetic", email: null } }),
+    route.fulfill({ json: { user: { id: fixtureAccount, email: null } } }),
   );
   await page.route(`**/api/community/events/${eventId}**`, async (route) => {
     const request = route.request();
@@ -138,6 +145,7 @@ export async function verifyChatClient({
         item: message(payload.body, payload.clientMessageId),
         release,
       };
+      submissionOwners.set(post.item.id, fixtureAccount);
       posts.push(post);
       const result = await outcome;
       if (result.abort) await route.abort("failed");
@@ -201,13 +209,24 @@ export async function verifyChatClient({
     }
     if (url.pathname.endsWith("/chat/submissions")) {
       const keys = new Set((url.searchParams.get("keys") || "").split(","));
+      const account = fixtureAccount;
+      const items = feed
+        .filter(
+          (item) =>
+            keys.has(item.clientMessageId!) &&
+            submissionOwners.get(item.id) === account,
+        )
+        .map((item) => ({
+          ...publicItem(item),
+          clientMessageId: item.clientMessageId,
+        }));
+      const gate = heldReconciliation;
+      if (gate) {
+        gate.entered();
+        await gate.promise;
+      }
       return route.fulfill({
-        json: feed
-          .filter((item) => keys.has(item.clientMessageId!))
-          .map((item) => ({
-            ...publicItem(item),
-            clientMessageId: item.clientMessageId,
-          })),
+        json: items,
       });
     }
     if (url.pathname.endsWith("/chat/sync")) {
@@ -724,11 +743,110 @@ export async function verifyChatClient({
           .locator("[data-arena]")
           .screenshot({ path: `${artifactDir}/chat-feedback-${name}.png` });
     }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    fixtureAccount = "original-chat-account";
+    const originalReady = page.waitForResponse((response) =>
+      response.url().endsWith("/my-like"),
+    );
+    await page.reload();
+    await originalReady;
+    await page.getByText("Polling updates on", { exact: false }).waitFor();
+    const original = await send(
+      "Original account pending message",
+      posts.length + 1,
+    );
+    let releaseReconciliation!: () => void, enterReconciliation!: () => void;
+    const reconciliationEntered = new Promise<void>((resolve) => {
+      enterReconciliation = resolve;
+    });
+    heldReconciliation = {
+      promise: new Promise<void>((resolve) => {
+        releaseReconciliation = resolve;
+      }),
+      entered: enterReconciliation,
+      release: () => releaseReconciliation(),
+    };
+    feed.push(original.post.item);
+    original.post.release({ abort: true });
+    await original.row
+      .getByText("Delivery unconfirmed", { exact: false })
+      .waitFor();
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
+    await Promise.race([
+      reconciliationEntered,
+      delay(10000).then(() => {
+        throw new Error(
+          "owned reconciliation did not reach its bounded barrier",
+        );
+      }),
+    ]);
+    fixtureAccount = "replacement-chat-account";
+    const replacementReady = page.waitForResponse((response) =>
+      response.url().endsWith("/my-like"),
+    );
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
+    await replacementReady;
+    const beforeReplacement = posts.length;
+    heldReconciliation.release();
+    heldReconciliation = null;
+    await delay(500);
+    await original.row
+      .getByText("Delivery unconfirmed", { exact: false })
+      .waitFor();
+    assert.equal(
+      await original.row
+        .getByRole("button", { name: "Retry unchanged" })
+        .isDisabled(),
+      true,
+    );
+    assert.equal(
+      posts.length,
+      beforeReplacement,
+      "account switch never retries the old submission",
+    );
+    await composer.fill("Draft for the current account");
+    await original.row
+      .getByRole("button", { name: "Recover to draft" })
+      .click();
+    assert.equal(
+      await composer.inputValue(),
+      "Draft for the current account\nOriginal account pending message",
+    );
+    await composer.press("Enter");
+    const reviewed = await waitPost(beforeReplacement + 1);
+    assert.notEqual(
+      reviewed.payload.clientMessageId,
+      original.post.payload.clientMessageId,
+    );
+    reviewed.release({});
+    await page
+      .locator(`[data-submission-id="${reviewed.payload.clientMessageId}"]`)
+      .getByText("Sent", { exact: true })
+      .waitFor();
+    fixtureAccount = "original-chat-account";
+    const returnReady = page.waitForResponse((response) =>
+      response.url().endsWith("/my-like"),
+    );
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("yap:account-changed")),
+    );
+    await returnReady;
+    await original.row.getByText("Sent", { exact: true }).waitFor();
+    assert.equal(
+      posts.length,
+      beforeReplacement + 1,
+      "original account reconciles without another POST",
+    );
     assert.deepEqual(errors, []);
     console.log(
-      "Deterministic chat browser races, draft recovery, IME/focus, cursor/history/retention/reconnect, desktop/mobile/narrow/reduced-height layouts, 200% CSS zoom and axe WCAG 2.2 checks PASS",
+      "Deterministic chat browser races, draft recovery, IME/focus, cursor/history/retention/reconnect, held old-account reconciliation, explicit new-account draft confirmation, desktop/mobile/narrow/reduced-height layouts, 200% CSS zoom and axe WCAG 2.2 checks PASS",
     );
   } finally {
+    heldReconciliation?.release();
     for (const post of posts) post.release({ abort: true });
     await context.close();
   }

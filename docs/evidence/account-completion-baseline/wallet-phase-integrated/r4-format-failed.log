@@ -1,0 +1,400 @@
+
+> yaparena@1.0.0 verify:browser
+> node scripts/verify-browser-release.ts
+
+Synthetic browser artifacts: /private/tmp/yaparena-wallet-phase-integrated-r4
+Browser release gate: build
+
+> yaparena@1.0.0 build
+> npm run typecheck && tsc --project tsconfig.json && npm run build:frontend
+
+
+> yaparena@1.0.0 typecheck
+> npm run typecheck:operations && npm run typecheck:frontend
+
+
+> yaparena@1.0.0 typecheck:operations
+> tsc --project tsconfig.json --emitDeclarationOnly && tsc --project tsconfig.database-tools.json && tsc --project tsconfig.browser-automation.json && tsc --project tsconfig.community-tools.json && tsc --project tsconfig.replay-tools.json && tsc --project tsconfig.edge.json
+
+
+> yaparena@1.0.0 typecheck:frontend
+> node scripts/build-frontend.ts --check-sources && tsc --project tsconfig.frontend.json && tsc --project tsconfig.frontend-auth.json && tsc --project tsconfig.service-worker.json && tsc --project tsconfig.frontend-build.json
+
+
+> yaparena@1.0.0 build:frontend
+> node scripts/build-frontend.ts
+
+Browser release gate: fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers
+PostgreSQL 17.10 (Homebrew)
+▶ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger
+  ✔ reserves only owner-admitted signed payout identities and fences duplicate sender nonces (126.465208ms)
+  ✔ credits only separately identified system treasury buckets without issuing purchased coins, grants or cash to the audit account (18.8515ms)
+  ✔ consumes one exact external receipt and immutable idempotency scope across concurrent owner instances (9.552333ms)
+  ✔ globally rejects reassigning a treasury receipt to another operator or a purchased funding request (8.345084ms)
+  ✔ rejects runtime authority, simulation credits, mismatched receipts and ordinary funding completion of treasury requests (11.176833ms)
+✔ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger (210.875541ms)
+ℹ tests 5
+ℹ suites 1
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 563.441875
+
+▶ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger
+  ✔ reserves only owner-admitted signed payout identities and fences duplicate sender nonces (118.426542ms)
+  ✔ credits only separately identified system treasury buckets without issuing purchased coins, grants or cash to the audit account (17.948791ms)
+  ✔ consumes one exact external receipt and immutable idempotency scope across concurrent owner instances (8.131416ms)
+  ✔ globally rejects reassigning a treasury receipt to another operator or a purchased funding request (7.480334ms)
+  ✔ rejects runtime authority, simulation credits, mismatched receipts and ordinary funding completion of treasury requests (10.362541ms)
+✔ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger (190.600083ms)
+ℹ tests 5
+ℹ suites 1
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 522.398083
+
+{"trial":"isolation-database-encoding","database":"revocation_test_a4_fresh","server":"UTF8","client":"UTF8","locale":"C","collation":"C"}
+Creator and API mediator membership guards: 19 denial/acceptance cases PASS.
+✔ binds every exact term independent of object insertion order and rejects unsafe representations (1.985083ms)
+▶ purpose-bound account approvals in disposable PostgreSQL
+  ✔ consumes exactly once with the authorized mutation across application pools (104.48725ms)
+  ✔ rejects cross-account/session, changed purpose/terms, and wrong or absent password (90.902542ms)
+  ✔ rolls back mutation and proof consumption together and rejects stale generations/sessions (42.078625ms)
+  ✔ validates exact operation SIWE and rechecks the retained wallet at commit (27.363791ms)
+  ✔ rolls back a mutation when its approval or current session expires during the mutation (681.773709ms)
+  ✔ fails closed for absent credentials, unsupported purpose and expiry (5.421542ms)
+✔ purpose-bound account approvals in disposable PostgreSQL (1005.094334ms)
+(node:20216) ExperimentalWarning: The supports Web Crypto API method is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:20216) ExperimentalWarning: The ML-DSA-44 Web Crypto API algorithm is an experimental feature and might change at any time
+▶ separate YapArena security passkeys in disposable PostgreSQL
+  ✔ enrolls an independently verified key, revokes old app cookies and preserves retained account ownership (98.905292ms)
+  ✔ permits first setup only before financial history and never permits bootstrap over a previous key or retained credential (42.074959ms)
+  ✔ rolls back authenticator counters when the authorized mutation fails (56.468791ms)
+  ✔ links the first wallet to an email-only account with its security passkey and permits deliberate unlink while email remains (59.347917ms)
+  ✔ requires an exact fresh passkey assertion for every operation and consumes it atomically across pools (83.629833ms)
+  ✔ requires retained proof for enrollment/removal and preserves immutable revoked key history (96.958041ms)
+  ✔ rejects enrollment responses for a different origin/challenge before adding any key (27.738667ms)
+  ✔ replaces a lost sole email sign-in with a verified email using its retained key, preserving account/profile/funds and permanently retiring the old identity (93.319916ms)
+  ✔ replaces a lost sole google_oauth sign-in with a verified email using its retained key, preserving account/profile/funds and permanently retiring the old identity (71.746ms)
+  ✔ requires the retained security key and exact new server-verified email/SID, without consuming a changed or cross-account proof (75.890417ms)
+  ✔ refuses already bound or tombstoned new identities and unsupported multi-method old/new provider states without moving either account (58.91375ms)
+  ✔ refuses legacy DID replacement when either trusted provider identity owns an embedded wallet (29.1185ms)
+  ✔ preserves the original DID after confirmed or uncertain local embedded-wallet creation (60.568541ms)
+  ✔ allows a never-started pending job without adopting its original DID's wallet reference (42.166958ms)
+  ✔ rechecks wallet creation under the account lock and rolls recovery proof consumption back while external creation is in flight (35.509125ms)
+  ✔ rolls a fresh-key counter and replacement back when a competing provider claim wins, and permits only one concurrent recovery (71.584083ms)
+  ✔ does not hold a pool connection or account lock while inspecting providers; local revocation wins the held recovery (38.316959ms)
+  ✔ restricts SQL ownership/history privileges and rolls back a direct unconsumed-proof recovery at commit (41.419ms)
+  ✔ signs in with a discoverable retained security key, checks provider state every time, and rejects wrong user handles and replay (34.544708ms)
+  ✔ rejects discoverable login challenges issued before any later account revocation (28.00975ms)
+  ✔ accepts a newer same-millisecond challenge without weakening the database generation fence (30.439417ms)
+  ✔ requires an exact displayed provider delta and bound SID before atomically restoring one session with a retained key (33.3135ms)
+  ✔ permits a retained password reconciliation without treating a provider token as fresh proof (68.721125ms)
+  ✔ releases its only runtime connection during reconciliation inspection so local revocation wins without accepting the delta (33.502708ms)
+  ✔ requires a retained wallet signature for the exact displayed method changes and rejects another wallet (31.228167ms)
+  ✔ checks challenge expiry after provider inspection and rolls back key use and provisional session creation (526.075958ms)
+  ✔ applies account and operation abuse limits after server-side identity resolution and before checking proof (30.046417ms)
+  ✔ does not guess an unknown old provider snapshot or cross a later revocation while reconciling (28.234417ms)
+  ✔ fails closed on provider outage and rolls back a verified key counter with no new cookie (27.042667ms)
+  ✔ allows a verified Google-only first security key at the same before-funds bootstrap boundary (7.254ms)
+✔ separate YapArena security passkeys in disposable PostgreSQL (2012.976375ms)
+▶ security passkey HTTP boundaries
+  ✔ disables new external-wallet links before proof consumption and keeps retained removal (37.167375ms)
+  ✔ restarts a first provider passkey only through server-verified bearer context and a native proof (51.64125ms)
+  ✔ scopes interrupted Privy setup to its original cookie and provider evidence without reopening ordinary protected actions (17.350208ms)
+  ✔ uses authenticated Privy enrollment intents and disables the second registration API when the provider owns enrollment (44.172792ms)
+  ✔ fails closed on a missing or exhausted server-derived account budget before checking resumed proofs (7.163542ms)
+  ✔ provides sessionless key login without trusting an app cookie, account selector or browser credential flags (11.731667ms)
+  ✔ binds sessionless reconciliation to bearer identity and one exact proof ID without browser ownership fields (8.910459ms)
+  ✔ consumes an operation-specific prior approval before allowing the provider-change UI (4.560292ms)
+  ✔ requires an application cookie and exact origin and rejects account selectors or arbitrary operations (15.297375ms)
+  ✔ binds operation issuance to the verified account/cookie and omits private stored fields (4.759792ms)
+  ✔ returns bootstrap eligibility from the server and publishes a secure cookie only after completion (4.032458ms)
+  ✔ fixes sensitive purpose/target on the server and validates WebAuthn and proof payloads (5.815542ms)
+  ✔ does not publish replacement cookies for rejected or expired approvals (2.765208ms)
+  ✔ binds the security-key wallet path to the authenticated account and exact stored operation (9.675167ms)
+  ✔ requires provider evidence in a redacted authorization header and binds legacy linking to the live account (7.695041ms)
+✔ security passkey HTTP boundaries (234.21025ms)
+▶ owned-session HTTP management
+  ✔ lists metadata without bearer values and derives owner from the cookie (71.251208ms)
+  ✔ rejects account selectors and invalid target IDs (11.728375ms)
+  ✔ compares the observed account before removing a session and still requires a cookie (7.240084ms)
+  ✔ revokes one owned session without deleting a potentially newer browser cookie (11.918541ms)
+✔ owned-session HTTP management (102.97825ms)
+▶ session management across PostgreSQL instances
+  ✔ normal sign out revokes every device across application instances (49.409834ms)
+  ✔ lists only the current owner's live sessions and revokes across instances (18.310583ms)
+  ✔ refuses inactive accounts without listing or changing sessions (4.411416ms)
+✔ session management across PostgreSQL instances (73.402333ms)
+▶ isolated currency attached to existing YES/NO debates
+  ✔ serializes purchased A4 stakes against fresh-authorized withdrawals without partial reservations in either lock order (409.637292ms)
+  ✔ rolls back ordered settlements when a create caller expires during ledger waits on either existing-round return path (3249.59075ms)
+  ✔ locks every due account before shared ledger rows so unrelated payout reconciliation remains available (124.149042ms)
+  ✔ applies grant qualification in closing order even when the later debate asks to open its next round first (114.538917ms)
+  ✔ voids only through a guarded operator command and restores exact sources without profit (30.284625ms)
+  ✔ reserves independent center/promo backing, fixes first commitment, and never reveals pre-cutoff information (37.5015ms)
+  ✔ settles the real A4 algorithm using actual charged source weights and isolates historical play, virtual principal and backed profit (41.717375ms)
+  ✔ rejects late or revoked commitments and preserves fixed terms and closed receipts (26.472958ms)
+✔ isolated currency attached to existing YES/NO debates (4035.61175ms)
+▶ external financial operation contracts
+  ✔ keeps exact positive 36-digit atomic values and validates fee zero (0.385083ms)
+  ✔ binds every financial term and isolates owner/environment/precision (0.244708ms)
+  ✔ never releases reserves for failure webhooks, timeouts or uncertain retries (0.130625ms)
+  ✔ releases once only after authoritative no-transfer reconciliation (0.705959ms)
+  ✔ settles once with final reconciled evidence and ignores delayed pending events (0.159333ms)
+  ✔ rejects cross-operation evidence and invalid external identifiers (2.591333ms)
+✔ external financial operation contracts (4.952791ms)
+▶ exact coin journal contracts
+  ✔ aggregates same-account entries and conserves exact signed atomic values (1.210375ms)
+  ✔ scopes business references to owner, environment, operation and exact key (0.921958ms)
+✔ exact coin journal contracts (2.843083ms)
+▶ balanced coin writer in disposable PostgreSQL
+  ✔ funds exactly once across concurrent retries and rejects changed terms (97.478792ms)
+  ✔ serializes competing reservations, prevents overspend and reverses exactly (32.18675ms)
+  ✔ isolates environments and keeps web runtime read-only (23.3065ms)
+  ✔ rolls back projections and exact reversals when transaction fails (10.79875ms)
+✔ balanced coin writer in disposable PostgreSQL (165.887041ms)
+▶ owned error reports and funded original-source corrections in disposable PostgreSQL
+  ✔ accepts completed request reports without a time cutoff, scopes races/idempotency and never holds or debits on submission (129.086666ms)
+  ✔ separates owner evidence from public outcomes and makes report/review history immutable (47.63575ms)
+  ✔ orders reviews numerically across a sequence digit boundary and refuses an older superseded quote (101.114083ms)
+  ✔ consumes exact retained authorization for consent once, without charging, recovery execution or owner-note disclosure (167.401458ms)
+  ✔ rejects expired or superseded cost quotes and revoked sessions without consuming authorization (3179.517375ms)
+  ✔ restores only evidence-reviewed missing principal from a finite operator reserve exactly once across instances (29.742333ms)
+  ✔ partially restores completed payout sources across all reports without converting grant principal or changing qualification (83.1495ms)
+  ✔ blocks restoration while original principal remains reserved and requires reviewed evidence in configured correction commands (66.779541ms)
+✔ owned error reports and funded original-source corrections in disposable PostgreSQL (3834.265458ms)
+✔ requires an explicit isolated rail and exact server fee (1.021834ms)
+▶ persistent financial sandbox in disposable PostgreSQL
+  ✔ enforces withdrawal operator status and audit authority with real runtime SQL privileges (346.687333ms)
+  ✔ refuses new payout approval after suspension or loss of stronger credentials while permitting safe rejection (142.286166ms)
+  ✔ blocks approval and signing authority under an uncertain funding correction but still reconciles an already submitted payout (104.895959ms)
+  ✔ runs the authenticated HTTP quote, fresh proof and reservation against the real ledger (87.144792ms)
+  ✔ keeps read-only summary empty until strong setup, and separates rails and owner review authority (20.1935ms)
+  ✔ queues authenticated notifications exactly once and reconciles only in the separate owner process (1194.257833ms)
+  ✔ issues welcome and each Toronto day's daily principal exactly once across pools, with no cash backing minted (1576.461958ms)
+  ✔ quotes exact simulated conversion and confirms one globally identified receipt across concurrent retries (60.729625ms)
+  ✔ rejects expired quote use without trusting application clocks or issuing balances (5.267166ms)
+  ✔ rolls back funding and withdrawal quotes that expire during a real ledger lock wait (6185.135792ms)
+  ✔ binds gross/fee/net/destination to fresh proof and reserves exactly the gross debit (111.210084ms)
+  ✔ prevents concurrent over-reservation and rolls source/proof changes back on failure (77.333334ms)
+  ✔ has no obsolete 100-USDC daily cap and never charges the fee on top (50.509833ms)
+  ✔ keeps uncertain payment reserves, ignores delayed pending events, and releases only final no-transfer reconciliation (41.9835ms)
+  ✔ settles one reconciled transfer, records fees separately and rejects foreign operation or receipt reuse (75.421291ms)
+  ✔ manually rejects an undispatched request exactly once and restores original sources (36.276667ms)
+  ✔ uses append-only correction reversals and pauses only financial entry if original value has left (57.385042ms)
+  ✔ keeps books/events/ledger history immutable and live financial writes unavailable to runtime (6.962959ms)
+  ✔ restores funded qualified grant profit without touching virtual principal or purchased backing (49.72025ms)
+✔ persistent financial sandbox in disposable PostgreSQL (10265.890209ms)
+▶ durable user-owned embedded wallets in disposable PostgreSQL
+  ✔ transactionally enqueues exactly one job with provisioning and rolls back an interrupted signup (70.36625ms)
+  ✔ creates one empty wallet after authoritative checks and projects owned status without internal references (58.017958ms)
+  ✔ keeps first security-passkey bootstrap available after empty asset wallet provisioning (50.386666ms)
+  ✔ reuses a verified existing wallet without invoking create (13.359917ms)
+  ✔ leases work across instances and releases database connections during provider calls (26.026167ms)
+  ✔ reconciles an uncertain completed creation before any further mutation (73.243292ms)
+  ✔ uses a new attempt key only after confirmed absence while preserving the permanent unique external reference (44.798917ms)
+  ✔ fences generation, suspension and unaccepted provider credentials before creation (42.225541ms)
+  ✔ does not provision a replacement after the account's provider DID is replaced (20.921958ms)
+  ✔ requires review for unsafe ownership and bounded exhausted retries, including a crashed final lease (40.652875ms)
+  ✔ does not let an expired lease's late result overwrite another instance's confirmed wallet (33.683458ms)
+  ✔ validates worker bounds and never creates a wallet for an unmapped account (6.032084ms)
+✔ durable user-owned embedded wallets in disposable PostgreSQL (492.733125ms)
+✔ requires supported token revocation and a bounded provider deadline (0.686875ms)
+▶ account media containment in isolated PostgreSQL
+  ✔ issues only to the assigned, device-ready speaker in the permitted phase (63.896125ms)
+  ✔ reuses one session's opaque identity across simultaneous retries and protects tracking history (127.783917ms)
+  ✔ orders all-session logout against issuance and contains only the retired identity across pools (97.094833ms)
+  ✔ preserves the actual retained SID after logout-others generation changes (64.536959ms)
+  ✔ requires confirmed old-token revocation before moving the publishing device and retries provider outages (52.429292ms)
+  ✔ binds a pending replacement to its owned current session and requires manual Join after intent expiry (152.703875ms)
+  ✔ ignores delayed departures for replaced UUID and legacy identities while pausing current or unknown departures (26.02075ms)
+  ✔ fences the departure relevance check and database pause against replacement issuance (12.162792ms)
+  ✔ contains suspension, credential changes and a raw generation advance while keeping logout independent of provider calls (39.022084ms)
+  ✔ reconciles a naturally expired session even if its cookie row has not been deleted (1060.9535ms)
+  ✔ rolls back an in-flight minted token when its application session expires before commit (2119.701ms)
+  ✔ claims a removal across workers without holding the account lock during the provider request (27.673209ms)
+  ✔ recovers an expired worker lease and ignores its delayed acknowledgement without kicking a new identity (9.738541ms)
+  ✔ times out failed removal, retains the publishing fence, and never calls self-hosted token invalidation complete (119.619042ms)
+✔ account media containment in isolated PostgreSQL (3975.567208ms)
+▶ provider ownership and financial isolation in PostgreSQL
+  ✔ reopens a fence only after provider revocation and rejects pre-freeze tokens (67.960917ms)
+  ✔ rejects an unapproved provider credential change without merging accounts (13.195625ms)
+  ✔ reports pending, uncertain and unmatched session-reset fences without accepting an unchanged credential or consuming its SID (18.484417ms)
+  ✔ links a never-provisioned verified provider identity to the retained legacy ID using fresh retained proof (94.860375ms)
+  ✔ never moves a previously provisioned manual identity or accepts a changed candidate credential digest (29.166583ms)
+  ✔ serializes legacy linking against a simultaneous ordinary provisioning callback without merging IDs (49.297666ms)
+  ✔ inspects every protected cookie lookup, fails closed on outages and leaves local revocation available (10.727208ms)
+  ✔ revokes existing app cookies across instances for provider credential changes or removed/frozen accounts (11.332292ms)
+  ✔ releases the only runtime connection during a held provider inspection so local logout finishes first (17.044625ms)
+  ✔ rejects an older inspection after logout-others advances the retained session without revoking that survivor (6.911875ms)
+  ✔ does not turn a transient owned provider freeze into an incident after the provider-control job changes (18.357291ms)
+  ✔ reads each owned grant separately and retains qualification after later losses (21.658042ms)
+  ✔ keeps provider read outages fenced and retries without changing external state (24.878167ms)
+  ✔ keeps uncertain provider mutations and later generations fenced for manual reconciliation (10.830333ms)
+  ✔ reconciles only the exact owner-reviewed delayed freeze once, confirms unfreeze and preserves the old-token cutoff (1516.328375ms)
+  ✔ rejects runtime, missing review, mismatched audit, changed provider and out-of-window freeze without unfreezing (37.534291ms)
+  ✔ durably records the one unfreeze attempt and leaves generation fenced on an uncertain or unconfirmed result (7572.443708ms)
+  ✔ polls only bounded GET confirmations while making each normal reset mutation once (6018.52425ms)
+  ✔ finalizes an already reviewed and actually unfrozen reset through GET-only verification, with replay and old-token protection (22.975833ms)
+  ✔ refuses finalization for runtime, missing reviewed intent, changed terms, frozen provider or a concurrent generation without repeating mutations (57.538042ms)
+  ✔ rolls back finalization's provisional mapping and job updates if the completion audit fails (6.556ms)
+  ✔ atomically claims one owner-reviewed uncertain reset, excludes a competing worker and makes only the same completed retry idempotent (11.609875ms)
+  ✔ denies runtime authority and unsafe operator reset evidence before claiming or changing a fence (15.402ms)
+  ✔ releases its only owner connection during inspection and rejects a generation change before claiming (7.230209ms)
+  ✔ retains the manual fence and reports only bounded stage/status when an owner retry has an uncertain provider mutation (4.382ms)
+  ✔ keeps an owner retry manual after its post-claim provider read fails so an older worker cannot take over (3.859ms)
+  ✔ rejects an expired operator claim before external mutation and does not let a worker reuse it (4.264791ms)
+  ✔ does not freeze a superseded generation between claiming and provider control (8.71325ms)
+  ✔ orders a new generation after in-flight provider control across application pools (4.853875ms)
+  ✔ never unfreezes suspended accounts or independent provider freezes (5.960791ms)
+  ✔ provisions once under simultaneous callbacks without merging legacy email ownership (3.057375ms)
+  ✔ rejects a consumed sid after current logout and any old/unknown provider sid after account-wide revocation (2.428125ms)
+  ✔ enforces suspension across application pools and retains deleted-identity fences (4.9905ms)
+  ✔ enforces balanced immutable journals, exact projections and environment isolation (17.705ms)
+✔ provider ownership and financial isolation in PostgreSQL (15724.398709ms)
+▶ durable provider control acknowledgement phases in isolated PostgreSQL
+  ✔ resumes acknowledged freeze and unfreeze GET lag across restarts and instances without repeating either mutation (91.899459ms)
+  ✔ bounds lagging confirmations by eight reads or a phase deadline and never retries their mutation (46.611208ms)
+  ✔ persists intent before a crash and never replays an unacknowledged freeze or unfreeze (32.739125ms)
+  ✔ does not hold a connection or account lock during GET and rechecks revocation before any mutation (16.727916ms)
+  ✔ ignores a late GET after another instance owns the lease and finishes the reset (18.826209ms)
+  ✔ keeps superseding generations, changed baselines and independently changed freezes fenced after acknowledgement (58.203833ms)
+  ✔ does not infer acknowledged outcomes for legacy or old-source running claims (26.831416ms)
+  ✔ keeps preflight outages read-only, bounded and recoverable without converting unknown state into an unfrozen assertion (11.337541ms)
+  ✔ fences a monitor overlapping a phase transition while still treating a real credential delta as an incident (18.778625ms)
+  ✔ does not let the normal phase worker cancel a freshly claimed owner retry with older phase metadata (18.44825ms)
+  ✔ skips a reviewed owner retry before taking its account lock while the owner holds a provider GET (14.241875ms)
+✔ durable provider control acknowledgement phases in isolated PostgreSQL (359.234375ms)
+▶ first Privy passkey restart in disposable PostgreSQL
+  ✔ restarts expired email first setup with the same provider key and a new nonce, preserving all ownership fences (86.268708ms)
+  ✔ restarts expired google_oauth first setup with the same provider key and a new nonce, preserving all ownership fences (18.421375ms)
+  ✔ requires the same credential, origin, fresh challenge and user verification without consuming failed proofs (14.864625ms)
+  ✔ keeps previously captured key identity exact and accepts only the approved sole-current-key fallback when no candidate was recorded (26.658041ms)
+  ✔ rejects an expired new restart challenge without extending it or consuming its still-live sibling (11.050708ms)
+  ✔ rejects prior wallet/password/key audit history, even when all current strong methods are absent (21.805625ms)
+  ✔ rejects funding history, unexplained deltas, retired or already consumed provider sessions and pending/manual resets (23.254166ms)
+  ✔ rechecks never-funded policy and generation at completion and never authorizes only an email token (40.214625ms)
+  ✔ allows only one concurrent completion and leaves immutable authorization and schema permissions enforced (10.395208ms)
+  ✔ rolls back provisional key, generation, session and SID consumption if completion fails, allowing the exact unconsumed proof to retry (30.630542ms)
+✔ first Privy passkey restart in disposable PostgreSQL (295.15175ms)
+▶ owner-only reset repair for an unfinished first provider passkey
+  ✔ completes only reset fences and requires a fresh provider SID plus native UV before first key adoption (80.909584ms)
+  ✔ denies runtime role before provider inspection and refuses wrong review/generation/attempt/window or unrecognized revocation (52.849541ms)
+  ✔ rejects financial/strong-method history, changed email, multiple keys, captured COSE mismatch and dead baseline (38.914792ms)
+  ✔ permits at most one reviewed unfreeze across concurrent owner instances (13.05275ms)
+  ✔ keeps a durable one-use marker after an uncertain unfreeze and finishes with GET-only reconciliation (13.583875ms)
+  ✔ does not repeat an unfreeze when successful control responses have lagging GET confirmation (7535.79325ms)
+  ✔ rolls final SQL mutations back while preserving the earlier one-use review marker (1107.00075ms)
+✔ owner-only reset repair for an unfinished first provider passkey (8871.316125ms)
+▶ same Privy credential activation in disposable PostgreSQL
+  ✔ activates one new email user's same provider key, rotates local session and retains provider fences (48.734208ms)
+  ✔ activates one new google_oauth user's same provider key, rotates local session and retains provider fences (14.682208ms)
+  ✔ activates an existing linked provider credential without a second registration or credential delta (10.565625ms)
+  ✔ never bootstraps an additional key over an existing provider key or newly created financial history (15.263583ms)
+  ✔ requires unchanged selected mode, same DID, supported public key and only the intended provider delta (14.029459ms)
+  ✔ verifies challenge, RP, origin, user verification and exact credential before activating (11.211ms)
+  ✔ permits only exact live addition deferral and consumes an intent once under concurrent completion (15.493291ms)
+  ✔ rejects an expired or consumed intent without accepting its provider delta or issuing a cookie (6.489417ms)
+  ✔ does not occupy a pool connection during provider inspection and rejects a logout that wins the race (2.902833ms)
+  ✔ uses the same provider credential for operation-bound proof but rejects independent local login and new-DID replacement (19.95475ms)
+  ✔ requires an existing operation-bound proof for later addition and atomically consumes both signatures (29.277959ms)
+  ✔ denies both valid sessions during one exact pending addition without letting either monitor revoke the account (22.046542ms)
+  ✔ still revokes another valid session when the initiating session is gone or the pending delta is not exact (24.152292ms)
+  ✔ fails temporarily without revocation when an accepted or pending provider public key is unavailable (12.158708ms)
+  ✔ revokes a changed accepted key even while another exact key addition is pending (8.033833ms)
+  ✔ does not defer a provider delta after its original intent is consumed or expired (4.354542ms)
+  ✔ rejects self-authorized provider passkey removal and changed exported keys for fresh operation proof (7.243625ms)
+  ✔ temporarily denies an inspection failure during the matching active provider reset without revoking the rotated cookie (23.681875ms)
+  ✔ still revokes actual key changes or independent/mismatched freezes while a provider reset exists (19.029583ms)
+✔ same Privy credential activation in disposable PostgreSQL (319.182917ms)
+▶ wallet authorization with PostgreSQL runtime role
+  ✔ rejects a genuinely signed unknown-wallet signup in email-first mode and keeps retained wallet sign-in (51.656875ms)
+  ✔ locally reproduces rejection of pre-deletion cookies, passwords and a delayed known-wallet callback without recreating the retired account (41.946292ms)
+  ✔ a stolen cookie and attacker-wallet signature cannot link or unlink (12.6105ms)
+  ✔ current password authorizes each exact operation and rotates only its session (29.278917ms)
+  ✔ linked-wallet authorization supports wallet-only and password accounts (13.614875ms)
+  ✔ the proposed wallet cannot approve itself, and only retained credentials can approve unlink (6.761833ms)
+  ✔ missing, expired, reused, mismatched account/session/purpose/target proofs fail (45.019875ms)
+  ✔ login and proposed-wallet signatures cannot be used as authorizing signatures (6.237917ms)
+  ✔ wrong signing accounts fail and unavailable contract verification fails closed (7.420208ms)
+  ✔ removing then re-adding an authorizer or restoring a password cannot revive a proof (31.024625ms)
+  ✔ unlink proof is purpose-specific and password unlink retains password access (23.090292ms)
+  ✔ logout wins during cryptographic verification and creates neither wallet nor replacement session (13.6185ms)
+  ✔ account-wide revocation wins before a waiting link, and link-first ordering is explicit (37.020416ms)
+  ✔ concurrent proof consumption and concurrent links allow one committed operation (76.242083ms)
+  ✔ cross-account simultaneous linking cannot assign a wallet twice (40.078458ms)
+  ✔ concurrent final-method removals leave a retained usable credential (20.487708ms)
+  ✔ an approval expiring while verification waits cannot commit (14.626042ms)
+  ✔ an expired session after lock waiting and a late failure roll back mutation/audit/notification (39.231625ms)
+  ✔ runtime role cannot retarget an operation, and cleanup removes expired operations (5.328791ms)
+  ✔ SIWE checks chain, URI, scheme, nonce and expiry before accepting an operation signature (0.636417ms)
+✔ wallet authorization with PostgreSQL runtime role (553.6845ms)
+ℹ tests 235
+ℹ suites 19
+ℹ pass 235
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16827.016084
+
+▶ A4 runtime-role PostgreSQL
+  ✔ shares only consented settled mixed/observer aggregates, excludes hidden/future/private data and follows new rounds automatically (153.503417ms)
+  ✔ charts only finalized settlements, separates private creators and excludes observer/pending information (78.8865ms)
+  ✔ uses actual sessions, persistent starter credit, binding review and idempotent receipts (31.350625ms)
+{"scenario":"500 bots","createAndSettleMs":130,"population":500,"asset":"YAP"}
+  ✔ handles 500 bots, separate center funding, observer access and paginated books (130.673208ms)
+  ✔ keeps two distinct delayed shares, payouts and aggregate diagnostics sealed until T (31.519792ms)
+  ✔ serializes same-account commitments across sessions and prevents overspending (42.189834ms)
+  ✔ rechecks cutoff after ledger lock waits, immediately at cutoff and with stale sessions (352.125125ms)
+  ✔ makes refill and controls idempotent and archives only the selected sandbox (71.42925ms)
+  ✔ settles outstanding exposure after disabling admission and survives duplicate workers (22.380666ms)
+  ✔ enforces runtime grants, balanced journals, asset segregation and projection rollback (5.841958ms)
+  ✔ rejects untrusted flags, malformed inputs, unsupported rules and cross-account reads (20.0475ms)
+✔ A4 runtime-role PostgreSQL (950.277667ms)
+▶ A4 durable failure and backing cases
+  ✔ rolls back failures before/after draw persistence and recovers without new draws or payouts (32.608125ms)
+  ✔ records a genuine center loss, separate from play issuance and fees (32.390292ms)
+  ✔ does not strand a pending payout when paused future windows expire (21.089833ms)
+  ✔ shares starter/refill grants and reservations across two sessions on one account (65.981208ms)
+  ✔ applies configured play grants without reissuing prior business references (14.953875ms)
+  ✔ handles runtime backend termination during execution and recovers the persisted draw (23.499292ms)
+✔ A4 durable failure and backing cases (196.250625ms)
+ℹ tests 17
+ℹ suites 2
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1434.8565
+
+
+> yaparena@1.0.0 check
+> npm run lint && npm run format:check && npm run typecheck && npm run test:coverage
+
+
+> yaparena@1.0.0 lint
+> eslint .
+
+
+> yaparena@1.0.0 format:check
+> prettier --check .
+
+Checking formatting...
+
+[warn] docs/evidence/account-completion-baseline/provider-settings-actor-browser/before-bounded/single-passkey-failure-desktop-provider-settings-races.json
+[warn] Code style issues found in the above file. Run Prettier with --write to fix.
+
+Database isolation verification failed (assertion): Full runtime-backed quality gate failed
+Browser release gate FAILED: fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers failed; inspect the assertion and synthetic artifacts
+
+1 !== 0
+

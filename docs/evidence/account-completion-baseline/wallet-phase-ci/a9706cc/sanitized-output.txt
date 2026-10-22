@@ -1,0 +1,51 @@
+deployment | 2026-10-21T20:47:25.8291287Z HEAD is now at 345ebcb Merge a9706ccb55ae342c4f11366145b1896d17656931 into fd60543b5f6d8f0b65fe1f93807252064d9317f2
+monitoring | 2026-10-21T20:47:26.6999255Z HEAD is now at 345ebcb Merge a9706ccb55ae342c4f11366145b1896d17656931 into fd60543b5f6d8f0b65fe1f93807252064d9317f2
+quality / check | 2026-10-21T20:47:27.5841594Z HEAD is now at 345ebcb Merge a9706ccb55ae342c4f11366145b1896d17656931 into fd60543b5f6d8f0b65fe1f93807252064d9317f2
+quality / check | 2026-10-21T20:49:28.1404283Z ℹ tests 5
+quality / check | 2026-10-21T20:49:28.1404901Z ℹ pass 5
+quality / check | 2026-10-21T20:49:28.1405195Z ℹ fail 0
+quality / check | 2026-10-21T20:49:28.1405796Z ℹ skipped 0
+quality / check | 2026-10-21T20:49:30.1034473Z ℹ tests 5
+quality / check | 2026-10-21T20:49:30.1035493Z ℹ pass 5
+quality / check | 2026-10-21T20:49:30.1035957Z ℹ fail 0
+quality / check | 2026-10-21T20:49:30.1036891Z ℹ skipped 0
+quality / check | 2026-10-21T20:49:58.5093843Z ℹ tests 235
+quality / check | 2026-10-21T20:49:58.5094267Z ℹ pass 235
+quality / check | 2026-10-21T20:49:58.5094481Z ℹ fail 0
+quality / check | 2026-10-21T20:49:58.5094913Z ℹ skipped 0
+quality / check | 2026-10-21T20:52:21.1437832Z ℹ tests 854
+quality / check | 2026-10-21T20:52:21.1438659Z ℹ pass 854
+quality / check | 2026-10-21T20:52:21.1439232Z ℹ fail 0
+quality / check | 2026-10-21T20:52:21.1439948Z ℹ skipped 0
+quality / check | 2026-10-21T20:52:21.1445598Z ℹ all files                                |  95.31 |    91.19 |   95.35 | 
+quality / check | 2026-10-21T20:52:21.1446976Z Full quality gate with A4, wallet and revocation PostgreSQL identities PASS.
+quality / check | 2026-10-21T20:52:21.1901809Z Fresh installation: inventory, browser denial, runtime login, backend journeys, worker, triggers and future defaults PASS.
+quality / check | 2026-10-21T20:52:53.6730199Z ℹ tests 235
+quality / check | 2026-10-21T20:52:53.6730614Z ℹ pass 235
+quality / check | 2026-10-21T20:52:53.6730816Z ℹ fail 0
+quality / check | 2026-10-21T20:52:53.6731236Z ℹ skipped 0
+quality / check | 2026-10-21T20:52:53.6865589Z Upgrade: inventory, browser denial, runtime login, backend journeys, worker, triggers and future defaults PASS.
+integration | 2026-10-21T20:53:12.4389119Z HEAD is now at 345ebcb Merge a9706ccb55ae342c4f11366145b1896d17656931 into fd60543b5f6d8f0b65fe1f93807252064d9317f2
+integration | 2026-10-21T20:57:31.4543656Z ℹ tests 5
+integration | 2026-10-21T20:57:31.4544513Z ℹ pass 5
+integration | 2026-10-21T20:57:31.4544921Z ℹ fail 0
+integration | 2026-10-21T20:57:31.4545785Z ℹ skipped 0
+integration | 2026-10-21T20:57:33.4947589Z ℹ tests 5
+integration | 2026-10-21T20:57:33.4948159Z ℹ pass 5
+integration | 2026-10-21T20:57:33.4948794Z ℹ fail 0
+integration | 2026-10-21T20:57:33.4949381Z ℹ skipped 0
+integration | 2026-10-21T20:58:06.0883582Z ℹ tests 235
+integration | 2026-10-21T20:58:06.0884009Z ℹ pass 235
+integration | 2026-10-21T20:58:06.0884217Z ℹ fail 0
+integration | 2026-10-21T20:58:06.0884643Z ℹ skipped 0
+integration | 2026-10-21T20:58:10.0747287Z ℹ tests 17
+integration | 2026-10-21T20:58:10.0747715Z ℹ pass 17
+integration | 2026-10-21T20:58:10.0747928Z ℹ fail 0
+integration | 2026-10-21T20:58:10.0748724Z ℹ skipped 0
+integration | 2026-10-21T20:58:49.6200326Z A4 execution repetition 1: exact offer, receipt, balances and reload PASS
+integration | 2026-10-21T20:59:15.5175660Z A4 no-trade repetition 1: exact offer, receipt, balances and reload PASS
+integration | 2026-10-21T20:59:41.4160102Z A4 execution repetition 2: exact offer, receipt, balances and reload PASS
+integration | 2026-10-21T21:00:07.2388963Z A4 no-trade repetition 2: exact offer, receipt, balances and reload PASS
+integration | 2026-10-21T21:02:46.2074295Z Database isolation verification failed (assertion): A4 browser verification failed
+integration | 2026-10-21T21:02:46.5530402Z Browser release gate FAILED: fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers failed; inspect the assertion and synthetic artifacts
+container | 2026-10-21T20:53:10.4337832Z HEAD is now at 345ebcb Merge a9706ccb55ae342c4f11366145b1896d17656931 into fd60543b5f6d8f0b65fe1f93807252064d9317f2

@@ -1,0 +1,31 @@
+{
+  "checkedAt": "2026-10-20T19:22:35.414Z",
+  "currentHead": "db7392600876dcd597ca2605ebeb2f52e78e5281",
+  "sourceHashes": {
+    "frontend/account-auth.tsx": "74aea005fe1bd6d6346c8ab075b50030bb8a2ef6b969c716a9f7d61bd7dc1af9",
+    "frontend/account-security.ts": "77dbf171ee4fba544c770c33a8bab3e39fc6d40e9e3905a9c6b1f09f8644f221",
+    "frontend/auth-events.ts": "7973873d9720246ccf6045881dd1bff9ca2bcf81f0965ba4bc3885ba8e773e82",
+    "frontend/session-coordination.ts": "3015f1d94b82c79355b712a42c2fc0245e4f1b1bb47dc7850bb1b3a9c8bfa8bf",
+    "scripts/verify-email-auth-browser.ts": "9b1367b5697bc17798701353049bf0b257fb7e800c09e49eee43211aea243e83"
+  },
+  "recordedVerifierMatches": true,
+  "recordedAssetMatches": {
+    "session-coordination.js": true,
+    "account-auth.bundle.js": true,
+    "account-security.bundle.js": true,
+    "account-session-list.js": true,
+    "account-sessions.js": true,
+    "account.js": true,
+    "site-header.js": true,
+    "auth-return.js": true,
+    "site.js": true,
+    "matching.js": true,
+    "a4-inline.js": true,
+    "arena-chart.js": true,
+    "arena-price.js": true,
+    "account-auth.css": true,
+    "site-header.css": true,
+    "site.css": true,
+    "arena.css": true
+  }
+}

@@ -12,6 +12,134 @@ Bots mode. These play features do not satisfy paid-release or remaining hosted/d
 
 ## Current implementation and evidence
 
+> **Frozen on 2026-10-22.** The email-first auth, account and coin-sandbox code is
+> frozen at the [`archive/email-first-accounts-20261022`](https://github.com/Boufe/YapArena/tree/archive/email-first-accounts-20261022)
+> tag, which keeps its full history and screenshot evidence, and is scheduled for
+> simplification. Its remaining acceptance gates are suspended, not passed.
+
+Current web source is **`3096ca7`**, verified LIVE after all five exact-tree CI
+checks. The [latest correction and release evidence](evidence/account-completion-baseline/passkey-signin-errors-20261021/README.md)
+records 125 installed-SDK checks, a combined 858-test gate, seven hosted guest
+groups and 14 matching assets. The owner-only `e8fcdff` follow-up passed 859 local
+tests without skips and 240 focused cases on each fresh/upgraded database; it
+requires no runtime deployment or migration. All five exact-source CI checks
+also passed, with their separate measured coverage in the
+[CI review](evidence/account-completion-baseline/operator-pooler-20261021/ci-review.md). Its
+[guarded simulation trial](evidence/account-completion-baseline/operator-pooler-20261021/README.md)
+approved and completed the existing proof-matched request exactly once without
+provider/chain calls. Earlier results below retain their dated scope. Remaining
+genuine email/Google/recovery, device, hosted Redis and live financial gates keep
+the task incomplete. A new disposable account's genuine email signup succeeded
+in normal Chrome Incognito, according to the founder. An earlier immediate
+send-code failure in an automation-launched browser remains an undiagnosed
+separate result. See the [genuine continuation](evidence/account-completion-baseline/genuine-email-signup-20261022/README.md);
+subsequent passkey/email return failed and provider inspection confirms a frozen
+account after an acknowledged reset overlapped normal sign-out. The local
+`92f11b4` correction passed 248 focused PostgreSQL cases on both fresh/upgrade
+paths and independent security review; deployment and exact reviewed owner
+repair remain pending. Clear setup confirmation and wallet status retries are
+being verified separately. The local `0e226c9` Valkey8.1.10 trial passed ten
+operational groups; hosted topology/outage acceptance remains open.
+
+Email-first account work is tracked in the [implementation and financial decision
+record](email-first-accounts.md) and the detailed
+[completion matrix](email-first-completion.md). Baseline was fetched main
+`fd60543`; the existing feature branch preserves the hosted Privy implementation
+and adds operation-bound passkey proofs, retained-credential account management,
+provider-change monitoring, session controls, speaker revocation and an isolated
+coin sandbox with persistent funding, source accounting, manual withdrawals and
+YES/NO A4 participation. The current corrective implementation uses one Privy
+passkey, enrolled in Account settings and verified again against a server-issued
+challenge for sensitive actions. First setup can resume after interruption only
+under the approved no-financial-history/no-prior-strong-method policy. The earlier Privy-only
+integrated local gate passed 798 tests with no skips, 198 focused PostgreSQL cases
+on each fresh and upgraded database, and the core browser journeys. The earlier
+[integrated release evidence](evidence/account-completion-baseline/final-integrated-release-gate/README.md)
+records 739 tests for its own revision.
+All five [required CI checks](evidence/account-completion-baseline/privy-passkey-ci/README.md)
+passed for `d6e2d35`. The [Privy-only staging release](evidence/account-completion-baseline/privy-passkey-release/README.md)
+applied its two additive migrations after encrypted 83-table/15-sequence backup
+and exact isolated rehearsal. The named web service was verified live at that revision;
+seven hosted guest groups and all 14 served asset matches passed. Staging has
+43 applied / zero pending migrations at that release. The earlier 13-migration/739-test release
+at `9395242` retains its separate historical evidence.
+Retained legacy application-key recovery can replace a lost sole email or Google
+identity without changing the account or merging by email. New Privy keys sign
+into the existing provider identity; retained-proof settings handle its credential
+changes. Authentication returns to the initiating
+action for confirmation. Source implementation is not hosted or production
+acceptance. The selected staging deletion removed IDs
+1–4 after encrypted backup and restore/concurrency rehearsal, preserving the
+three accounts the founder explicitly retained. The new release preserves those
+accounts and the genuine manual signup, with no live financial history.
+The web service now enables only the deterministic coin sandbox. The founder completed
+genuine hosted email signup; backend inspection confirmed one new account and
+provider mapping. The [account visual refresh](evidence/account-refresh/README.md)
+adds focused authentication, an account dashboard and clearer withdrawal progress.
+The [shared header and authentication popup](evidence/shared-header/README.md)
+unify account entry points and navigation, hide member controls until the app
+session is verified, and load the provider bundle on demand from public pages.
+Current free development-app Google/passkey login options are enabled. The founder
+now reports successful Privy passkey setup and later returning passkey login;
+remaining email-code/Google/linking/recovery journeys and final account acceptance
+remain open. The [genuine acceptance continuation](evidence/account-completion-baseline/embedded-wallet-release/genuine-passkey-wallet-20261021/README.md)
+keeps the earlier failed login and the later success distinct.
+The reviewed delayed provider-reset repair is complete, preserving revocation
+cutoffs and all retained accounts. The Privy-only corrections are hosted. Final review then identified an additional
+account-switch race in ordinary provider settings; its correction and 99-scenario
+local SDK regression passed in `f422dfd`, now included in the `eba1dc5` release. The separate
+interrupted first-passkey reset repair completed without adopting a key or creating
+a session; [actual evidence](evidence/account-completion-baseline/first-passkey-reset-repair/README.md)
+records its one mutation, GET-only finalization and preserved revocation fences.
+The founder then approved automatic user-controlled Privy EVM wallets and removal
+of new external-wallet linking. The [durable wallet design](embedded-wallets.md)
+is implemented with no app signing authority and deployed at `eba1dc5`; actual
+read-only provider inspection confirms user-only ownership and no additional
+signer/policy. Default recovery and remaining genuine scenarios remain pending.
+Unknown external-wallet signup is also disabled
+in email-first mode; retained wallet login/removal stays available. See the
+completion matrix for exact acceptance status.
+The subsequent wallet/reset integration passed **854 tests with zero skips**,
+**235 focused PostgreSQL cases on each fresh/upgrade path**, 17 A4 and five
+treasury cases on each path, and the complete core browser release gate.
+Dedicated final checks passed 111 SDK, 18 native passkey, 22 coin and seven
+cookie-coordination groups (14 issuer paths). The
+[new combined evidence](evidence/account-completion-baseline/wallet-phase-integrated/README.md)
+and individual reports bind those local results to their source and asset hashes.
+The current source includes durable user-only wallet provisioning and acknowledged
+provider-reset confirmation. The earlier staging release served `eba1dc5`
+after the guarded release below; the current `3096ca7` release preserves it. Genuine provider and physical acceptance remain open.
+The next credential-wait correction parks wallet work without spending creation
+attempts while verification is unfinished. Its complete local gate passed
+**858 tests with zero skips**, **239 focused cases on each fresh/upgrade path**,
+17 A4 and five treasury cases per path, all core browser gates and a separate
+18-group native passkey rerun. The
+[new hash-scoped evidence](evidence/account-completion-baseline/wallet-verification-pause/README.md)
+does not inherit a new genuine provider or SDK result. The earlier four-of-five
+CI result includes a failed retained-wallet mobile refresh fixture. Its
+deterministic correction passed a controlled RED/GREEN test, and all five checks
+now pass on the exact `eba1dc5` tree in
+[run 39678375965](evidence/account-completion-baseline/wallet-phase-ci/eba1dc5/README.md).
+The new encrypted 85-table/15-sequence backup, isolated restore and 43-to-45
+migration rehearsal passed. Both additive migrations are applied; all four
+accounts and all 14 security projections were preserved before writers resumed.
+The [release record](evidence/account-completion-baseline/embedded-wallet-release/README.md)
+confirms exact web revision `eba1dc5` live, unchanged replay-worker source,
+seven hosted guest groups, all 14 asset matches and anonymous wallet privacy.
+That earlier wallet snapshot was pending credential verification. The subsequent
+read-only ownership result passed and the founder reported saved-key activation
+and returning login; default recovery and remaining genuine scenarios stay open.
+Real Base Sepolia test-USDC receipt evidence is separate from labelled conversion
+simulations. No live financial routes are enabled. Existing A4 remains nonredeemable
+play money; the new 100 YC/USDC direction does not convert historical grants or
+satisfy the combined paid-release gates.
+
+The [application-to-Cloud sign-out trial](evidence/account-completion-baseline/media-app-cloud-revocation/README.md)
+passed with actual local HTTP sessions and a disposable PostgreSQL queue:
+a separate runtime pool disconnected the Cloud speaker, rejected original and
+server-refreshed speaking tokens, and preserved public watching. It does not
+establish a genuine hosted Privy journey or physical audiovisual acceptance.
+
 Reviewed 2026-10-19 against fetched `origin/main` at `78d5087`, the PR #38 merge.
 PRs #31–39 are merged: the A4/workspace/homepage/shared-data stack, both TypeScript
 migrations, core browser gate and follow-up readiness, Unicode and CI corrections
@@ -180,7 +308,7 @@ these choices changes a confirmed product rule.
 | ------------------------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Browser UI framework and API contract style            | All user-facing work        | Can the team render public pages, share types safely, and test critical journeys?                             |
 | Live media approach and provider or self-hosting model | Live debate and replay      | Can it handle two speakers, audience viewing, recording, captions, failure recovery, and expected load?       |
-| Wallet-first sign-in and account migration design      | Profiles and permissions    | Can an existing account move to or link a wallet without losing history or granting spend authority?          |
+| Email-first sign-in and retained-account migration     | Profiles and permissions    | Can verified login methods link to a stable account without losing history or granting spend authority?       |
 | Topic/side mapping and duplicate-topic review          | Topics, matching, histories | Can user-created propositions map consistently to persistent topics without silently moving existing records? |
 | Universal debate timing and extension rules            | Timers and engagement       | What are the initial time, maximum duration, eligible extension action, and rule-version semantics?           |
 | Content, media retention, and appeal policies          | Replay and moderation       | What can be recorded, removed, retained, appealed, and restored?                                              |
@@ -252,9 +380,10 @@ the interface.
 ## Work package 2 — Identity, profiles, and social graph
 
 **Build** account-level permissions for profile editing, follows, challenges, and moderation.
-Keep public browsing anonymous. Design the transition from current email/password sessions to
-wallet-first product access explicitly; do not conflate wallet connection, login, and a financial
-authorization. Prevent duplicate profile ownership when credentials are linked or changed.
+Keep public browsing anonymous. Follow the approved [email-first account design](email-first-accounts.md)
+with optional linked wallets and retained-credential reconciliation. Do not conflate wallet
+connection, login and financial authorization. Prevent duplicate profile ownership when
+credentials are linked or changed.
 
 - Users can create and edit permitted profile fields, follow and unfollow people or topics, and
   see a history of their nonfinancial participation.

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   ChallengeUnavailableError,
+  WalletRegistrationUnavailableError,
   createWalletRepository,
 } from "../dist/platform/auth/wallets.js";
 
@@ -161,6 +162,36 @@ describe("wallet repository atomic identity changes", () => {
       ChallengeUnavailableError,
     );
     assert.ok(calls.some(({ sql }) => sql === "ROLLBACK"));
+  });
+
+  it("blocks unknown-wallet account creation in email-first mode while retaining known-wallet login", async () => {
+    const unknown = fakePool();
+    await assert.rejects(
+      createWalletRepository(unknown.pool, {
+        allowNewAccounts: false,
+      }).completeLogin("challenge", {
+        tokenHash: "hash",
+        expiresAt: new Date("2026-10-01"),
+      }),
+      WalletRegistrationUnavailableError,
+    );
+    assert.ok(unknown.calls.some(({ sql }) => sql === "ROLLBACK"));
+    assert.ok(
+      !unknown.calls.some(({ sql }) =>
+        /INSERT INTO (users|wallet_identities|sessions)|UPDATE wallet_challenges/.test(
+          sql,
+        ),
+      ),
+    );
+    const existing = fakePool({ existingLogin: true });
+    const signedIn = await createWalletRepository(existing.pool, {
+      allowNewAccounts: false,
+    }).completeLogin("challenge", {
+      tokenHash: "hash",
+      expiresAt: new Date("2026-10-01"),
+    });
+    assert.equal(signedIn.id, "7");
+    assert.ok(existing.calls.some(({ sql }) => sql === "COMMIT"));
   });
 
   it("keeps wallet inventory scoped and exposes only gated mutations", async () => {

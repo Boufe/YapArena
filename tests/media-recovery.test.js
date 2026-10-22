@@ -3,6 +3,7 @@ import { it } from "node:test";
 import {
   createMediaRecovery,
   mayRecoverDisconnect,
+  isMovingSpeakerAccess,
 } from "../public/media-recovery.js";
 
 function setup(options = {}) {
@@ -126,6 +127,32 @@ it("bounds failed retries and stops when a fresh grant or permission is denied",
     await denied.run();
     assert.equal(denied.controller.intent, undefined);
   }
+});
+it("retries only the explicit moving-access conflict and preserves the bounded recovery budget", async () => {
+  assert.equal(
+    isMovingSpeakerAccess({ status: 409, code: "speaking_access_moving" }),
+    true,
+  );
+  for (const value of [
+    null,
+    "speaking_access_moving",
+    { status: 401, code: "speaking_access_moving" },
+    { status: 409 },
+    { code: "speaking_access_moving" },
+  ])
+    assert.equal(isMovingSpeakerAccess(value), false);
+  let exhausted = 0;
+  const f = setup({
+    join: async () => {
+      throw { status: 409, code: "speaking_access_moving" };
+    },
+    exhausted: () => exhausted++,
+  });
+  f.controller.start("speaker");
+  f.controller.retry();
+  for (let attempt = 0; attempt < 5; attempt++) await f.run();
+  assert.equal(exhausted, 1);
+  assert.equal(f.jobs.size, 0);
 });
 it("does not rejoin when offline or unavailable by the time the retry fires", async () => {
   for (const change of ["offline", "unavailable"]) {

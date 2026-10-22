@@ -1,0 +1,63 @@
+{
+  "at": "2026-10-20T18:18:47.782Z",
+  "revision": "c094f44fddcf9978520ddcc9460e1308f53d3a2c",
+  "worktreeChanges": true,
+  "command": "LC_ALL=C LANG=C DATABASE_TEST_MODE=host ACCOUNT_SECURITY_VERIFY=true node scripts/verify-database-isolation.ts",
+  "result": "PASS",
+  "processExitCode": 0,
+  "fresh": {
+    "tests": 179,
+    "pass": 179,
+    "fail": 0,
+    "skipped": 0
+  },
+  "upgrade": {
+    "tests": 179,
+    "pass": 179,
+    "fail": 0,
+    "skipped": 0
+  },
+  "baseTreasury": {
+    "fresh": {
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0
+    },
+    "upgrade": {
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0
+    }
+  },
+  "newBridgeGroups": 16,
+  "sourceHashes": {
+    "src/platform/auth/provider-passkeys.ts": "ce724633ae5bfb94946513b74e8d37ae241668df9d5654253f701533c6e7c6e5",
+    "src/platform/auth/privy.ts": "1948df96c2d45681dfd7c3c8c0ac2a1efbd708cec6968d4b3128914c13731113",
+    "src/platform/auth/account-operations.ts": "98ad05fb3b190170b279066bcf08cb963015080ed8a0070be9ad771ad411fe55",
+    "src/platform/auth/provider-session-monitor.ts": "21043b715ee05e17f2fe73c18de8a6611389ef6cce9f12d2006df30926ad4342",
+    "src/platform/auth/account-access.ts": "9ce31cb246f926bde7e31242aab6ea97f740b8b846a8fb08f69cb0fe85cece4d",
+    "src/platform/auth/provider-identity-recovery.ts": "d42485af0412355f42d99726d9004cd1509bf3b7a30a47ce4fcd85a85ff2c9bd",
+    "src/platform/auth/provider-revocation.ts": "4f33a0ef928e62adbebe80db9d82d2467056f804e60f51651098a73b0fbce8f1",
+    "src/platform/auth/security-passkeys.ts": "4ae5e5eb6cd361c915b91984e2db332d4ec2df7d99947b0978e3a95493441255",
+    "migrations/1792426012000_add-provider-passkey-provenance.js": "a7d2896153e1779914ce48f59c8207c490a0e5c2de827bcb9b725ee7294f3de3",
+    "scripts/verify-database-isolation.ts": "0b1ce1049719e54172a6b8c33cd9816bad1bef4b8142e4d489fae570a3ad9ec0",
+    "tests/provider-passkeys-postgres.test.js": "f02010e020a57a673f07e1c68fa0bf05a900f6a1b5c41e904ffb5bf01dea7302",
+    "tests/provider-passkeys.test.js": "15e6da2714bf626d61318d9d51a8b8ac42642305df2e1e2e6c85887dc9f2e350",
+    "tests/provider-passkey-fixture.js": "f987294880e64a206b3e4741e6e30e678b4b269fba3201fe80aa0c9349e37308",
+    "tests/provider-accounts-postgres.test.js": "9e68876ff42948f3bda1f1041f0d257760f5a8bc0ba122199a3cc3ea048922e3",
+    "tests/account-security-passkeys-postgres.test.js": "8949a3858c1e5e577d7429904b9c551b44d5ec896f9237ac1386030ce14c7c0b",
+    "dist/platform/auth/provider-passkeys.js": "531ea8dd67a9a7c805f3a638d05052b4e549d1d6502ec340f9235961a6fcf488",
+    "dist/platform/auth/provider-session-monitor.js": "bacef1abdf0e8958210b8f777b001c8d02e74b1ac6edc006165b13eca5875a6b",
+    "dist/platform/auth/provider-revocation.js": "f52ff4be0fcb3242c57d195ccfd863fc1150cef2484e537c17787773ab22afb7",
+    "dist/platform/auth/account-operations.js": "1dd773f12e4b5583bb03b34f4d20f6ece0116c48ebb12a5d93b9880332e90932",
+    "dist/platform/auth/account-access.js": "b2a6648235327f527816ccdf8be86319a64664241feae0a7e07e9010c62067ac",
+    "dist/platform/auth/provider-identity-recovery.js": "ab9054ea4145ae5f2e26f2297e1f12528b3aa3b19e29c4a2e7fce7a31ba67313"
+  },
+  "logSha256": "8d15dd0f24550ae12bfd4945ecc4efe0dd315cee199d51b8d09520555e2f5736",
+  "scope": "Disposable local PostgreSQL owner/runtime roles; synthetic trusted provider GET/token evidence with real cryptographic WebAuthn assertions. No actual provider enrollment, hosted authentication, physical device or funds.",
+  "limitations": [
+    "A selected real Privy credential public_key export and RP compatibility remain unverified.",
+    "The real provider SDK/operation bridge/native browser integration is a separate pending gate.",
+    "No live financial or identity provider operations were performed."
+  ]
+}

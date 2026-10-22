@@ -1,0 +1,188 @@
+{
+  "result": "PASS",
+  "runId": 39695525275,
+  "runAttempt": 1,
+  "url": "https://github.com/Boufe/YapArena/actions/runs/39695525275",
+  "completedAt": "2026-10-22T00:05:06Z",
+  "reviewedAt": "2026-10-22T00:07:45.888465+00:00",
+  "branchRevision": "e8fcdffb6e4e7a857cf761b136b40fc99807d1a4",
+  "testedMergeCommit": "e9626bf6beb582b61a9c9a764176bb8569389503",
+  "mergeParents": [
+    "fd60543b5f6d8f0b65fe1f93807252064d9317f2",
+    "e8fcdffb6e4e7a857cf761b136b40fc99807d1a4"
+  ],
+  "testedTree": "35a3af3fd7e0b33a20ad1148e27b3e27766a73af",
+  "branchTree": "35a3af3fd7e0b33a20ad1148e27b3e27766a73af",
+  "allFiveCheckoutLogsVerified": true,
+  "testedSourceHashes": {
+    "scripts/coin-sandbox-operator.ts": "4b92c712549d6c193b23141c8f106d23767b74f07dbbca1dcb17b3e6688c9311",
+    "tests/coin-sandbox-postgres.test.js": "2f9a5d722a3427840217c6bce5ef93912608c91fa830153621bbce5f910a6109",
+    "scripts/verify-wallet-browser.ts": "3720a754856057a21398c2995a0fdb7733a258814aeea6d9ead66a07f2774287",
+    "frontend/account-auth.tsx": "554f8bff0da7be8426dfea0297421dbbc5e4a46acc4f2d0a4632b97a7dfd38e4",
+    ".github/workflows/ci.yml": "4a609e84af78a8932b5059a38abf749cf51969d6a5a495c06e25efc959524672",
+    ".github/workflows/reusable-quality.yml": "78f246b5a0eb94745d70ea96e8bc59aca4162d9026708c7f4df95385ed549fcb"
+  },
+  "sourceScope": {
+    "parentRevision": "3096ca776a04f3cf38ad835d7348329791c0385b",
+    "changedFiles": [
+      "scripts/coin-sandbox-operator.ts",
+      "tests/coin-sandbox-postgres.test.js"
+    ],
+    "applicationSourceComparedWithParentUnchanged": true,
+    "webDeploymentRequiredByThisCommit": false,
+    "liveOrHostedOperatorExecutionInferred": false
+  },
+  "environment": {
+    "runner": "Ubuntu 24.04.5",
+    "qualityNode": "24.22.0",
+    "integrationNode": "24.22.0",
+    "databaseMode": "disposable Docker PostgreSQL; native PostgreSQL17 tools for Unicode/replay prerequisites"
+  },
+  "quality": {
+    "tests": 859,
+    "passed": 859,
+    "failed": 0,
+    "skipped": 0,
+    "coverage": {
+      "lines": 95.31,
+      "branches": 91.21,
+      "functions": 95.35
+    },
+    "rawTestCountSequence": [5, 5, 240, 859, 240],
+    "eachFreshAndUpgrade": {
+      "accountSecurityLedger": 240,
+      "treasury": 5
+    }
+  },
+  "integration": {
+    "result": "success",
+    "eachFreshAndUpgrade": {
+      "accountSecurityLedger": 240,
+      "a4": 17,
+      "treasury": 5
+    },
+    "rawTestCountSequence": [5, 5, 240, 17, 240, 17],
+    "allSectionsZeroFailuresAndSkips": true,
+    "retainedWallet": {
+      "status": "passed",
+      "groups": 4,
+      "fixtureSha256": "3720a754856057a21398c2995a0fdb7733a258814aeea6d9ead66a07f2774287",
+      "fixtureHashProvenance": "Exact tested Git tree; actual status/groups independently read in integration stdout.",
+      "acceptanceJsonUploaded": false
+    },
+    "nativePostgresUnicodeSetup": "passed",
+    "replayPackagingAndPipeline": "passed",
+    "coreBrowser": "passed",
+    "community": {
+      "trial": "community-http-load",
+      "result": "PASS",
+      "viewers": 500,
+      "rooms": 50,
+      "seconds": 30,
+      "writes": 300,
+      "deliverySamples": 3000,
+      "deliveryP50Ms": 30,
+      "deliveryP95Ms": 211,
+      "stormRecoveryMs": 435,
+      "restartRecoveryMs": 3637,
+      "maxStreams": 500,
+      "maxRooms": 50,
+      "rssGrowthMiB": 17.51,
+      "slowClientStressMutations": 1500,
+      "bufferPressure": 10,
+      "finalStreams": 0,
+      "maxRuntimeConnections": 8,
+      "secondProcessMutations": 60
+    },
+    "backupIsolatedRestore": "passed",
+    "publicDiscoveryApiSmokeAndDesktopMobileBrowsers": "passed",
+    "cleanup": "passed"
+  },
+  "artifact": {
+    "id": 12390144634,
+    "name": "core-browser-evidence",
+    "bytes": 19289002,
+    "sha256": "fef2f6ebd0956bd79846ff1346bce7720f6e5d8cd9d81e7386761538a3708f98",
+    "entries": 37,
+    "privateDownload": true,
+    "parentStatus": "passed",
+    "parentPassedSteps": 4,
+    "childJsonCount": 5,
+    "explicitResultPassChildJsonCount": 4,
+    "a4AssertionEvidenceWithoutResultField": true,
+    "retainedWalletAcceptanceJsonUploaded": false
+  },
+  "jobs": [
+    {
+      "id": 119551826758,
+      "name": "monitoring",
+      "conclusion": "success",
+      "checkout": "e9626bf6beb582b61a9c9a764176bb8569389503",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39695525275/job/119551826758",
+      "startedAt": "2026-10-21T23:46:08Z",
+      "completedAt": "2026-10-21T23:46:31Z",
+      "rawLogSha256": "33adf9e04421c90501ce07aa523dd7d18eff5d8c79b19e5220866a7396e595e3",
+      "rawLogBytes": 18197,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119551827102,
+      "name": "deployment",
+      "conclusion": "success",
+      "checkout": "e9626bf6beb582b61a9c9a764176bb8569389503",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39695525275/job/119551827102",
+      "startedAt": "2026-10-21T23:46:08Z",
+      "completedAt": "2026-10-21T23:46:23Z",
+      "rawLogSha256": "55e7b3e5c2ad90165190a2bdefb50215374a3ae2c474648a5f4b50f24c47d10e",
+      "rawLogBytes": 14874,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119551827674,
+      "name": "quality / check",
+      "conclusion": "success",
+      "checkout": "e9626bf6beb582b61a9c9a764176bb8569389503",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39695525275/job/119551827674",
+      "startedAt": "2026-10-21T23:46:08Z",
+      "completedAt": "2026-10-21T23:51:36Z",
+      "rawLogSha256": "5b44905f2516a1627c05418331fa940f1fac439a68a96b68d2036403d1f10b5c",
+      "rawLogBytes": 109800,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119553733864,
+      "name": "container",
+      "conclusion": "success",
+      "checkout": "e9626bf6beb582b61a9c9a764176bb8569389503",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39695525275/job/119553733864",
+      "startedAt": "2026-10-21T23:51:38Z",
+      "completedAt": "2026-10-21T23:57:43Z",
+      "rawLogSha256": "606d50f442fab7a113a9ca3f1f2c6831f6c8963e7aeb28caeabe42c1be698b22",
+      "rawLogBytes": 1231137,
+      "rawLogPrivateMode": "0600"
+    },
+    {
+      "id": 119553733882,
+      "name": "integration",
+      "conclusion": "success",
+      "checkout": "e9626bf6beb582b61a9c9a764176bb8569389503",
+      "url": "https://github.com/Boufe/YapArena/actions/runs/39695525275/job/119553733882",
+      "startedAt": "2026-10-21T23:51:38Z",
+      "completedAt": "2026-10-22T00:05:05Z",
+      "rawLogSha256": "1d31f9db587a6d55d3102cd554352e6c8f79047c57668cf9f8b103a1f8412517",
+      "rawLogBytes": 257306,
+      "rawLogPrivateMode": "0600"
+    }
+  ],
+  "limitations": [
+    "CI uses runner-local disposable PostgreSQL and synthetic browser/media/retained-wallet fixtures; not a genuine hosted financial/operator trial or physical-device acceptance.",
+    "The deployment job validates Compose only; no Render deployment or hosted CLI execution is inferred.",
+    "The commit changes only the sandbox operator script and its PostgreSQL test. It does not change application, browser or migration source from deployed3096ca7.",
+    "CI coverage95.31/91.21/95.35 is the observed GitHub value; the separate local859 run measured95.32/91.23/95.35. Neither replaces the other.",
+    "Configured HIGH/CRITICAL ignore-unfixed Trivy scans passed for both images; success does not establish zero vulnerabilities.",
+    "The retained acceptance.json is excluded by the upload glob; actual passed/groups4 is read from stdout and the fixture hash from the tested tree.",
+    "Separate installed-SDK125, genuine passkey/wallet, hosted guest, native18, coin22, cookie7/14 and real Redis evidence is not rerun or upgraded by this CI.",
+    "Raw logs and ZIP remain private0600; published excerpts contain fixed-pattern allowlisted aggregates only. No credentials, account identifiers, tokens, raw request/provider bodies or arbitrary log text is copied.",
+    "No live financial eligibility, provider route/custody approval, financial liability or money movement is enabled by these passing checks."
+  ]
+}

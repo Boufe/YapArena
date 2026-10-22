@@ -197,11 +197,14 @@ async function barrier(f) {
   await lockAccount(client, f.userId);
   return client;
 }
-function app() {
+function app({ emailFirst = false } = {}) {
   return createApp({
     users: createUserRepository(pool),
     sessions,
-    wallets: createWalletRepository(pool),
+    wallets: createWalletRepository(pool, { allowNewAccounts: !emailFirst }),
+    authProvider: emailFirst
+      ? { appId: "synthetic-wallet-policy", verifier: {}, accounts: {} }
+      : undefined,
     messages: { isReady: async () => {} },
     logger: createLogger({ enabled: false }),
     authRateLimit: 1000,
@@ -259,6 +262,137 @@ describe(
       await ownerPool.end();
     });
 
+    it("rejects a genuinely signed unknown-wallet signup in email-first mode and keeps retained wallet sign-in", async () => {
+      const server = app({ emailFirst: true });
+      const unknownChain = nextChain++;
+      const repository = createWalletRepository(pool, {
+        allowNewAccounts: false,
+      });
+      const unknown = await request(server)
+        .post("/api/auth/wallet/login/challenge")
+        .send({ address: newWallet.address, chainId: unknownChain })
+        .expect(201);
+      const rejected = await request(server)
+        .post("/api/auth/wallet/login/verify")
+        .send({
+          challengeId: unknown.body.id,
+          signature: await newWallet.signMessage({
+            message: unknown.body.message,
+          }),
+        })
+        .expect(403);
+      assert.match(rejected.body.error, /Use email/);
+      assert.equal(rejected.headers["set-cookie"], undefined);
+      assert.equal(
+        (await repository.getChallenge(unknown.body.id)).accountId,
+        null,
+      );
+      assert.equal(
+        (
+          await ownerPool.query(
+            "SELECT 1 FROM wallet_identities WHERE address=$1 AND chain_id=$2",
+            [newWallet.address.toLowerCase(), unknownChain],
+          )
+        ).rowCount,
+        0,
+      );
+      const known = await fixture({ walletOnly: true });
+      const challenge = await request(server)
+        .post("/api/auth/wallet/login/challenge")
+        .send({ address: ownerWallet.address, chainId: known.chainId })
+        .expect(201);
+      const loggedIn = await request(server)
+        .post("/api/auth/wallet/login/verify")
+        .send({
+          challengeId: challenge.body.id,
+          signature: await ownerWallet.signMessage({
+            message: challenge.body.message,
+          }),
+        })
+        .expect(200);
+      assert.equal(loggedIn.body.user.id, known.userId);
+      assert.ok(loggedIn.headers["set-cookie"]);
+    });
+
+    it("locally reproduces rejection of pre-deletion cookies, passwords and a delayed known-wallet callback without recreating the retired account", async () => {
+      const deleted = await fixture(),
+        retained = await fixture(),
+        server = app(),
+        walletRepository = createWalletRepository(pool);
+      const credential = (
+        await ownerPool.query("SELECT email FROM users WHERE id=$1", [
+          deleted.userId,
+        ])
+      ).rows[0];
+      const challenge = await request(server)
+        .post("/api/auth/wallet/login/challenge")
+        .send({ address: ownerWallet.address, chainId: deleted.chainId })
+        .expect(201);
+      assert.equal(
+        (await walletRepository.getChallenge(challenge.body.id)).accountId,
+        deleted.userId,
+        "the callback must have been bound to a known account before deletion",
+      );
+      const signature = await ownerWallet.signMessage({
+        message: challenge.body.message,
+      });
+      await request(server)
+        .get("/api/auth/me")
+        .set("Cookie", `session=${deleted.token.token}`)
+        .expect(200);
+      await ownerPool.query("DELETE FROM users WHERE id=$1", [deleted.userId]);
+      await request(server)
+        .get("/api/auth/me")
+        .set("Cookie", `session=${deleted.token.token}`)
+        .expect(401);
+      await request(server)
+        .post("/api/auth/login")
+        .send({ email: credential.email, password })
+        .expect(401);
+      for (let replay = 0; replay < 2; replay++)
+        await request(server)
+          .post("/api/auth/wallet/login/verify")
+          .send({ challengeId: challenge.body.id, signature })
+          .expect(410);
+      assert.equal(
+        (
+          await ownerPool.query(
+            "SELECT count(*)::int n FROM users WHERE id=$1 OR email=$2",
+            [deleted.userId, credential.email],
+          )
+        ).rows[0].n,
+        0,
+      );
+      assert.equal(
+        (
+          await ownerPool.query(
+            "SELECT count(*)::int n FROM wallet_identities WHERE address=$1 AND chain_id=$2",
+            [ownerWallet.address.toLowerCase(), deleted.chainId],
+          )
+        ).rows[0].n,
+        0,
+      );
+      assert.equal(
+        (
+          await ownerPool.query(
+            "SELECT count(*)::int n FROM users WHERE id=$1",
+            [deleted.userId],
+          )
+        ).rows[0].n,
+        0,
+      );
+      assert.ok(
+        (
+          await ownerPool.query("SELECT id FROM account_subjects WHERE id=$1", [
+            deleted.userId,
+          ])
+        ).rows[0],
+      );
+      assert.equal(
+        (await sessions.findUserByTokenHash(retained.token.tokenHash)).id,
+        retained.userId,
+      );
+    });
     it("a stolen cookie and attacker-wallet signature cannot link or unlink", async () => {
       const f = await fixture();
       const http = app();

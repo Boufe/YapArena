@@ -1,0 +1,35 @@
+{
+  "testedAt": "2026-10-20T04:05:18.013Z",
+  "revision": "03ecffb71d20c662350940eef014571a2ac2bf7f",
+  "sourceHashes": {
+    "src/platform/shared-abuse.ts": "9b03132be0c377d8f1724dc1a046a71a56db80f3ea8c901ef978774f2ea10e1d",
+    "scripts/verify-auth-redis.ts": "060df2cfc223193d136077349c12fbd798b785126233686e01e2253a95996825"
+  },
+  "environment": "isolated local loopback Redis and synthetic HTTP principals",
+  "runtime": "v24.19.0",
+  "redisVersion": "7.4.11",
+  "mode": "verifier-owned disposable Docker instance",
+  "checks": [
+    "100 atomic concurrent increments through two clients; TTL expiry",
+    "two independent HTTP middleware instances: shared IP budget, account/operation/environment separation, opaque HMAC keys",
+    "two separate Node HTTP worker processes enforce one Redis IP/account budget under concurrent requests",
+    "closed-port and accepted-but-stalled handshake bounded; backoff fails immediately; protected mutation fails closed while public read works",
+    "evictable policy rejected before concurrent commands can execute",
+    "noeviction memory exhaustion fails closed and retains existing counters",
+    "paused Redis command deadline, connection destruction, retry cooldown and bounded uncertain counter execution",
+    "nonpersistent restart loses counters and permits a new window; this store cannot be financial security state",
+    "aggregate latency/error/throttle metrics contain no fixture identities, key namespace or key secret"
+  ],
+  "observedStoreSeconds": {
+    "samples": 173,
+    "p50": 0.0028664999999999737,
+    "p95": 0.0037602499999998145,
+    "max": 1.001504333
+  },
+  "limitations": [
+    "HTTP fixtures include separate Node processes, but synthetic principals are not PostgreSQL session acceptance.",
+    "Logout and revocation routing during outages is independently covered by the actual application unit suite.",
+    "No hosted Redis changes, provider acceptance, live financial authorization, physical-device or screen-reader claims.",
+    "Nonpersistent restarts reset abuse budgets. PostgreSQL must own financial and revocation state."
+  ]
+}

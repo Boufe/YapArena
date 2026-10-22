@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-20T20:00:53.028Z",
+  "revision": "d6e2d355da255e03c257802c890c036c4d572a62",
+  "projectRef": "ypteqfmjietdqjzyvgtk",
+  "appliedMigrations": [
+    "1792426012000_add-provider-passkey-provenance",
+    "1792426013000_add-provider-passkey-bootstrap"
+  ],
+  "ownerOnly": true,
+  "runtimeNonIdleSessions": 0,
+  "retainedAccounts": 3,
+  "totalAccounts": 4,
+  "liveJournals": 0,
+  "encryptedBackupSha256": "26789f24ee85ed3eb55391d6078ca566600e5d53b4020fcfd556be6b5e302f79",
+  "rollback": "Forward-only schema changes. Retained encrypted backup is emergency recovery evidence; do not run down migrations or reset accounts. Reassess application compatibility before code rollback."
+}

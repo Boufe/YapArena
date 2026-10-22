@@ -1,0 +1,38 @@
+{
+  "at": "2026-10-20T06:00:50.343Z",
+  "scope": "Read-only named staging security Redis configuration; no keys, limits, allowlists, outages, plans, service state or retained records mutated.",
+  "accepted": false,
+  "tls": true,
+  "namespaceConfigured": true,
+  "providerReportedVersion": "8.1.10",
+  "maxmemoryPolicy": "noeviction",
+  "persistenceMode": "off",
+  "providerAvailability": "available",
+  "engineBoundary": "Render currently documents new Key Value instances as Valkey8; this is control-plane version evidence, not runtime INFO.",
+  "runtimeServerRole": null,
+  "runtimeInfoVerified": false,
+  "aggregateLatency": {
+    "scope": "staging security Redis histogram only",
+    "at": "2026-10-20T05:58:37.842Z",
+    "observations": 0,
+    "measured": false,
+    "reason": "All observed histogram buckets, sum and count were zero; no request-latency conclusion."
+  },
+  "alternativesTried": [
+    "TLS workstation connection closed before INFO; no endpoint or credential output.",
+    "Existing paid worker SSH rejected publickey; zero available configured identity files and no SSH-agent identity.",
+    "Free web service has no shell/SSH according to current official Render docs.",
+    "Existing public aggregate metrics read successfully; zero Redis samples."
+  ],
+  "limitations": [
+    "No actual hosted INFO permission, runtime role, latency, multi-instance, fault or restart acceptance.",
+    "Local Redis7.4 acceptance remains distinct from this provider-reported8.1.10 staging configuration.",
+    "No SSH setup or allowlist change is requested; a post-deploy behavioral probe remains actionable."
+  ],
+  "sources": [
+    "https://render.com/docs/key-value",
+    "https://render.com/docs/ssh",
+    "https://render.com/docs/free#free-key-value"
+  ],
+  "nextSafeAction": "After deploying the verified integrated revision, the lead-authorized retired registration probe with exact staging Origin and empty JSON creates no identity. Its 410 occurs after the new store validates INFO memory noeviction and EVAL; matching aggregate ok/latency metrics can establish code-enforced hosted behavior. This is not direct INFO output or version evidence."
+}

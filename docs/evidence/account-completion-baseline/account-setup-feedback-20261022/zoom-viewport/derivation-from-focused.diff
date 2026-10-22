@@ -1,0 +1,39 @@
+--- focused-7130/scripts/verify-email-auth-browser.ts
++++ zoom-8beb/scripts/verify-email-auth-browser.ts
+@@ -2629,7 +2629,17 @@
+           ),
+           true,
+         );
+-        await capture(page, "passkey-confirmation-zoom.png", true);
++        const zoomObservation = await page.evaluate(() => ({
++          viewportWidth: innerWidth,
++          viewportHeight: innerHeight,
++          cssZoom: Number(getComputedStyle(document.documentElement).zoom),
++          sharedHeaderCount: document.querySelectorAll("[data-site-header]").length,
++          setupCardCount: document.querySelectorAll("#passkey-setup-resume > section").length,
++          documentFitsViewport: document.documentElement.scrollWidth <= innerWidth + 1,
++        }));
++        assert.deepEqual(zoomObservation, { viewportWidth: 1280, viewportHeight: 900, cssZoom: 2, sharedHeaderCount: 1, setupCardCount: 1, documentFitsViewport: true });
++        await writeFile(resolve(directory, "zoom-viewport-observation.json"), JSON.stringify(zoomObservation) + "\n");
++        await capture(page, "passkey-confirmation-zoom-viewport.png", false);
+         checks.push(
+           `${name}: the persistent passkey confirmation reflows with reachable controls at 200% CSS zoom`,
+         );
+@@ -3762,8 +3772,6 @@
+ }
+ try {
+   await verifyPrivyPasskeySetup("desktop", { width: 1440, height: 1000 });
+-  await verifyPrivyPasskeySetup("mobile", { width: 390, height: 844 });
+-  await verifyPrivyPasskeySetup("desktop-initial-account-outage", { width: 1440, height: 1000 }, false, false, false, false, true);
+   assert.deepEqual(errors, []);
+   await writeFile(
+     resolve(directory, "browser-results.json"),
+@@ -3778,7 +3786,7 @@
+         errors,
+         requirementFailures,
+         scope:
+-          "FOCUSED final-confirmation regressions only; selected maintained helper bodies unchanged. Local SSR fixture and installed Privy SDK; public provider metadata fetched live and intercepted for fixtures. Most fixtures disable CAPTCHA; two email-send cases enable a synthetic Turnstile API to exercise the installed SDK callback and unmodified timeout paths. OTP/passkey provider endpoints and application responses, including durable wallet status/retry projections, are synthetic. Wallet fixtures assert no browser provider creation, signing, funding or transfer call. Real Chromium virtual-authenticator ceremonies exercise native passkey creation/assertion; real PostgreSQL acceptance is recorded separately. No real CAPTCHA validation, email delivery, genuine provider login/link/wallet creation, hosted session, physical device or complete WCAG conformance evidence.",
++          "FOCUSED desktop confirmation and viewport-only 200% CSS zoom capture; selected main invocation and zoom observation/capture are the only changes from maintainedaa8. Local SSR fixture and installed Privy SDK; public provider metadata fetched live and intercepted for fixtures. Most fixtures disable CAPTCHA; two email-send cases enable a synthetic Turnstile API to exercise the installed SDK callback and unmodified timeout paths. OTP/passkey provider endpoints and application responses, including durable wallet status/retry projections, are synthetic. Wallet fixtures assert no browser provider creation, signing, funding or transfer call. Real Chromium virtual-authenticator ceremonies exercise native passkey creation/assertion; real PostgreSQL acceptance is recorded separately. No real CAPTCHA validation, email delivery, genuine provider login/link/wallet creation, hosted session, physical device or complete WCAG conformance evidence.",
+       },
+       null,
+       2,

@@ -1,0 +1,38 @@
+{
+  "result": "PASS",
+  "exitCode": 0,
+  "environment": "local PostgreSQL17 disposable owner/runtime; synthetic browsers/provider/media",
+  "quality": {
+    "tests": 854,
+    "passed": 854,
+    "failed": 0,
+    "skipped": 0,
+    "coverage": {
+      "lines": 95.31,
+      "branches": 91.19,
+      "functions": 95.35
+    },
+    "thresholdEach": 90
+  },
+  "eachFreshAndUpgrade": {
+    "accountSecurityLedger": 235,
+    "a4": 17,
+    "treasury": 5
+  },
+  "gates": [
+    "database isolation",
+    "browser-role denial",
+    "runtime/owner separation",
+    "worker/triggers/future defaults",
+    "account/A4/arena/shared data",
+    "retained-wallet strict browser",
+    "homepage",
+    "Live/replay"
+  ],
+  "outputSha256": "d1fa8b5d078a6a453799ac5e7f23a6c876ed6a20247b32cd17d9c864415099ab",
+  "limitations": [
+    "No genuine provider authentication or wallet creation acceptance",
+    "No hosted database, provider sandbox, live funds or device/screen-reader acceptance",
+    "Worktree source hashes bind this result; exact revision CI follows commits"
+  ]
+}

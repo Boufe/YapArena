@@ -1,0 +1,25 @@
+--- scripts/verify-wallet-browser.ts	2026-10-21 17:10:41
++++ /private/tmp/yaparena-embedded-wallet-verifier-draft/red/verify-wallet-browser.ts	2026-10-21 17:11:03
+@@ -6,7 +6,7 @@
+ import { chromium, type Browser, type Page } from "playwright-core";
+ import pg from "pg";
+ import { privateKeyToAccount } from "viem/accounts";
+-import type {} from "../frontend/account-types.ts";
++import type {} from "/Users/felixboucher/Documents/Codex/YapArena/frontend/account-types.ts";
+ 
+ // Only explicit disposable loopback databases and local application instances.
+ // Wallets are deterministic test signers; no provider or chain calls are made.
+@@ -289,8 +289,11 @@
+       refreshBarrierDeadline.promise,
+     ]);
+     assert.equal(refreshBarrierTimedOut, false);
+-    assert.equal(await countWallets(accountId), 1);
+-    assert.equal(await page.locator("#signed-in").isVisible(), false);
++    const redCount = await countWallets(accountId);
++    const redVisible = await page.locator("#signed-in").isVisible();
++    await writeFile(resolve(directory, "red-observation.json"), JSON.stringify({ phase, committedWallets: redCount, signedInVisible: redVisible, refreshBarrierTimedOut }));
++    assert.equal(redCount, 1);
++    assert.equal(redVisible, true);
+     await page
+       .locator("#account-notice")
+       .filter({ hasText: "Checking your account…" })

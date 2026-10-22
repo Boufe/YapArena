@@ -1,0 +1,58 @@
+{
+  "nativeIdeaSearchWithoutJavaScript": true,
+  "at": "2026-10-20T00:44:12.805Z",
+  "origin": "https://yaparena-staging-web.onrender.com",
+  "revision": "f942dc6290e5794395c380612abc826ea7952b16",
+  "topLevelCspViolations": 0,
+  "observations": [
+    {
+      "viewport": "desktop",
+      "pages": [
+        "/",
+        "/live",
+        "/debates",
+        "/topics",
+        "/about",
+        "/match",
+        "/coins"
+      ],
+      "initialProviderRequests": 0,
+      "popupReadyMs": 2036,
+      "authBundle": {
+        "durationMs": 933,
+        "transferBytes": 1721094,
+        "encodedBytes": 1720794
+      },
+      "captchaFrames": 2,
+      "pageErrors": 0,
+      "overflow": false,
+      "cancellationAndFocus": true,
+      "headerZoomChecked": true
+    },
+    {
+      "viewport": "mobile",
+      "pages": [
+        "/",
+        "/live",
+        "/debates",
+        "/topics",
+        "/about",
+        "/match",
+        "/coins"
+      ],
+      "initialProviderRequests": 0,
+      "popupReadyMs": 1344,
+      "authBundle": {
+        "durationMs": 512,
+        "transferBytes": 1721138,
+        "encodedBytes": 1720838
+      },
+      "captchaFrames": 2,
+      "pageErrors": 0,
+      "overflow": false,
+      "cancellationAndFocus": true,
+      "headerZoomChecked": false
+    }
+  ],
+  "scope": "Real anonymous staging pages and provider/public metadata in fresh desktop/mobile Chromium contexts, no interception. No email or OTP submitted, CAPTCHA solved, identity or session created, or money action attempted. Signed-in/header grant behavior has separate synthetic local evidence; earlier founder signup is separate. Workstation timings do not establish population performance or physical-device/WCAG acceptance."
+}

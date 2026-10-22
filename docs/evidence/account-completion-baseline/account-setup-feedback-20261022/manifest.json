@@ -1,0 +1,568 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-22T01:34:57.279Z",
+  "scope": "Local synthetic SDK/browser evidence and guarded disposable PostgreSQL integration; no hosted or genuine-provider acceptance",
+  "runs": {
+    "fullSdk": {
+      "checks": 184,
+      "verifier": "b2c88ac7",
+      "resultSHA256": "dba2d80a4fe09078a70c1feb0ff666cad23aae9e9768b5e61b508ca6446ca214",
+      "caveat": "Initial-outage case has no prior draft but original shared label/shortcut; corrected focused run records null."
+    },
+    "correctedFocused": {
+      "checks": 32,
+      "derivedVerifier": "7130b89d",
+      "maintainedVerifier": "aa844969",
+      "resultSHA256": "3eff88a119b07fd18b1e51ac8e7b1363c2eb3c379aee5cbc2b324b16f8834eeb",
+      "cardAxeReports": 9
+    },
+    "zoomViewport": {
+      "checks": 11,
+      "derivedVerifier": "8beb3856",
+      "resultSHA256": "f7775cf1eb31e9f774b04b4cd3d8781b35ba9e386df6cb5eb62def833997bff5",
+      "scope": "One desktop fixture, viewport-only CSS zoom2 capture; not a full run or physical browser zoom trial"
+    },
+    "integrated": {
+      "coordinatorSteps": 4,
+      "tests": 870,
+      "skipped": 0,
+      "coverage": {
+        "line": 93.79,
+        "branch": 91.28,
+        "function": 95.12
+      },
+      "fresh": {
+        "accountSecurity": 249,
+        "a4": 17,
+        "treasury": 5
+      },
+      "upgrade": {
+        "accountSecurity": 249,
+        "a4": 17,
+        "treasury": 5
+      },
+      "retainedWalletGroups": 4,
+      "disposableCatalog": "23b2c7e6"
+    }
+  },
+  "overlap": "Counts overlap; do not sum184+32+11 as unique tests.",
+  "rawFiles": "Copied JSON original bytes are retained as .json.raw siblings; raw logs/screenshots are unchanged.",
+  "preliminaryPrivacy": {
+    "textFilesScanned": 79,
+    "privateKeyOrCredentialUrlMarkers": 0,
+    "knownSecretScan": "Lead separately runs the current configured-secret scan before publication; this pattern screen is not that scan."
+  },
+  "fileCount": 102,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 9597,
+      "sha256": "011206b8480e5191d10c19bc76757d8ac4bdcd3f7b5fa028527800aef977331e"
+    },
+    {
+      "path": "focused-derivation-receipt.json",
+      "bytes": 2666,
+      "sha256": "c8b2ca9f555e64107b93b2e3bdbd99ffda738e629f51543d8243ed9bb2e282b3"
+    },
+    {
+      "path": "focused/browser-results.json",
+      "bytes": 9502,
+      "sha256": "3eff88a119b07fd18b1e51ac8e7b1363c2eb3c379aee5cbc2b324b16f8834eeb"
+    },
+    {
+      "path": "focused/browser-results.json.raw",
+      "bytes": 9502,
+      "sha256": "3eff88a119b07fd18b1e51ac8e7b1363c2eb3c379aee5cbc2b324b16f8834eeb"
+    },
+    {
+      "path": "focused/executed-verifier.source.txt",
+      "bytes": 132508,
+      "sha256": "7130b89de044fcf5836f7e918d270034f8003bcf7617798fb92fe03679de2b23"
+    },
+    {
+      "path": "focused/passkey-accessibility-checking-desktop-initial-account-outage.json",
+      "bytes": 42,
+      "sha256": "73966bd6d5667db6a10cf3d5093cf0ce0fddc674f64137ebe4f851c210d66654"
+    },
+    {
+      "path": "focused/passkey-accessibility-checking-desktop-initial-account-outage.json.raw",
+      "bytes": 37,
+      "sha256": "3fed624f6a002014cef7ba68d86fbc17243feff3bea4a77f8d29f2d60a93455a"
+    },
+    {
+      "path": "focused/passkey-accessibility-checking-desktop.json",
+      "bytes": 42,
+      "sha256": "73966bd6d5667db6a10cf3d5093cf0ce0fddc674f64137ebe4f851c210d66654"
+    },
+    {
+      "path": "focused/passkey-accessibility-checking-desktop.json.raw",
+      "bytes": 37,
+      "sha256": "3fed624f6a002014cef7ba68d86fbc17243feff3bea4a77f8d29f2d60a93455a"
+    },
+    {
+      "path": "focused/passkey-accessibility-checking-mobile.json",
+      "bytes": 42,
+      "sha256": "73966bd6d5667db6a10cf3d5093cf0ce0fddc674f64137ebe4f851c210d66654"
+    },
+    {
+      "path": "focused/passkey-accessibility-checking-mobile.json.raw",
+      "bytes": 37,
+      "sha256": "3fed624f6a002014cef7ba68d86fbc17243feff3bea4a77f8d29f2d60a93455a"
+    },
+    {
+      "path": "focused/passkey-accessibility-ready-desktop-initial-account-outage.json",
+      "bytes": 39,
+      "sha256": "864c36657366c2b7c27614eb0aa7d7963783836015e4bbebcc078f5f77c034f3"
+    },
+    {
+      "path": "focused/passkey-accessibility-ready-desktop-initial-account-outage.json.raw",
+      "bytes": 34,
+      "sha256": "8f209647ac0a603496edb04575da1f07c2d576f0e08243de80e4601a3f489663"
+    },
+    {
+      "path": "focused/passkey-accessibility-ready-desktop.json",
+      "bytes": 39,
+      "sha256": "864c36657366c2b7c27614eb0aa7d7963783836015e4bbebcc078f5f77c034f3"
+    },
+    {
+      "path": "focused/passkey-accessibility-ready-desktop.json.raw",
+      "bytes": 34,
+      "sha256": "8f209647ac0a603496edb04575da1f07c2d576f0e08243de80e4601a3f489663"
+    },
+    {
+      "path": "focused/passkey-accessibility-ready-mobile.json",
+      "bytes": 39,
+      "sha256": "864c36657366c2b7c27614eb0aa7d7963783836015e4bbebcc078f5f77c034f3"
+    },
+    {
+      "path": "focused/passkey-accessibility-ready-mobile.json.raw",
+      "bytes": 34,
+      "sha256": "8f209647ac0a603496edb04575da1f07c2d576f0e08243de80e4601a3f489663"
+    },
+    {
+      "path": "focused/passkey-accessibility-waiting-desktop-initial-account-outage.json",
+      "bytes": 41,
+      "sha256": "dbded6ef25195c7794ee17dedab00ee774dbe8241882db4339bd660745491b8c"
+    },
+    {
+      "path": "focused/passkey-accessibility-waiting-desktop-initial-account-outage.json.raw",
+      "bytes": 36,
+      "sha256": "4482048ce852e71a7ad50d23d36719ff6704f66e0113c5a9a76d9c1e34bb6d23"
+    },
+    {
+      "path": "focused/passkey-accessibility-waiting-desktop.json",
+      "bytes": 41,
+      "sha256": "dbded6ef25195c7794ee17dedab00ee774dbe8241882db4339bd660745491b8c"
+    },
+    {
+      "path": "focused/passkey-accessibility-waiting-desktop.json.raw",
+      "bytes": 36,
+      "sha256": "4482048ce852e71a7ad50d23d36719ff6704f66e0113c5a9a76d9c1e34bb6d23"
+    },
+    {
+      "path": "focused/passkey-accessibility-waiting-mobile.json",
+      "bytes": 41,
+      "sha256": "dbded6ef25195c7794ee17dedab00ee774dbe8241882db4339bd660745491b8c"
+    },
+    {
+      "path": "focused/passkey-accessibility-waiting-mobile.json.raw",
+      "bytes": 36,
+      "sha256": "4482048ce852e71a7ad50d23d36719ff6704f66e0113c5a9a76d9c1e34bb6d23"
+    },
+    {
+      "path": "focused/passkey-done-desktop-initial-account-outage.json",
+      "bytes": 262,
+      "sha256": "9e2787a59eac966a789588eb2f93ee03a591a927089d437d2cf1c486882a7278"
+    },
+    {
+      "path": "focused/passkey-done-desktop-initial-account-outage.json.raw",
+      "bytes": 233,
+      "sha256": "dcd72c8fab7de43eedf37568ed9e6a4dfc77668b31a67a800c5b48e32e0bea91"
+    },
+    {
+      "path": "focused/passkey-done-desktop.json",
+      "bytes": 263,
+      "sha256": "fae42f8497aef321081afad79e806f26149bfe821e79579488bd819b6cecd7f0"
+    },
+    {
+      "path": "focused/passkey-done-desktop.json.raw",
+      "bytes": 234,
+      "sha256": "28207a37de852c7a195f775d1d8f54cb2ca9da18972411227d39a2bfa7e03a9c"
+    },
+    {
+      "path": "focused/passkey-done-mobile.json",
+      "bytes": 263,
+      "sha256": "fae42f8497aef321081afad79e806f26149bfe821e79579488bd819b6cecd7f0"
+    },
+    {
+      "path": "focused/passkey-done-mobile.json.raw",
+      "bytes": 234,
+      "sha256": "28207a37de852c7a195f775d1d8f54cb2ca9da18972411227d39a2bfa7e03a9c"
+    },
+    {
+      "path": "focused/run.log",
+      "bytes": 5901,
+      "sha256": "85a26ecc30cb54702e274cca1e3065b7095d23b0c6147fcbd791e5add0053dbd"
+    },
+    {
+      "path": "full-sdk/browser-results.json",
+      "bytes": 40165,
+      "sha256": "dba2d80a4fe09078a70c1feb0ff666cad23aae9e9768b5e61b508ca6446ca214"
+    },
+    {
+      "path": "full-sdk/browser-results.json.raw",
+      "bytes": 40165,
+      "sha256": "dba2d80a4fe09078a70c1feb0ff666cad23aae9e9768b5e61b508ca6446ca214"
+    },
+    {
+      "path": "full-sdk/run.log",
+      "bytes": 36062,
+      "sha256": "8a5a88ab0e18ed6e99d0f2517b3e1d56f1925d33250b81008fb5a69c22ed3e1a"
+    },
+    {
+      "path": "integrated/a4-evidence.json",
+      "bytes": 4188,
+      "sha256": "1f050d080c559e60da8fdaa03c17ba08b6f397d54d0d12d2210b8ec0aed40855"
+    },
+    {
+      "path": "integrated/a4-evidence.json.raw",
+      "bytes": 4208,
+      "sha256": "556f18bb93fe68e16a222d55e10a9f6b7d5dd95f6e8c8b42a5f2dfd61cabf4d9"
+    },
+    {
+      "path": "integrated/arena-evidence.json",
+      "bytes": 882,
+      "sha256": "a88850850e74acbf8eee9df1903adad1d04b3e78c38dc88fee52ce8c5004e60c"
+    },
+    {
+      "path": "integrated/arena-evidence.json.raw",
+      "bytes": 881,
+      "sha256": "ab111ab3cc4f8e5ab8b24e085aff31008aba74095787780aa228667af4a7977b"
+    },
+    {
+      "path": "integrated/database/fresh-account-security.log",
+      "bytes": 31848,
+      "sha256": "2a7ccdb352e1e8081008110a4e1255efc862fad157d7e6acbde265be75b6eb2b"
+    },
+    {
+      "path": "integrated/database/fresh-inventory.json",
+      "bytes": 407786,
+      "sha256": "407aaa6621a29bd249c4859f8e26902f9b74f4634820fd00ebe69152689a40e4"
+    },
+    {
+      "path": "integrated/database/fresh-inventory.json.raw",
+      "bytes": 409274,
+      "sha256": "14f9188920a11ad93e7f2705bc974f8a21bf5938d8cbb8ac2b44e51cb198567f"
+    },
+    {
+      "path": "integrated/database/quality.log",
+      "bytes": 111130,
+      "sha256": "4af3b0cb4cecc2ac8d8d2f0f48c2d085baf8393862d04623e5ad901a3a693cae"
+    },
+    {
+      "path": "integrated/database/treasury-fresh.log",
+      "bytes": 947,
+      "sha256": "18a3e6bd0f4a076da06bcb5874431d260b234a8cc0630777ef07a479d6ed4aae"
+    },
+    {
+      "path": "integrated/database/treasury-upgrade.log",
+      "bytes": 943,
+      "sha256": "976c6d31107ccc9f221176c224e3cea319a1e877811c98362caa0abd99ea8c8c"
+    },
+    {
+      "path": "integrated/database/upgrade-account-security.log",
+      "bytes": 31860,
+      "sha256": "eca7558b5f6d9c7189f17969a7d3d7090cc6e9de99abdde856705eced1426137"
+    },
+    {
+      "path": "integrated/database/upgrade-inventory.json",
+      "bytes": 407800,
+      "sha256": "a735421e7f66a88514124e137ac2d537f24556302de6566e1e7faec377fbd9dc"
+    },
+    {
+      "path": "integrated/database/upgrade-inventory.json.raw",
+      "bytes": 409288,
+      "sha256": "4fa59e3e5b056f20ad8475f689a0188319c5dad26d426637f36db3bbbf20910f"
+    },
+    {
+      "path": "integrated/homepage-evidence.json",
+      "bytes": 1324,
+      "sha256": "763363865dea851fb4a524779dd1eb13b420bcfde361a0e73be39990f5679b3d"
+    },
+    {
+      "path": "integrated/homepage-evidence.json.raw",
+      "bytes": 1324,
+      "sha256": "763363865dea851fb4a524779dd1eb13b420bcfde361a0e73be39990f5679b3d"
+    },
+    {
+      "path": "integrated/live-evidence.json",
+      "bytes": 788,
+      "sha256": "3f9efe5cb49cdea40d79d60f8eaa4e04f7b98f3fd16f26b24cd940c3c9131d5d"
+    },
+    {
+      "path": "integrated/live-evidence.json.raw",
+      "bytes": 788,
+      "sha256": "3f9efe5cb49cdea40d79d60f8eaa4e04f7b98f3fd16f26b24cd940c3c9131d5d"
+    },
+    {
+      "path": "integrated/result.json",
+      "bytes": 659,
+      "sha256": "2cbddf007bcfa56fffd10ffd423378ebc1949d4c40d4941dbc228b47df3ab908"
+    },
+    {
+      "path": "integrated/result.json.raw",
+      "bytes": 659,
+      "sha256": "2cbddf007bcfa56fffd10ffd423378ebc1949d4c40d4941dbc228b47df3ab908"
+    },
+    {
+      "path": "integrated/retained-wallet/acceptance.json",
+      "bytes": 1467,
+      "sha256": "e4177023a95c45f4291da89ec441ecc61da812c8140eabd44595570a6c91d653"
+    },
+    {
+      "path": "integrated/retained-wallet/acceptance.json.raw",
+      "bytes": 1467,
+      "sha256": "e4177023a95c45f4291da89ec441ecc61da812c8140eabd44595570a6c91d653"
+    },
+    {
+      "path": "integrated/retained-wallet/password-removal-desktop.png",
+      "bytes": 607916,
+      "sha256": "9fb10243a803adcc89ba4bd65640e8dd1de4133c9b57660c19b9f77b45fffdaf"
+    },
+    {
+      "path": "integrated/retained-wallet/retained-removal-mobile.png",
+      "bytes": 422279,
+      "sha256": "a3e56d5fc065b227cfaa9a9f75cf26b9138fca1dfb91f6db864c1e09499a6aa3"
+    },
+    {
+      "path": "integrated/retained-wallet/sole-wallet-protection-mobile.png",
+      "bytes": 343065,
+      "sha256": "b5ec629b580af9e3ffb79d956659d8cdc5273115c53941100b692a0ceaca8ee6"
+    },
+    {
+      "path": "integrated/run.log",
+      "bytes": 75938,
+      "sha256": "b253b9552ba5aac922b9dd8af91a9306010e0a981e8f7c50474543952c0814e1"
+    },
+    {
+      "path": "integrated/shared-data-evidence.json",
+      "bytes": 924,
+      "sha256": "49838fdce2b6c7e36a82df38f8af354e06262e6bd13d5cada9553c012495a2ef"
+    },
+    {
+      "path": "integrated/shared-data-evidence.json.raw",
+      "bytes": 924,
+      "sha256": "49838fdce2b6c7e36a82df38f8af354e06262e6bd13d5cada9553c012495a2ef"
+    },
+    {
+      "path": "red-code/desktop.png",
+      "bytes": 298915,
+      "sha256": "229de0479f92aa69c3da6d80ee64c6d3dd840cf398fe59908d48fd9b53ce4b99"
+    },
+    {
+      "path": "red-code/observation.json",
+      "bytes": 228,
+      "sha256": "62b812e5bc20e2a4268a88c56a7f4c4ca33a0cd4b4177324799cd68838fda596"
+    },
+    {
+      "path": "red-code/observation.json.raw",
+      "bytes": 199,
+      "sha256": "bd105a0c596e3e08885bd7a0a5aa8d95a05a1ca09bf9ca8a5f51effd6b287e5d"
+    },
+    {
+      "path": "red-code/run.log",
+      "bytes": 667,
+      "sha256": "a98146f4f38fb8abfedab30ccf70c10219c43e64e5175b77c66b4cc7fdde0da0"
+    },
+    {
+      "path": "red-draft/desktop.png",
+      "bytes": 460714,
+      "sha256": "db91577994bccb49fdda2eac2254674e503b1c7e7b246eb966acf1bf3294a867"
+    },
+    {
+      "path": "red-draft/failure-source-receipt.json",
+      "bytes": 3602,
+      "sha256": "90dc31f314f9c19b88dbcac459d25a52466d716374a2b0831b07a503e0967da8"
+    },
+    {
+      "path": "red-draft/failure-source-receipt.json.raw",
+      "bytes": 3602,
+      "sha256": "90dc31f314f9c19b88dbcac459d25a52466d716374a2b0831b07a503e0967da8"
+    },
+    {
+      "path": "red-draft/observation.json",
+      "bytes": 265,
+      "sha256": "89dfd11183138bc17e6810922ea1ab601bd94ee763e0906024ef6bb7ab734d0d"
+    },
+    {
+      "path": "red-draft/observation.json.raw",
+      "bytes": 236,
+      "sha256": "88047209b6938b64a46ddd85451557dd33aa7bf3d1c86d4bffa0cfa0d8119389"
+    },
+    {
+      "path": "red-draft/run.log",
+      "bytes": 562,
+      "sha256": "0bbe4246677e54a71449e37d0e5e4d48a5da99be3342b0db4beadf9040627bbf"
+    },
+    {
+      "path": "red-held/desktop.png",
+      "bytes": 210910,
+      "sha256": "e3d51e90cbcfbcba95d4262e4ddc3fcb77c6a58d599156d51e4899bff4eb2f6c"
+    },
+    {
+      "path": "red-held/failure-source-receipt.json",
+      "bytes": 3422,
+      "sha256": "b9ce70096f191471a86ec1eb2a90090d31a707700c27bea7819849ddabb6c01c"
+    },
+    {
+      "path": "red-held/failure-source-receipt.json.raw",
+      "bytes": 3422,
+      "sha256": "b9ce70096f191471a86ec1eb2a90090d31a707700c27bea7819849ddabb6c01c"
+    },
+    {
+      "path": "red-held/observation.json",
+      "bytes": 201,
+      "sha256": "a29cd13955659c5a7fcc21309c74967067db67022009fcf9f7a671e001f4c59e"
+    },
+    {
+      "path": "red-held/observation.json.raw",
+      "bytes": 176,
+      "sha256": "317f11185df7c25433344bed4c9209ec89ce8ff208fb0a74f093f4c4bc7333c6"
+    },
+    {
+      "path": "red-held/run.log",
+      "bytes": 545,
+      "sha256": "5c6571684d1c240fa0de928b442b676031fdb8ba08b3005b8a95b74f1cdae98b"
+    },
+    {
+      "path": "screenshots/focused/passkey-confirmation-complete-mobile.png",
+      "bytes": 330365,
+      "sha256": "81217b00e16c9c6e54c3932e5b5a59b9700a06296be262d12b8a0133ec35188f"
+    },
+    {
+      "path": "screenshots/focused/passkey-confirmation-zoom.png",
+      "bytes": 1277327,
+      "sha256": "d5152456c2a0e36ea03521f30e7cb4fd80e56d54f04634b8e1493474dbc08f18"
+    },
+    {
+      "path": "screenshots/focused/passkey-done-desktop-initial-account-outage.png",
+      "bytes": 460267,
+      "sha256": "7a301df8df9e6e4875841577859079331ebcbb5c95a2fdc58fee420f0752a905"
+    },
+    {
+      "path": "screenshots/focused/passkey-done-desktop.png",
+      "bytes": 462489,
+      "sha256": "442273623f471c2c8f00bc6a93afb6026dc64d01fb1774f63503d884a9f33a5f"
+    },
+    {
+      "path": "screenshots/focused/passkey-done-mobile.png",
+      "bytes": 312950,
+      "sha256": "ddf5299bf06a16e46ce3f5e1803e497f03d1b4a4ad88cdcc8155f7d753028ff7"
+    },
+    {
+      "path": "screenshots/full-sdk/embedded-wallet-pending-desktop.png",
+      "bytes": 448638,
+      "sha256": "56098c134c3260d6c32ed777c592c29d500c8e11780924bc4da75211dd7840b6"
+    },
+    {
+      "path": "screenshots/full-sdk/embedded-wallet-ready-desktop.png",
+      "bytes": 460605,
+      "sha256": "c0de423ab615205c515fddb6935f23a50d7d9c31e630f719ef31b7fee0eddd25"
+    },
+    {
+      "path": "screenshots/full-sdk/embedded-wallet-ready-mobile.png",
+      "bytes": 314635,
+      "sha256": "cca8daa443b6c7c9802528793720d3e1ad452517d551a8e1136e4c99e03af7ea"
+    },
+    {
+      "path": "screenshots/full-sdk/passkey-confirmation-complete-desktop.png",
+      "bytes": 479091,
+      "sha256": "c36d07c231bc415633972752e8103280f3151eb7e2b4bc84f1cfee5a3480a868"
+    },
+    {
+      "path": "screenshots/full-sdk/passkey-confirmation-complete-mobile.png",
+      "bytes": 330365,
+      "sha256": "81217b00e16c9c6e54c3932e5b5a59b9700a06296be262d12b8a0133ec35188f"
+    },
+    {
+      "path": "screenshots/full-sdk/passkey-confirmation-held-desktop.png",
+      "bytes": 186385,
+      "sha256": "14777c6088d05c2332256e2950e5c31006252019645dbc6ca2f63a80d7b52dd9"
+    },
+    {
+      "path": "screenshots/full-sdk/passkey-confirmation-held-mobile.png",
+      "bytes": 89382,
+      "sha256": "1998ff91579d795063d2c45e8e0ec6f36dd090e4a761a763a116060cb0a9eed1"
+    },
+    {
+      "path": "screenshots/full-sdk/passkey-confirmation-zoom.png",
+      "bytes": 1034858,
+      "sha256": "2f7f5748ebbe97ebcdead778400048cd11b15c689ffc110feb351aafefe7ca7b"
+    },
+    {
+      "path": "screenshots/full-sdk/verify-email-invalid-code-mobile.png",
+      "bytes": 102747,
+      "sha256": "810448f5d65c628b436794ac27fdea60be37f4e6818e758a7b542cb55a156ff9"
+    },
+    {
+      "path": "screenshots/full-sdk/verify-email-provider-denied-desktop.png",
+      "bytes": 295722,
+      "sha256": "ddb7a8c0040b5714b32f9069494615ad84d69bc32484e27dad17018fec99844a"
+    },
+    {
+      "path": "screenshots/full-sdk/verify-email-provider-denied-mobile.png",
+      "bytes": 102417,
+      "sha256": "232f1d17d99217baa54d758642ca7f72f0cfc0861e07e1143010e3e110841e95"
+    },
+    {
+      "path": "source-receipt.json",
+      "bytes": 6731,
+      "sha256": "6e7083b327fbbfb4fe95acad969bf8a8a1c0bcd52d78820b80cced2519caace1"
+    },
+    {
+      "path": "verifier-report-axe.diff",
+      "bytes": 4168,
+      "sha256": "1be90923c20fdab9d18eaa5defca0038852351575e5a2f7badc0bf88e9872b8b"
+    },
+    {
+      "path": "zoom-viewport/browser-results.json",
+      "bytes": 5528,
+      "sha256": "f7775cf1eb31e9f774b04b4cd3d8781b35ba9e386df6cb5eb62def833997bff5"
+    },
+    {
+      "path": "zoom-viewport/browser-results.json.raw",
+      "bytes": 5528,
+      "sha256": "f7775cf1eb31e9f774b04b4cd3d8781b35ba9e386df6cb5eb62def833997bff5"
+    },
+    {
+      "path": "zoom-viewport/derivation-from-focused.diff",
+      "bytes": 3629,
+      "sha256": "ad4ff594a5e39c4d45a4679545e0b09b434b2830f1554d6c68f0ee9a60074ba6"
+    },
+    {
+      "path": "zoom-viewport/executed-verifier.source.txt",
+      "bytes": 133172,
+      "sha256": "8beb3856f3f59f7580dbd46f4856eae49afc33b4eaec386d9a93cb473da77722"
+    },
+    {
+      "path": "zoom-viewport/passkey-confirmation-zoom-viewport.png",
+      "bytes": 163832,
+      "sha256": "a873c7c85ba4c1cc0a33dc8328ef206d2e2d28f9cc8b17cf35c5014090b6b768"
+    },
+    {
+      "path": "zoom-viewport/run.log",
+      "bytes": 1947,
+      "sha256": "98c47ee85ff000e10168bf43213ca87a70f88572b44cbb4018eaee88d6d7b346"
+    },
+    {
+      "path": "zoom-viewport/zoom-viewport-observation.json",
+      "bytes": 150,
+      "sha256": "d7e44007a2c488b93bb38a42601264ef52eb54f0ea0a03e4cdb60ef2ef4d97ec"
+    },
+    {
+      "path": "zoom-viewport/zoom-viewport-observation.json.raw",
+      "bytes": 125,
+      "sha256": "fe0a56d401cc4860ecbf0bf5cc7cdaa0b8713045b2d865e2b00f91b7e0aaa153"
+    }
+  ]
+}

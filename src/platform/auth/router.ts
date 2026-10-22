@@ -1,5 +1,11 @@
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
+import type { IdentityVerifier } from "./privy.ts";
+import { ProviderUnavailableError } from "./privy.ts";
+import {
+  ProviderAccountError,
+  type createProviderAccounts,
+} from "./provider-accounts.ts";
 import { publicUser } from "./users.ts";
 import type { PublicUser, AuthenticationUser } from "./users.ts";
 import { SessionUnavailableError } from "./sessions.ts";
@@ -20,9 +26,12 @@ import {
 import {
   ChallengeUnavailableError,
   WalletAlreadyLinkedError,
+  WalletRegistrationUnavailableError,
 } from "./wallets.ts";
 import { createApiRateLimiter } from "../security.ts";
 import { WalletOperationError } from "./wallet-operations.ts";
+import { AccountOperationError } from "./account-operations.ts";
+import type { createEmbeddedWalletProvisioning } from "./embedded-wallet-provisioning.ts";
 
 const dummyPasswordHash =
   "$argon2id$v=19$m=19456,p=1,t=2$lyjbixDyiZIjLayIBjKzug$XkfmwNfqtaLsRnC6LtyIEGEQ5pApGzGiypF/XpcVboI";
@@ -50,7 +59,7 @@ function isUniqueViolation(error: unknown) {
   );
 }
 
-function getCookieSettings(environment: string) {
+export function getCookieSettings(environment: string) {
   const isProduction = environment === "production";
 
   return {
@@ -67,9 +76,11 @@ function getCookieSettings(environment: string) {
 export function createRequireAuthentication({
   sessions,
   environment,
+  localRevocation = false,
 }: {
   sessions: ReturnType<typeof createSessionRepository>;
   environment: string;
+  localRevocation?: boolean;
 }) {
   const cookie = getCookieSettings(environment);
 
@@ -78,13 +89,20 @@ export function createRequireAuthentication({
     response: Response,
     next: NextFunction,
   ) {
+    // Authentication failures must be private too: downstream feature routers
+    // cannot install their cache policy before this middleware rejects access.
+    response.set("Cache-Control", "private, no-store");
+    response.vary("Cookie");
     const token = request.cookies[cookie.name];
 
     if (!token) {
       return response.status(401).json({ error: "authentication required" });
     }
 
-    const user = await sessions.findUserByTokenHash(hashSessionToken(token));
+    const user = await sessions.findUserByTokenHash(
+      hashSessionToken(token),
+      localRevocation ? { localRevocation: true } : undefined,
+    );
 
     if (!user) {
       return response.status(401).json({ error: "authentication required" });
@@ -106,6 +124,10 @@ export function createAuthRouter({
   sessionDurationMs = 7 * 24 * 60 * 60 * 1_000,
   authRateLimit = 10,
   rateLimitWindowMs = 15 * 60 * 1_000,
+  provider,
+  recordAuth = () => {},
+  synchronizeProvider,
+  sharedAccountLimiter,
 }: {
   users: ReturnType<typeof createUserRepository>;
   sessions: ReturnType<typeof createSessionRepository>;
@@ -117,12 +139,37 @@ export function createAuthRouter({
   sessionDurationMs?: number;
   authRateLimit?: number;
   rateLimitWindowMs?: number;
+  provider?: {
+    appId: string;
+    clientId?: string;
+    verifier: IdentityVerifier;
+    accounts: ReturnType<typeof createProviderAccounts>;
+    embeddedWallet?: {
+      repository: Pick<
+        ReturnType<typeof createEmbeddedWalletProvisioning>,
+        "get" | "requestRetry"
+      >;
+      authorizeAttempt: (userId: string) => Promise<void>;
+    };
+  };
+  recordAuth?: (
+    event: string,
+    seconds?: number,
+    phase?: "journey" | "exchange",
+  ) => void;
+  synchronizeProvider?: (userId: string) => Promise<void>;
+  sharedAccountLimiter?: express.RequestHandler;
 }) {
   const router = express.Router();
   const cookie = getCookieSettings(environment);
   const requireAuthentication = createRequireAuthentication({
     sessions,
     environment,
+  });
+  const requireLocalRevocation = createRequireAuthentication({
+    sessions,
+    environment,
+    localRevocation: true,
   });
   const authLimiter = createApiRateLimiter({
     windowMs: rateLimitWindowMs,
@@ -137,6 +184,190 @@ export function createAuthRouter({
     response.set("Cache-Control", "no-store");
     next();
   });
+
+  router.get("/provider", async (_request, response) => {
+    if (!provider) return response.json({ enabled: false });
+    try {
+      const methods = await provider.verifier.configuration();
+      return response.json({
+        enabled: true,
+        appId: provider.appId,
+        clientId: provider.clientId,
+        ...methods,
+      });
+    } catch {
+      return response
+        .status(503)
+        .json({ error: "sign-in is temporarily unavailable" });
+    }
+  });
+  router.post("/journey", authLimiter, (request, response) => {
+    const events = new Set([
+      "started",
+      "completed",
+      "code_sent",
+      "code_resent",
+      "provider_error",
+      "recovery_started",
+      "recovery_completed",
+      "recovery_failed",
+      "recovery_cancelled",
+      "cancelled",
+    ]);
+    const { event, seconds } = request.body ?? {};
+    if (
+      !request.body ||
+      Object.keys(request.body).some(
+        (key) => key !== "event" && key !== "seconds",
+      ) ||
+      !events.has(event) ||
+      (seconds !== undefined &&
+        (typeof seconds !== "number" ||
+          !Number.isFinite(seconds) ||
+          seconds < 0 ||
+          seconds > 600))
+    )
+      return response.status(400).json({ error: "invalid journey event" });
+    recordAuth(event, seconds);
+    return response.status(204).end();
+  });
+  router.post("/privy/exchange", authLimiter, async (request, response) => {
+    const exchangeStart = performance.now();
+    if (!provider)
+      return response
+        .status(503)
+        .json({ error: "email verification is not configured" });
+    // Login CSRF applies even before there is an application cookie.
+    if (request.get("origin") !== applicationOrigin)
+      return response
+        .status(403)
+        .json({ error: "request origin is not allowed" });
+    const currentToken = request.cookies[cookie.name];
+    if (
+      typeof currentToken === "string" &&
+      (await sessions.findUserByTokenHash(hashSessionToken(currentToken)))
+    )
+      return response.status(409).json({
+        error: "already signed in; sign out before changing accounts",
+      });
+    const header = request.get("authorization");
+    if (!header?.startsWith("Bearer ") || header.length > 12_000)
+      return response
+        .status(401)
+        .json({ error: "provider authentication required" });
+    let identity;
+    try {
+      identity = await provider.verifier.verify(header.slice(7));
+    } catch (error) {
+      recordAuth("provider_error");
+      if (error instanceof ProviderUnavailableError)
+        return response
+          .status(503)
+          .json({ error: "sign-in is temporarily unavailable" });
+      return response
+        .status(401)
+        .json({ error: "provider verification failed; sign in again" });
+    }
+    try {
+      const { token, tokenHash } = createSessionToken();
+      const result = await provider.accounts.exchange(
+        identity,
+        tokenHash,
+        new Date(now() + sessionDurationMs),
+      );
+      response.cookie(cookie.name, token, {
+        ...cookie.options,
+        maxAge: sessionDurationMs,
+      });
+      recordAuth(
+        result.created ? "signup_completed" : "signin_completed",
+        (performance.now() - exchangeStart) / 1000,
+        "exchange",
+      );
+      return response
+        .status(result.created ? 201 : 200)
+        .json({ user: publicUser(result.user), created: result.created });
+    } catch (error) {
+      if (error instanceof ProviderAccountError) {
+        if (error.code === "provider_reset_pending")
+          response.set("Retry-After", "5");
+        return response
+          .status(error.status)
+          .json({ error: error.message, code: error.code });
+      }
+      if (error instanceof SessionUnavailableError)
+        return response.status(401).json({ error: "account unavailable" });
+      throw error;
+    }
+  });
+  router.get("/methods", requireAuthentication, async (request, response) =>
+    response.json({
+      accountId: request.user!.id,
+      provider: provider
+        ? await provider.accounts.details(request.user!.id)
+        : null,
+      legacyPassword: Boolean(request.user!.email),
+    }),
+  );
+  router.get(
+    "/embedded-wallet",
+    requireAuthentication,
+    async (request, response) => {
+      if (!provider?.embeddedWallet)
+        return response
+          .status(503)
+          .json({ error: "wallet setup is temporarily unavailable" });
+      return response.json(
+        await provider.embeddedWallet.repository.get(request.user!.id),
+      );
+    },
+  );
+  router.post(
+    "/embedded-wallet",
+    requireAuthentication,
+    async (request, response, next) => {
+      if (request.get("origin") !== applicationOrigin)
+        return response
+          .status(403)
+          .json({ error: "request origin is not allowed" });
+      const body: unknown = request.body;
+      if (
+        !body ||
+        typeof body !== "object" ||
+        Array.isArray(body) ||
+        Object.keys(body).length !== 0
+      )
+        return response.status(400).json({ error: "invalid wallet request" });
+      if (request.get("X-YapArena-Expected-Account") !== request.user!.id)
+        return response
+          .status(409)
+          .json({ error: "account changed; refresh wallet setup" });
+      if (!provider?.embeddedWallet || !sharedAccountLimiter)
+        return response
+          .status(503)
+          .json({ error: "wallet setup is temporarily unavailable" });
+      return sharedAccountLimiter(request, response, next);
+    },
+    async (request, response) => {
+      const wallet = provider!.embeddedWallet!;
+      try {
+        await wallet.authorizeAttempt(request.user!.id);
+        return response
+          .status(202)
+          .json(await wallet.repository.requestRetry(request.user!.id));
+      } catch (error) {
+        if (error instanceof AccountOperationError)
+          return response.status(error.status).json({ error: error.message });
+        throw error;
+      }
+    },
+  );
+  if (sharedAccountLimiter)
+    router.use(
+      "/wallet/operations",
+      requireAuthentication,
+      sharedAccountLimiter,
+    );
 
   async function startSession(
     user: AuthenticationUser,
@@ -154,6 +385,8 @@ export function createAuthRouter({
   }
 
   router.post("/register", authLimiter, async (request, response) => {
+    if (provider)
+      return response.status(410).json({ error: "use verified email signup" });
     const email = normalizeEmail(request.body?.email);
     const password = request.body?.password;
 
@@ -224,15 +457,109 @@ export function createAuthRouter({
   });
 
   router.post("/logout", async (request, response) => {
+    if (request.body && Object.keys(request.body).length)
+      return response.status(400).json({
+        error: "this operation accepts no account or session selectors",
+      });
     const token = request.cookies[cookie.name];
-
+    if (!token) {
+      return response.status(401).json({
+        error:
+          "this session has ended; sign in again to sign out other devices",
+      });
+    }
     if (token) {
-      await sessions.deleteByTokenHash(hashSessionToken(token));
+      const hash = hashSessionToken(token);
+      const user = await sessions.findUserByTokenHash(hash, {
+        localRevocation: true,
+      });
+      if (!user) {
+        return response.status(401).json({
+          error:
+            "this session has ended; sign in again to sign out other devices",
+        });
+      }
+      const expectedAccount = request.get("X-YapArena-Expected-Account");
+      if (expectedAccount && expectedAccount !== user.id)
+        return response.status(409).json({
+          error: "the account changed before sign-out; refresh and try again",
+        });
+      if (user) {
+        try {
+          await sessions.revoke(user.id, hash, false, String(request.id));
+          if (synchronizeProvider)
+            void Promise.resolve()
+              .then(() => synchronizeProvider(user.id))
+              .catch(() => recordAuth("provider_revocation_retry"));
+        } catch (error) {
+          if (!(error instanceof SessionUnavailableError)) throw error;
+          return response.status(401).json({
+            error:
+              "this session ended before sign-out-all completed; sign in again to end other sessions",
+          });
+        }
+      }
     }
 
-    response.clearCookie(cookie.name, cookie.options);
+    // Revocation is authoritative in PostgreSQL. Do not delete the shared cookie
+    // in a delayed response: another tab may have established a newer session.
     return response.status(204).end();
   });
+
+  router.get("/sessions", requireLocalRevocation, async (request, response) => {
+    try {
+      return response.json(
+        await sessions.list(
+          request.user!.id,
+          hashSessionToken(request.cookies[cookie.name]),
+        ),
+      );
+    } catch (error) {
+      if (error instanceof SessionUnavailableError)
+        return response.status(401).json({ error: "authentication required" });
+      throw error;
+    }
+  });
+  // Session revocation remains available when provider or shared Redis is down.
+  router.delete(
+    "/sessions/:id",
+    requireLocalRevocation,
+    async (request, response) => {
+      const expectedAccount = request.get("X-YapArena-Expected-Account");
+      if (expectedAccount && expectedAccount !== request.user!.id)
+        return response.status(409).json({
+          error: "the account changed before sign-out; refresh and try again",
+        });
+      if (request.body && Object.keys(request.body).length)
+        return response
+          .status(400)
+          .json({ error: "this operation accepts no account selectors" });
+      const id = request.params.id;
+      if (
+        typeof id !== "string" ||
+        !/^[1-9][0-9]{0,18}$/.test(id) ||
+        BigInt(id) > 9223372036854775807n
+      )
+        return response.status(400).json({ error: "invalid session" });
+      try {
+        const removed = await sessions.revokeSession(
+          request.user!.id,
+          hashSessionToken(request.cookies[cookie.name]),
+          id,
+          String(request.id),
+        );
+        if (!removed)
+          return response.status(404).json({ error: "session unavailable" });
+        return response.json(removed);
+      } catch (error) {
+        if (error instanceof SessionUnavailableError)
+          return response
+            .status(401)
+            .json({ error: "authentication required" });
+        throw error;
+      }
+    },
+  );
 
   for (const [path, retainCurrent] of [
     ["/logout-all", false],
@@ -241,8 +568,13 @@ export function createAuthRouter({
     router.post(
       path,
       authLimiter,
-      requireAuthentication,
+      requireLocalRevocation,
       async (request, response) => {
+        const expectedAccount = request.get("X-YapArena-Expected-Account");
+        if (expectedAccount && expectedAccount !== request.user!.id)
+          return response.status(409).json({
+            error: "the account changed before sign-out; refresh and try again",
+          });
         // No account/session selector is accepted. Ownership comes from the live cookie.
         if (request.body && Object.keys(request.body).length)
           return response.status(400).json({
@@ -255,6 +587,10 @@ export function createAuthRouter({
             retainCurrent,
             String(request.id),
           );
+          if (synchronizeProvider)
+            void Promise.resolve()
+              .then(() => synchronizeProvider(request.user!.id))
+              .catch(() => recordAuth("provider_revocation_retry"));
         } catch (error) {
           if (error instanceof SessionUnavailableError)
             return response
@@ -262,7 +598,6 @@ export function createAuthRouter({
               .json({ error: "authentication required" });
           throw error;
         }
-        if (!retainCurrent) response.clearCookie(cookie.name, cookie.options);
         return response.status(204).end();
       },
     );
@@ -409,6 +744,8 @@ export function createAuthRouter({
             return response
               .status(410)
               .json({ error: "challenge expired or used" });
+          if (error instanceof WalletRegistrationUnavailableError)
+            return response.status(403).json({ error: error.message });
           throw error;
         }
       },
@@ -465,6 +802,10 @@ export function createAuthRouter({
             .status(400)
             .json({ error: "invalid wallet operation" });
         try {
+          if (provider && input.purpose === "link")
+            return response
+              .status(410)
+              .json({ error: "external wallet linking is unavailable" });
           const operation = await walletRepository.operations.create({
             ...input,
             targetWalletId:
@@ -516,6 +857,10 @@ export function createAuthRouter({
             .status(400)
             .json({ error: "invalid wallet operation proof" });
         try {
+          if (provider && input.purpose === "link")
+            return response
+              .status(410)
+              .json({ error: "external wallet linking is unavailable" });
           const result = await walletRepository.operations.complete({
             ...input,
             id: request.params.id,

@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "result": "INCOMPLETE",
+  "stage": "before",
+  "stopped": false,
+  "elapsedMs": null,
+  "requests": 3,
+  "mutations": 0,
+  "nextAction": "Inspect the saved scope; no automatic retry or owner rearm is authorized."
+}

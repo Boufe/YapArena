@@ -26,7 +26,8 @@ import { verifyPublicBotsBrowser } from "./verify-public-bots-browser.ts";
 /* global window, document */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
 import { once } from "node:events";
 import { createServer } from "node:net";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -612,6 +613,22 @@ try {
     debateSlug: `a4-browser-${tag}`,
     artifactDir: `${artifactDir}/shared-bots`,
   });
+  phase = "retained wallet account controls";
+  const retainedWallets = await promisify(execFile)(
+    process.execPath,
+    ["scripts/verify-wallet-browser.ts"],
+    {
+      env: {
+        ...process.env,
+        BROWSER_BASE_URL: base,
+        WALLET_TEST_OWNER_DATABASE_URL: ownerUrl.href,
+        BROWSER_ARTIFACT_DIR: `${artifactDir}/retained-wallet`,
+      },
+      timeout: 120000,
+      maxBuffer: 1024 * 1024,
+    },
+  );
+  process.stdout.write(retainedWallets.stdout);
   console.log(`A4 browser PASS; evidence ${artifactDir}`);
 } catch (error) {
   if (page && !page.isClosed())

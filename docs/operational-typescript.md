@@ -13,6 +13,84 @@ or production setting is added.
 
 ## Source inventory
 
+New email-first automation is also strict TypeScript: `reset-test-accounts` and
+`verify-auth-redis` are checked in the database-tools project;
+`verify-email-auth-browser` is checked in browser automation. The explicit reset
+is never imported by runtime or migrations. See [scope and limits](email-first-accounts.md).
+
+`verify-wallet-browser.ts` is now checked in browser automation. It supersedes the
+historical new-wallet-linking browser trial after external linking was removed
+from the product. The retained-wallet trial requires an explicit disposable
+loopback database and local runtime, seeds only synthetic retained credentials,
+and preserves negative proof/replay/expiry and last-method checks. Existing
+backend wallet-linking regression suites remain. It does not call Privy or a
+chain and does not establish genuine embedded-wallet acceptance.
+
+`coin-sandbox-operator.ts` is also checked in the database-tools project. It is an
+explicit owner-only, sandbox-only command, with no `.env` loading or HTTP listener.
+Its optional fixed Base Sepolia signing/broadcast commands require the isolated
+testnet rail and persist the nonce and exact transaction before submission.
+Its inbox drain and reconciliation run separately from
+runtime. See [the sandbox operating guide](coin-sandbox-operations.md) for command
+schemas, secret variable names, physical rail isolation and release boundaries.
+
+`verify-coin-testnet.ts` and `verify-coin-testnet-ledger.ts` are checked in the same
+project. Their fixed Base Sepolia/Circle test-asset paths use private disposable
+operator keys and distinguish standalone chain receipts from integrated
+application-ledger acceptance. `verify-security-passkey-browser.ts`,
+`verify-coin-sandbox-browser.ts`, `verify-session-coordination-browser.ts` and
+`verify-media-cloud-revocation.ts` are checked
+in browser automation. The first two use isolated real application backends with
+virtual browser devices; the last requires an explicitly authorized bounded
+hosted LiveKit trial. None substitutes for physical-device or screen-reader
+acceptance. See the [completion matrix](email-first-completion.md) for current
+commands, tested revisions and limits.
+
+`verify-account-staging.ts` performs a read-only, strict-TLS catalog/account
+preflight. `inspect-account-provider-reset.ts` is also checked in the
+database-tools project. It reads only the fixed staging owner's TLS snapshot and
+bounded Privy user GETs using the named Render service configuration; output is
+aggregate state/digest comparisons only. It never changes provider or account
+state, loads `.env`, or records private identities or credentials.
+`verify-embedded-wallet-staging.ts` is checked in the same project. It verifies
+the fixed deployed revision, read-only owner snapshots and repeated GET-only
+Privy ownership evidence. It imports exact committed TypeScript source using
+Node 24's explicit `--experimental-transform-types` flag, avoiding stale compiled
+code as an acceptance basis. Its offline self-test makes no network or database
+calls. See [invocation and result boundaries](embedded-wallet-verification.md).
+`retry-account-provider-reset.ts` is the separate fixed-staging owner command,
+checked in the same project. Its `retry-uncertain`, `reconcile-delayed` and
+`finalize-reviewed` commands require the matching `ACCOUNT_STAGING_PROVIDER_ACTION`
+and a caller-retained UUID. The latter two also require a private reviewed
+activity-log file and its exact SHA-256. `reconcile-delayed` permits only a single
+reviewed unfreeze after the selected freeze is independently established;
+`finalize-reviewed` permits only provider GETs and finalizes local state after
+the exact unfreeze is confirmed. Neither mode clears a fence on an unknown
+provider outcome.
+Build the reviewed server revision first; the CLI imports its compiled API.
+It selects the sole eligible manual/uncertain mapping, then delegates exact
+provider/digest inspection, atomic claim and full reset to the reviewed operator
+API. An incomplete audited attempt stops for inspection instead of starting
+another reset; do not switch to a new UUID to bypass that stop. It emits fixed stages
+and HTTP error status only, never account identifiers or provider response bodies.
+Its `--verify-transport` mode exercises the installed SDK's GET, POST freeze and
+DELETE freeze through the same mode-specific allowlist with an injected offline sender, and
+rejects incorrect methods, paths, bodies and content types. It makes no network
+or database calls and needs no operator configuration.
+`release-account-staging.ts` is a separate guarded owner command for
+encrypted backup, isolated restore/migration rehearsal and exact reviewed
+additive migrations. It requires independently stopped writers and passed
+release gates; its environment assertions alone do not establish either.
+Neither command resets accounts or enables live financial activity.
+`release-account-render.ts` separately inspects or operates only the named
+staging web and replay services. Each mutation requires its matching
+`ACCOUNT_STAGING_RENDER_ACTION`; deployment additionally requires the exact
+current `ACCOUNT_STAGING_RENDER_COMMIT`. It emits only allowlisted metadata.
+The operator must verify actual stopped writers, backup/rehearsal, release gates,
+live deployment status and readiness separately.
+The [account staging runbook](account-staging-release.md) gives the ordered
+commands, backup/rehearsal requirements and postflight boundaries.
+
 These former JavaScript files retain their names with a `.ts` extension:
 
 | Area                     | Sources under `scripts/`                                                                                                                                                                                    | Reason                                                                                                |
@@ -43,13 +121,13 @@ methods consumed by existing fixtures; these changes erase entirely at runtime.
 The remaining handwritten JavaScript scripts are intentionally outside the invoked
 release/database dependency graph:
 
-| Files under `scripts/`                                                                                                                                           | Why retained                                                                                                                           |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `a4-research.js`, `measure-local-journeys.js`, `report-playback.js`                                                                                              | Separate research and manual measurement/reporting tools.                                                                              |
-| `check-media-storage.js`                                                                                                                                         | Optional startup/hosted storage diagnostic; not a provisioning, migration or required release-verifier dependency.                     |
-| `initialize-project.js`                                                                                                                                          | Reusable project initialization utility.                                                                                               |
-| `verify-community-edge.js`, `verify-community-hosted-capacity.js`, `verify-replay-storage.js`, `verify-media-hosted-browser.js`, `verify-media-hosted-replay.js` | Separate manual edge/provider/storage/capacity trials, outside the release coordinators.                                               |
-| `verify-session-controls-browser.js`, `verify-wallet-browser.js`                                                                                                 | Separate manual account/wallet browser trials; required database authentication/security suites remain enforced by the existing tests. |
+| Files under `scripts/`                                                                                                                                           | Why retained                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `a4-research.js`, `measure-local-journeys.js`, `report-playback.js`                                                                                              | Separate research and manual measurement/reporting tools.                                                                      |
+| `check-media-storage.js`                                                                                                                                         | Optional startup/hosted storage diagnostic; not a provisioning, migration or required release-verifier dependency.             |
+| `initialize-project.js`                                                                                                                                          | Reusable project initialization utility.                                                                                       |
+| `verify-community-edge.js`, `verify-community-hosted-capacity.js`, `verify-replay-storage.js`, `verify-media-hosted-browser.js`, `verify-media-hosted-replay.js` | Separate manual edge/provider/storage/capacity trials, outside the release coordinators.                                       |
+| `verify-session-controls-browser.js`                                                                                                                             | Separate manual account browser trial; required database authentication/security suites remain enforced by the existing tests. |
 
 Applied `migrations/*.js`, `tests/*.test.js`, other test helpers and `eslint.config.js`
 also remain in their existing languages; their conversion was not authorized by this

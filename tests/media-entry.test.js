@@ -5,6 +5,7 @@ import { it } from "node:test";
 import {
   createMediaRecovery,
   mayRecoverDisconnect,
+  isMovingSpeakerAccess,
 } from "../public/media-recovery.js";
 import {
   createMediaDiagnostics,
@@ -237,8 +238,11 @@ function fixture() {
       return body;
     },
   });
-  const fetch = async (url) => {
+  const requestDetails = [];
+  let speakerGrant;
+  const fetch = async (url, options) => {
     requests.push(url);
+    requestDetails.push({ url, options });
     if (url.endsWith("/roles")) return response({ roles: [] });
     if (url.endsWith("/speaker-seat"))
       return speaker
@@ -249,11 +253,14 @@ function fixture() {
         ? viewerGrant
         : response({ token: "synthetic", url: "wss://synthetic.example" });
     if (url.endsWith("/speaker-token"))
-      return response({
-        token: "synthetic",
-        url: "wss://synthetic.example",
-        side: "A",
-      });
+      return (
+        speakerGrant ??
+        response({
+          token: "synthetic",
+          url: "wss://synthetic.example",
+          side: "A",
+        })
+      );
     if (url.endsWith("/device-check")) return response({});
     if (url.endsWith("/playback")) return response({}, 204);
     if (url.endsWith("/replay"))
@@ -281,6 +288,7 @@ function fixture() {
     Track: { Source: { Microphone: 2 }, sourceToProto: (value) => value },
     createMediaRecovery,
     mayRecoverDisconnect,
+    isMovingSpeakerAccess,
     createMediaDiagnostics,
     observePlayback: (element, options) =>
       observePlayback(element, {
@@ -308,6 +316,7 @@ function fixture() {
     storage,
     intervals,
     requests,
+    requestDetails,
     calls,
     jobs,
     listeners,
@@ -322,6 +331,9 @@ function fixture() {
     },
     setGrant: (grant) => {
       viewerGrant = grant;
+    },
+    setSpeakerGrant: (grant) => {
+      speakerGrant = grant;
     },
     setStateResponse: (state) => {
       stateResponse = state;
@@ -490,6 +502,76 @@ it("preserves speaker rejoin and mute intent through SDK navigation while releas
   assert.ok(f.calls.includes("disconnect"));
   assert.equal(f.jobs.size, 0);
   assert.equal(f.intervals.size, 0);
+});
+it("requests device takeover only on manual Join and retries committed moving-access conflicts without takeover", async () => {
+  const f = fixture();
+  f.speaker();
+  await f.start();
+  f.setSpeakerGrant(
+    f.response(
+      { error: "Moving speaker access.", code: "speaking_access_moving" },
+      409,
+    ),
+  );
+  await f.element("speaker").click();
+  const attempts = () =>
+    f.requestDetails.filter((entry) => entry.url.endsWith("/speaker-token"));
+  assert.deepEqual(JSON.parse(attempts()[0].options.body), {
+    replaceExisting: true,
+  });
+  assert.match(f.element("status").textContent, /Moving speaker access/);
+  const [timer, job] = [...f.jobs].find(
+    ([, entry]) => entry.ms >= 187 && entry.ms <= 313,
+  );
+  assert.ok(job, "moving-access conflict must keep bounded recovery active");
+  f.jobs.delete(timer);
+  f.setSpeakerGrant(undefined);
+  await job.fn();
+  await settle();
+  assert.deepEqual(JSON.parse(attempts()[1].options.body), {
+    replaceExisting: false,
+  });
+  assert.equal(
+    f.storage.get("media-speaker:33333333-3333-4333-8333-333333333333:1"),
+    "1",
+  );
+  f.listeners.get("pagehide")();
+});
+it("stops automatic speaker recovery on another-device denial instead of repeatedly taking the slot", async () => {
+  const f = fixture();
+  f.speaker();
+  await f.start();
+  f.setSpeakerGrant(
+    f.response(
+      { error: "Moving speaker access.", code: "speaking_access_moving" },
+      409,
+    ),
+  );
+  await f.element("speaker").click();
+  const [timer, job] = [...f.jobs].find(
+    ([, entry]) => entry.ms >= 187 && entry.ms <= 313,
+  );
+  f.jobs.delete(timer);
+  f.setSpeakerGrant(
+    f.response({ error: "Speaker access is active on another device." }, 409),
+  );
+  await job.fn();
+  await settle();
+  assert.equal(
+    [...f.jobs.values()].some((entry) => entry.ms < 400),
+    false,
+  );
+  const count = f.requests.filter((url) =>
+    url.endsWith("/speaker-token"),
+  ).length;
+  assert.match(f.element("status").textContent, /another device/);
+  f.listeners.get("online")();
+  await settle();
+  assert.equal(
+    f.requests.filter((url) => url.endsWith("/speaker-token")).length,
+    count,
+  );
+  f.listeners.get("pagehide")();
 });
 it("cancels joins whose authorization response arrives after leave", async () => {
   const f = fixture();

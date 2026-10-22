@@ -87,15 +87,18 @@ describe(
         hashSessionToken(token),
         false,
       );
-      let frozenAt = null;
+      // Like Privy, the fake reports the freeze time when the freeze happens.
+      // The confirmation rejects a freeze earlier than its request's second.
+      let frozenAt = null,
+        cutoff;
       const calls = [];
-      const cutoff = Math.floor(Date.now() / 1000);
       const control = {
         async state() {
           return { frozenAt };
         },
         async freeze() {
           calls.push("freeze");
+          cutoff = Math.floor(Date.now() / 1000);
           frozenAt = cutoff;
         },
         async unfreeze() {
@@ -1385,9 +1388,9 @@ describe(
       const f = await uncertainResetFixture(),
         entered = Promise.withResolvers(),
         release = Promise.withResolvers(),
-        requestId = randomUUID(),
-        cutoff = Math.floor(Date.now() / 1000);
+        requestId = randomUUID();
       let frozenAt = null,
+        cutoff,
         reads = 0,
         mutations = 0,
         inspections = 0,
@@ -1403,6 +1406,7 @@ describe(
         },
         async freeze() {
           mutations++;
+          cutoff = Math.floor(Date.now() / 1000);
           frozenAt = cutoff;
         },
         async unfreeze() {

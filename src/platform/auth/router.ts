@@ -29,6 +29,7 @@ import {
   WalletRegistrationUnavailableError,
 } from "./wallets.ts";
 import { createApiRateLimiter } from "../security.ts";
+import type { SharedRateLimits } from "../shared-abuse.ts";
 import { WalletOperationError } from "./wallet-operations.ts";
 import { AccountOperationError } from "./account-operations.ts";
 import type { createEmbeddedWalletProvisioning } from "./embedded-wallet-provisioning.ts";
@@ -128,6 +129,7 @@ export function createAuthRouter({
   recordAuth = () => {},
   synchronizeProvider,
   sharedAccountLimiter,
+  sharedRateLimits,
 }: {
   users: ReturnType<typeof createUserRepository>;
   sessions: ReturnType<typeof createSessionRepository>;
@@ -159,6 +161,7 @@ export function createAuthRouter({
   ) => void;
   synchronizeProvider?: (userId: string) => Promise<void>;
   sharedAccountLimiter?: express.RequestHandler;
+  sharedRateLimits?: SharedRateLimits;
 }) {
   const router = express.Router();
   const cookie = getCookieSettings(environment);
@@ -174,10 +177,12 @@ export function createAuthRouter({
   const authLimiter = createApiRateLimiter({
     windowMs: rateLimitWindowMs,
     limit: authRateLimit,
+    shared: sharedRateLimits?.("auth", "closed"),
   });
   const walletLimiter = createApiRateLimiter({
     windowMs: rateLimitWindowMs,
     limit: authRateLimit * 4,
+    shared: sharedRateLimits?.("auth-wallet", "closed"),
   });
 
   router.use((_request, response, next) => {

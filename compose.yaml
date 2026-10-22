@@ -22,6 +22,8 @@ services:
       COMMUNITY_STREAM_ENABLED: ${COMMUNITY_STREAM_ENABLED:-false}
       COMMUNITY_MAX_STREAMS: ${COMMUNITY_MAX_STREAMS:-500}
       COMMUNITY_MAX_ROOMS: ${COMMUNITY_MAX_ROOMS:-50}
+      # Local only; must match the credentials in monitoring/prometheus.yml.
+      METRICS_TOKEN: local-development-metrics-token-not-a-secret
       DATABASE_URL: postgresql://yaparena_runtime:${DATABASE_RUNTIME_PASSWORD:?Set DATABASE_RUNTIME_PASSWORD in .env}@db:5432/${POSTGRES_DB:-yaparena}
     ports:
       - "${HOST_PORT:-3000}:3000"

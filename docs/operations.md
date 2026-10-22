@@ -448,6 +448,7 @@ APP_ORIGIN=https://service.example.com
 TRUST_PROXY=1
 LOG_LEVEL=info
 HOST_PORT=3000
+METRICS_TOKEN=RANDOM_SCRAPER_TOKEN
 ```
 
 This block is an example of the file's contents, not a command to paste into the shell. Create the
@@ -461,6 +462,8 @@ and restrict who can read it. It is separate from the local `.env` file and must
   large value.
 - `LOG_LEVEL` controls operational detail, while `HOST_PORT` selects the loopback port used by the
   host reverse proxy.
+- `METRICS_TOKEN` is the bearer token the metrics collector sends to `/metrics`; without it the
+  production endpoint returns 404.
 
 ```sh
 docker compose --env-file /secure/yaparena.env \

@@ -42,7 +42,11 @@ export async function verifyHostedCommunityCapacity({
     }
   };
   async function metrics() {
-    const response = await fetch(`${base}/metrics`);
+    const response = await fetch(`${base}/metrics`, {
+      headers: process.env.METRICS_TOKEN
+        ? { Authorization: `Bearer ${process.env.METRICS_TOKEN}` }
+        : {},
+    });
     assert.equal(response.status, 200);
     const text = await response.text();
     const value = (name) =>

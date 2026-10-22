@@ -1,3 +1,4 @@
+import { asset } from "../discovery/assets.ts";
 import { siteHeaderMarkup } from "../discovery/site-header-web.ts";
 import type { createCommunityRepository } from "./repository.ts";
 
@@ -17,7 +18,7 @@ const escape = (value: string) =>
   );
 
 function shell(title: string, content: string, emailFirst: boolean) {
-  return `<!doctype html><html lang="en"${emailFirst ? " data-email-first" : ""}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(title)} · YAP Arena</title><link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/site-header.css"><script defer src="/assets/session-coordination.js"></script><script defer src="/assets/site.js"></script><script defer src="/assets/account-balance.js"></script><script type="module" src="/assets/site-header.js"></script><script type="module" src="/assets/community.js"></script></head><body><a class="skip-link" href="#main">Skip to content</a>${siteHeaderMarkup((name) => `/assets/${name}`)}<main id="main" class="container section">${content}</main><footer class="site-footer"><div class="container footer-inner">Community preview · No financial activity</div></footer></body></html>`;
+  return `<!doctype html><html lang="en"${emailFirst ? " data-email-first" : ""}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(title)} · YAP Arena</title><link rel="stylesheet" href="${asset("site.css")}"><link rel="stylesheet" href="${asset("site-header.css")}"><script defer src="${asset("session-coordination.js")}"></script><script defer src="${asset("site.js")}"></script><script defer src="${asset("account-balance.js")}"></script><script type="module" src="${asset("site-header.js")}"></script><script type="module" src="${asset("community.js")}"></script></head><body><a class="skip-link" href="#main">Skip to content</a>${siteHeaderMarkup(asset)}<main id="main" class="container section">${content}</main><footer class="site-footer"><div class="container footer-inner">Community preview · No financial activity</div></footer></body></html>`;
 }
 
 export function renderMyModeration(emailFirst = false) {
@@ -37,5 +38,5 @@ export function renderModeration(emailFirst = false) {
 }
 
 export function renderOverlay(event: PublicEvent) {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(event.proposition)} · Broadcast overlay</title><link rel="stylesheet" href="/assets/site.css"></head><body class="overlay-page"><main class="broadcast-overlay" aria-label="Debate broadcast information"><span class="eyebrow">YAP ARENA · ${escape(event.status.toUpperCase())}</span><h1>${escape(event.proposition)}</h1><p>${escape(event.topicTitle)}</p><div class="overlay-speakers"><span>${escape(event.speakerA ?? event.sideALabel)}</span><span aria-hidden="true">VS</span><span>${escape(event.speakerB ?? event.sideBLabel)}</span></div><small>Event information only. No winner or official support is shown.</small></main></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(event.proposition)} · Broadcast overlay</title><link rel="stylesheet" href="${asset("site.css")}"></head><body class="overlay-page"><main class="broadcast-overlay" aria-label="Debate broadcast information"><span class="eyebrow">YAP ARENA · ${escape(event.status.toUpperCase())}</span><h1>${escape(event.proposition)}</h1><p>${escape(event.topicTitle)}</p><div class="overlay-speakers"><span>${escape(event.speakerA ?? event.sideALabel)}</span><span aria-hidden="true">VS</span><span>${escape(event.speakerB ?? event.sideBLabel)}</span></div><small>Event information only. No winner or official support is shown.</small></main></body></html>`;
 }

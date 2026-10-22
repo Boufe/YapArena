@@ -13,6 +13,9 @@ or production setting is added.
 
 ## Source inventory
 
+`check-repository-files.ts` is checked in the database-tools project. It runs as
+`npm run check:files` and enforces the [evidence file policy](../CONTRIBUTING.md#evidence-and-status-records).
+
 New email-first automation is also strict TypeScript: `reset-test-accounts` and
 `verify-auth-redis` are checked in the database-tools project;
 `verify-email-auth-browser` is checked in browser automation. The explicit reset

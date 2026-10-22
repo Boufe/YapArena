@@ -65,8 +65,9 @@ implementing it. Do not treat a passing backend quality gate as permission to ac
    npm run check
    ```
 
-   This checks lint rules, formatting, and types, then runs tests with coverage thresholds. If the change
-   affects containers or Compose configuration, also render and start the relevant stack as described
+   This checks lint rules, formatting, the [tracked-file policy](#evidence-and-status-records) and
+   types, then runs tests with coverage thresholds. If the change affects containers or Compose
+   configuration, also render and start the relevant stack as described
    in the [operations runbook](docs/operations.md).
 
    For the complete database-backed gate, run `A4_QUALITY=true npm run verify:database-isolation`
@@ -122,9 +123,10 @@ browser-safe shared implementations in `src/features/`. Never edit or commit gen
   `tsconfig.frontend-build.json` (the isolated Node build tool). `npm run typecheck` and the normal
   `npm run check` CI gate include it.
 - `npm run build:frontend` emits every executable `frontend/**/*.ts` module to the corresponding
-  `public/**/*.js` path and builds `media.bundle.js`, `replay.bundle.js`, `hero-live.bundle.js` and
-  `homepage.bundle.js`. Type-only modules produce no asset. Run the type check before this focused
-  build; `npm run build` runs both and also compiles the server.
+  `public/**/*.js` path and builds the six bundles `media.bundle.js`, `replay.bundle.js`,
+  `hero-live.bundle.js`, `homepage.bundle.js`, `account-security.bundle.js` and
+  `account-auth.bundle.js`. Type-only modules produce no asset. Run the type check before this
+  focused build; `npm run build` runs both and also compiles the server.
 - `npm run dev` generates assets before starting the API, then watches frontend and shared discovery
   sources. The account authentication island is strict TSX, checked separately by
   `tsconfig.frontend-auth.json` and emitted with the automatic JSX runtime into
@@ -179,10 +181,29 @@ verifiers' existing built-server imports. Use Node 24 for direct `node scripts/n
 Keep runtime validation, fixture assertions, SQL, ordering, diagnostics and evidence boundaries
 intact. Do not rewrite applied JavaScript migrations or convert unrelated scripts incidentally.
 
+## Evidence and status records
+
+Evidence belongs in the pull request description and CI artifacts. Paste test output, timings and
+screenshots into the PR; the required `integration` job uploads browser results as the
+`core-browser-evidence` artifact. Do not commit screenshots, videos, raw logs or evidence folders.
+A short Markdown record in `docs/` is allowed only for a decision, or for a hosted or manual result
+that CI cannot reproduce. Update the
+[status table](docs/nonfinancial-implementation-plan.md#current-implementation-and-evidence) in
+place instead of adding status prose; older status text lives under `docs/history/`.
+
+`npm run check:files` runs inside `npm run check` and fails when a tracked file is:
+
+- an image, video or `.raw` file under `docs/` (for example `.png`, `.jpg`, `.svg`, `.mp4`, `.webm`); or
+- larger than 1 MiB, unless it is under `public/` (served assets).
+
+Files that predate the policy are listed in `scripts/repository-files-baseline.txt`. Do not add
+entries; remove one when its file is deleted. Existing evidence on main stays in place.
+
 ## Documentation changes
 
 Verify claims against the reviewed branch's source, scripts, migrations, workflows and saved trial
-evidence. Update the authoritative runbook and implementation status together when behavior changes.
+evidence. Follow the [evidence policy](#evidence-and-status-records) for new records. Update the
+authoritative runbook and implementation status together when behavior changes.
 Preserve dated reports and decisions; add a current-state note or superseding link when a finding,
 handoff, command or acceptance status is obsolete. Keep implemented, locally tested, hosted-tested
 and planned behavior distinct. Check relative links, anchors, referenced paths and formatting, and

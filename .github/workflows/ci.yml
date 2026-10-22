@@ -97,9 +97,9 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     needs: quality
-    # Normally 13-18 minutes. A stalled step fails instead of holding the
-    # runner until the 6-hour default.
-    timeout-minutes: 45
+    # Normally 13-18 minutes, up to about 50 when the Ubuntu mirror is slow.
+    # A hung step fails instead of holding the runner until the 6-hour default.
+    timeout-minutes: 60
 
     steps:
       - name: Download repository
@@ -115,9 +115,9 @@ jobs:
         run: npm ci
 
       - name: Install FFmpeg and native PostgreSQL verification tools
-        # Normally under a minute. A stalled mirror fails here instead of
-        # holding the runner for 20-40 minutes.
-        timeout-minutes: 10
+        # Normally under a minute, but 20-35 minutes when the Ubuntu mirror
+        # sends slowly; that run still passes. The cap only stops a real hang.
+        timeout-minutes: 40
         run: |
           # Retry a mirror connection that sends nothing for 20 s instead of
           # waiting on it. A config file also covers the apt-get update that

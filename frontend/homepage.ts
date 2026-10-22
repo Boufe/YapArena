@@ -33,6 +33,7 @@ import {
 import { emptyIdea } from "../src/features/discovery/homepage-model.ts";
 import { chartGeometry } from "../src/features/discovery/homepage-chart.ts";
 import { createRotationClock } from "../src/features/discovery/homepage-clock.ts";
+import { html } from "../src/platform/html.ts";
 import { bindHomepageChart } from "./homepage-chart.js";
 
 const root = document.getElementById("ya-market-v4")!;
@@ -274,9 +275,12 @@ if (root) {
       root.dataset.selected = id;
       side = "live";
       mainChart?.destroy();
-      $(".ya-feature").innerHTML = featureMarkup(current(), following.has(id));
+      $(".ya-feature").innerHTML = featureMarkup(
+        current(),
+        following.has(id),
+      ).toString();
       renderMain();
-      $("#ya-side").innerHTML = sideMarkup(current());
+      $("#ya-side").innerHTML = sideMarkup(current()).toString();
       controls();
       if (ghost) {
         const old = ghost,
@@ -327,7 +331,7 @@ if (root) {
         track.dataset.idea !== m.id ||
         track.dataset.revision !== (m.activity?.revision ?? "")
       ) {
-        track.innerHTML = argumentsMarkup(m);
+        track.innerHTML = argumentsMarkup(m).toString();
         track.dataset.idea = m.id;
         track.dataset.revision = m.activity?.revision ?? "";
         track.style.animation = "none";
@@ -373,7 +377,7 @@ if (root) {
       );
       svg.setAttribute("viewBox", `0 0 ${c.w} ${c.h}`);
       svg.dataset.latestRound = m.activity?.items.at(-1)?.id ?? "";
-      svg.innerHTML = c.markup;
+      svg.innerHTML = c.markup.toString();
       const chart = bindHomepageChart({
         root,
         svg,
@@ -406,7 +410,7 @@ if (root) {
         expanded()!,
         debateFilter,
         activeDebate,
-      );
+      ).toString();
       renderPlayer();
     }
     function renderPlayer() {
@@ -414,7 +418,7 @@ if (root) {
       if (!target) return;
       const d = expanded()?.debates.find((d) => d.id === activeDebate);
       target.hidden = !d;
-      if (d) target.innerHTML = playerMarkup(expanded()!, d);
+      if (d) target.innerHTML = playerMarkup(expanded()!, d).toString();
       else target.replaceChildren();
     }
     function renderGrid() {
@@ -464,17 +468,14 @@ if (root) {
       detailChart = undefined;
       $("#ya-grid-title").textContent =
         nav === "following" ? "Your watchlist" : "Ideas in motion";
-      $("#ya-grid").innerHTML = items.length
-        ? items
-            .map(
+      $("#ya-grid").innerHTML = (
+        items.length
+          ? html`${items.map(
               (m, i) =>
-                cardMarkup(m, m.id === expandedIdea) +
-                (i === insert
-                  ? detailMarkup(expanded()!, following.has(expandedIdea!))
-                  : ""),
-            )
-            .join("")
-        : `<p class="ya-empty">${data.available === false ? "Discovery temporarily unavailable. Try again shortly." : nav === "following" && followsState === "signed-out" ? 'Sign in to see your followed ideas. <a href="/account">Log in</a>.' : nav === "following" && followsState === "unavailable" ? "Follow status is unavailable. Try again when your connection returns." : "No ideas match this view. Try another category or follow an idea above."}</p>`;
+                html`${cardMarkup(m, m.id === expandedIdea)}${i === insert ? detailMarkup(expanded()!, following.has(expandedIdea!)) : ""}`,
+            )}`
+          : html`<p class="ya-empty">${data.available === false ? "Discovery temporarily unavailable. Try again shortly." : nav === "following" && followsState === "signed-out" ? html`Sign in to see your followed ideas. <a href="/account">Log in</a>.` : nav === "following" && followsState === "unavailable" ? "Follow status is unavailable. Try again when your connection returns." : "No ideas match this view. Try another category or follow an idea above."}</p>`
+      ).toString();
       if (insert >= 0) {
         $$("[data-detail-metric]").forEach((b) =>
           b.setAttribute(
@@ -589,20 +590,25 @@ if (root) {
       }
       const tickerPhase = tickerProgress();
       $(".ya-ticker").dataset.static = String(markets.length < 2);
-      $(".ya-ticker").innerHTML = tickerMarkup(markets).replace(
-        /^<div[^>]*>|<\/div>$/g,
-        "",
-      );
+      $(".ya-ticker").innerHTML = tickerMarkup(markets)
+        .toString()
+        .replace(/^<div[^>]*>|<\/div>$/g, "");
       sizeTicker(tickerPhase);
-      $("#ya-carousel-dots").innerHTML = dotsMarkup(markets, selected!);
-      $(".ya-filters").innerHTML = filtersMarkup({ ...next, ideas: markets });
+      $("#ya-carousel-dots").innerHTML = dotsMarkup(
+        markets,
+        selected!,
+      ).toString();
+      $(".ya-filters").innerHTML = filtersMarkup({
+        ...next,
+        ideas: markets,
+      }).toString();
       mainChart?.destroy();
       $(".ya-feature").innerHTML = featureMarkup(
         current(),
         following.has(selected!),
-      );
+      ).toString();
       renderMain();
-      $("#ya-side").innerHTML = sideMarkup(current());
+      $("#ya-side").innerHTML = sideMarkup(current()).toString();
       renderGrid();
       controls();
       progress(clock.fraction());
@@ -824,7 +830,11 @@ if (root) {
         b.id === "ya-chart-debate"
       ) {
         side = b.dataset.action ?? "debate";
-        $("#ya-side").innerHTML = sideMarkup(current(), side, position);
+        $("#ya-side").innerHTML = sideMarkup(
+          current(),
+          side,
+          position,
+        ).toString();
         schedule();
         $("#ya-side input,#ya-side button")?.focus({ preventScroll: true });
       }

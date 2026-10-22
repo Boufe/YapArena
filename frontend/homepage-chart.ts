@@ -22,6 +22,7 @@ interface ChartOptions {
 /* global document, requestAnimationFrame, cancelAnimationFrame */
 import { formatValue } from "../src/features/discovery/homepage-chart.ts";
 import { changeText } from "../src/features/discovery/homepage-view.ts";
+import { html } from "../src/platform/html.ts";
 export function bindHomepageChart({
   root,
   svg,
@@ -98,7 +99,8 @@ export function bindHomepageChart({
   if (!keyboard || !keyboard.classList.contains("ya-scrub-control")) {
     keyboard = document.createElement("label");
     keyboard.className = "ya-scrub-control";
-    keyboard.innerHTML = `<span>Explore chart history</span><input type="range" min="0" max="1000" step="10" value="1000" aria-label="Explore ${detail ? "expanded idea" : "trending idea"} chart history">`;
+    keyboard.innerHTML =
+      html`<span>Explore chart history</span><input type="range" min="0" max="1000" step="10" value="1000" aria-label="Explore ${detail ? "expanded idea" : "trending idea"} chart history">`.toString();
     svg.insertAdjacentElement("afterend", keyboard);
   }
   const slider = keyboard.querySelector("input")!;

@@ -1,4 +1,5 @@
 import type { HomeIdea } from "./homepage-model.ts";
+import { html, type SafeHtml } from "../../platform/html.ts";
 export type HomeMetric = "endorsement" | "price";
 export type HomeRange = "1D" | "1W" | "1M";
 export const formatValue = (
@@ -125,14 +126,20 @@ export function chartGeometry(
   };
   const y = (value: number) =>
     top + ((hi - value) / (hi - lo)) * (h - top - bottom);
-  let markup = `<title>${points.length ? "Sample" : "Unavailable"} ${metric === "price" ? "YES execution prices, in Yap Coins" : "participant endorsement, in percent"}</title>`;
+  const markup: SafeHtml[] = [
+    html`<title>${points.length ? "Sample" : "Unavailable"} ${metric === "price" ? "YES execution prices, in Yap Coins" : "participant endorsement, in percent"}</title>`,
+  ];
   for (const v of [lo, (lo + hi) / 2, hi])
-    markup += `<line x1="${left}" y1="${y(v)}" x2="${w - right + 2}" y2="${y(v)}" stroke="var(--ya-line)"/><text x="${w - right + 9}" y="${y(v) + 3}">${metric === "price" ? v.toFixed(2) : Math.round(v) + "%"}</text>`;
+    markup.push(
+      html`<line x1="${left}" y1="${y(v)}" x2="${w - right + 2}" y2="${y(v)}" stroke="var(--ya-line)"/><text x="${w - right + 9}" y="${y(v) + 3}">${metric === "price" ? v.toFixed(2) : Math.round(v) + "%"}</text>`,
+    );
   if (points.length) {
     const path = points
       .map((v, i) => (i ? "L" : "M") + x(i) + "," + y(v))
       .join(" ");
-    markup += `<path d="${path} L${x(points.length - 1)},${h - bottom} L${x(0)},${h - bottom} Z" fill="var(--ya-accent)" opacity=".07"/><path class="ya-linepath" d="${path}"/>`;
+    markup.push(
+      html`<path d="${path} L${x(points.length - 1)},${h - bottom} L${x(0)},${h - bottom} Z" fill="var(--ya-accent)" opacity=".07"/><path class="ya-linepath" d="${path}"/>`,
+    );
     const labels =
       range === "1D"
         ? ["00:00", "08:00", "16:00", "Now"]
@@ -148,13 +155,21 @@ export function chartGeometry(
             minute: "2-digit",
             timeZone: "UTC",
           });
-        markup += `<text x="${x(i)}" y="${h - 4}" text-anchor="${j === 0 ? "start" : j === 3 ? "end" : "middle"}">${labels[j]}</text>`;
+        markup.push(
+          html`<text x="${x(i)}" y="${h - 4}" text-anchor="${j === 0 ? "start" : j === 3 ? "end" : "middle"}">${labels[j]}</text>`,
+        );
       });
     if (range === "1D" && !m.activity)
-      markup += `<line x1="${x(9)}" x2="${x(9)}" y1="${top}" y2="${h - bottom}" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/><circle cx="${x(9)}" cy="${y(points[9]!)}" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>`;
-    markup += `<circle class="ya-endpoint" cx="${x(points.length - 1)}" cy="${y(points.at(-1)!)}" r="3.5" fill="var(--ya-accent)"/><g class="ya-hover-group" aria-hidden="true"><line data-chart-hover-guide y1="${top}" y2="${h - bottom}" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/><circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/><circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/></g><rect data-chart-hit x="${left}" y="0" width="${w - left - right}" height="${h}" fill="transparent"/>`;
+      markup.push(
+        html`<line x1="${x(9)}" x2="${x(9)}" y1="${top}" y2="${h - bottom}" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/><circle cx="${x(9)}" cy="${y(points[9]!)}" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>`,
+      );
+    markup.push(
+      html`<circle class="ya-endpoint" cx="${x(points.length - 1)}" cy="${y(points.at(-1)!)}" r="3.5" fill="var(--ya-accent)"/><g class="ya-hover-group" aria-hidden="true"><line data-chart-hover-guide y1="${top}" y2="${h - bottom}" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/><circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/><circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/></g><rect data-chart-hit x="${left}" y="0" width="${w - left - right}" height="${h}" fill="transparent"/>`,
+    );
   } else
-    markup += `<text x="${(w - right) / 2}" y="${h / 2}" text-anchor="middle">History unavailable</text>`;
+    markup.push(
+      html`<text x="${(w - right) / 2}" y="${h / 2}" text-anchor="middle">History unavailable</text>`,
+    );
   return {
     w,
     h,
@@ -165,7 +180,7 @@ export function chartGeometry(
     points,
     x,
     y,
-    markup,
+    markup: html`${markup}`,
     rows,
     times,
     valueAt,

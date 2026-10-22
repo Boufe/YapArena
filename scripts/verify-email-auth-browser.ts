@@ -203,10 +203,12 @@ app.get("/test/inline-return", (_request, response) =>
           },
           true,
           (file) => `/assets/${file}`,
-        ).replace(
-          /<script[^>]+src="\/assets\/(?:arena\.js|media\.bundle\.js|community\.js)"[^>]*><\/script>/g,
-          "",
-        ) + "</main>",
+        )
+          .toString()
+          .replace(
+            /<script[^>]+src="\/assets\/(?:arena\.js|media\.bundle\.js|community\.js)"[^>]*><\/script>/g,
+            "",
+          ) + "</main>",
       ),
   ),
 );

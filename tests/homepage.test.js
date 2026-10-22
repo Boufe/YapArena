@@ -152,46 +152,58 @@ it("keeps reference/demo follows local and emits real canonical links and shared
     { ...real, demo: true },
     emptyIdea,
   ]) {
-    const card = view.cardMarkup(m, true);
+    const card = String(view.cardMarkup(m, true));
     assert.ok(card.includes('aria-expanded="true"'));
-    assert.ok(view.cardMarkup(m).includes('aria-expanded="false"'));
-    assert.ok(view.featureMarkup(m).includes('id="ya-chart"'));
-    assert.ok(view.featureMarkup(m, true).includes("Following"));
-    assert.ok(view.argumentsMarkup(m).includes('aria-hidden="true" inert'));
-    assert.ok(view.detailMarkup(m, true).includes("ya-detail-chart"));
+    assert.ok(String(view.cardMarkup(m)).includes('aria-expanded="false"'));
+    assert.ok(String(view.featureMarkup(m)).includes('id="ya-chart"'));
+    assert.ok(String(view.featureMarkup(m, true)).includes("Following"));
+    assert.ok(
+      String(view.argumentsMarkup(m)).includes('aria-hidden="true" inert'),
+    );
+    assert.ok(String(view.detailMarkup(m, true)).includes("ya-detail-chart"));
     for (const side of ["live", "debate", "trade"])
-      assert.ok(view.sideMarkup(m, side, "NO").length > 100);
-    view.sparkMarkup(m);
+      assert.ok(String(view.sideMarkup(m, side, "NO")).length > 100);
+    String(view.sparkMarkup(m));
     for (const d of m.debates)
-      assert.ok(view.playerMarkup(m, d).includes("Concept preview"));
+      assert.ok(String(view.playerMarkup(m, d)).includes("Concept preview"));
     for (const filter of ["all", "live", "replay", "none"])
-      view.debatesMarkup(m, filter, m.debates[0]?.id ?? null);
+      String(view.debatesMarkup(m, filter, m.debates[0]?.id ?? null));
   }
   assert.ok(
-    view.followMarkup(real).includes('class="ya-follow follow-button"'),
+    String(view.followMarkup(real)).includes('class="ya-follow follow-button"'),
   );
   assert.ok(
-    !view.followMarkup({ ...real, demo: true }).includes("data-follow-type"),
+    !String(view.followMarkup({ ...real, demo: true })).includes(
+      "data-follow-type",
+    ),
   );
-  assert.ok(!view.followMarkup(emptyIdea).includes("follow-button"));
-  assert.ok(view.sideMarkup(real).includes('href="/debates/real-debate"'));
+  assert.ok(!String(view.followMarkup(emptyIdea)).includes("follow-button"));
   assert.ok(
-    view.debatesMarkup(real).startsWith('<a href="/debates/real-debate"'),
+    String(view.sideMarkup(real)).includes('href="/debates/real-debate"'),
   );
-  const empty = view.homepageMarkup({
-    ...publicHomepage([], []),
-    available: false,
-  });
+  assert.ok(
+    String(view.debatesMarkup(real)).startsWith(
+      '<a href="/debates/real-debate"',
+    ),
+  );
+  const empty = String(
+    view.homepageMarkup({
+      ...publicHomepage([], []),
+      available: false,
+    }),
+  );
   assert.ok(empty.includes("Discovery temporarily unavailable"));
   assert.ok(
-    view.homepageMarkup(publicHomepage([], [])).includes("No public ideas yet"),
+    String(view.homepageMarkup(publicHomepage([], []))).includes(
+      "No public ideas yet",
+    ),
   );
   assert.ok(
-    view.homepageMarkup(publicHomepage([topic], [debate])).includes("Ideas"),
+    String(view.homepageMarkup(publicHomepage([topic], [debate]))).includes(
+      "Ideas",
+    ),
   );
-  assert.ok(view.homepageMarkup(concepts).includes("1 / 6"));
-  assert.equal(view.escapeHome(undefined), "");
-  assert.equal(view.escapeHome("<&>\"'"), "&lt;&amp;&gt;&quot;&#39;");
+  assert.ok(String(view.homepageMarkup(concepts)).includes("1 / 6"));
 });
 it("reproduces both chart geometries/ranges and interpolates the actual pointer fraction", () => {
   for (const m of [...concepts.ideas, emptyIdea])
@@ -199,18 +211,19 @@ it("reproduces both chart geometries/ranges and interpolates the actual pointer 
       for (const range of ["1D", "1W", "1M"])
         for (const detail of [false, true]) {
           const series = chartSeries(m, metric, range),
-            c = chartGeometry(m, metric, range, 900, detail);
+            c = chartGeometry(m, metric, range, 900, detail),
+            markup = String(c.markup);
           assert.equal(c.h, detail ? 290 : 165);
           assert.equal(c.w, 900);
           if (m.reference) {
             assert.equal(series.length, 16);
             assert.equal(series.at(-1), metric === "price" ? m.price : m.pct);
-            assert.ok(c.markup.includes("data-chart-hover-guide"));
-            assert.ok(c.markup.includes("ya-endpoint"));
+            assert.ok(markup.includes("data-chart-hover-guide"));
+            assert.ok(markup.includes("ya-endpoint"));
           } else {
             assert.deepEqual(series, []);
-            assert.ok(c.markup.includes("History unavailable"));
-            assert.ok(!c.markup.includes("ya-linepath"));
+            assert.ok(markup.includes("History unavailable"));
+            assert.ok(!markup.includes("ya-linepath"));
           }
         }
   assert.equal(chartGeometry(emptyIdea, "price", "1D", 10).w, 190);

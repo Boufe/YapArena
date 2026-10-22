@@ -10,6 +10,7 @@ import type {
   SelectedRun,
   Wallet,
 } from "./arena-types.js";
+import { html } from "../src/platform/html.ts";
 interface A4Elements {
   review: HTMLDialogElement;
   submit: HTMLFormElement;
@@ -60,18 +61,6 @@ if (root) {
       : "Undefined · empty round";
   const price = (v: Fraction | null | undefined) =>
     v ? `${(Number(v.n) / Number(v.d)).toFixed(6)} Yap Coins` : "No offer";
-  const escape = (v: unknown) =>
-    String(v).replace(
-      /[&<>"']/g,
-      (c) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        })[c as "&" | "<" | ">" | '"' | "'"],
-    );
   let accountId: string | undefined,
     run: SelectedRun | null | undefined,
     pending: Pending | null | undefined,
@@ -173,7 +162,7 @@ if (root) {
     showBalances(run!.balances!);
     showFunding(run!.fundingPolicy);
     el("run-summary").innerHTML =
-      `<h3>${escape(run!.mode === "human" ? "Human-only" : run!.observer ? "BOT-ONLY OBSERVER" : "BOTS + YOU")} · ${escape(run!.state!)}</h3><p>${escape(run!.debate!.proposition)}</p><p><a href="/debates/${escape(run!.debate!.slug)}">Watch debate / chat →</a></p><p>YES endorses this proposition; NO rejects it. ${run!.config!.population} synthetic bots. Beliefs: ${run!.config!.preset === "reference" ? "homogeneous reference" : "heterogeneous stress fixture"}. ${run!.config!.feeBps ? "Experimental 5% premium fee" : "No fee"}. Epsilon ${run!.config!.epsilon / 1000000}.</p><p>Final reveal: ${escape(new Date(run!.revealAt!).toLocaleString())}. Each period settles against its own share. Maximum lockup ends at this boundary once processing completes.</p>`;
+      html`<h3>${run!.mode === "human" ? "Human-only" : run!.observer ? "BOT-ONLY OBSERVER" : "BOTS + YOU"} · ${run!.state!}</h3><p>${run!.debate!.proposition}</p><p><a href="/debates/${run!.debate!.slug}">Watch debate / chat →</a></p><p>YES endorses this proposition; NO rejects it. ${run!.config!.population} synthetic bots. Beliefs: ${run!.config!.preset === "reference" ? "homogeneous reference" : "heterogeneous stress fixture"}. ${run!.config!.feeBps ? "Experimental 5% premium fee" : "No fee"}. Epsilon ${run!.config!.epsilon / 1000000}.</p><p>Final reveal: ${new Date(run!.revealAt!).toLocaleString()}. Each period settles against its own share. Maximum lockup ends at this boundary once processing completes.</p>`.toString();
     el("controls").hidden =
       run!.mode === "human" || ["complete", "archived"].includes(run!.state!);
     el("speed").value = String(run!.speed);
@@ -182,17 +171,15 @@ if (root) {
     );
     el("submit").hidden =
       !open || run!.observer || run!.state! !== "running" || !!open.receipt;
-    el("rounds").innerHTML = run!
-      .rounds!.map((r) => {
-        const o = r.receipt,
-          d = r.diagnostics,
-          t = d?.totals;
-        const receipt = o
-          ? `<dl class="a4-receipt"><dt>Your commitment</dt><dd>${escape(o.side)} · limit ${escape(o.limit)} on YES scale · ${o.quantity} contracts</dd><dt>Status</dt><dd>${escape(o.status.replaceAll("_", " "))}</dd><dt>Maximum reserved</dt><dd>${money(o.reserved)}</dd>${o.premium !== undefined ? `<dt>Spent on premium</dt><dd>${money(o.premium)}</dd><dt>Fee</dt><dd>${money(o.fee)}</dd><dt>Released</dt><dd>${money(o.released)}</dd>` : ""}${o.payout !== undefined ? `<dt>Payout</dt><dd>${money(o.payout)}</dd><dt>Net profit / loss</dt><dd>${money(o.net)}</dd>` : ""}</dl>`
-          : "<p>No human commitment in this round.</p>";
-        return `<article class="a4-round"><h3>Round ${r.period} · ${escape(r.state)}</h3><p>Cutoff: ${escape(new Date(r.closesAt).toLocaleString())}. Shared YES offer: ${price(r.offer)}.</p>${receipt}${d ? `<details ${run!.observer ? "open" : ""}><summary>${run!.observer ? "Authorized bot-only diagnostics" : "Revealed results and orders"}</summary><p>YES endorsement share: <strong>${ratio(d.pricing?.share)}</strong>. ${t!.humans} human / ${t!.bots} synthetic bot submissions.</p><label>Endorsement share <meter min="0" max="1" value="${d.pricing?.share ? Number(d.pricing.share.n) / Number(d.pricing.share.d) : 0}">${ratio(d.pricing?.share)}</meter></label><p>Acceptance ${t!.participants ? ((100 * t!.accepted) / t!.participants).toFixed(1) : "0"}% · execution ${t!.participants ? ((100 * t!.executed) / t!.participants).toFixed(1) : "0"}% · ${t!.quantity} executed contracts. ${d.noTrade ? "No trades. Endorsements still count." : "All accepting quantities executed in full."}</p><p>Branch: ${escape(d.pricing?.branch ?? "Not drawn")} · median NO floor ${price(d.pricing?.a)} · median YES ceiling ${price(d.pricing?.b)}. Random offer ${price(d.pricing?.price)}.</p><p>Participant premium ${money(t!.premium)} · payout ${money(t!.payout)} · fees ${money(t!.fee)}. Run center issuance ${money(d.centerFunding)}; center available ${money(d.centerAvailable)}. Round center trading result ${money(d.centerTrading)}; fees ${money(d.centerFees)}; total ${money(d.centerResult)}.</p><div class="a4-table" tabindex="0" role="region" aria-label="Round ${r.period} submitted order history"><table><caption>Submitted orders · ${bookOffset + 1} onward · limits on YES scale</caption><thead><tr><th>Participant</th><th>Side</th><th>Limit</th><th>Contracts</th><th>Outcome</th><th>Net Yap Coins</th></tr></thead><tbody>${d.book.map((b) => `<tr><td>${escape(b.label)} · ${b.kind}</td><td>${b.side}</td><td>${escape(b.limit)}</td><td>${b.quantity}</td><td>${escape(b.outcome?.status ?? r.state)}</td><td>${b.outcome ? money(b.outcome.net) : "Pending"}</td></tr>`).join("")}</tbody></table></div><p>Seed commitment: <code>${escape(r.seedCommitment)}</code>. Locked snapshot: <code>${escape(d.snapshotHash ?? "Not locked")}</code>.</p></details>` : "<p>Group medians, counts, orders and profit remain sealed.</p>"}</article>`;
-      })
-      .join("");
+    el("rounds").innerHTML = html`${run!.rounds!.map((r) => {
+      const o = r.receipt,
+        d = r.diagnostics,
+        t = d?.totals;
+      const receipt = o
+        ? html`<dl class="a4-receipt"><dt>Your commitment</dt><dd>${o.side} · limit ${o.limit} on YES scale · ${o.quantity} contracts</dd><dt>Status</dt><dd>${o.status.replaceAll("_", " ")}</dd><dt>Maximum reserved</dt><dd>${money(o.reserved)}</dd>${o.premium !== undefined ? html`<dt>Spent on premium</dt><dd>${money(o.premium)}</dd><dt>Fee</dt><dd>${money(o.fee)}</dd><dt>Released</dt><dd>${money(o.released)}</dd>` : ""}${o.payout !== undefined ? html`<dt>Payout</dt><dd>${money(o.payout)}</dd><dt>Net profit / loss</dt><dd>${money(o.net)}</dd>` : ""}</dl>`
+        : html`<p>No human commitment in this round.</p>`;
+      return html`<article class="a4-round"><h3>Round ${r.period} · ${r.state}</h3><p>Cutoff: ${new Date(r.closesAt).toLocaleString()}. Shared YES offer: ${price(r.offer)}.</p>${receipt}${d ? html`<details ${run!.observer ? "open" : ""}><summary>${run!.observer ? "Authorized bot-only diagnostics" : "Revealed results and orders"}</summary><p>YES endorsement share: <strong>${ratio(d.pricing?.share)}</strong>. ${t!.humans} human / ${t!.bots} synthetic bot submissions.</p><label>Endorsement share <meter min="0" max="1" value="${d.pricing?.share ? Number(d.pricing.share.n) / Number(d.pricing.share.d) : 0}">${ratio(d.pricing?.share)}</meter></label><p>Acceptance ${t!.participants ? ((100 * t!.accepted) / t!.participants).toFixed(1) : "0"}% · execution ${t!.participants ? ((100 * t!.executed) / t!.participants).toFixed(1) : "0"}% · ${t!.quantity} executed contracts. ${d.noTrade ? "No trades. Endorsements still count." : "All accepting quantities executed in full."}</p><p>Branch: ${d.pricing?.branch ?? "Not drawn"} · median NO floor ${price(d.pricing?.a)} · median YES ceiling ${price(d.pricing?.b)}. Random offer ${price(d.pricing?.price)}.</p><p>Participant premium ${money(t!.premium)} · payout ${money(t!.payout)} · fees ${money(t!.fee)}. Run center issuance ${money(d.centerFunding)}; center available ${money(d.centerAvailable)}. Round center trading result ${money(d.centerTrading)}; fees ${money(d.centerFees)}; total ${money(d.centerResult)}.</p><div class="a4-table" tabindex="0" role="region" aria-label="Round ${r.period} submitted order history"><table><caption>Submitted orders · ${bookOffset + 1} onward · limits on YES scale</caption><thead><tr><th>Participant</th><th>Side</th><th>Limit</th><th>Contracts</th><th>Outcome</th><th>Net Yap Coins</th></tr></thead><tbody>${d.book.map((b) => html`<tr><td>${b.label} · ${b.kind}</td><td>${b.side}</td><td>${b.limit}</td><td>${b.quantity}</td><td>${b.outcome?.status ?? r.state}</td><td>${b.outcome ? money(b.outcome.net) : "Pending"}</td></tr>`)}</tbody></table></div><p>Seed commitment: <code>${r.seedCommitment}</code>. Locked snapshot: <code>${d.snapshotHash ?? "Not locked"}</code>.</p></details>` : html`<p>Group medians, counts, orders and profit remain sealed.</p>`}</article>`;
+    })}`.toString();
     el("book-prev").disabled = bookOffset === 0;
     el("book-next").disabled = !run!.rounds!.some(
       (r) => r.diagnostics?.pagination.hasMore,
@@ -240,7 +227,7 @@ if (root) {
     const data = await api<History>(`a4/history?offset=${historyOffset}`);
     if (owner !== accountId) return;
     el("history").innerHTML =
-      `<ul>${data.items.map((i) => `<li>${escape(new Date(i.createdAt).toLocaleString())} · ${escape(i.kind)} · ${escape(i.bucket)} ${money(i.amount)} · ${i.scope === "global" ? "ordinary balance" : "bot sandbox"}</li>`).join("")}</ul>`;
+      html`<ul>${data.items.map((i) => html`<li>${new Date(i.createdAt).toLocaleString()} · ${i.kind} · ${i.bucket} ${money(i.amount)} · ${i.scope === "global" ? "ordinary balance" : "bot sandbox"}</li>`)}</ul>`.toString();
     el("history-more").disabled = !data.hasMore;
   }
   el("create").addEventListener("submit", (event) => {
@@ -325,7 +312,7 @@ if (root) {
       accountId,
     };
     el("terms").innerHTML =
-      `<p>Account ${escape(accountId)} · ${escape(run!.debate!.proposition)}</p><p>${escape(fields.side)} · maximum purchase price ${escape(fields.ceiling)} Yap Coins · ${quantity} contracts.</p><p>Maximum reservation and potential loss: <strong>${money(reserve)}</strong>, including up to ${money(reserve - BigInt(quantity) * 1000000n)} fee. Actual premium is determined by the later shared offer; unused reservation is released. Execution requires an accepting opposite side.</p><p>Cutoff ${escape(new Date(round.closesAt).toLocaleString())}; reveal ${escape(new Date(run!.revealAt!).toLocaleString())}. Binding once committed; no edits or cancellation.</p>`;
+      html`<p>Account ${String(accountId)} · ${run!.debate!.proposition}</p><p>${String(fields.side)} · maximum purchase price ${String(fields.ceiling)} Yap Coins · ${quantity} contracts.</p><p>Maximum reservation and potential loss: <strong>${money(reserve)}</strong>, including up to ${money(reserve - BigInt(quantity) * 1000000n)} fee. Actual premium is determined by the later shared offer; unused reservation is released. Execution requires an accepting opposite side.</p><p>Cutoff ${new Date(round.closesAt).toLocaleString()}; reveal ${new Date(run!.revealAt!).toLocaleString()}. Binding once committed; no edits or cancellation.</p>`.toString();
     el("review-notice").textContent = "";
     el("review").showModal();
     el("commit").focus();

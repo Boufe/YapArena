@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "deployedRevision": "3096ca776a04f3cf38ad835d7348329791c0385b",
+  "scope": "Human report and status-only first observer plus allowlisted public metadata; no independent successful network/credential capture or cause diagnosis.",
+  "files": {
+    "README.md": "c906373e77dfcae84e718a5e3923a3000243d25b0fdcc5d27c8f60ed6f9c7624",
+    "first-observation.json": "fb5bee8dcf31eb91739f472d29a1419f50b659e21679c846ba1ebae1590615f8",
+    "identity-and-local-state.json": "8730ba58d7f7492867d336e071e232f4cb4150ab8a05a76039d3f4528d768044",
+    "journey-report.json": "1e34712fc7f08d8c1520b47323a3a391e5ce3d2597961166dbef6421271ea36f",
+    "provider-freeze-readonly.json": "f9b64dba2596a3b3e836fcb1ad273bd885886ad14bf327c8d019c54a789b6c2e",
+    "public-config-projection.json": "8784379bc4f58d87175a7530b4c2f82d1225e87ef205f28e7efe125639265186",
+    "reset-history-readonly.json": "46247141d4fd784b5986fa58415416e810ce0afca7ddbced4b1433fba476c7b2"
+  }
+}

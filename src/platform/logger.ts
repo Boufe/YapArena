@@ -34,6 +34,9 @@ export function createLogger({
         paths: [
           "req.headers.authorization",
           "req.headers.cookie",
+          'req.headers["x-yap-signature"]',
+          'req.headers["x-yaparena-expected-account"]',
+          'req.headers["x-yaparena-session"]',
           'res.headers["set-cookie"]',
         ],
         censor: "[REDACTED]",
@@ -49,7 +52,20 @@ export function createHttpLogger(logger: Logger) {
     // Honor the parent's safe err serializer; pino-http otherwise replaces it.
     wrapSerializers: false,
     serializers: {
-      req: pino.stdSerializers.req,
+      req(request) {
+        const record = pino.stdSerializers.req(request);
+        // Lazy authentication can return to any public page after OAuth.
+        // Keep the route useful for operations without persisting query values.
+        const query = new URLSearchParams((record.url ?? "").split("?")[1]);
+        if (
+          /^\/account(?:[/?]|$)/.test(record.url ?? "") ||
+          [...query.keys()].some((key) => key.startsWith("privy_"))
+        ) {
+          record.url = record.url.replace(/\?.*$/, "");
+          record.query = {};
+        }
+        return record;
+      },
       res: pino.stdSerializers.res,
     },
     quietReqLogger: true,

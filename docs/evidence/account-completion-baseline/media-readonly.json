@@ -1,0 +1,22 @@
+{
+  "at": "2026-10-20T05:28:38.872Z",
+  "scope": "Read-only unauthenticated staging public media configuration and provider HTTP clock probe; no room join, recording, egress, participant mutation or token issuance.",
+  "applicationOrigin": "https://yaparena-staging-web.onrender.com",
+  "publicSnapshotPath": "/api/media/events/d7fa0a11-cc5f-49e1-981f-61fc7c6eb71a",
+  "preparationUrl": "wss://yaparena-staging-e100x84o.livekit.cloud",
+  "probe": {
+    "method": "HEAD",
+    "url": "https://yaparena-staging-e100x84o.livekit.cloud",
+    "status": 200,
+    "providerDate": "Tue, 20 Oct 2026 05:28:38 GMT",
+    "age": null,
+    "elapsedMs": 150,
+    "skewMs": -872,
+    "clockGateAccepted": true
+  },
+  "limitations": [
+    "Public host does not independently establish the hosted server control URL.",
+    "No authenticated room/participant inventory or token revocation/replay acceptance was performed in this probe.",
+    "No physical-device, screen-reader or media-quality acceptance."
+  ]
+}

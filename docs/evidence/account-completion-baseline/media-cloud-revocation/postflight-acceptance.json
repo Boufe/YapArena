@@ -1,0 +1,38 @@
+{
+  "at": "2026-10-20T05:44:44.186Z",
+  "scope": "Actual hosted LiveKit Cloud signaling/revocation with disposable identities, real installed SDK and actual application provider path; no application account, microphone, camera, media publishing, recording or egress. Not genuine application logout, physical-device or media-quality acceptance.",
+  "accepted": true,
+  "rawTrialCommandExitCode": 1,
+  "rawTrialFailure": "Automatic room expiry was not observed within the original 40-second cleanup window; all token and viewer assertions passed.",
+  "postflight": "Separate read-only inspection confirmed zero rooms before the authorized two-minute total bound; no DeleteRoom, extra connection or provider mutation.",
+  "fixtureRoom": "debate-de02b40f-f591-4a8a-be73-fd559ac0f731",
+  "revision": "7a2482b94934132d586ebf64467938f1b64fcebc",
+  "cloudTrialAndCleanupElapsedMs": 65982,
+  "maximumConcurrentClients": 2,
+  "participantUsageUpperBoundMs": 90000,
+  "rawSecurityAssertions": [
+    "original fresh speaker and independent view-only viewer connect without publishing tracks",
+    "real SignalClient token-refresh event produced a signature-verified newer nbf token accepted before cutoff",
+    "actual integrated explicit-cutoff removal disconnects the fixture and rejects both original and server-refreshed tokens as unauthorized",
+    "independent public view-only client stays connected, retains no-publish permission and reconnects with its original token"
+  ],
+  "originalReplayStatus": 401,
+  "serverRefreshedReplayStatus": 401,
+  "viewerViewOnlyReconnect": true,
+  "remainingRooms": 0,
+  "artifacts": {
+    "acceptance.json": "68e7171fe97c21177133efef40f65a21a39e412a354145319427c2b1cfa5426c",
+    "inspection.json": "3b2ba8cba1cdf5464c323e3ef6ec8cc4288e97da62b7d617da41485149a8b3c5"
+  },
+  "trialSourceHashes": {
+    "scripts/verify-media-cloud-revocation.ts": "d4122d4decf19dea1e79afdf7445c6c4162d3c6f71a3dd4e3486b957b2bff63d",
+    "dist/features/media/provider.js": "327574609bb2c9de05d6fcbcd4d4f3ddaaf69bea2d112a6a944536d08ba80c3d",
+    "node_modules/livekit-client/dist/livekit-client.umd.js": "7fa17e37af5e996d8a25f15a637dcc0620215bc01b394e5d209f726afe7dc04d",
+    "node_modules/livekit-client/src/room/RTCEngine.ts": "23b415be2141215d5617eb02ff44754acd60539cd9760615a2f4c742ec5fc536"
+  },
+  "limitations": [
+    "Quota availability was confirmed by the founder; provider billing plan was not changed or inferred.",
+    "Disposable provider identities are not retained YapArena accounts; full app-session/provider-outbox acceptance is separate.",
+    "No recordings, physical devices, screen reader or audiovisual quality tested."
+  ]
+}

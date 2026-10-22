@@ -28,28 +28,47 @@ function page({ confirm = true, response = { ok: true }, failure } = {}) {
   );
   const calls = [];
   const prompts = [];
+  const events = new EventTarget();
+  let accountId = "original";
+  const dispatched = [];
+  const send = async (path, options) => {
+    calls.push({ path, options });
+    if (failure) throw failure;
+    return response;
+  };
   vm.runInNewContext(source, {
+    Event,
+    CustomEvent,
+    AbortSignal,
     document: {
       querySelector(selector) {
         return elements[selector.slice(1)];
       },
     },
     window: {
+      yapSessionFetch: send,
+      yapCurrentSessionAccount: () => accountId,
+      addEventListener: events.addEventListener.bind(events),
+      dispatchEvent(event) {
+        dispatched.push(event.type);
+        return events.dispatchEvent(event);
+      },
       confirm(message) {
         prompts.push(message);
         return confirm;
       },
     },
-    async fetch(path, options) {
-      calls.push({ path, options });
-      if (failure) throw failure;
-      return response;
-    },
+    fetch: send,
   });
   return {
     elements,
     calls,
     prompts,
+    dispatched,
+    changeAccount: (id = "replacement") => {
+      accountId = id;
+      events.dispatchEvent(new Event("yap:account-changed"));
+    },
     click: (id) => elements[id].click({ currentTarget: elements[id] }),
   };
 }
@@ -85,6 +104,22 @@ describe("account session controls", () => {
     await fixture.click("sign-out-all");
     assert.equal(fixture.calls.length, 0);
   });
+  it("ends only local UI on 401 without claiming other sessions were revoked", async () => {
+    for (const control of ["sign-out-all", "sign-out-others"]) {
+      const fixture = page({ response: { ok: false, status: 401 } });
+      await fixture.click(control);
+      assert.equal(fixture.elements["signed-in"].hidden, true);
+      assert.equal(fixture.elements["signed-out"].hidden, false);
+      assert.equal(
+        fixture.elements["account-notice"].textContent,
+        "This session has ended. Sign in again to sign out other devices.",
+      );
+      assert.deepEqual(fixture.dispatched, [
+        "yap:provider-logout",
+        "yap:account-changed",
+      ]);
+    }
+  });
   it("reports denial or network failure without falsely reporting logout", async () => {
     for (const options of [
       {
@@ -106,7 +141,61 @@ describe("account session controls", () => {
       );
     }
   });
+  it("discards old successful or failed replies after the account changes", async () => {
+    for (const control of ["sign-out-all", "sign-out-others"]) {
+      for (const outcome of ["success", "ended", "network"]) {
+        let finish, fail;
+        const response = new Promise((resolve, reject) => {
+          finish = resolve;
+          fail = reject;
+        });
+        const fixture = page({ response });
+        const pending = fixture.click(control);
+        assert.equal(fixture.calls.length, 1);
+        assert.ok(fixture.calls[0].options.signal instanceof AbortSignal);
+        fixture.changeAccount();
+        fixture.elements["account-notice"].textContent = "Replacement account";
+        if (outcome === "network") fail(new Error("old network error"));
+        else
+          finish({
+            ok: outcome === "success",
+            status: outcome === "ended" ? 401 : 204,
+          });
+        await pending;
+        assert.equal(fixture.elements["signed-in"].hidden, false);
+        assert.equal(
+          fixture.elements["account-notice"].textContent,
+          "Replacement account",
+        );
+        assert.deepEqual(fixture.dispatched, []);
+        assert.equal(fixture.elements[control].disabled, false);
+      }
+    }
+  });
+  it("refreshes the current account after a same-account change without applying a stale logout notice", async () => {
+    for (const control of ["sign-out-all", "sign-out-others"]) {
+      let finish;
+      const response = new Promise((resolve) => {
+        finish = resolve;
+      });
+      const fixture = page({ response });
+      const pending = fixture.click(control);
+      fixture.changeAccount("original");
+      fixture.elements["account-notice"].textContent = "Account ready.";
+      finish({ ok: true, status: 204 });
+      await pending;
+      assert.deepEqual(fixture.dispatched, ["yap:account-changed"]);
+      assert.equal(
+        fixture.elements["account-notice"].textContent,
+        "Account ready.",
+      );
+      assert.equal(fixture.elements["signed-in"].hidden, false);
+    }
+  });
   it("works when session controls are absent from the current page", () => {
-    vm.runInNewContext(source, { document: { querySelector: () => null } });
+    vm.runInNewContext(source, {
+      window: new EventTarget(),
+      document: { querySelector: () => null },
+    });
   });
 });

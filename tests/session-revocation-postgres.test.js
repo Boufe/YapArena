@@ -185,7 +185,7 @@ describe(
       assert.equal((await me(appA, a)).status, 200);
       const result = await post(appA, "logout-all", a);
       assert.equal(result.status, 204);
-      assert.match(result.headers["set-cookie"][0], /^__Host-session=;/);
+      assert.equal(result.headers["set-cookie"], undefined);
       for (const instance of [appA, appB])
         for (const oldCookie of [a, b])
           assert.equal((await me(instance, oldCookie)).status, 401);
@@ -220,13 +220,13 @@ describe(
       assert.equal((await me(appA, b)).status, 401);
     });
 
-    it("single-session logout preserves the other session", async () => {
+    it("normal Sign out revokes all account sessions across instances", async () => {
       const user = await account();
       const a = await login(user),
         b = await login(user, appB);
       assert.equal((await post(appA, "logout", a)).status, 204);
       assert.equal((await me(appB, a)).status, 401);
-      assert.equal((await me(appA, b)).status, 200);
+      assert.equal((await me(appA, b)).status, 401);
     });
 
     it("rejects unauthenticated, cross-account selectors, and foreign sessions even after middleware", async () => {

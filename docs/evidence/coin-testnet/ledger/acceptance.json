@@ -1,0 +1,70 @@
+{
+  "at": "2026-10-20T05:42:26.150Z",
+  "revision": "7a2482b94934132d586ebf64467938f1b64fcebc",
+  "scope": "Actual valueless Base Sepolia transfers integrated with real isolated PostgreSQL runtime/owner repositories, synthetic password authentication and manual test review. Not hosted/provider/live acceptance.",
+  "completed": true,
+  "asset": {
+    "environment": "sandbox",
+    "network": "eip155:84532",
+    "chainId": 84532,
+    "token": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "precision": 6,
+    "id": "circle-test-usdc:base-sepolia"
+  },
+  "priorUnallocatedCustodyAtomic": "4000000",
+  "fee": {
+    "testUsdcAtomic": "0",
+    "gas": "valueless operator test ETH; not a live fee quote"
+  },
+  "funding": {
+    "requestId": "5e1f2686-87f7-403a-b118-5064521d011a",
+    "transactionId": "0xfae70ffe318bcc0e43077cf6fe8b699469ee6a84352594dabc41d1c8aae93fde",
+    "amount": "6000000",
+    "observation": {
+      "status": "completed",
+      "finalNoTransfer": false,
+      "transactionId": "0xfae70ffe318bcc0e43077cf6fe8b699469ee6a84352594dabc41d1c8aae93fde",
+      "blockNumber": "48352162",
+      "blockHash": "0x78b67484ca22a37795865190f79db0af45720b69a879fa59c015944847af3c05",
+      "finalizedBlockNumber": "48352856",
+      "eventLogIndex": 231,
+      "reason": "exact test-USDC transfer reconciled in finalized canonical state"
+    }
+  },
+  "payout": {
+    "requestId": "d5eef8bf-e69b-4aea-a949-f721dbfec9ff",
+    "transactionId": "0x49d9ee86df0d21108263e66fd57b52cfe6ea811c6c82de14dbb9d4f946f97cc8",
+    "amount": "5000000",
+    "observation": {
+      "status": "completed",
+      "finalNoTransfer": false,
+      "transactionId": "0x49d9ee86df0d21108263e66fd57b52cfe6ea811c6c82de14dbb9d4f946f97cc8",
+      "blockNumber": "48352746",
+      "blockHash": "0xa349764f06612f8ab0ae7d830e172011d3f87b8113052ec3b01ee2cbb30b512a",
+      "finalizedBlockNumber": "48352856",
+      "eventLogIndex": 176,
+      "reason": "exact test-USDC transfer reconciled in finalized canonical state"
+    }
+  },
+  "balances": {
+    "funder": { "usdc": "9000000", "gas": "799230691999691" },
+    "custody": { "usdc": "5000000", "gas": "199356691999816" },
+    "recipient": { "usdc": "6000000", "gas": "0" }
+  },
+  "application": {
+    "balances": {
+      "cashAvailable": "1000000",
+      "reserved": "0",
+      "pending": "0",
+      "promotionalPrincipal": "0"
+    },
+    "rail": "base-sepolia",
+    "simulation": false
+  },
+  "sourceHashes": {
+    "scripts/verify-coin-testnet-ledger.ts": "8ac5d6f391351192244d75294eca80d21eaa42ff48ecb8f7f3efe3365820b211",
+    "src/features/account-wallet/base-sepolia.ts": "40ebad070c63fa373bb380fb24bf0f8513d0c41259a06c16421633a09157b35b",
+    "dist/features/account-wallet/sandbox-repository.js": "6777d122ec7aee77307f5ae797b994c2b17f7b78c51eb8f20f3a2fdbe8f94234"
+  },
+  "outstanding": []
+}

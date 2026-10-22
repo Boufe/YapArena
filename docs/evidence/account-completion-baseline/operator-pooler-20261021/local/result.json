@@ -1,0 +1,30 @@
+{
+  "format": 1,
+  "result": "PASS_for_recorded_local_quality_and_database_isolation",
+  "sourceBase": "3096ca776a04f3cf38ad835d7348329791c0385b",
+  "frozenOperatorCorrectionCommittedAs": "e8fcdffb6e4e7a857cf761b136b40fc99807d1a4",
+  "quality": {
+    "passed": 859,
+    "failed": 0,
+    "skipped": 0,
+    "coveragePercent": {
+      "lines": 95.32,
+      "branches": 91.23,
+      "functions": 95.35
+    }
+  },
+  "accountSecurityLedgerPerFreshAndUpgrade": 240,
+  "a4PerFreshAndUpgrade": 17,
+  "treasuryPerFreshAndUpgrade": 5,
+  "databaseVersionFromRawLog": "PostgreSQL 17.10 (Homebrew)",
+  "databaseLocale": "C",
+  "serverEncoding": "UTF8",
+  "clientEncoding": "UTF8",
+  "earlierAttempts": ["format-failure-r1.log", "format-failure-r2.log"],
+  "scope": [
+    "npm run check under the explicit isolated database harness, plus fresh/upgrade inventory and role boundaries.",
+    "No new genuine provider/hosted browser/native18/coin22/SDK125/cookie ordering execution is inferred.",
+    "Counts belong to separate commands and overlap; they are not a sum of unique tests.",
+    "This reviewer inspected lead-produced logs, not a second execution or independent process exit capture. Remote CI evidence is separately owned."
+  ]
+}

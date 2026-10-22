@@ -102,136 +102,6 @@ textarea::placeholder {
   background: linear-gradient(135deg, #0d1a27, #08121d);
   border-color: var(--line);
 }
-.site-header {
-  background: linear-gradient(100deg, #070e18, #0a1522 75%, #07101a);
-  border-color: #1a2b3a;
-  position: relative;
-  z-index: 20;
-}
-.site-header .container {
-  width: min(1760px, calc(100% - 40px));
-}
-.arena-nav {
-  flex-wrap: wrap;
-  gap: 30px;
-  min-height: 72px;
-}
-.brand {
-  letter-spacing: 0.15em;
-  gap: 16px;
-  font-size: 1.08rem;
-}
-.arena-brand-symbol {
-  width: 36px;
-  height: 40px;
-  stroke: #f7f9fc;
-  stroke-width: 3.3;
-  fill: none;
-}
-.arena-nav nav {
-  gap: 28px;
-  flex-wrap: nowrap;
-  font-size: 0.94rem;
-}
-.arena-nav nav a {
-  color: #dce6f1;
-  padding: 12px 0;
-}
-.arena-nav nav a:hover {
-  color: var(--ice);
-}
-.arena-header-search {
-  margin: 0 auto;
-  flex: 1 1 200px;
-  min-width: 0;
-  max-width: 450px;
-  position: relative;
-}
-.arena-header-search input {
-  width: 100%;
-  min-height: 42px;
-  padding: 9px 18px 9px 42px;
-  border-radius: 28px;
-  border-color: #253747;
-  background: #172634;
-  font-size: 0.9rem;
-}
-.arena-header-search svg {
-  width: 21px;
-  height: 21px;
-  position: absolute;
-  left: 14px;
-  top: 11px;
-  stroke: #a2b4c7;
-  fill: none;
-  stroke-width: 1.4;
-}
-.arena-header-account {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.arena-wallet-menu {
-  position: relative;
-  font-size: 0.9rem;
-}
-.arena-wallet-menu summary {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  min-height: 43px;
-  padding: 6px 14px;
-  border-radius: 20px;
-  border: 1px solid #294054;
-  cursor: pointer;
-  white-space: nowrap;
-  list-style: none;
-}
-.arena-wallet-menu summary::-webkit-details-marker {
-  display: none;
-}
-.arena-wallet-menu summary svg {
-  width: 21px;
-  height: 23px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 1.4;
-}
-.arena-wallet-menu .arena-chevron {
-  color: #91a7bb;
-  margin-left: 4px;
-}
-.arena-wallet-popover {
-  position: absolute;
-  top: 52px;
-  right: 0;
-  z-index: 30;
-  min-width: 265px;
-  display: grid;
-  gap: 13px;
-  padding: 20px;
-  background: #0e1d2b;
-  border: 1px solid #355268;
-  border-radius: 14px;
-  box-shadow: 0 12px 50px #0009;
-}
-.arena-wallet-popover span {
-  color: var(--muted);
-}
-.arena-wallet-popover a {
-  font-size: 0.85rem;
-}
-.arena-avatar {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: linear-gradient(140deg, #1d3041, #111e2b);
-  border: 1px solid #23384b;
-  font-size: 0.83rem;
-  font-weight: 700;
-}
 .arena-page .site-footer {
   margin-top: 20px;
 }
@@ -1408,22 +1278,6 @@ textarea::placeholder {
   }
 }
 @media (max-width: 1190px) {
-  .arena-nav {
-    gap: 22px;
-  }
-  .arena-nav nav {
-    gap: 20px;
-  }
-  .brand {
-    font-size: 0.9rem;
-    gap: 10px;
-  }
-  .arena-header-search {
-    max-width: 300px;
-  }
-  .arena-header-account {
-    gap: 9px;
-  }
   .arena-left {
     flex-basis: 270px;
   }
@@ -1443,26 +1297,6 @@ textarea::placeholder {
   }
 }
 @media (max-width: 920px) {
-  .arena-nav {
-    flex-wrap: wrap;
-    gap: 8px 20px;
-    padding-block: 12px;
-  }
-  .arena-header-search {
-    order: 4;
-    max-width: none;
-    flex-basis: 100%;
-  }
-  .arena-header-account {
-    margin-left: auto;
-  }
-  .arena-nav nav {
-    margin-left: auto;
-  }
-  .arena-wallet-menu summary {
-    font-size: 0.75rem;
-    padding: 5px 10px;
-  }
   .arena-workspace {
     padding-inline: 10px;
     gap: 10px;
@@ -1498,49 +1332,6 @@ textarea::placeholder {
   }
 }
 @media (max-width: 740px) {
-  .site-header .container {
-    width: calc(100% - 28px);
-  }
-  .arena-nav {
-    gap: 10px;
-  }
-  .arena-nav .brand {
-    font-size: 0.8rem;
-    letter-spacing: 0.12em;
-  }
-  .arena-brand-symbol {
-    width: 28px;
-    height: 32px;
-  }
-  .arena-nav nav {
-    order: 3;
-    width: 100%;
-    justify-content: space-between;
-    padding: 0 10px;
-    font-size: 0.85rem;
-  }
-  .arena-nav nav a {
-    padding: 4px 0;
-  }
-  .arena-header-account {
-    gap: 8px;
-  }
-  .arena-wallet-menu summary svg {
-    width: 17px;
-  }
-  .arena-wallet-menu summary {
-    min-height: 36px;
-    padding: 5px 8px;
-    gap: 5px;
-    font-size: 0.68rem;
-  }
-  .arena-avatar {
-    width: 34px;
-    height: 34px;
-  }
-  .arena-header-search {
-    order: 4;
-  }
   .arena-workspace {
     display: flex;
     flex-direction: column;

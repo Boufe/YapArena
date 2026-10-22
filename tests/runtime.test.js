@@ -4,6 +4,102 @@ import { describe, it, mock } from "node:test";
 import { createRuntime } from "../dist/platform/runtime.js";
 
 describe("service runtime", () => {
+  for (const failing of ["play", "sandbox"])
+    it(`awaits both market jobs when ${failing} recovery fails`, async () => {
+      let callback,
+        finish,
+        closed = false;
+      const calls = [],
+        errors = [];
+      const run = (kind) => async () => {
+        calls.push(kind);
+        if (kind === failing) throw new Error(`${kind} failed`);
+        await new Promise((resolve) => {
+          finish = resolve;
+        });
+      };
+      const runtime = createRuntime({
+        a4: { tick: run("play") },
+        coinDebates: { advance: run("sandbox") },
+        database: {
+          end: async () => {
+            closed = true;
+          },
+        },
+        sessions: { deleteExpired: async () => {} },
+        logger: {
+          info() {},
+          error: ({ error }) => errors.push(error.message),
+        },
+        config: { port: 3000, host: "127.0.0.1" },
+        verifyDatabase: async () => {},
+        setIntervalFn: (fn, ms) => {
+          if (ms === 1000) callback = fn;
+          return { unref() {} };
+        },
+        clearIntervalFn() {},
+      });
+      await runtime.start();
+      const first = callback();
+      await Promise.resolve();
+      await Promise.resolve();
+      callback();
+      assert.deepEqual(calls, ["play", "sandbox"]);
+      const stopped = runtime.stop();
+      await Promise.resolve();
+      assert.equal(closed, false);
+      finish();
+      await first;
+      await stopped;
+      assert.equal(closed, true);
+      assert.deepEqual(errors, [`${failing} failed`]);
+    });
+
+  it("recovers media revocations without overlapping claims and awaits in-flight recovery on shutdown", async () => {
+    let callback,
+      finish,
+      calls = 0,
+      cleared = 0,
+      closed = false;
+    const runtime = createRuntime({
+      database: {
+        end: async () => {
+          closed = true;
+        },
+      },
+      sessions: { deleteExpired: async () => {} },
+      mediaAccountRevocation: {
+        flush: async () => {
+          calls++;
+          return new Promise((resolve) => {
+            finish = resolve;
+          });
+        },
+      },
+      logger: { info() {}, error() {} },
+      config: { port: 3000, host: "127.0.0.1" },
+      verifyDatabase: async () => {},
+      setIntervalFn: (fn, ms) => {
+        if (ms === 1000) callback = fn;
+        return { unref() {} };
+      },
+      clearIntervalFn: () => {
+        cleared++;
+      },
+    });
+    await runtime.start();
+    const first = callback();
+    callback();
+    assert.equal(calls, 1);
+    const stop = runtime.stop();
+    await Promise.resolve();
+    assert.equal(closed, false);
+    finish();
+    await first;
+    await stop;
+    assert.equal(closed, true);
+    assert.equal(cleared, 2);
+  });
   it("runs only maintenance when no web app is supplied", async () => {
     const callbacks = new Map();
     const events = [];

@@ -1,0 +1,23 @@
+{
+  "status": "failed",
+  "phase": "privy-only",
+  "cause": "Fixture invocation selected the legacy phase branch at the checking-state sign-out step; no application visibility assertion changed.",
+  "finalLog": "second-run.txt",
+  "sourceSha256": "6719ed9e688d72f97a25f7b7a941ec095dcbb3338bc7e2409ef8346f8a7c8895",
+  "screenshots": {
+    "balance-dialog-desktop.png": "879986f5b8312fc4551850e1c609f274991dea26085b6363ecc9a0f3fa719ef7",
+    "account-email-desktop.png": "282fbf269acabc3c23fa3a4f32dc96566fe07a063e0e80086475e81ff6c9dc32",
+    "code-error-zoom.png": "e7147902a6486214a7651b4cfd1acf73eaae7af02e7237ad4cc189aee8615292",
+    "account-settings-zoom.png": "75d3246442e3afa73946316a3f71a174675d97f18d51dfa1a73f36373409a63f",
+    "exchange-provider_reset_pending-desktop.png": "025d804da4fb1da9bcece93d364300566d241da97bbbde095501fe95ad06e6a7",
+    "code-error-desktop.png": "e93e5b74f5c2291c61cf412c8106497a0d4b5ac8fe8224ec30eaa993a2547898",
+    "exchange-provider_reset_review_required-desktop.png": "425e532cb8681c5685c028ba9b1c340ab9ed2a4c3d6836ec91216a25ded5d0d2",
+    "exchange-provider_credentials_changed-desktop.png": "5dce334a17f82b271077239fd280c07f9b5d3c7f54cfd0f93a1220a37f8b7bfe",
+    "exchange-synthetic_unknown_denial-desktop.png": "e6b1de627f0845aa0eb3b7490affb155adebc6929e11763bf0fb0ecf58fb42b1",
+    "account-signed-in-desktop.png": "79e623f29112da329064342bd54599eb93a983263b4fe762c5c0683937829cf1",
+    "account-email-zoom.png": "88778c786078b83f74c50f6dd226869b0cacad3d547122169037dba73f9ca56f",
+    "legacy-comparison-desktop.png": "dcb84e2515294ada2532cbe7f263f52959fdf656db9a478b04b72537d5ac3500",
+    "wallet-progress-desktop.png": "81df89075d3b4226f646fa673c3d65eb45a1f13181bca14737833eb5f202dfd7"
+  },
+  "scope": "Partial synthetic local browser fixture; no successful hosted provider email/account acceptance."
+}

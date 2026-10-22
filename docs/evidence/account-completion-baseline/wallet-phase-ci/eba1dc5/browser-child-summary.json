@@ -1,0 +1,118 @@
+[
+  {
+    "path": "a4/arena/evidence.json",
+    "result": "PASS",
+    "checks": {
+      "roundProgressDrains": true,
+      "realLiveChat": true,
+      "chartUpdatedAfterRealSettlements": true,
+      "persistentPriceMarkersSlideAndHeadingAnimatesWithoutLayoutShift": true,
+      "latestBadgesAndMedianRestoreTogether": true,
+      "hoverSurvivesRefreshAndScaleAdjoinsAxis": true,
+      "rapidScrubbingAndReducedMotion": true,
+      "hoverPricesArgumentsAndCompactSidebar": true,
+      "expandEscapeRestoreExactBounds": true,
+      "bindingCommitmentAndQuickQuantity": true,
+      "chartSelectionLoadsRound": true,
+      "sidebarTabs": true,
+      "axeNoSeriousViolations": true,
+      "mobileNoOverflow": true,
+      "headerSearch": true,
+      "replayLayoutAndUninterruptedSyntheticPlayback": true,
+      "noPageErrors": true
+    },
+    "errors": [],
+    "scope": "Local browser with real PostgreSQL and actual settlement worker; media provider unavailable, transport not assessed"
+  },
+  {
+    "path": "a4/browser-evidence.json",
+    "result": "PASS (A4 assertions completed before parent PASS)",
+    "checks": [
+      "starter coins",
+      "NO conversion review",
+      "keyboard dialog focus",
+      "binding submit",
+      "reload receipt",
+      "pause/run/step/speed",
+      "sealed response",
+      "worker settlement",
+      "deterministic execution and exploratory no-trade",
+      "exact balances and reservation release",
+      "paginated revealed diagnostics",
+      "bot-only observer",
+      "archive/reset isolation",
+      "mobile overflow",
+      "axe WCAG A/AA"
+    ],
+    "errors": [],
+    "scope": "Actual PostgreSQL A4 worker with synthetic local browser fixtures"
+  },
+  {
+    "path": "a4/shared-bots/evidence.json",
+    "result": "PASS",
+    "checks": {
+      "operatorSeedIsIdempotentAndUsesStoredArgumentResults": true,
+      "separateCreatorKeepsWorkspaceRoundsPrivate": true,
+      "databaseBackedHomeExpansionAndDebateArguments": true,
+      "activeInspectionDefersAndIdleReleasesUpdate": true,
+      "observerAndMixedSettlementRefreshHomeExpandedAndDebateWithoutReload": true,
+      "pendingPrivacyAndAggregateOnlyPublication": true,
+      "publicAndPersonalHistoryRemainDistinct": true,
+      "mobileAndAccessibility": true,
+      "signedOutSharedHistoryWithoutPrivateAccess": true,
+      "consentWithdrawalRemovesPersonalRoundsEverywhere": true,
+      "visibleLiveNavigationAndOriginalLivePage": true
+    },
+    "errors": [],
+    "scope": "Disposable local PostgreSQL, real A4 worker/HTTP/browser; no hosted test writes or media sessions"
+  },
+  {
+    "path": "homepage/evidence.json",
+    "result": "PASS",
+    "checks": {
+      "responsiveScreenshots": true,
+      "everySlideHasItsOwnArgumentsAndDebate": true,
+      "slideDirectionsTimingAndRapidNavigation": true,
+      "mainExpandedPointerTouchAndKeyboardCharts": true,
+      "independentExpansionPlacementAndDebateFilters": true,
+      "searchCategoriesSortingAndLocalDemoFollows": true,
+      "manualArgumentScrollAndContinuousResume": true,
+      "upwardArgumentLoopAndPause": true,
+      "synchronizedProgressPauseResumeAndRepeatedCycles": true,
+      "manualPauseAttentionAndOffscreenHold": true,
+      "reducedMotionManualNavigation": true,
+      "coarsePointerMobileTouchInspection": true,
+      "realNullableDataWalletFollowsAndCanonicalDebates": true,
+      "accessibilityAndCsp": true,
+      "serverRenderedNoJavaScriptFallback": true,
+      "realDebateAndAccountNavigation": true,
+      "unavailableNeverSubstitutesConceptData": true,
+      "slowTickerDirectionPauseKeyboardCopiesReducedMotionAndNoSeparators": true
+    },
+    "errors": [],
+    "scope": "Loopback Express application with synthetic public records/auth responses and checked-in concept fixtures; optional original-export comparison is reported separately. No hosted writes or media sessions."
+  },
+  {
+    "path": "live/evidence.json",
+    "result": "PASS",
+    "checks": {
+      "homeAndLiveNavigation": true,
+      "mutedAutoplayAndDeferredTransport": true,
+      "pausedPreviewShowsOwnRecordingThumbnail": true,
+      "pauseAndOffscreenRelease": true,
+      "hoverCancellation": true,
+      "axeNoViolations": true,
+      "visibleVideoGridAndReplayLoop": true,
+      "hoverAndKeyboardTransferSinglePreview": true,
+      "hiddenTabReleasesAllVideo": true,
+      "bufferingRestartsHoverCountdown": true,
+      "sustainedHoverEntersWatchingInterface": true,
+      "reducedMotionUsesExplicitPlay": true,
+      "mobileAndClickEntry": true,
+      "saveDataSkipsAutoplay": true,
+      "deniedPreviewKeepsUsableHero": true
+    },
+    "errors": [],
+    "scope": "Loopback component trial with synthetic WebM; real LiveKit/HLS delivery and devices are not assessed."
+  }
+]

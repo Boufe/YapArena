@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "recordedAt": "2026-10-22T01:21:01Z",
+  "sourceCommit": "cf4249a979b61dfa30a6f444027bc8992410ba1a",
+  "sourceHashes": {
+    "src/platform/auth/provider-control-phases.ts": "a69efe833a44fe3183b239507fa5ecee450fd1c09dd8131aeb106c923e6e315a",
+    "src/platform/auth/provider-revocation.ts": "afe22136550c7bd87ab37c43593a5bc5f1e5598eee282525a5ef5b7dfd309f15",
+    "tests/provider-control-phases-postgres.test.js": "1b5c0c896ec934691c0ae413fa1e78976a391c0a3b5eaa270d2878586661c4f8",
+    "tests/coin-debate-postgres.test.js": "589bf70a32b0e9e7b5f9af8bf097aa28a1c88ec3c1b36267faaa30a37619fc87"
+  },
+  "scope": "Independent source and actual-log review of author-run isolated PostgreSQL17.10/Node24 focused suites, synthetic provider only. No hosted repair/provider mutation/CI/deployment inferred.",
+  "final": {
+    "fresh": {
+      "tests": 249,
+      "passed": 249,
+      "failed": 0,
+      "skipped": 0,
+      "treasury": 5
+    },
+    "upgrade": {
+      "tests": 249,
+      "passed": 249,
+      "failed": 0,
+      "skipped": 0,
+      "treasury": 5
+    },
+    "catalog": "6112de56",
+    "fullQualityOrBrowserGate": false
+  },
+  "controlledRed": {
+    "tests": 249,
+    "passed": 247,
+    "failed": 2,
+    "skipped": 0,
+    "failures": [
+      "existing concurrent owner exact-replay test at snapshot",
+      "new deterministic held initial-audit-miss exact-replay test at snapshot"
+    ],
+    "baselineBackendCommit": "92f11b449337ad12f2c2295d9b81fb72afb14634",
+    "baselineRevocationSha256": "44fee9a80047ef541f2a706af4d82a48267180095e1230c51fea1808659fbf07",
+    "embeddedSourceManifest": false,
+    "scope": "Raw logs identify exact failedcases/state; final source hashes are not retrospectively represented as an embedded RED manifest."
+  },
+  "chronology": [
+    {
+      "artifact": "history/integrated-permission-failure.log",
+      "result": "FAIL before database tests",
+      "reason": "local PostgreSQL shared-memory shmget EPERM; corrected permitted invocation required, no product fix for this failure"
+    },
+    {
+      "artifact": "history/integrated-barrier-failure.log",
+      "tests": 248,
+      "passed": 247,
+      "failed": 1,
+      "skipped": 0,
+      "reason": "short-session test did not reach intended ledger barrier; pending request error was not captured",
+      "causalityLimit": "Early1500ms session expiry before initialauthorization is a verified fixture vulnerability and plausible explanation, not the observed pendingerror from that exact run."
+    },
+    {
+      "artifact": "history/fixture-and-replay-failure.log",
+      "tests": 248,
+      "passed": 246,
+      "failed": 2,
+      "skipped": 0,
+      "reason": "temporary fixture usedUUID for actualBIGINTsessionID (42883), plus real concurrent ownerreplay failed at snapshot"
+    }
+  ],
+  "independentReview": {
+    "replayFix": "Only a known snapshot rejection may trigger a second exact user/request/terms audit check. Exact committed audit returns canonical created:false; no new state admission, provider read, SQL mutation or reset budget. Other failures remain failures.",
+    "deterministicReplay": "Hold one initial audit miss, commit the other owner rearm, release first; require exact replay, zero extra provider inspection/RPC, unchanged account/queue and exactly one audit.",
+    "expiryFixture": "Initialsession authorization and actual ledger barrier must both be observed; one exact-user temporary owner SECURITY DEFINER function expires the exact session on its existing runtime connection after the held ledger query resumes. PUBLIC revoked before same-TX EXECUTE grant, fixed safe search_path, DROPfinally. All existing final-session rejection/round/book rollback assertions retained.",
+    "basePrivileges": "No table grant, role membership, product accounting code, expiry threshold, sleep or timeout relaxed. Only a temporary narrowly scoped fixture routine is granted then dropped in disposableDB.",
+    "sourceHashesMatchCommittedCf4249": true,
+    "authorAndReviewerScope": "Root/auth authored the source/fixture and ran tests; independent reviewer read actual source/logs and checked hashes, no new environment action."
+  },
+  "limitations": [
+    "The final focused pass does not make the pending combinedrootquality/browser gate PASS.",
+    "Earlier248-case passes remain valid historical runs, not proof the newly discovered interleaving was covered.",
+    "No original pending-error cause is invented for the barrier failure.",
+    "No hosted reset, current/new key adoption, session creation, wallet creation/funding or live operation occurred in these fixtures."
+  ]
+}

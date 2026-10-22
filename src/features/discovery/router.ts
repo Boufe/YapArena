@@ -84,10 +84,6 @@ function slug(value: string | string[]): string | null {
   return value;
 }
 
-function html(response: Response, body: string, status = 200) {
-  return response.status(status).type("html").send(body);
-}
-
 export function createDiscoveryRouter({
   discovery,
   a4Enabled = false,
@@ -95,6 +91,7 @@ export function createDiscoveryRouter({
   homepageReferenceEnabled = false,
   publicBots,
   applicationOrigin,
+  emailFirst = false,
 }: {
   discovery: Repository;
   a4Enabled?: boolean;
@@ -102,9 +99,23 @@ export function createDiscoveryRouter({
   homepageReferenceEnabled?: boolean;
   publicBots?: ReturnType<typeof createPublicBotRepository>;
   applicationOrigin: string;
+  emailFirst?: boolean;
 }) {
   const router = Router();
   const origin = applicationOrigin.replace(/\/$/, "");
+  function html(response: Response, body: string, status = 200) {
+    return response
+      .status(status)
+      .type("html")
+      .send(
+        emailFirst
+          ? body.replace(
+              '<html lang="en">',
+              '<html lang="en" data-email-first>',
+            )
+          : body,
+      );
+  }
 
   router.use((_request, response, next) => {
     response.set("Cache-Control", "no-store");
@@ -211,11 +222,15 @@ export function createDiscoveryRouter({
       return html(response, renderHome(origin, referenceHomepage()));
     }
     try {
-      return html(response, renderHome(origin, await homeData()));
+      return html(response, renderHome(origin, await homeData(), emailFirst));
     } catch {
       return html(
         response,
-        renderHome(origin, { ...publicHomepage([], []), available: false }),
+        renderHome(
+          origin,
+          { ...publicHomepage([], []), available: false },
+          emailFirst,
+        ),
         503,
       );
     }
@@ -304,7 +319,7 @@ export function createDiscoveryRouter({
     html(response, renderAbout(origin)),
   );
   router.get("/account", (_request, response) =>
-    html(response, renderAccount(origin)),
+    html(response, renderAccount(origin, emailFirst)),
   );
   return router;
 }

@@ -1,0 +1,26 @@
+{
+  "result": "PASS",
+  "controlledRed": {
+    "expectedFixtureExitCode": 1,
+    "actualFixtureExitCode": 1,
+    "exactPhase": "mobile retained-wallet removal while account refresh is held",
+    "errorName": "AssertionError",
+    "committedWallets": 1,
+    "signedInVisible": false,
+    "refreshBarrierTimedOut": false
+  },
+  "green": {
+    "fixtureExitCode": 0,
+    "groups": 4,
+    "errors": []
+  },
+  "runnerSha256": "4a55a686df3e413e75a365b88c30914fd059025916d90081abe9fb2fc171cee8",
+  "maintainedFixtureSha256": "3720a754856057a21398c2995a0fdb7733a258814aeea6d9ead66a07f2774287",
+  "redFixtureSha256": "7e4e0560715dff2f5410857a54fb96d568c15d00ee2ed1e9206defdfeee162fd",
+  "unchangedAppAndAssets": true,
+  "separateDisposableClusters": true,
+  "bothCleaned": true,
+  "providerConfigured": false,
+  "chainConfigured": false,
+  "limitation": "Original CI catch discarded its precise assertion; controlled reproduction proves the invalid immediate visibility assumption but does not invent a historical line."
+}

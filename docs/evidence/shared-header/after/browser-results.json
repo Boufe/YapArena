@@ -1,0 +1,21 @@
+{
+  "at": "2026-10-20T00:23:35.742Z",
+  "checks": [
+    "desktop: synthetic withdrawal balance, independent grant bars, sticky qualification, Escape/focus restoration",
+    "desktop: SDK initialization with synthetic CAPTCHA-disabled metadata, email/code form, keyboard submit, focus, resend wait, wrong-code error, change email, refresh, no overflow, automated WCAG tags",
+    "desktop: balance dialog, Escape/focus, exact debate query/fragment preserved through sign-in link",
+    "desktop: server-owned authentication methods, profile create/publish with permanent handle, other/all-session sign-out controls, account/dialog automated WCAG tags, no account overflow and unused wallet directory disabled",
+    "desktop: identical header geometry, typography and colors with and without debate styles",
+    "desktop: guest header reflows at 200% CSS zoom",
+    "desktop: member header reflows at 200% CSS zoom",
+    "desktop: anonymous controls only, lazy SDK, unified login/signup/protected-action popup, exact return path, cancellation clears credentials, Back/Escape/focus restoration, server-session-only member balance/deposit/user menu, honest funding gate, cross-tab logout, outage recovery, stale balance rejection and modal WCAG tags",
+    "mobile: synthetic withdrawal balance, independent grant bars, sticky qualification, Escape/focus restoration",
+    "mobile: SDK initialization with synthetic CAPTCHA-disabled metadata, email/code form, keyboard submit, focus, resend wait, wrong-code error, change email, refresh, no overflow, automated WCAG tags",
+    "mobile: balance dialog, Escape/focus, exact debate query/fragment preserved through sign-in link",
+    "mobile: server-owned authentication methods, profile create/publish with permanent handle, other/all-session sign-out controls, account/dialog automated WCAG tags, no account overflow and unused wallet directory disabled",
+    "mobile: identical header geometry, typography and colors with and without debate styles",
+    "mobile: anonymous controls only, lazy SDK, unified login/signup/protected-action popup, exact return path, cancellation clears credentials, Back/Escape/focus restoration, server-session-only member balance/deposit/user menu, honest funding gate, cross-tab logout, outage recovery, stale balance rejection and modal WCAG tags"
+  ],
+  "errors": [],
+  "scope": "Local SSR fixture and installed Privy SDK; public provider metadata fetched live with CAPTCHA explicitly disabled in the fixture response only; OTP endpoints intercepted. No real CAPTCHA validation, email delivery, successful provider login, hosted session, physical device or complete WCAG conformance evidence."
+}

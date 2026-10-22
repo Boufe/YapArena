@@ -1,11 +1,16 @@
 import { createA4Repository } from "./features/a4/repository.ts";
+import { createCoinDebateSandbox } from "./features/account-wallet/debate-sandbox.ts";
 import { createIdentityRepository } from "./features/identity/repository.ts";
 import { createMatchingRepository } from "./features/matching/repository.ts";
 import { createMediaRepository } from "./features/media/repository.ts";
 import { createMediaProvider } from "./features/media/provider.ts";
 import { createMediaOperations } from "./features/media/operations.ts";
+import { createMediaAccountRevocation } from "./features/media/account-revocation.ts";
 import { createSessionRepository } from "./platform/auth/sessions.ts";
 import { createWalletRepository } from "./platform/auth/wallets.ts";
+import { createAccountOperationRepository } from "./platform/auth/account-operations.ts";
+import { createSecurityPasskeyRepository } from "./platform/auth/security-passkeys.ts";
+import { deleteExpiredAccessChallenges } from "./platform/auth/account-access.ts";
 import { loadConfig } from "./platform/config.ts";
 import { createDatabase } from "./platform/database.ts";
 import { createLogger } from "./platform/logger.ts";
@@ -30,9 +35,31 @@ const mediaOperations =
       })
     : undefined;
 const runtime = createRuntime({
+  mediaAccountRevocation: baseMediaProvider
+    ? createMediaAccountRevocation(database, {
+        supportsTokenRevocation: baseMediaProvider.supportsTokenRevocation,
+        mintSpeakerToken: (debateId, suffix, side) =>
+          baseMediaProvider.token(debateId, suffix, true, side),
+        removeSpeaker: (debateId, identity) =>
+          baseMediaProvider.removeSpeaker(debateId, identity),
+        timeoutMs: 6000,
+        observe: ({ result, seconds }) =>
+          logger.debug({ result, seconds }, "speaker access revocation"),
+      })
+    : undefined,
   a4,
+  coinDebates: config.coinSandboxEnabled
+    ? createCoinDebateSandbox(database, "simulation")
+    : undefined,
   database,
   sessions: createSessionRepository(database),
+  accountSecurityCleanup: async () => {
+    await Promise.all([
+      createAccountOperationRepository(database).deleteExpired(),
+      createSecurityPasskeyRepository(database).deleteExpiredChallenges(),
+      deleteExpiredAccessChallenges(database),
+    ]);
+  },
   identity: createIdentityRepository(database),
   matching: createMatchingRepository(database),
   media,

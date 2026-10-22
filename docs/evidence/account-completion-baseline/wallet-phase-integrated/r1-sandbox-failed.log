@@ -1,0 +1,38 @@
+
+> yaparena@1.0.0 verify:browser
+> node scripts/verify-browser-release.ts
+
+Synthetic browser artifacts: /private/tmp/yaparena-wallet-phase-integrated
+Browser release gate: build
+
+> yaparena@1.0.0 build
+> npm run typecheck && tsc --project tsconfig.json && npm run build:frontend
+
+
+> yaparena@1.0.0 typecheck
+> npm run typecheck:operations && npm run typecheck:frontend
+
+
+> yaparena@1.0.0 typecheck:operations
+> tsc --project tsconfig.json --emitDeclarationOnly && tsc --project tsconfig.database-tools.json && tsc --project tsconfig.browser-automation.json && tsc --project tsconfig.community-tools.json && tsc --project tsconfig.replay-tools.json && tsc --project tsconfig.edge.json
+
+
+> yaparena@1.0.0 typecheck:frontend
+> node scripts/build-frontend.ts --check-sources && tsc --project tsconfig.frontend.json && tsc --project tsconfig.frontend-auth.json && tsc --project tsconfig.service-worker.json && tsc --project tsconfig.frontend-build.json
+
+
+> yaparena@1.0.0 build:frontend
+> node scripts/build-frontend.ts
+
+Browser release gate: fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers
+Database isolation verification failed (1): local PostgreSQL command failed; check local process permissions and prerequisites
+2026-10-21 10:22:27.073 EDT [17677] FATAL:  could not create shared memory segment: Operation not permitted
+2026-10-21 10:22:27.073 EDT [17677] DETAIL:  Failed system call was shmget(key=28781731, size=56, 03600).
+child process exited with exit code 1
+initdb: removing data directory "/tmp/yaparena-isolation-pg-jcVnjI/data"
+
+
+Browser release gate FAILED: fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers failed; inspect the assertion and synthetic artifacts
+
+1 !== 0
+

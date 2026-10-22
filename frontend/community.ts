@@ -23,7 +23,7 @@ interface ReportForm extends HTMLFormElement {
 type MessageView = Pick<CommunityMessage, "body" | "createdAt"> &
   Partial<CommunityMessage>;
 /* global document, window */
-import { api } from "./community-transport.js";
+import { api as requestAPI } from "./community-transport.js";
 import { createCommunityStream } from "./community-stream.js";
 import {
   createChatState,
@@ -32,6 +32,40 @@ import {
   shouldSendOnEnter,
 } from "./community-state.js";
 const reasons = ["harassment", "hate", "threat", "spam", "privacy", "other"];
+let mutationAccountEpoch = 0;
+window.addEventListener("yap:account-changed", () => mutationAccountEpoch++);
+class StaleAccountResponse extends Error {}
+async function api<T = unknown>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const epoch = mutationAccountEpoch;
+  const mutation = (options.method ?? "GET").toUpperCase() !== "GET";
+  try {
+    const result = await requestAPI<T>(path, options);
+    if (mutation && epoch !== mutationAccountEpoch)
+      throw new StaleAccountResponse();
+    return result;
+  } catch (error) {
+    if (mutation && epoch !== mutationAccountEpoch)
+      throw new StaleAccountResponse();
+    throw error;
+  }
+}
+
+function requestAuthentication(error: DeliveryError, source: HTMLElement) {
+  if (error.status !== 401) return;
+  const returnTo = location.pathname + location.search + location.hash;
+  if (
+    window.dispatchEvent(
+      new CustomEvent("yap:request-auth", {
+        cancelable: true,
+        detail: { returnTo, source },
+      }),
+    )
+  )
+    location.assign(`/account?next=${encodeURIComponent(returnTo)}`);
+}
 
 function element<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -92,7 +126,9 @@ async function submit(
   try {
     await action();
   } catch (error) {
+    if (error instanceof StaleAccountResponse) return;
     status.textContent = (error as DeliveryError).message;
+    requestAuthentication(error as DeliveryError, form);
   } finally {
     button.disabled = false;
   }
@@ -171,6 +207,8 @@ function initEvent(root: HTMLElement) {
   let currentLiked = false;
   let oldest: string | null = null;
   let signedIn = false;
+  let currentAccountId: string | null = null;
+  const submissionOwners = new WeakMap<SubmissionRecord, string | null>();
   let likeWriting = false;
   let personalEpoch = 0;
   let personalRefreshNeeded = true;
@@ -247,6 +285,9 @@ function initEvent(root: HTMLElement) {
     const keys = [...state.submissions.values()]
       .filter(
         (record) =>
+          Boolean(currentAccountId) &&
+          (submissionOwners.get(record) === null ||
+            submissionOwners.get(record) === currentAccountId) &&
           !["confirmed", "removed", "rejected", "cooldown"].includes(
             record.state,
           ),
@@ -258,20 +299,36 @@ function initEvent(root: HTMLElement) {
     const finish = state.beginRequest();
     try {
       const epoch = streamEpoch;
+      const account = accountEpoch;
       const items = await api<CommunityMessage[]>(
         `/api/community/events/${id}/chat/submissions?keys=${keys.join(",")}`,
       );
-      if (epoch !== streamEpoch || publicUnavailable) {
+      if (
+        epoch !== streamEpoch ||
+        account !== accountEpoch ||
+        publicUnavailable
+      ) {
         scheduleReconciliation();
         return;
       }
-      for (const item of items) insertMessage(item, "reconcile");
+      for (const item of items) {
+        const record = item.clientMessageId
+          ? state.submissions.get(item.clientMessageId)
+          : undefined;
+        if (record && submissionOwners.get(record) === null)
+          submissionOwners.set(record, currentAccountId);
+        insertMessage(item, "reconcile");
+      }
     } catch {
       /* Uncertainty remains explicit; no automatic send. */
     } finally {
       reconciling = false;
       finish();
     }
+  }
+  function canRetrySubmission(record: SubmissionRecord) {
+    const owner = submissionOwners.get(record);
+    return Boolean(currentAccountId && owner === currentAccountId);
   }
   function scheduleReconciliation() {
     window.clearTimeout(reconciliationTimer);
@@ -386,6 +443,11 @@ function initEvent(root: HTMLElement) {
         retry.type = "button";
         retry.dataset.communityRetry = "";
         retry.addEventListener("click", () => {
+          if (!canRetrySubmission(record!)) {
+            sendStatus.textContent =
+              "Sign in to the original account to retry this submission, or recover its text to a new draft and review it before posting.";
+            return;
+          }
           const attempt = state.retry(record!);
           if (attempt) {
             updateLocal(record!);
@@ -399,11 +461,12 @@ function initEvent(root: HTMLElement) {
             chatForm.elements.body.value,
             record!,
           );
-          recoveredSubmission = record!;
+          recoveredSubmission = canRetrySubmission(record!) ? record! : null;
           // Retire this action until another failure, to prevent accidental duplicate recovery.
           recover.disabled = true;
-          sendStatus.textContent =
-            "Text added to your draft. Sending unchanged recovered text retries its original submission. Editing creates a new submission.";
+          sendStatus.textContent = canRetrySubmission(record!)
+            ? "Text added to your draft. Sending unchanged recovered text retries its original submission. Editing creates a new submission."
+            : "Text added as a new draft. Review it before posting with the current account. The original submission is not retried.";
           chatForm.elements.body.focus();
         });
         actions.append(retry, recover);
@@ -433,6 +496,7 @@ function initEvent(root: HTMLElement) {
       ?.toggleAttribute(
         "disabled",
         cooldownUntil > Date.now() ||
+          (Boolean(record) && !canRetrySubmission(record!)) ||
           ["sending", "confirmed", "removed"].includes(record?.state as string),
       );
   }
@@ -471,6 +535,7 @@ function initEvent(root: HTMLElement) {
   }
 
   async function deliver(record: SubmissionRecord, attempt: number) {
+    const account = accountEpoch;
     const finishRequest = state.beginRequest();
     try {
       const item = await api<CommunityMessage>(
@@ -484,11 +549,33 @@ function initEvent(root: HTMLElement) {
           }),
         },
       );
+      if (account !== accountEpoch) {
+        state.fail(
+          record,
+          attempt,
+          new Error(
+            "Account changed while delivery was pending. Sign in to the original account to reconcile it, or recover the text to a draft for review.",
+          ),
+        );
+        updateLocal(record);
+        return;
+      }
       if (item.clientMessageId !== record.submission.clientMessageId)
         throw new Error("Invalid acknowledgment; delivery is unconfirmed.");
       insertMessage(item, "post");
       if (degradedMode) schedule(0);
     } catch (error) {
+      if (account !== accountEpoch) {
+        state.fail(
+          record,
+          attempt,
+          new Error(
+            "Account changed; delivery remains unconfirmed for the original account.",
+          ),
+        );
+        updateLocal(record);
+        return;
+      }
       if (state.fail(record, attempt, error as DeliveryError)) {
         if (
           (error as DeliveryError).status === 429 &&
@@ -502,6 +589,11 @@ function initEvent(root: HTMLElement) {
         }
         updateLocal(record!);
         sendStatus.textContent = `${record.state === "unconfirmed" ? "Delivery unconfirmed. The message may have arrived." : record.state === "cooldown" ? "Posting allowance reached." : "Message rejected."} ${(error as DeliveryError).message} Use the message’s retry or draft recovery actions.`;
+        if ((error as DeliveryError).status === 401) {
+          const login = element("a", "Log in to continue");
+          login.href = `/account?next=${encodeURIComponent(location.pathname + location.search + location.hash)}`;
+          sendStatus.append(" ", login);
+        }
       }
     } finally {
       if (streamHealthy) scheduleReconciliation();
@@ -912,16 +1004,38 @@ function initEvent(root: HTMLElement) {
       }
     },
   });
-  void api("/api/auth/me")
-    .then(() => {
+  let accountEpoch = 0;
+  async function refreshAccount() {
+    const epoch = ++accountEpoch;
+    personalEpoch++;
+    signedIn = false;
+    currentAccountId = null;
+    recoveredSubmission = null;
+    currentLiked = false;
+    like.setAttribute("aria-pressed", "false");
+    like.textContent = "Like this event";
+    for (const record of state.submissions.values()) updateLocal(record);
+    try {
+      const account = await api<{ user: { id: string } }>("/api/auth/me");
+      if (epoch !== accountEpoch) return;
       signedIn = true;
+      currentAccountId = account.user.id;
+      for (const record of state.submissions.values()) updateLocal(record);
+      personalRefreshNeeded = true;
+      like.title = "";
       scheduleReconciliation();
-      return refreshPersonalLike();
-    })
-    .catch(() => {
+      await refreshPersonalLike();
+    } catch {
+      if (epoch !== accountEpoch) return;
       signedIn = false;
-      like.title = "Sign in to like this event";
-    });
+      currentLiked = false;
+      like.setAttribute("aria-pressed", "false");
+      like.textContent = "Like this event";
+      like.title = "Log in to like this event";
+    }
+  }
+  window.addEventListener("yap:account-changed", () => void refreshAccount());
+  void refreshAccount();
   stream.start();
   root
     .querySelector<HTMLElement>("[data-community-refresh]")!
@@ -981,6 +1095,7 @@ function initEvent(root: HTMLElement) {
     if (event.persisted) stream.reconnect();
   });
   like.addEventListener("click", () => {
+    const epoch = accountEpoch;
     like.disabled = true;
     likeWriting = true;
     personalEpoch++;
@@ -988,6 +1103,7 @@ function initEvent(root: HTMLElement) {
       method: currentLiked ? "DELETE" : "PUT",
     })
       .then((result) => {
+        if (epoch !== accountEpoch) return;
         currentLiked = result.liked;
         like.setAttribute("aria-pressed", String(currentLiked));
         like.textContent = currentLiked ? "Remove like" : "Like this event";
@@ -995,7 +1111,9 @@ function initEvent(root: HTMLElement) {
         status.textContent = currentLiked ? "Event liked." : "Like removed.";
       })
       .catch((error: unknown) => {
+        if (epoch !== accountEpoch) return;
         status.textContent = (error as DeliveryError).message;
+        requestAuthentication(error as DeliveryError, like);
       })
       .finally(() => {
         like.disabled = publicUnavailable;
@@ -1051,6 +1169,7 @@ function initEvent(root: HTMLElement) {
     // This reference comes only from explicit recovery; it is never feed text matching.
     if (
       recoveredSubmission &&
+      canRetrySubmission(recoveredSubmission) &&
       composer.value.trim() === recoveredSubmission.submission.body
     ) {
       const attempt = state.retry(recoveredSubmission);
@@ -1078,6 +1197,7 @@ function initEvent(root: HTMLElement) {
       sendStatus.textContent = "Enter a message of 1–500 characters.";
       return;
     }
+    submissionOwners.set(record, currentAccountId);
     const follow = nearBottom();
     const anchor = saveAnchor();
     const line = messageNode(record.submission, record);

@@ -1,0 +1,18 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.fill: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('#email-auth').getByLabel('Email address', { exact: true })[22m
+
+    at login (/Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:2209:63)
+    at async verifyEmbeddedWalletStatus (/Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:2342:5)
+    at async file:///Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:2432:5 {
+  log: [
+    "  - waiting for locator('#email-auth').getByLabel('Email address', { exact: true })"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.19.0

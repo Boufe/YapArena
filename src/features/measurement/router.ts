@@ -69,6 +69,7 @@ export function createMeasurementRouter({
   identity,
   requireAuth,
   environment,
+  emailFirst = false,
 }: {
   measurement: ReturnType<typeof createMeasurementRepository>;
   sessions: Pick<
@@ -78,6 +79,7 @@ export function createMeasurementRouter({
   identity: Pick<ReturnType<typeof createIdentityRepository>, "getRoles">;
   requireAuth: RequestHandler;
   environment: string;
+  emailFirst?: boolean;
 }) {
   const router = Router();
   const cookieName = measurementCookie(environment);
@@ -251,6 +253,7 @@ export function createMeasurementRouter({
           renderMeasurementDashboard(
             await measurement.summary(),
             await measurement.listAffiliations(),
+            emailFirst,
           ),
         ),
   );

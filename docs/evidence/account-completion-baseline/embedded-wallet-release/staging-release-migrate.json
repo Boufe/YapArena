@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-21T21:58:26.239Z",
+  "revision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+  "projectRef": "ypteqfmjietdqjzyvgtk",
+  "appliedMigrations": [
+    "1792426014000_add-embedded-wallet-provisioning",
+    "1792426015000_add-provider-control-phases"
+  ],
+  "ownerOnly": true,
+  "runtimeNonIdleSessions": 0,
+  "retainedAccounts": 3,
+  "totalAccounts": 4,
+  "liveJournals": 0,
+  "encryptedBackupSha256": "22bfef651cf5171ceb7318634a4df590f8c7c6d141f8dfcf608f04591dc3854c",
+  "rollback": "Forward-only schema changes. Retained encrypted backup is emergency recovery evidence; do not run down migrations or reset accounts. Reassess application compatibility before code rollback."
+}

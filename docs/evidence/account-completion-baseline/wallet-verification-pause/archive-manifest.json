@@ -1,0 +1,122 @@
+{
+  "archivedAt": "2026-10-21T21:11:25.365Z",
+  "baseRevision": "a9706ccb55ae342c4f11366145b1896d17656931",
+  "sourceScope": "The base revision has three frozen backend changes and two frozen PostgreSQL test changes; these hashes identify the tested working tree, not an unmodified commit.",
+  "sourceHashes": {
+    "src/platform/auth/embedded-wallet-provisioning.ts": "afadf4f70fc737d033320cb9e6172073282f512dcb845aff8fdb058a9ef325ba",
+    "src/platform/auth/provider-accounts.ts": "a87ccaba271a9c4f30fa712e81f5759fa488749d2224611b61f6b8adeec286e1",
+    "src/platform/auth/provider-control-phases.ts": "11935ce851d67589258032a8033c2db871491cfc703c75107669d5cef6937a3f",
+    "dist/platform/auth/embedded-wallet-provisioning.js": "93a50583ed8927170e9168b3884a144da05cd722383a6cad3207c79f85d83336",
+    "dist/platform/auth/provider-accounts.js": "70ece1a1f2d8db00da7469a24180e1c9764c9ab3d8d6541fcc4db7dcceb55c07",
+    "dist/platform/auth/provider-control-phases.js": "302bfacd36ca84d1e269a9bf23ab86f89124241e9b3fa19c3d525c2c3dd3ff40",
+    "tests/embedded-wallet-provisioning-postgres.test.js": "b4a72d35de3870ea1dfadebbe15a73fb36dde1354d37de8d37830b22b63898c0",
+    "tests/provider-control-phases-postgres.test.js": "8a344febfeaec90b27f389e19aa4b2323ec632409bd6835a40872e0ea0432865"
+  },
+  "native": {
+    "reportedChecks": 18,
+    "resultsSha256": "d7e19beb0f545e39268c899a354f6a2501a75a44b6f677c46d7a3f44e4bd0f86",
+    "priorLeafRestoredExactly": true,
+    "restoredLeafFiles": 23
+  },
+  "retainedWalletVerifier": {
+    "testedSha256": "05c0eae6d63f2a2f22d9cbff08af590f7321c41850ee5c25bfbd7dbe681ef3db",
+    "currentWorkingCopySha256": "3720a754856057a21398c2995a0fdb7733a258814aeea6d9ead66a07f2774287",
+    "newWorkingCopyNotCoveredByThisIntegratedRun": true
+  },
+  "artifactHashes": {
+    "integrated/browser/a4/arena/axe.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "integrated/browser/a4/arena/desktop.png": "f3f8456bee5b76627d9a21799d25a704d013c8af784e01c99343640bf3d1fef9",
+    "integrated/browser/a4/arena/evidence.json": "a88850850e74acbf8eee9df1903adad1d04b3e78c38dc88fee52ce8c5004e60c",
+    "integrated/browser/a4/arena/hover.png": "d30cffa7b9c5a48f931936df76436bced3d382ae22fea4f668169c70c000c0e5",
+    "integrated/browser/a4/arena/mobile.png": "4b6b739ed5a8d347c81b7c2eb3351ddbbf7cd6e9f431b6e0c28e5149b6261dab",
+    "integrated/browser/a4/arena/replay-desktop.png": "36fdb04f60aa2c13fb190079850be24b94acff92c2f86d97391e840923629025",
+    "integrated/browser/a4/browser-evidence.json": "1f050d080c559e60da8fdaa03c17ba08b6f397d54d0d12d2210b8ec0aed40855",
+    "integrated/browser/a4/execution-1-commitment.png": "0257a51978a777489af1266a57ac3aec365fe929a6342229fea768dfb420bc0c",
+    "integrated/browser/a4/execution-2-commitment.png": "905790ddd66e3f9c79bb686ff61d4dedfa17444a16a6147d766c580904c97d1e",
+    "integrated/browser/a4/inline-debate-desktop.png": "6512d761a90dd6f1c1e703b3e19effc4c269a0848b85fa1cad72607cef255910",
+    "integrated/browser/a4/inline-initializing.png": "1b4e932e2ee1100c9496144591d5ba29b58e197458026ea2822eda3ef59d09b2",
+    "integrated/browser/a4/no-trade-1-commitment.png": "aca17094a44f94d5926c6511fde8cf0f253a5fcb8d262ea6435de4e5943045b8",
+    "integrated/browser/a4/no-trade-2-commitment.png": "cb77a60acc00e3aca5025e2a1633582551cf2b9de2852ae1426989407a76472f",
+    "integrated/browser/a4/retained-wallet/acceptance.json": "0ddb5a7c2cd47c85bca4a9ff1d45b3eba33132389ff1a95acecf7bd8b3847022",
+    "integrated/browser/a4/retained-wallet/password-removal-desktop.png": "102881833fee2b57fec50045b706922b783d1a0c3671aac81f879be8b27e1a7a",
+    "integrated/browser/a4/retained-wallet/retained-removal-mobile.png": "827b0b7f5f456e4e5fbff348496f64cb40b8c9c2417e5347d3474b6877eb3056",
+    "integrated/browser/a4/retained-wallet/sole-wallet-protection-mobile.png": "9f22d3ea7642dec34c202f8386ddd33410cc6cb08fada62e41ff5e4107e06a63",
+    "integrated/browser/a4/settled-desktop.png": "f9edf6fc20c36f2fc84cfcacd1c7a2fa9c3ef58a198407b94df242037e688878",
+    "integrated/browser/a4/settled-mobile.png": "418fc12b0d2b181564d5ec8dbc61d46d61878341e24bd6047b16ff341fa49680",
+    "integrated/browser/a4/shared-bots/debate-mobile.png": "51aab6573d86bfb0df9fe0a6c93d654ec49e91a1bd343821f35a8314b44d22e9",
+    "integrated/browser/a4/shared-bots/debate-shared.png": "e3227a90b2db09e98e79ff53bb3e6e1b454f88b66a215c7e5488281efe3cd83e",
+    "integrated/browser/a4/shared-bots/evidence.json": "49838fdce2b6c7e36a82df38f8af354e06262e6bd13d5cada9553c012495a2ef",
+    "integrated/browser/a4/shared-bots/home-expanded.png": "bb7f4eeb996b545585c75cf0530e0043dfebcefd41dd26d74921c47dc3911636",
+    "integrated/browser/a4/shared-bots/home-mobile.png": "e42f1bab1a61750eec07eee250ef7771099dfb536b604e4ed8cfa3cf0779943d",
+    "integrated/browser/homepage/evidence.json": "763363865dea851fb4a524779dd1eb13b420bcfde361a0e73be39990f5679b3d",
+    "integrated/browser/homepage/implemented-1024-initial.png": "218848876a2eac08d2c79be32b775b45de486e57e050986ee6aa2cb21f324c02",
+    "integrated/browser/homepage/implemented-1440-initial.png": "83b4d563936c4560e33441b1eba54ed55a72745c2f8365e4ad6f61a6ae2982e4",
+    "integrated/browser/homepage/implemented-1920-initial.png": "5c2dd8b6e3ad649fce94fb9c9cccc2067e313ed2ad40573af5e973f1918734cd",
+    "integrated/browser/homepage/implemented-320-initial.png": "49471e1b06c9eb4097bb70917252d2861d61b30c27524dad439c640133ab2049",
+    "integrated/browser/homepage/implemented-390-initial.png": "38ae3c1373d5d2b797aa22aec4ef9794597626f416dab767de4716685fc020ce",
+    "integrated/browser/homepage/implemented-768-initial.png": "0eadbebe086b6ea064046e3a126c8c9dcbaf8235fc12e65bd55d6aa76b954d0f",
+    "integrated/browser/homepage/manual-argument-scroll.png": "f361e7a960cf79a64d32fa877b45f7bf07af14532de3aa616bc367d274188561",
+    "integrated/browser/homepage/ticker-320.png": "9890e3909f9afdb25f382e5212415ed3cbbb77b98121d523fb3a48462be9917b",
+    "integrated/browser/live/desktop.png": "3cfd987fb6d0e6d440cf8d87eee47bd902fb9cab30ae49131e4b2f67b3fb230f",
+    "integrated/browser/live/evidence.json": "3f9efe5cb49cdea40d79d60f8eaa4e04f7b98f3fd16f26b24cd940c3c9131d5d",
+    "integrated/browser/live/grid.png": "1c3cbf1883edeb871021e6805cde740930d83f60b2a033acd061513741daba35",
+    "integrated/browser/live/mobile.png": "ae87453cad7288ae1e01b955eb02db573c7b7f269bfa928ea0a2d2379dbb386b",
+    "integrated/browser/live/thumbnail.png": "efb22b77682ed7ad92d389038223307c77abbed5e4a57a3c4f24973ea27f96d9",
+    "integrated/browser/result.json": "2cbddf007bcfa56fffd10ffd423378ebc1949d4c40d4941dbc228b47df3ab908",
+    "integrated/database/fresh-account-security.log": "b9d90362dc046c0f8aa920db39ea3452862d4e4675f61c1d4f2b387789246b75",
+    "integrated/database/fresh-inventory.json": "135703c7aec45f4b5299c61b72a6b363b17e810b899fff03f4d1e99b3eb26e9a",
+    "integrated/database/quality.log": "bd3539d7ef9de692a77e52fb5dd8f342239603dd2c997378f6065a3273852d6c",
+    "integrated/database/treasury-fresh.log": "fec954e4b427fdc671bd7db99bcd5ca6207483832b5d281d65cb27e20330c6de",
+    "integrated/database/treasury-upgrade.log": "08189694faabb617636ac53a5ea9e7f4a7c8f87b0ff9ad26f526ce5be19690cf",
+    "integrated/database/upgrade-account-security.log": "dee7782c94a7b7799d03ebef6724b0131f040491c4829bf66c61951e602b69c6",
+    "integrated/database/upgrade-inventory.json": "1b0906dda09257b4d94e1105a2878b0e4deea1bed57a5df10d4347d47b227f62",
+    "integrated/run.log": "55d8604f642a28f9421c563ebe5079cfc0e82ba7c1c8f6c2c251bcd2d27e4860",
+    "native/desktop.png": "614df59c5519a88e61233d030bddd1d880800c859956b4402a2dcd16e9843cc7",
+    "native/mobile.png": "fa1a80981713303c3c53261c6fbf3a953033fef3358eeefa92f556e2470e73b1",
+    "native/provider-desktop-after.png": "481934b0da6b274233774489e4696e628c00cdd43e0019c5a1ca672b5601944b",
+    "native/provider-desktop-before.png": "27cecd079ce47679e69ccc340b2528bc17cab06791177356d6cea0c9b0e46c3d",
+    "native/provider-mobile-after.png": "acca67688339314acc64a29c102c715c0f59a83844dcd0c04b51a4d1994d7c96",
+    "native/provider-mobile-before.png": "2453a7ece7eee4404b00e8a9856f2db964def6f2b17e2737bf4aef2529fc6231",
+    "native/recovery-desktop.png": "dfd3c583e709ba8fc6932f9908ec849ae554a0d47c6e814be95d3b1df1444ca4",
+    "native/recovery-mobile.png": "20f2dcc8a5139cf3406e954fcd70d989c0129fccbcb9009d22803f91af840881",
+    "native/results.json": "d7e19beb0f545e39268c899a354f6a2501a75a44b6f677c46d7a3f44e4bd0f86",
+    "native/run.log": "0c1aaf6087dbb47349d9aac0d3f05f37a6cec42794971462dfaa5736c19e8b7d",
+    "integrated/browser/a4/arena/axe.json.raw": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "integrated/browser/a4/arena/evidence.json.raw": "ab111ab3cc4f8e5ab8b24e085aff31008aba74095787780aa228667af4a7977b",
+    "integrated/browser/a4/browser-evidence.json.raw": "556f18bb93fe68e16a222d55e10a9f6b7d5dd95f6e8c8b42a5f2dfd61cabf4d9",
+    "integrated/database/fresh-inventory.json.raw": "65f76e11204844e3639e76c30687f1a3562d067286378f6c1d6146a4145628f7",
+    "integrated/database/upgrade-inventory.json.raw": "aa7d1451c6a804de13ef2e985cf672f51cd89773ecec1f2bd57e4cb2e7189919"
+  },
+  "jsonFormatting": {
+    "integrated/browser/a4/arena/axe.json": {
+      "rawPath": "integrated/browser/a4/arena/axe.json.raw",
+      "rawSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "archivedSha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "jsonSemanticsUnchanged": true
+    },
+    "integrated/browser/a4/arena/evidence.json": {
+      "rawPath": "integrated/browser/a4/arena/evidence.json.raw",
+      "rawSha256": "ab111ab3cc4f8e5ab8b24e085aff31008aba74095787780aa228667af4a7977b",
+      "archivedSha256": "a88850850e74acbf8eee9df1903adad1d04b3e78c38dc88fee52ce8c5004e60c",
+      "jsonSemanticsUnchanged": true
+    },
+    "integrated/browser/a4/browser-evidence.json": {
+      "rawPath": "integrated/browser/a4/browser-evidence.json.raw",
+      "rawSha256": "556f18bb93fe68e16a222d55e10a9f6b7d5dd95f6e8c8b42a5f2dfd61cabf4d9",
+      "archivedSha256": "1f050d080c559e60da8fdaa03c17ba08b6f397d54d0d12d2210b8ec0aed40855",
+      "jsonSemanticsUnchanged": true
+    },
+    "integrated/database/fresh-inventory.json": {
+      "rawPath": "integrated/database/fresh-inventory.json.raw",
+      "rawSha256": "65f76e11204844e3639e76c30687f1a3562d067286378f6c1d6146a4145628f7",
+      "archivedSha256": "135703c7aec45f4b5299c61b72a6b363b17e810b899fff03f4d1e99b3eb26e9a",
+      "jsonSemanticsUnchanged": true
+    },
+    "integrated/database/upgrade-inventory.json": {
+      "rawPath": "integrated/database/upgrade-inventory.json.raw",
+      "rawSha256": "aa7d1451c6a804de13ef2e985cf672f51cd89773ecec1f2bd57e4cb2e7189919",
+      "archivedSha256": "1b0906dda09257b4d94e1105a2878b0e4deea1bed57a5df10d4347d47b227f62",
+      "jsonSemanticsUnchanged": true
+    }
+  }
+}

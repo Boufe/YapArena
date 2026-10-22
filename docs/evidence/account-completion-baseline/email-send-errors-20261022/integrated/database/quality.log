@@ -1,0 +1,1258 @@
+
+> yaparena@1.0.0 check
+> npm run lint && npm run format:check && npm run typecheck && npm run test:coverage
+
+
+> yaparena@1.0.0 lint
+> eslint .
+
+
+> yaparena@1.0.0 format:check
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> yaparena@1.0.0 typecheck
+> npm run typecheck:operations && npm run typecheck:frontend
+
+
+> yaparena@1.0.0 typecheck:operations
+> tsc --project tsconfig.json --emitDeclarationOnly && tsc --project tsconfig.database-tools.json && tsc --project tsconfig.browser-automation.json && tsc --project tsconfig.community-tools.json && tsc --project tsconfig.replay-tools.json && tsc --project tsconfig.edge.json
+
+
+> yaparena@1.0.0 typecheck:frontend
+> node scripts/build-frontend.ts --check-sources && tsc --project tsconfig.frontend.json && tsc --project tsconfig.frontend-auth.json && tsc --project tsconfig.service-worker.json && tsc --project tsconfig.frontend-build.json
+
+
+> yaparena@1.0.0 test:coverage
+> npm run build && node --test --experimental-test-coverage --test-coverage-exclude=scripts/** --test-coverage-exclude=tests/** --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 tests/*.test.js
+
+
+> yaparena@1.0.0 build
+> npm run typecheck && tsc --project tsconfig.json && npm run build:frontend
+
+
+> yaparena@1.0.0 typecheck
+> npm run typecheck:operations && npm run typecheck:frontend
+
+
+> yaparena@1.0.0 typecheck:operations
+> tsc --project tsconfig.json --emitDeclarationOnly && tsc --project tsconfig.database-tools.json && tsc --project tsconfig.browser-automation.json && tsc --project tsconfig.community-tools.json && tsc --project tsconfig.replay-tools.json && tsc --project tsconfig.edge.json
+
+
+> yaparena@1.0.0 typecheck:frontend
+> node scripts/build-frontend.ts --check-sources && tsc --project tsconfig.frontend.json && tsc --project tsconfig.frontend-auth.json && tsc --project tsconfig.service-worker.json && tsc --project tsconfig.frontend-build.json
+
+
+> yaparena@1.0.0 build:frontend
+> node scripts/build-frontend.ts
+
+▶ A4 server disclosure contracts
+  ✔ whitelists pending participant fields despite fully populated hidden rows (5.415292ms)
+  ✔ reveals bounded pseudonymous books, receipts, center loss and audit commitments (4.130041ms)
+  ✔ audits bot-only observer access independently of reveal, with no human receipt (7.004583ms)
+  ✔ returns committed/void and nonexecuted receipts without inventing a payout (3.251958ms)
+  ✔ rechecks active account/session before confidential reads and rolls back failed commits (1.528834ms)
+  ✔ uses database reveal eligibility even when serialized timestamps appear past (1.003584ms)
+  ✔ bounds lists and private journal history and excludes journal metadata from SQL (0.368041ms)
+✔ A4 server disclosure contracts (24.2485ms)
+▶ A4 ledger posting boundary
+  ✔ merges balanced atomic postings and serializes the balance scope (26.182041ms)
+  ✔ rejects negative transfers, imbalance, cross-assets, duplicate refs and broken projections (40.202167ms)
+✔ A4 ledger posting boundary (69.752292ms)
+▶ A4 HTTP contracts
+  ✔ combines workspace reads into one account-bound response and rejects unrelated/observer runs (203.554625ms)
+  ✔ authenticates settlement timelines and rejects arbitrary scope selectors (32.596625ms)
+  ✔ derives actors from auth and converts NO ceilings exactly through all routes (77.24375ms)
+  ✔ rejects unknown fields, bad pages/IDs, missing keys, stale account and role flags (110.470834ms)
+  ✔ maps expected errors and keeps unexpected failures generic (25.347833ms)
+✔ A4 HTTP contracts (449.810834ms)
+▶ A4 exact rules
+  ✔ converts NO ceilings and takes exact unweighted medians (1.178291ms)
+  ✔ draws one shared offer, retaining missing, equal and inverted fallback reasons (0.419292ms)
+  ✔ executes unequal quantities fully and counts refused endorsements in settlement (0.243166ms)
+  ✔ does not turn 50% settlement into a refund; equality acceptance and one-sided gate hold (0.124708ms)
+  ✔ preserves minority profits and independent center reconciliation (2.63975ms)
+  ✔ allows a lone deviating exploratory buyer outside the median interval (0.29775ms)
+  ✔ reserves and charges premium fees once, with explicit dust at two precisions (0.38525ms)
+  ✔ rejects malformed limits, quantities, versions, duplicate accounts and randomness (2.339125ms)
+✔ A4 exact rules (9.492167ms)
+▶ A4 research and asset boundaries
+  ✔ checks Bayesian, ideal and fixed-median shading reference fixtures (10.944667ms)
+  ✔ generates reproducible 500-bot stress cohorts with fresh broad beliefs (28.927833ms)
+  ✔ recomputes finite medians/settlement and independently confirms a pivotal deviation (2200.3045ms)
+  ✔ enforces idempotent pending/final/reversed adapter events without exposing real rails (0.906333ms)
+✔ A4 research and asset boundaries (2241.49725ms)
+▶ A4 runtime-role PostgreSQL
+  ✔ shares only consented settled mixed/observer aggregates, excludes hidden/future/private data and follows new rounds automatically (1554.049916ms)
+  ✔ charts only finalized settlements, separates private creators and excludes observer/pending information (677.79225ms)
+  ✔ uses actual sessions, persistent starter credit, binding review and idempotent receipts (367.75675ms)
+{"scenario":"500 bots","createAndSettleMs":782,"population":500,"asset":"YAP"}
+  ✔ handles 500 bots, separate center funding, observer access and paginated books (786.043625ms)
+  ✔ keeps two distinct delayed shares, payouts and aggregate diagnostics sealed until T (386.73475ms)
+  ✔ serializes same-account commitments across sessions and prevents overspending (437.000333ms)
+  ✔ rechecks cutoff after ledger lock waits, immediately at cutoff and with stale sessions (475.381459ms)
+  ✔ makes refill and controls idempotent and archives only the selected sandbox (251.974084ms)
+  ✔ settles outstanding exposure after disabling admission and survives duplicate workers (134.840042ms)
+  ✔ enforces runtime grants, balanced journals, asset segregation and projection rollback (30.485792ms)
+  ✔ rejects untrusted flags, malformed inputs, unsupported rules and cross-account reads (102.45025ms)
+✔ A4 runtime-role PostgreSQL (5295.960583ms)
+▶ A4 durable failure and backing cases
+  ✔ rolls back failures before/after draw persistence and recovers without new draws or payouts (189.933458ms)
+  ✔ records a genuine center loss, separate from play issuance and fees (127.485208ms)
+  ✔ does not strand a pending payout when paused future windows expire (143.777125ms)
+  ✔ shares starter/refill grants and reservations across two sessions on one account (255.670375ms)
+  ✔ applies configured play grants without reissuing prior business references (94.022541ms)
+  ✔ handles runtime backend termination during execution and recovers the persisted draw (103.632459ms)
+✔ A4 durable failure and backing cases (923.404708ms)
+✔ binds every exact term independent of object insertion order and rejects unsafe representations (22.995833ms)
+▶ purpose-bound account approvals in disposable PostgreSQL
+  ✔ consumes exactly once with the authorized mutation across application pools (348.50075ms)
+  ✔ rejects cross-account/session, changed purpose/terms, and wrong or absent password (152.569125ms)
+  ✔ rolls back mutation and proof consumption together and rejects stale generations/sessions (106.749667ms)
+  ✔ validates exact operation SIWE and rechecks the retained wallet at commit (97.256125ms)
+  ✔ rolls back a mutation when its approval or current session expires during the mutation (780.597792ms)
+  ✔ fails closed for absent credentials, unsupported purpose and expiry (48.704167ms)
+✔ purpose-bound account approvals in disposable PostgreSQL (1625.547916ms)
+(node:49585) ExperimentalWarning: The supports Web Crypto API method is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:49585) ExperimentalWarning: The ML-DSA-44 Web Crypto API algorithm is an experimental feature and might change at any time
+▶ separate YapArena security passkeys in disposable PostgreSQL
+  ✔ enrolls an independently verified key, revokes old app cookies and preserves retained account ownership (195.202875ms)
+  ✔ permits first setup only before financial history and never permits bootstrap over a previous key or retained credential (226.991666ms)
+  ✔ rolls back authenticator counters when the authorized mutation fails (200.533542ms)
+  ✔ links the first wallet to an email-only account with its security passkey and permits deliberate unlink while email remains (227.042625ms)
+  ✔ requires an exact fresh passkey assertion for every operation and consumes it atomically across pools (135.766417ms)
+  ✔ requires retained proof for enrollment/removal and preserves immutable revoked key history (169.01125ms)
+  ✔ rejects enrollment responses for a different origin/challenge before adding any key (94.304959ms)
+  ✔ replaces a lost sole email sign-in with a verified email using its retained key, preserving account/profile/funds and permanently retiring the old identity (294.494417ms)
+  ✔ replaces a lost sole google_oauth sign-in with a verified email using its retained key, preserving account/profile/funds and permanently retiring the old identity (239.39225ms)
+  ✔ requires the retained security key and exact new server-verified email/SID, without consuming a changed or cross-account proof (198.82475ms)
+  ✔ refuses already bound or tombstoned new identities and unsupported multi-method old/new provider states without moving either account (170.186ms)
+  ✔ refuses legacy DID replacement when either trusted provider identity owns an embedded wallet (133.132958ms)
+  ✔ preserves the original DID after confirmed or uncertain local embedded-wallet creation (263.677125ms)
+  ✔ allows a never-started pending job without adopting its original DID's wallet reference (118.185958ms)
+  ✔ rechecks wallet creation under the account lock and rolls recovery proof consumption back while external creation is in flight (159.1645ms)
+  ✔ rolls a fresh-key counter and replacement back when a competing provider claim wins, and permits only one concurrent recovery (387.782167ms)
+  ✔ does not hold a pool connection or account lock while inspecting providers; local revocation wins the held recovery (248.002292ms)
+  ✔ restricts SQL ownership/history privileges and rolls back a direct unconsumed-proof recovery at commit (169.133708ms)
+  ✔ signs in with a discoverable retained security key, checks provider state every time, and rejects wrong user handles and replay (144.403667ms)
+  ✔ rejects discoverable login challenges issued before any later account revocation (92.351917ms)
+  ✔ accepts a newer same-millisecond challenge without weakening the database generation fence (145.663042ms)
+  ✔ requires an exact displayed provider delta and bound SID before atomically restoring one session with a retained key (291.279708ms)
+  ✔ permits a retained password reconciliation without treating a provider token as fresh proof (205.710291ms)
+  ✔ releases its only runtime connection during reconciliation inspection so local revocation wins without accepting the delta (117.920167ms)
+  ✔ requires a retained wallet signature for the exact displayed method changes and rejects another wallet (144.42ms)
+  ✔ checks challenge expiry after provider inspection and rolls back key use and provisional session creation (588.663458ms)
+  ✔ applies account and operation abuse limits after server-side identity resolution and before checking proof (88.46825ms)
+  ✔ does not guess an unknown old provider snapshot or cross a later revocation while reconciling (70.873166ms)
+  ✔ fails closed on provider outage and rolls back a verified key counter with no new cookie (63.248416ms)
+  ✔ allows a verified Google-only first security key at the same before-funds bootstrap boundary (27.895834ms)
+✔ separate YapArena security passkeys in disposable PostgreSQL (5702.344125ms)
+▶ security passkey HTTP boundaries
+  ✔ disables new external-wallet links before proof consumption and keeps retained removal (116.389667ms)
+  ✔ restarts a first provider passkey only through server-verified bearer context and a native proof (100.002041ms)
+  ✔ scopes interrupted Privy setup to its original cookie and provider evidence without reopening ordinary protected actions (60.747584ms)
+  ✔ uses authenticated Privy enrollment intents and disables the second registration API when the provider owns enrollment (50.308042ms)
+  ✔ fails closed on a missing or exhausted server-derived account budget before checking resumed proofs (37.16675ms)
+  ✔ provides sessionless key login without trusting an app cookie, account selector or browser credential flags (32.141ms)
+  ✔ binds sessionless reconciliation to bearer identity and one exact proof ID without browser ownership fields (37.242ms)
+  ✔ consumes an operation-specific prior approval before allowing the provider-change UI (22.728834ms)
+  ✔ requires an application cookie and exact origin and rejects account selectors or arbitrary operations (25.939083ms)
+  ✔ binds operation issuance to the verified account/cookie and omits private stored fields (25.995958ms)
+  ✔ returns bootstrap eligibility from the server and publishes a secure cookie only after completion (12.976625ms)
+  ✔ fixes sensitive purpose/target on the server and validates WebAuthn and proof payloads (29.208209ms)
+  ✔ does not publish replacement cookies for rejected or expired approvals (6.551791ms)
+  ✔ binds the security-key wallet path to the authenticated account and exact stored operation (88.434291ms)
+  ✔ requires provider evidence in a redacted authorization header and binds legacy linking to the live account (17.248417ms)
+✔ security passkey HTTP boundaries (668.007292ms)
+▶ owned-session HTTP management
+  ✔ lists metadata without bearer values and derives owner from the cookie (199.925583ms)
+  ✔ rejects account selectors and invalid target IDs (23.739459ms)
+  ✔ compares the observed account before removing a session and still requires a cookie (22.643292ms)
+  ✔ revokes one owned session without deleting a potentially newer browser cookie (25.916625ms)
+✔ owned-session HTTP management (274.880917ms)
+▶ session management across PostgreSQL instances
+  ✔ normal sign out revokes every device across application instances (221.276708ms)
+  ✔ lists only the current owner's live sessions and revokes across instances (111.501833ms)
+  ✔ refuses inactive accounts without listing or changing sessions (15.756333ms)
+✔ session management across PostgreSQL instances (357.200125ms)
+▶ account session controls
+  ✔ explains the current-device boundary and keeps it signed in after logout-others (3.101209ms)
+  ✔ returns to sign-in after all-session logout (0.542041ms)
+  ✔ does not revoke when the owner cancels (0.331666ms)
+  ✔ ends only local UI on 401 without claiming other sessions were revoked (1.128208ms)
+  ✔ reports denial or network failure without falsely reporting logout (1.741417ms)
+  ✔ discards old successful or failed replies after the account changes (3.997334ms)
+  ✔ refreshes the current account after a same-account change without applying a stale logout notice (0.782583ms)
+  ✔ works when session controls are absent from the current page (0.347875ms)
+✔ account session controls (17.838875ms)
+▶ account wallet signing
+  ✔ signs login as hex bytes accepted by the real server verifier (38.263667ms)
+  ✔ preserves each new-wallet and retained-wallet server message (70.711ms)
+  ✔ preserves UTF-8 bytes, including multibyte text and line breaks (7.964334ms)
+  ✔ does not request a signature from a different account or chain (3.700708ms)
+  ✔ does not complete login when the wallet rejects signing (2.423875ms)
+✔ account wallet signing (124.358833ms)
+▶ yaparena API
+  ✔ reports that it is healthy (164.645667ms)
+  ✔ does not require a shared staging password for public requests (8.293958ms)
+  ✔ allows only configured media origins in the browser policy (12.081291ms)
+  ✔ reports that it is ready for traffic (4.146458ms)
+  ✔ exposes bounded Prometheus HTTP and process metrics (12.36825ms)
+  ✔ reports when it is not ready for traffic (9.8845ms)
+  ✔ preserves an incoming request ID (4.566875ms)
+  ✔ creates a message (29.861541ms)
+  ✔ rejects an empty name (23.608708ms)
+  ✔ handles a missing request body (33.729ms)
+  ✔ rejects a name longer than 80 characters (14.993666ms)
+  ✔ lists messages with default pagination (4.585167ms)
+  ✔ accepts custom pagination (4.744917ms)
+  ✔ rejects an invalid pagination limit (5.35225ms)
+  ✔ rejects an invalid pagination offset (2.167459ms)
+  ✔ returns JSON for unknown routes (7.688042ms)
+  ✔ rejects malformed JSON (25.0625ms)
+  ✔ hides unexpected error details (0.245542ms)
+  ✔ rate limits the general API independently of authentication (12.129375ms)
+✔ yaparena API (383.580208ms)
+▶ settlement dashboard boundaries
+  ✔ keeps dynamic YES/NO badges readable at crossing, extreme and empty rounds (1.951541ms)
+  ✔ derives the countdown from round timestamps and clamps before opening and after cutoff (1.974167ms)
+  ✔ inspects the nearest round and preserves distinct medians, offers, shares and own YES-scale limits (0.4325ms)
+  ✔ accepts short argument labels as metadata and rejects empty, multiline and oversized labels (0.628041ms)
+  ✔ represents exact shares, empty rounds and a single settled result without fake points (0.148833ms)
+  ✔ rejects unpublished debates and bounds totals to the latest 100 finalized results (2.014333ms)
+  ✔ returns an empty timeline without inventing participation or volume (0.300083ms)
+✔ settlement dashboard boundaries (9.154459ms)
+▶ ephemeral playback presence
+  ✔ counts active connections per event, deduplicates heartbeats, removes paused tabs and expires abandoned playback (0.4645ms)
+  ✔ bounds memory while refreshing existing connections at capacity (0.182916ms)
+✔ ephemeral playback presence (0.815291ms)
+▶ private authentication response caching
+  ✔ marks missing, expired and successful cookie lookups private before authorization and preserves existing Vary (67.570375ms)
+  ✔ keeps provider-outage responses uncacheable and cookie-varying through the real app error handler (23.204375ms)
+✔ private authentication response caching (92.7545ms)
+▶ authentication API
+  ✔ registers a normalized email and starts a session (92.75825ms)
+  ✔ rejects an invalid registration email (28.828917ms)
+  ✔ rejects an invalid registration password (5.070417ms)
+  ✔ reports an already registered email (69.688833ms)
+  ✔ logs in with valid credentials without exposing the password hash (85.081042ms)
+  ✔ uses a generic error for invalid or missing credentials (226.451875ms)
+  ✔ uses a secure host-only cookie in production (44.06475ms)
+  ✔ returns the current user for a valid session (8.1115ms)
+  ✔ rejects missing and expired sessions (6.135708ms)
+  ✔ normal sign out revokes all account sessions without deleting a potentially newer cookie (6.249792ms)
+  ✔ rejects an absent cookie without claiming revocation or deleting a potentially newer cookie (3.760583ms)
+  ✔ compares the observed account without using it to select or authorize a revocation (23.722959ms)
+  ✔ does not claim other devices ended when the sign-out cookie is expired or loses authorization while waiting (5.836708ms)
+  ✔ preserves a replacement HTTP cookie jar when older successful or rejected revocation responses arrive (872.5065ms)
+  ✔ rejects browser account selectors on normal account-wide sign out (7.014583ms)
+  ✔ finishes local sign-out-all while provider reset is unavailable and bypasses the Redis sign-in limiter (9.80125ms)
+  ✔ does not report successful global sign out when the authoritative database rejects revocation (16.093625ms)
+  ✔ protects message routes (7.424542ms)
+  ✔ rejects cross-origin cookie-authenticated mutations in production (11.4965ms)
+  ✔ passes unexpected registration failures to the error handler (155.36025ms)
+✔ authentication API (1687.368875ms)
+▶ Base Sepolia canonical ledger receipts
+  ✔ shares the ledger namespace and stable digest across finality progress (7.239333ms)
+  ✔ rejects incomplete, mismatched or malformed finalized observations (0.386583ms)
+✔ Base Sepolia canonical ledger receipts (8.844542ms)
+▶ Base Sepolia test-only USDC adapter
+  ✔ pins environment, network and Circle token before any network call (0.248084ms)
+  ✔ reads external balances only after checking the chain (1.61675ms)
+  ✔ rejects invalid transfer terms and identifiers (0.811708ms)
+  ✔ requires the owning signer and an explicit uniquely reserved nonce (1.5265ms)
+  ✔ refuses precision mismatch, outstanding transactions and a stale reservation (0.9945ms)
+  ✔ prepares signed identity without sending and validates it before broadcast (18.288458ms)
+  ✔ completes only an exact canonical finalized successful transfer (2.675792ms)
+  ✔ keeps canonical but unfinalized receipts pending (1.848458ms)
+  ✔ does not accept receipt, transaction, nonce or canonicality conflicts (5.518625ms)
+  ✔ never accepts missing, duplicate, wrong-asset or removed transfer logs (6.494583ms)
+  ✔ rejects a signed mainnet/native-value/wrong-token transaction despite matching metadata (11.008166ms)
+  ✔ proves no USDC transfer only for the original finalized reverted transaction (0.493167ms)
+  ✔ treats missing transactions, outages and wrong networks as uncertain without leaking errors (1.140166ms)
+  ✔ broadcasts the exact persisted identity and never creates another after a timeout (217.453541ms)
+  ✔ rejects conflicting submission hashes and skips retransmission after chain inclusion (35.129542ms)
+✔ Base Sepolia test-only USDC adapter (305.885208ms)
+✔ media storage probe creates and aborts a multipart upload (1.913708ms)
+✔ media storage probe surfaces upload authentication failure (0.4265ms)
+▶ isolated currency attached to existing YES/NO debates
+  ✔ serializes purchased A4 stakes against fresh-authorized withdrawals without partial reservations in either lock order (1414.877958ms)
+  ✔ rolls back ordered settlements when a create caller expires during ledger waits on either existing-round return path (3697.5745ms)
+  ✔ locks every due account before shared ledger rows so unrelated payout reconciliation remains available (515.576208ms)
+  ✔ applies grant qualification in closing order even when the later debate asks to open its next round first (669.676416ms)
+  ✔ voids only through a guarded operator command and restores exact sources without profit (186.626666ms)
+  ✔ reserves independent center/promo backing, fixes first commitment, and never reveals pre-cutoff information (312.004833ms)
+  ✔ settles the real A4 algorithm using actual charged source weights and isolates historical play, virtual principal and backed profit (336.392958ms)
+  ✔ rejects late or revoked commitments and preserves fixed terms and closed receipts (157.2765ms)
+✔ isolated currency attached to existing YES/NO debates (7297.051875ms)
+▶ external financial operation contracts
+  ✔ keeps exact positive 36-digit atomic values and validates fee zero (1.205917ms)
+  ✔ binds every financial term and isolates owner/environment/precision (2.349125ms)
+  ✔ never releases reserves for failure webhooks, timeouts or uncertain retries (0.422584ms)
+  ✔ releases once only after authoritative no-transfer reconciliation (0.556166ms)
+  ✔ settles once with final reconciled evidence and ignores delayed pending events (0.419ms)
+  ✔ rejects cross-operation evidence and invalid external identifiers (0.2695ms)
+✔ external financial operation contracts (7.241292ms)
+▶ exact coin journal contracts
+  ✔ aggregates same-account entries and conserves exact signed atomic values (81.313ms)
+  ✔ scopes business references to owner, environment, operation and exact key (2.280541ms)
+✔ exact coin journal contracts (86.047083ms)
+▶ balanced coin writer in disposable PostgreSQL
+  ✔ funds exactly once across concurrent retries and rejects changed terms (283.509625ms)
+  ✔ serializes competing reservations, prevents overspend and reverses exactly (30.797542ms)
+  ✔ isolates environments and keeps web runtime read-only (27.586375ms)
+  ✔ rolls back projections and exact reversals when transaction fails (7.809917ms)
+✔ balanced coin writer in disposable PostgreSQL (358.764584ms)
+▶ owned error reports and funded original-source corrections in disposable PostgreSQL
+  ✔ accepts completed request reports without a time cutoff, scopes races/idempotency and never holds or debits on submission (480.980375ms)
+  ✔ separates owner evidence from public outcomes and makes report/review history immutable (174.07075ms)
+  ✔ orders reviews numerically across a sequence digit boundary and refuses an older superseded quote (495.611292ms)
+  ✔ consumes exact retained authorization for consent once, without charging, recovery execution or owner-note disclosure (384.303458ms)
+  ✔ rejects expired or superseded cost quotes and revoked sessions without consuming authorization (1921.450083ms)
+  ✔ restores only evidence-reviewed missing principal from a finite operator reserve exactly once across instances (310.871709ms)
+  ✔ partially restores completed payout sources across all reports without converting grant principal or changing qualification (835.571709ms)
+  ✔ blocks restoration while original principal remains reserved and requires reviewed evidence in configured correction commands (294.018916ms)
+✔ owned error reports and funded original-source corrections in disposable PostgreSQL (4955.35775ms)
+✔ accepts only the dedicated owner or a documented Supabase pooler-scoped owner URL without connecting (2.519708ms)
+✔ requires an explicit isolated rail and exact server fee (0.275583ms)
+▶ persistent financial sandbox in disposable PostgreSQL
+  ✔ enforces withdrawal operator status and audit authority with real runtime SQL privileges (886.4705ms)
+  ✔ refuses new payout approval after suspension or loss of stronger credentials while permitting safe rejection (330.633917ms)
+  ✔ blocks approval and signing authority under an uncertain funding correction but still reconciles an already submitted payout (250.057625ms)
+  ✔ runs the authenticated HTTP quote, fresh proof and reservation against the real ledger (287.29075ms)
+  ✔ keeps read-only summary empty until strong setup, and separates rails and owner review authority (53.319375ms)
+  ✔ queues authenticated notifications exactly once and reconciles only in the separate owner process (1896.693541ms)
+  ✔ issues welcome and each Toronto day's daily principal exactly once across pools, with no cash backing minted (268.14125ms)
+  ✔ quotes exact simulated conversion and confirms one globally identified receipt across concurrent retries (186.290416ms)
+  ✔ rejects expired quote use without trusting application clocks or issuing balances (18.385458ms)
+  ✔ rolls back funding and withdrawal quotes that expire during a real ledger lock wait (6202.187833ms)
+  ✔ binds gross/fee/net/destination to fresh proof and reserves exactly the gross debit (64.628292ms)
+  ✔ prevents concurrent over-reservation and rolls source/proof changes back on failure (178.181708ms)
+  ✔ has no obsolete 100-USDC daily cap and never charges the fee on top (82.80025ms)
+  ✔ keeps uncertain payment reserves, ignores delayed pending events, and releases only final no-transfer reconciliation (59.495209ms)
+  ✔ settles one reconciled transfer, records fees separately and rejects foreign operation or receipt reuse (108.3625ms)
+  ✔ manually rejects an undispatched request exactly once and restores original sources (51.2705ms)
+  ✔ uses append-only correction reversals and pauses only financial entry if original value has left (112.64175ms)
+  ✔ keeps books/events/ledger history immutable and live financial writes unavailable to runtime (10.695584ms)
+  ✔ restores funded qualified grant profit without touching virtual principal or purchased backing (70.157334ms)
+✔ persistent financial sandbox in disposable PostgreSQL (11462.82875ms)
+✔ authenticates timestamp, delivery identity and exact raw body, without deriving account authority (4.715375ms)
+✔ rejects unrecognized financial claims and malformed notification shapes (1.255ms)
+✔ rejects invalid HMAC before requesting any database connection (108.627875ms)
+▶ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger
+  ✔ reserves only owner-admitted signed payout identities and fences duplicate sender nonces (707.83275ms)
+  ✔ credits only separately identified system treasury buckets without issuing purchased coins, grants or cash to the audit account (144.418791ms)
+  ✔ consumes one exact external receipt and immutable idempotency scope across concurrent owner instances (78.377667ms)
+  ✔ globally rejects reassigning a treasury receipt to another operator or a purchased funding request (73.402833ms)
+  ✔ rejects runtime authority, simulation credits, mismatched receipts and ordinary funding completion of treasury requests (45.850292ms)
+✔ receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger (1175.060375ms)
+▶ community repository policy
+  ✔ reconciles only the authenticated sender's accepted keys and redacts removal (1.786917ms)
+  ✔ exposes only published event fields, visible chat, and a bounded cursor (0.718083ms)
+  ✔ catches up in ascending order and checks watched messages within the event (0.290959ms)
+  ✔ serializes chat, checks live status, profile, pause, restriction, and account limits (2.023709ms)
+  ✔ acknowledges accepted keys before new-write eligibility and never consumes quota (0.6415ms)
+  ✔ redacts removed acknowledgments and limits correlation to the authenticated owner (0.250791ms)
+  ✔ acknowledges a purged receipt without reopening chat, charging allowance, or exposing its hash (0.182958ms)
+  ✔ returns server timing for both posting windows and binds new keys to the insert (0.678667ms)
+  ✔ makes likes idempotent and refuses restricted writes (0.862625ms)
+  ✔ reports chat and events with one-account limits and private evidence (0.774375ms)
+  ✔ keeps cases private and presents an owner-safe personal view (0.989375ms)
+  ✔ guards case actions, removes chat, restricts accounts, and pauses only event chat (1.399291ms)
+  ✔ accepts one timely affected-user appeal and requires independent review (2.010042ms)
+  ✔ resumes only a pause caused by the case and prunes expired records (0.685875ms)
+✔ community repository policy (14.640875ms)
+▶ community API and share surfaces
+  ✔ reports bounded ephemeral playback tabs through the publication gate (181.078ms)
+  ✔ serves public durable recovery and validates private owner reconciliation (57.092125ms)
+  ✔ admits anonymous streams with room-scoped recovery and origin checks (41.693291ms)
+  ✔ lets guests read chat and engagement but keeps mutations and case data private (132.015125ms)
+  ✔ validates event and cursor IDs and uses stable public share URLs (49.6205ms)
+  ✔ serves bounded guest chat sync with ordered cursors and no cache (21.098125ms)
+  ✔ keeps live reads on a separate bounded limit from ordinary API actions (19.000167ms)
+  ✔ validates UUID v4 keys, normalizes them, and opts into owner correlation (50.895375ms)
+  ✔ returns machine codes and Retry-After for account cooldown and payload conflicts (21.560625ms)
+  ✔ posts chat and uses idempotent like methods with server-bound account identity (100.624667ms)
+  ✔ validates reports, returns rate failures, and exposes a personal case page (23.574959ms)
+  ✔ requires moderator role for case evidence and decisions (39.214583ms)
+  ✔ requires a valid appeal and a different moderator decision (38.769042ms)
+  ✔ maps missing, conflict, and forbidden repository outcomes without leaking details (24.87675ms)
+  ✔ rejects malformed targets and decisions before calling the repository (69.084667ms)
+  ✔ hides unpublished share resources and maps duplicate reports to conflict (32.607709ms)
+✔ community API and share surfaces (906.932167ms)
+▶ bounded SSE output and room fanout
+  ✔ stops writing at backpressure, resumes on drain, and cleans listeners (3.231125ms)
+  ✔ disconnects on aggregate byte pressure and on stalled drain (11.07375ms)
+  ✔ coalesces viewers into one room read and repairs missed wakeups (103.377209ms)
+  ✔ keeps subscribers joining an in-flight read behind their own resume cursor (97.939167ms)
+  ✔ resets retention/future cursors, preserves resumes, closes revoked rooms (83.330292ms)
+  ✔ bounds reads, admissions and recovery work and releases inactive rooms (98.016042ms)
+  ✔ closes failed reads and bounds per-IP reconnect token memory (82.18975ms)
+✔ bounded SSE output and room fanout (482.243833ms)
+▶ versioned cursors and safe durable projections
+  ✔ fits maximum escaped public payloads within the slow-client byte budget (1.978333ms)
+  ✔ cancels active reads on shutdown or their deadline and refuses further work (3.267917ms)
+  ✔ rejects malformed, overflowing and wrong-room IDs without Number conversion (0.746667ms)
+  ✔ resets gaps and projects the same bounded protocol for HTTP recovery (0.450625ms)
+  ✔ binds snapshot, head and public visibility to one short transaction (0.50225ms)
+  ✔ redacts purged messages and rolls back read failures (0.724709ms)
+  ✔ bounds retention and atomically advances its recovery floor (0.436125ms)
+✔ versioned cursors and safe durable projections (8.67175ms)
+▶ persistent runtime listener
+  ✔ verifies identity before committed LISTEN, reconnects then wakes durable reads (628.336083ms)
+✔ persistent runtime listener (629.4205ms)
+▶ application cursor and reconnect switching
+  ✔ advances only applied frames, ignores duplicates, and supplies explicit resume (4.882833ms)
+  ✔ keeps failed application behind the received ID and cancels obsolete work (5.126291ms)
+  ✔ shares application acknowledgments with degraded HTTP without marking the stream healthy (0.580042ms)
+  ✔ recovers malformed frames and stale applications and stops on revocation (2.538917ms)
+✔ application cursor and reconnect switching (13.672ms)
+▶ chat submission state
+  ✔ reconciles post-first delivery, repeats, and late failures once (1.691958ms)
+  ✔ reconciles feed-first delivery, repeats, and late failures once (0.196709ms)
+  ✔ keeps uncertain deliveries recoverable, retries the immutable payload, and confirms a lost commit (0.320459ms)
+  ✔ distinguishes rejected, cooldown, and ambiguous errors without automatic sending (0.167625ms)
+  ✔ gives moderation precedence over delayed acknowledgments and permits versioned restoration (0.685292ms)
+  ✔ keeps unresolved submissions during eviction and releases settled confirmations (0.256416ms)
+  ✔ protects moderated tombstones during outstanding requests and binds a stale owner acknowledgment (0.205417ms)
+  ✔ supports Enter, Shift+Enter, and composition guards (0.093ms)
+✔ chat submission state (5.178041ms)
+▶ chat transport
+  ✔ preserves HTTP status, machine codes, and retry timing, including invalid bodies (36.707708ms)
+  ✔ aborts timed-out requests as uncertain delivery (1.390208ms)
+✔ chat transport (38.491291ms)
+▶ configuration
+  ✔ requires session-compatible streaming credentials and bounded capacities (2.872667ms)
+  ✔ provides safe development defaults (1.611667ms)
+  ✔ loads values from the environment (0.359417ms)
+  ✔ enables only an explicit isolated coin sandbox and requires a strong enabled webhook secret (0.707625ms)
+  ✔ permits only explicit play modes and fails closed for real funds (0.709333ms)
+  ✔ bounds explicit play-credit policies (0.734542ms)
+  ✔ rejects an unsupported environment (0.138917ms)
+  ✔ validates background worker configuration (0.101209ms)
+  ✔ rejects an empty host (0.201667ms)
+  ✔ rejects an invalid port (2.979875ms)
+  ✔ requires a database URL (0.341292ms)
+  ✔ rejects provisioning and migration secrets in the runtime environment (0.6865ms)
+  ✔ rejects an invalid log level (0.376542ms)
+  ✔ accepts configured HTTPS smart-wallet RPC endpoints (1.058125ms)
+  ✔ requires complete media credentials and secure production media URLs (1.953791ms)
+  ✔ requires an HTTPS application origin in production (0.619625ms)
+  ✔ rejects invalid security configuration (0.528959ms)
+✔ configuration (19.003833ms)
+✔ validates the optional replay edge as an HTTPS origin with paired secrets (0.369375ms)
+✔ validates a bounded room allowlist for incremental replay rollout (0.820875ms)
+▶ public discovery
+  ✔ renders a real featured preview only when media is configured, without embedding grants (49.004041ms)
+  ✔ serves the public journey and stable canonical links without login (56.851416ms)
+  ✔ renders an unavailable homepage without substituting sample activity (4.34375ms)
+  ✔ validates filters, search length, and pagination (18.52975ms)
+  ✔ returns the public API shape and hides unknown records (26.275458ms)
+  ✔ escapes stored content and search terms in HTML (12.549541ms)
+  ✔ serves the CSS asset for the page shell (27.665792ms)
+  ✔ exposes the account page and follow controls in the public journey (15.64925ms)
+  ✔ shows a readable error when public data is unavailable (7.430333ms)
+  ✔ serves every public JSON read route and rejects malformed identifiers (29.58325ms)
+  ✔ renders empty, filtered, paged, and media-unavailable states (2.095083ms)
+✔ public discovery (251.760334ms)
+▶ discovery repository visibility
+  ✔ queries only published debates and topics with bounded parameters (2.195042ms)
+  ✔ maps optional public relations and detects the next page (0.427709ms)
+✔ discovery repository visibility (2.830584ms)
+✔ admits lazy authentication while preserving media CSP and frame isolation (39.594875ms)
+▶ verified provider evidence
+  ✔ sends explicit empty JSON for the installed SDK's freeze/unfreeze transport and keeps provider reads bodyless (32.66525ms)
+  ✔ never treats absent, malformed or another identity's freeze state as confirmed unfrozen (7.429291ms)
+  ✔ inspects current server-side credentials without accepting token refresh as reauthentication (6.291958ms)
+  ✔ keeps verified Privy user wallets separate from sign-in credentials and their digest (7.312625ms)
+  ✔ allows only a read-only operator inspector to inspect a frozen identity without making it authentication evidence (3.37475ms)
+  ✔ refuses unsafe email merging and reflects configured login methods (10.38725ms)
+  ✔ verifies a real ES256 signature and obtains ownership data only from the provider (5.074167ms)
+  ✔ keeps same-contact Google and newly verified email identities distinct (2.902167ms)
+  ✔ rejects wrong audience/issuer, expired, malformed and altered tokens (5.73475ms)
+✔ verified provider evidence (82.08575ms)
+▶ configuration and exact platform-currency presentation
+  ✔ requires complete server-only, namespaced TLS configuration (0.3495ms)
+  ✔ preserves exact atomic USDC arithmetic at 100 YC per USDC, including large values (0.257542ms)
+  ✔ shows exact independent grant progress, losses and permanent qualification (0.136291ms)
+  ✔ returns to the exact local debate fragment and rejects redirect escape paths (0.562625ms)
+  ✔ keeps only expiring local confirmation intent and public action locators (0.926458ms)
+  ✔ offers same-page completion to the controller without navigation or another action (0.579583ms)
+✔ configuration and exact platform-currency presentation (3.002666ms)
+▶ shared abuse middleware
+  ✔ shares a budget between instances, hashes keys and fails closed during outages (27.286916ms)
+✔ shared abuse middleware (27.413ms)
+▶ provider exchange API
+  ✔ pairs the provider mapping with its authenticated account in one response (18.568417ms)
+  ✔ keeps logout and session reads usable when shared abuse protection is unavailable (12.096291ms)
+  ✔ publishes a host-only secure session after provisioning and retires new unverified registration (25.398125ms)
+  ✔ rejects login CSRF, missing/bad tokens, account switching and unavailable provider (56.454083ms)
+  ✔ distinguishes credential reconciliation from reset, retired-identity and revoked-session refusals without issuing cookies or private reset metadata (56.493458ms)
+  ✔ allows only bounded aggregate telemetry fields (75.523ms)
+✔ provider exchange API (245.102667ms)
+▶ user-owned Privy embedded wallet adapter
+  ✔ uses the installed public SDK's idempotency header and exact user-only create body (36.849375ms)
+  ✔ reconciles immutable external reference and exact user-only owner without mutating (6.805542ms)
+  ✔ reuses a pre-existing verified user wallet instead of issuing an extra wallet (10.26125ms)
+  ✔ returns absence only after authoritative user and unique-reference reads agree (2.329084ms)
+  ✔ waits for provider linkage after an uncertain create instead of creating a replacement (3.294833ms)
+  ✔ rejects app/server/other-user ownership, signers, policies and archived wallets (23.064625ms)
+  ✔ rejects unsupported credentials, external wallets, duplicate wallets and wrong provider identities (10.731458ms)
+  ✔ does not leak private provider error text through classified failures (2.151125ms)
+✔ user-owned Privy embedded wallet adapter (96.983042ms)
+▶ durable user-owned embedded wallets in disposable PostgreSQL
+  ✔ transactionally enqueues exactly one job with provisioning and rolls back an interrupted signup (72.981375ms)
+  ✔ creates one empty wallet after authoritative checks and projects owned status without internal references (66.547709ms)
+  ✔ keeps first security-passkey bootstrap available after empty asset wallet provisioning (63.658416ms)
+  ✔ reuses a verified existing wallet without invoking create (40.812375ms)
+  ✔ leases work across instances and releases database connections during provider calls (26.241334ms)
+  ✔ reconciles an uncertain completed creation before any further mutation (27.658958ms)
+  ✔ uses a new attempt key only after confirmed absence while preserving the permanent unique external reference (18.651375ms)
+  ✔ fences generation, suspension and unaccepted provider credentials before creation (26.568125ms)
+  ✔ parks an unaccepted credential without polling or exhausting attempts, then rearms only through its accepted same-DID exchange (68.079917ms)
+  ✔ permits an authenticated retry of parked authorization without resetting earlier failure attempts (41.689292ms)
+  ✔ keeps an actual create attempt and uncertain marker when authorization changes before confirmation, then reconciles without a second create (58.028542ms)
+  ✔ does not provision a replacement after the account's provider DID is replaced (29.922958ms)
+  ✔ requires review for unsafe ownership and bounded exhausted retries, including a crashed final lease (105.960125ms)
+  ✔ does not let an expired lease's late result overwrite another instance's confirmed wallet (20.186875ms)
+  ✔ validates worker bounds and never creates a wallet for an unmapped account (9.570917ms)
+✔ durable user-owned embedded wallets in disposable PostgreSQL (695.281625ms)
+▶ embedded wallet HTTP ownership and scheduling
+  ✔ keeps guests and expired sessions private and never calls provisioning (58.159041ms)
+  ✔ returns status and address paired to the server-selected account (8.248833ms)
+  ✔ rejects body selectors and absent or stale account comparison before scheduling (15.612417ms)
+  ✔ uses the verified cookie after the comparison fence and both abuse controls (7.296625ms)
+  ✔ fails closed when the provider integration or shared limiter is absent (31.459ms)
+  ✔ does not schedule after throttling or a security-store outage (13.4625ms)
+  ✔ rejects a foreign origin before any provisioning call (4.852625ms)
+✔ embedded wallet HTTP ownership and scheduling (140.951333ms)
+✔ ranks playable public debates by revealed human YAP volume, excluding private and pending activity (175.531959ms)
+▶ exact source allocation
+  ✔ allocates positive and negative residual atoms in stable source order (2.438791ms)
+  ✔ conserves every atom over adversarial weights, signs and very large integer products (5.110459ms)
+✔ exact source allocation (8.978542ms)
+▶ independent grant identity and Toronto claim day
+  ✔ keeps welcome once-only and daily identities separate by account/environment/day (18.25575ms)
+  ✔ uses Toronto midnight through standard/daylight time and both DST transitions (0.674375ms)
+✔ independent grant identity and Toronto claim day (19.053583ms)
+▶ source-aware stake accounting
+  ✔ spends oldest grant principal then its profit, then the next grant, then explicitly ordered purchased sources (1.183209ms)
+  ✔ splits a 600-grant/400-purchased gain 60/40 with purchased profit immediately eligible (0.669333ms)
+  ✔ splits the same 100 net loss to 540/360, including fees in the supplied net result (0.222541ms)
+  ✔ loses earlier profit within the same grant first, without restoring previously lost principal (0.35675ms)
+  ✔ keeps qualification permanent and each later grant's target independent (0.455583ms)
+  ✔ qualifies exactly at the independent target and preserves atom conservation at large balances (0.484209ms)
+  ✔ returns an unexecuted stake to its exact sources without qualification or profit (0.467041ms)
+✔ source-aware stake accounting (4.109375ms)
+▶ eligible withdrawal and internal correction source plans
+  ✔ restores evidence-reviewed partial cash debits to their exact capped original sources without earning qualification (1.6835ms)
+  ✔ redistributes residual atoms after a source cap is exhausted, conserving every partial credit (0.501417ms)
+  ✔ conserves adversarial partial restorations across independent original source caps and large exact integers (27.451ms)
+  ✔ rejects foreign, invented, over-restored, zero and virtual-principal compensation inputs (0.7485ms)
+  ✔ defaults to all original principal FIFO before purchased profits, without exposing a user order setting (0.4925ms)
+  ✔ withdraws purchased value before qualified backed profit and supports partial withdrawals (0.225834ms)
+  ✔ never withdraws grant principal, unqualified profit or unbacked promises (1.009041ms)
+  ✔ limits an internal correction to identifiable remaining original purchase principal (0.27725ms)
+✔ eligible withdrawal and internal correction source plans (32.683125ms)
+▶ accounting provenance and input boundaries
+  ✔ rejects mixed owner/environment/assets and corrupt or relabeled source receipts (0.457ms)
+✔ accounting provenance and input boundaries (0.497125ms)
+▶ A4 actual-cost source commitment
+  ✔ releases excess admission collateral before attributing profit to actual paid cost (0.350417ms)
+  ✔ fully releases zero execution and commits exact full execution without qualification changes (1.282667ms)
+  ✔ cuts the exact prefix inside grant principal/profit and purchased principal/profit (0.957792ms)
+  ✔ includes the actual fee in paid cost and the net result exactly once (0.299166ms)
+✔ A4 actual-cost source commitment (3.172583ms)
+▶ reconciled failed payout source restoration
+  ✔ restores the exact purchased and qualified-profit sources and promotional backing (0.61175ms)
+  ✔ adds released sources to current state without rolling back unrelated later activity (0.296083ms)
+  ✔ rejects another account's payout, grant-principal restoration and incompatible source provenance (0.559458ms)
+✔ reconciled failed payout source restoration (1.660084ms)
+✔ suppresses automatic video for motion, data and very slow connection preferences (0.741208ms)
+✔ runs one eligible preview, keeps selection stable and honors deliberate selection (0.234833ms)
+✔ requires a continuous hover and cancels or restarts its entry countdown (0.325292ms)
+✔ uses viewer-only small camera subscriptions and releases preview tracks/room (4.236333ms)
+✔ adapts public topics/debates without manufacturing market histories or argument endorsements (4.747959ms)
+✔ gates reference data explicitly and never falls back to it on a real request failure (50.503042ms)
+✔ keeps reference/demo follows local and emits real canonical links and shared follow controls (2.831417ms)
+✔ reproduces both chart geometries/ranges and interpolates the actual pointer fraction (1.966292ms)
+✔ uses one clock for fill/advance, preserving elapsed time through repeated pauses and cycles (0.532ms)
+✔ uses its IPv6 fixture when a different IPv4 service occupies the same port (37.658125ms)
+▶ owned profiles and follows
+  ✔ requires a session for all account routes (80.108334ms)
+  ✔ creates a private profile for the authenticated owner (32.019375ms)
+  ✔ edits permitted fields without accepting ownership or handle changes (53.575709ms)
+  ✔ prevents a restricted profile from being republished (19.395708ms)
+  ✔ follows and unfollows public targets with the session owner ID (50.169333ms)
+  ✔ returns safe follow outcomes and bounded history pages (30.993292ms)
+  ✔ handles missing profiles, duplicate handles, and invalid follow paths (27.625583ms)
+  ✔ rejects malformed profile fields without changing records (27.454833ms)
+  ✔ does not grant participant writes to a sponsor-only role (9.610541ms)
+✔ owned profiles and follows (334.118167ms)
+▶ identity SQL boundaries
+  ✔ limits private profile reads and writes to the owner (0.747917ms)
+  ✔ stores owned profile fields and paginates public social history (1.125333ms)
+  ✔ uses published targets, handles self-follow, and keeps unfollow idempotent (0.199917ms)
+✔ identity SQL boundaries (2.255917ms)
+▶ project initializer
+  ✔ renames identity files and refuses an ambiguous rerun (5598.720375ms)
+  ✔ rejects unsafe identifiers (2.008458ms)
+  ✔ runs through the CLI from a symlinked temporary path (2532.216209ms)
+✔ project initializer (8135.070625ms)
+✔ redacts sandbox webhook authentication proofs and never logs the notification body (30.444292ms)
+✔ redacts the browser's account comparison hint from sign-out logs (4.270083ms)
+✔ redacts the financial browser session comparison hint from HTTP logs (4.904916ms)
+▶ credential-safe HTTP logs
+  ✔ omits account OAuth query credentials from HTTP completion logs (24.74025ms)
+  ✔ omits OAuth credentials on public popup return routes, including encoded keys (14.088292ms)
+  ✔ redacts registration response cookies with the real app logger (167.309042ms)
+  ✔ preserves registration, password/SIWE login and logout in development (176.932084ms)
+  ✔ preserves measurement consent grant and withdrawal in development (18.244ms)
+  ✔ redacts multiple session and measurement cookies together in development (49.836834ms)
+  ✔ preserves registration, password/SIWE login and logout in production (133.230458ms)
+  ✔ preserves measurement consent grant and withdrawal in production (13.803ms)
+  ✔ redacts multiple session and measurement cookies together in production (41.580292ms)
+  ✔ retains incoming Cookie and Authorization header redaction (4.245791ms)
+  ✔ does not log passwords or signatures on validation and authentication failures (93.999292ms)
+  ✔ keeps rate-limit responses at warning level without logging the body (14.064625ms)
+  ✔ sanitizes explicit application error logs across authentication and consent routes (84.485541ms)
+  ✔ sanitizes automatic HTTP errors from response.err (3.021542ms)
+  ✔ sanitizes automatic HTTP errors from response error event (3.122833ms)
+  ✔ sanitizes provider error fields and free-text diagnostics on root and child loggers (2.234666ms)
+  ✔ sanitizes nonfatal product-event errors while preserving their context (4.222584ms)
+  ✔ excludes health, readiness and metrics completion logs (19.376375ms)
+  ✔ retains sanitized explicit readiness failures without a completion log (6.826083ms)
+  ✔ respects disabled logging and configured log levels (1.559916ms)
+✔ credential-safe HTTP logs (879.016625ms)
+▶ matching repository transaction boundaries
+  ✔ creates a private topic, lists it, and publishes only the owned draft (2.61725ms)
+  ✔ opens a direct challenge under an account lock and creates a mapped event (1.329917ms)
+  ✔ maps a queue entrant to the opposite side and closes the queue (0.841875ms)
+  ✔ rejects missing profiles, active users, missing topics, duplicate outgoing requests, and self challenges (1.826375ms)
+  ✔ rejects stale, self, and unavailable acceptances without writing an event (1.927292ms)
+  ✔ declines, withdraws, and expires requests with durable history (0.423333ms)
+  ✔ records readiness and restricts lifecycle transitions (0.566125ms)
+  ✔ requires a participant for readiness and applies reschedule/no-show policy (0.294375ms)
+✔ matching repository transaction boundaries (11.281959ms)
+▶ matching API
+  ✔ requires a session and exposes no account data anonymously (57.5775ms)
+  ✔ creates an owned draft topic and allows its owner to publish (24.628167ms)
+  ✔ validates requests and binds their owner to the session (187.301208ms)
+  ✔ exposes acceptance, queue join, readiness, history, and notifications (28.627708ms)
+  ✔ maps missing and conflicting requests to deterministic responses (16.915625ms)
+  ✔ restricts operator transitions and participant mutations by role (24.771208ms)
+  ✔ serves bounded account collections and rejects malformed resource identifiers (37.945209ms)
+  ✔ validates direct and queue proposals at the API boundary (43.737667ms)
+  ✔ converts unique conflicts and refuses invalid operator actions (24.363334ms)
+  ✔ keeps event history private to speakers and operators (35.749334ms)
+✔ matching API (483.929875ms)
+▶ product measurement repository
+  ✔ records only public discovery, deduplicates refreshes, and derives a different-event return (1.418125ms)
+  ✔ does not record anything without a live consent row (0.389791ms)
+  ✔ checks account action targets and records only verified actions (1.004417ms)
+  ✔ bounds watch sessions, protects ownership, and counts replay starts once (0.79275ms)
+  ✔ requires a reviewed profile for affiliation changes and keeps the audit (0.197458ms)
+  ✔ keeps aggregate output numeric and enforces all retention windows (0.841334ms)
+  ✔ rolls back a failed measurement write and never leaves a partial return (0.848ms)
+  ✔ rejects unavailable targets and returns an empty dashboard without inventing people (2.111417ms)
+✔ product measurement repository (9.170541ms)
+▶ product measurement API
+  ✔ requires explicit consent and deletes consented data on withdrawal (291.91125ms)
+  ✔ uses a host-only secure cookie name in production (0.406375ms)
+  ✔ validates browser events and bounds watch phases to a consented session (37.821625ms)
+  ✔ restricts aggregate dashboards and affiliation reviews to operators (38.409708ms)
+  ✔ records only successful, consented account actions and isolates telemetry failure (0.737125ms)
+  ✔ rejects malformed targets and reports unavailable sessions and affiliation profiles (49.673667ms)
+✔ product measurement API (420.599833ms)
+✔ requires supported token revocation and a bounded provider deadline (1.772459ms)
+▶ account media containment in isolated PostgreSQL
+  ✔ issues only to the assigned, device-ready speaker in the permitted phase (113.288041ms)
+  ✔ reuses one session's opaque identity across simultaneous retries and protects tracking history (164.281625ms)
+  ✔ orders all-session logout against issuance and contains only the retired identity across pools (99.18225ms)
+  ✔ preserves the actual retained SID after logout-others generation changes (85.200708ms)
+  ✔ requires confirmed old-token revocation before moving the publishing device and retries provider outages (103.567625ms)
+  ✔ binds a pending replacement to its owned current session and requires manual Join after intent expiry (235.074208ms)
+  ✔ ignores delayed departures for replaced UUID and legacy identities while pausing current or unknown departures (83.854417ms)
+  ✔ fences the departure relevance check and database pause against replacement issuance (59.656625ms)
+  ✔ contains suspension, credential changes and a raw generation advance while keeping logout independent of provider calls (200.069125ms)
+  ✔ reconciles a naturally expired session even if its cookie row has not been deleted (1105.333083ms)
+  ✔ rolls back an in-flight minted token when its application session expires before commit (2123.93075ms)
+  ✔ claims a removal across workers without holding the account lock during the provider request (47.938333ms)
+  ✔ recovers an expired worker lease and ignores its delayed acknowledgement without kicking a new identity (33.166709ms)
+  ✔ times out failed removal, retains the publishing fence, and never calls self-hosted token invalidation complete (128.90475ms)
+✔ account media containment in isolated PostgreSQL (4585.72825ms)
+✔ separates tap startup, rendered frames, sound activation, outcomes and bounded diagnostics (0.877584ms)
+✔ observes actual frames and advancing audio, excludes intentional pauses and disabled media, and cleans up (1.403459ms)
+✔ does not claim rendered frames where only element progress is available (1.335542ms)
+✔ reports distributions, denominator uncertainty and rejects incomplete trial metadata (0.98775ms)
+✔ keeps an automatically published replay paused until Play replay is pressed (36.359959ms)
+✔ prepares without joining or capturing and rejoins viewers only after terminal transport failure (14.832875ms)
+✔ suspends viewer polling offline and in background, and resumes one poll chain after return (11.978917ms)
+✔ does not let older lifecycle HTTP results restore ended media, including large revisions (3.915667ms)
+✔ preserves speaker rejoin and mute intent through SDK navigation while releasing page resources (25.326ms)
+✔ requests device takeover only on manual Join and retries committed moving-access conflicts without takeover (10.28775ms)
+✔ stops automatic speaker recovery on another-device denial instead of repeatedly taking the slot (9.192209ms)
+✔ cancels joins whose authorization response arrives after leave (4.817583ms)
+✔ revives media after cached history return without reloading drafts or reconnecting ended events (17.884416ms)
+✔ refuses cached speaker capture after failed eligibility or a second page hide (28.697167ms)
+✔ does not fight duplicate identity or removal and suspends application retries offline (14.454417ms)
+✔ stops after debate end and preserves a speaker's deliberate mute and chosen devices (3.908166ms)
+✔ releases transaction-scoped job locks on commit, contention and failure (3.329541ms)
+✔ shares only overlapping public reads and frees capacity on success or failure (0.929208ms)
+✔ destroys a lost connection and cannot commit a job whose lock was released (0.313792ms)
+✔ reconciles missed recording confirmations in bounded batches without blocking clocks (6.223542ms)
+✔ rotates recording probes past stuck inputs and continues after one provider failure (1.56475ms)
+✔ ignores captured turns and repairs only the latest authorized durable state (0.741ms)
+✔ coalesces a room while rechecking requests that overlap the last read (0.390625ms)
+✔ handles removed rooms and bounds lock retries (0.499458ms)
+✔ fails closed on repeated revision changes, retries failed permissions, and stops pending work (1.915584ms)
+✔ keeps clock advancement separate from slow provider work and uses bounded repair pages (0.748708ms)
+✔ bounds process permission work and recovers after provider failures (0.330791ms)
+▶ media page state
+  ✔ shows recording failure after a page refresh and offers no replay action (1.817042ms)
+  ✔ describes automatic publication while preserving the manual fallback (0.388959ms)
+  ✔ shows only actions valid for the current media state (0.17ms)
+✔ media page state (3.5035ms)
+✔ revokes only exact speaker identities on Cloud with an explicit cutoff after a fresh clock check (17.608625ms)
+✔ reads a small private thumbnail without exposing signed recording URLs (7.920959ms)
+✔ gates HLS access on package completion and delivers captions only to private storage (2.365916ms)
+✔ preserves the explicit signed MP4 fallback and source recording behavior (33.723375ms)
+✔ limits adaptive rollout to selected rooms while preserving existing MP4 access and captions (3.273083ms)
+✔ issues subscribe-only viewer grants and permits microphone only to the current speaker (10.658667ms)
+✔ recovers missed recording webhooks only from matching successful egress and completed private bytes (2.253333ms)
+✔ avoids repeating provider updates when current permissions already match the durable turn (0.986708ms)
+✔ never grants a microphone for null or malformed speaker metadata while paused (0.524042ms)
+✔ authorizes only the current immutable package, and keeps MP4 available during packaging (2.816333ms)
+✔ allows SDK recovery before a bounded application rejoin for viewers and speakers (2.232541ms)
+✔ suspends retries offline, cancels pending work on leave and refuses terminal reasons (0.182958ms)
+✔ bounds failed retries and stops when a fresh grant or permission is denied (0.377459ms)
+✔ retries only the explicit moving-access conflict and preserves the bounded recovery budget (0.301917ms)
+✔ does not rejoin when offline or unavailable by the time the retry fires (0.148875ms)
+✔ exhausts the retry budget across transport joins that immediately fail without stable playback (0.193208ms)
+✔ replenishes retries only after stable media evidence for the current connection (0.117ms)
+✔ rejects stable media evidence after SDK reconnecting, offline return or a new user session (0.083417ms)
+✔ coalesces lazy player loading and permits retry after a failed script (1.951333ms)
+✔ keeps an autoplay preview on the smallest HLS rendition and bounded buffer after preparation (4.776416ms)
+✔ prepares one native replay and preserves position, speed, captions and paused state on renewal (6.038917ms)
+✔ starts cold HLS at the low rendition then enables adaptation with bounded preload (1.709833ms)
+✔ exposes sound activation separately and stops access on authorization revocation (0.921417ms)
+✔ suspends offline recovery, bounds failed retries, and rejects unsupported HLS (2.298791ms)
+✔ discards an outstanding access response after leave and coalesces renewal (2.513583ms)
+✔ retains the pending position and play intent across renewals before metadata (2.449834ms)
+✔ cannot declare replay recovery stable after pause, offline or error (8.744209ms)
+✔ requires continuing playback progress rather than a transport or playing signal (3.360792ms)
+✔ preserves replay state while a cached page is suspended and resumed (0.920583ms)
+✔ cancels access pending at suspension without consuming a fresh resume grant (1.67575ms)
+✔ ignores old HLS manifest and failure callbacks while a cached page is suspended (0.499833ms)
+▶ public replay publication policy
+  ✔ passes the configured publication policy for unconfigured services (3.090042ms)
+  ✔ passes the configured publication policy for disabled packaging (0.26825ms)
+  ✔ passes the configured publication policy for all eligible rooms (0.178ms)
+  ✔ passes the configured publication policy for an included canary (6.508833ms)
+  ✔ passes the configured publication policy for an included canary with an uppercase request UUID (1.522708ms)
+  ✔ passes the configured publication policy for a room outside the canary (1.151042ms)
+✔ public replay publication policy (17.95225ms)
+▶ durable media lifecycle
+  ✔ keeps published state, speaker seat and device checks server-side (4.398709ms)
+  ✔ requires prototype timings and a ready event before recording starts early (0.8165ms)
+  ✔ pauses with an incident, resumes by revision and ends recording (1.52725ms)
+  ✔ advances equal turns and ends at the maximum duration (0.913208ms)
+  ✔ marks failed recordings and blocks caption publication (0.207917ms)
+  ✔ rejects a partial recording and prevents the paused debate from resuming (0.184625ms)
+  ✔ does not advance a paused or early turn and rejects repeated pause (0.17725ms)
+  ✔ handles missing seats and missing events (2.058375ms)
+  ✔ does not advance a due clock before the event is live (0.281ms)
+✔ durable media lifecycle (11.165208ms)
+▶ media API
+  ✔ serves a recording thumbnail only for a published verified replay without issuing a media grant (48.673292ms)
+  ✔ shows only published state and restricts viewer grants to live events (11.8635ms)
+  ✔ gates replay and captions on verified published recording (16.856542ms)
+  ✔ checks devices and issues speaker tokens only for the owning seat (36.562167ms)
+  ✔ starts recording before live, then stops it on operator end (10.914084ms)
+  ✔ cleans up orphan recording when start loses a lifecycle race (4.24825ms)
+  ✔ requires both speakers and exposes explicit pause and resume (12.080834ms)
+  ✔ pauses again when LiveKit cannot restore the resumed speaker turn (3.41875ms)
+  ✔ requires a verified recording to publish replay and validates WebVTT (8.989041ms)
+  ✔ rejects malformed IDs and missing evidence across media actions (33.321959ms)
+  ✔ reports no captions and storage outage without leaking object keys (7.774416ms)
+  ✔ surfaces device failure and pauses when initial turn permissions fail (5.26825ms)
+  ✔ keeps a paused debate paused until both speakers have reconnected (3.546041ms)
+  ✔ records an operator end even when LiveKit turn revocation is unavailable (5.3585ms)
+  ✔ does not delete a live event after permission and pause errors (4.263167ms)
+  ✔ hides missing events and unavailable media without issuing grants (16.898417ms)
+  ✔ returns precise conflict and not-found errors for speaker and operator actions (9.730708ms)
+✔ media API (242.472875ms)
+▶ signed media webhooks
+  ✔ fences speaker departure pauses and preserves a replacement's current turn (3.769166ms)
+  ✔ pauses on speaker drop and recording failure, ignoring non-speakers (6.41675ms)
+  ✔ rejects an invalid signature or webhook payload (2.9955ms)
+  ✔ accepts a completed recording and tolerates stale speaker disconnects (5.5355ms)
+✔ signed media webhooks (19.034084ms)
+✔ accepts anonymous bounded operational playback reports and denies removed replay renewal (11.898291ms)
+✔ offers speaker connection only to an assigned seat that is not connected (0.939833ms)
+✔ clears video tiles and stops captured tracks when a debate ends (1.411208ms)
+✔ keeps deliberately muted rejoining from capturing the microphone (3.458458ms)
+✔ shows the first speaker's camera and permits reconnect after a pause (0.598458ms)
+✔ restores the join control when camera publishing fails (0.838375ms)
+✔ keeps a checked microphone muted until its turn and stops it if joining fails (0.894709ms)
+✔ accepts bounded playback reports and excludes identities, URLs and arbitrary dimensions (1.618167ms)
+✔ aggregates operational durations with bounded labels and no session or recording identifiers (2.556583ms)
+✔ classifies supported client families without exposing raw user-agent strings (0.261958ms)
+✔ bounds reporting, strips private fields, flushes on exit and counts dropped reports (0.740459ms)
+✔ attaches each subscribed track once and removes stale participant tiles (2.23175ms)
+✔ clears old tracks before a room reconnect and permits a fresh attachment (0.170084ms)
+✔ replaces a speaker's stale camera tile when a new track arrives (0.075ms)
+▶ message repository
+  ✔ inserts and returns a message (1.771167ms)
+  ✔ checks database readiness (0.116042ms)
+  ✔ lists messages with parameterized pagination (0.177166ms)
+✔ message repository (2.816ms)
+▶ metrics
+  ✔ labels unmatched routes without using the raw URL (8.296208ms)
+  ✔ does not instrument the scrape endpoint (1.209292ms)
+  ✔ keeps stream lifetime outside ordinary request latency and records bounded operational metrics (1.659833ms)
+  ✔ exports only fixed product categories and caches the aggregate snapshot (1.479292ms)
+  ✔ marks a failed product snapshot as stale without breaking HTTP metrics (0.851791ms)
+✔ metrics (14.881458ms)
+▶ database migration verification
+  ✔ accepts a connected, current database (6.884583ms)
+  ✔ rejects a database with pending migrations (2.13775ms)
+  ✔ rejects an unsafe or unrecognized runtime identity before serving traffic (10.722375ms)
+✔ database migration verification (21.5615ms)
+▶ passwords
+  ✔ accepts passwords within the supported length (0.865375ms)
+  ✔ rejects invalid password values (0.24475ms)
+  ✔ hashes and verifies a password (134.117833ms)
+✔ passwords (137.056791ms)
+▶ provider ownership and financial isolation in PostgreSQL
+  ✔ reopens a fence only after provider revocation and rejects pre-freeze tokens (136.059291ms)
+  ✔ rejects an unapproved provider credential change without merging accounts (35.81825ms)
+  ✔ reports pending, uncertain and unmatched session-reset fences without accepting an unchanged credential or consuming its SID (59.375125ms)
+  ✔ links a never-provisioned verified provider identity to the retained legacy ID using fresh retained proof (256.026334ms)
+  ✔ never moves a previously provisioned manual identity or accepts a changed candidate credential digest (73.00775ms)
+  ✔ serializes legacy linking against a simultaneous ordinary provisioning callback without merging IDs (183.945167ms)
+  ✔ inspects every protected cookie lookup, fails closed on outages and leaves local revocation available (20.7715ms)
+  ✔ revokes existing app cookies across instances for provider credential changes or removed/frozen accounts (43.466584ms)
+  ✔ releases the only runtime connection during a held provider inspection so local logout finishes first (66.336083ms)
+  ✔ rejects an older inspection after logout-others advances the retained session without revoking that survivor (17.426583ms)
+  ✔ does not turn a transient owned provider freeze into an incident after the provider-control job changes (38.8555ms)
+  ✔ reads each owned grant separately and retains qualification after later losses (38.29325ms)
+  ✔ keeps provider read outages fenced and retries without changing external state (49.510083ms)
+  ✔ keeps uncertain provider mutations and later generations fenced for manual reconciliation (19.538917ms)
+  ✔ reconciles only the exact owner-reviewed delayed freeze once, confirms unfreeze and preserves the old-token cutoff (1554.509417ms)
+  ✔ rejects runtime, missing review, mismatched audit, changed provider and out-of-window freeze without unfreezing (102.201ms)
+  ✔ durably records the one unfreeze attempt and leaves generation fenced on an uncertain or unconfirmed result (7588.915625ms)
+  ✔ polls only bounded GET confirmations while making each normal reset mutation once (6025.684167ms)
+  ✔ finalizes an already reviewed and actually unfrozen reset through GET-only verification, with replay and old-token protection (15.573834ms)
+  ✔ refuses finalization for runtime, missing reviewed intent, changed terms, frozen provider or a concurrent generation without repeating mutations (85.860084ms)
+  ✔ rolls back finalization's provisional mapping and job updates if the completion audit fails (15.161292ms)
+  ✔ atomically claims one owner-reviewed uncertain reset, excludes a competing worker and makes only the same completed retry idempotent (26.920417ms)
+  ✔ denies runtime authority and unsafe operator reset evidence before claiming or changing a fence (27.731542ms)
+  ✔ releases its only owner connection during inspection and rejects a generation change before claiming (11.086416ms)
+  ✔ retains the manual fence and reports only bounded stage/status when an owner retry has an uncertain provider mutation (10.765166ms)
+  ✔ keeps an owner retry manual after its post-claim provider read fails so an older worker cannot take over (5.209792ms)
+  ✔ rejects an expired operator claim before external mutation and does not let a worker reuse it (6.742ms)
+  ✔ does not freeze a superseded generation between claiming and provider control (14.159416ms)
+  ✔ orders a new generation after in-flight provider control across application pools (7.958833ms)
+  ✔ never unfreezes suspended accounts or independent provider freezes (10.643625ms)
+  ✔ provisions once under simultaneous callbacks without merging legacy email ownership (5.237667ms)
+  ✔ rejects a consumed sid after current logout and any old/unknown provider sid after account-wide revocation (5.636875ms)
+  ✔ enforces suspension across application pools and retains deleted-identity fences (7.645458ms)
+  ✔ enforces balanced immutable journals, exact projections and environment isolation (32.023875ms)
+✔ provider ownership and financial isolation in PostgreSQL (16601.746166ms)
+▶ durable provider control acknowledgement phases in isolated PostgreSQL
+  ✔ rearms a parked wallet only after real accepted-passkey activation and confirmed reset, preserving ownership and retry budget (246.189125ms)
+  ✔ resumes acknowledged freeze and unfreeze GET lag across restarts and instances without repeating either mutation (126.6255ms)
+  ✔ bounds lagging confirmations by eight reads or a phase deadline and never retries their mutation (125.973916ms)
+  ✔ persists intent before a crash and never replays an unacknowledged freeze or unfreeze (112.981625ms)
+  ✔ does not hold a connection or account lock during GET and rechecks revocation before any mutation (30.725625ms)
+  ✔ ignores a late GET after another instance owns the lease and finishes the reset (65.6375ms)
+  ✔ keeps superseding generations, changed baselines and independently changed freezes fenced after acknowledgement (184.816792ms)
+  ✔ does not infer acknowledged outcomes for legacy or old-source running claims (61.961875ms)
+  ✔ keeps preflight outages read-only, bounded and recoverable without converting unknown state into an unfrozen assertion (28.623125ms)
+  ✔ fences a monitor overlapping a phase transition while still treating a real credential delta as an incident (81.523875ms)
+  ✔ does not let the normal phase worker cancel a freshly claimed owner retry with older phase metadata (38.360125ms)
+  ✔ skips a reviewed owner retry before taking its account lock while the owner holds a provider GET (34.975375ms)
+✔ durable provider control acknowledgement phases in isolated PostgreSQL (1143.911792ms)
+▶ first Privy passkey restart in disposable PostgreSQL
+  ✔ restarts expired email first setup with the same provider key and a new nonce, preserving all ownership fences (161.004834ms)
+  ✔ restarts expired google_oauth first setup with the same provider key and a new nonce, preserving all ownership fences (70.401958ms)
+  ✔ requires the same credential, origin, fresh challenge and user verification without consuming failed proofs (60.858834ms)
+  ✔ keeps previously captured key identity exact and accepts only the approved sole-current-key fallback when no candidate was recorded (90.626375ms)
+  ✔ rejects an expired new restart challenge without extending it or consuming its still-live sibling (24.707667ms)
+  ✔ rejects prior wallet/password/key audit history, even when all current strong methods are absent (46.021625ms)
+  ✔ rejects funding history, unexplained deltas, retired or already consumed provider sessions and pending/manual resets (59.333583ms)
+  ✔ rechecks never-funded policy and generation at completion and never authorizes only an email token (198.297334ms)
+  ✔ allows only one concurrent completion and leaves immutable authorization and schema permissions enforced (42.814459ms)
+  ✔ rolls back provisional key, generation, session and SID consumption if completion fails, allowing the exact unconsumed proof to retry (111.308583ms)
+✔ first Privy passkey restart in disposable PostgreSQL (893.148ms)
+✔ turns an actual installed-SDK malformed token into fixed401 before restart authorization (10.698083ms)
+✔ preserves a bounded provider outage instead of describing it as bad restart credentials (0.198417ms)
+✔ turns an actual installed-SDK malformed token into fixed401 before activation authorization (1.05225ms)
+✔ preserves a bounded provider outage instead of describing it as bad activation credentials (0.123958ms)
+▶ owner-only reset repair for an unfinished first provider passkey
+  ✔ completes only reset fences and requires a fresh provider SID plus native UV before first key adoption (356.662583ms)
+  ✔ denies runtime role before provider inspection and refuses wrong review/generation/attempt/window or unrecognized revocation (215.533042ms)
+  ✔ rejects financial/strong-method history, changed email, multiple keys, captured COSE mismatch and dead baseline (95.058792ms)
+  ✔ permits at most one reviewed unfreeze across concurrent owner instances (26.952042ms)
+  ✔ keeps a durable one-use marker after an uncertain unfreeze and finishes with GET-only reconciliation (43.041292ms)
+  ✔ does not repeat an unfreeze when successful control responses have lagging GET confirmation (7542.227416ms)
+  ✔ rolls final SQL mutations back while preserving the earlier one-use review marker (1626.203834ms)
+✔ owner-only reset repair for an unfinished first provider passkey (9922.094291ms)
+▶ same Privy credential activation in disposable PostgreSQL
+  ✔ activates one new email user's same provider key, rotates local session and retains provider fences (101.99975ms)
+  ✔ activates one new google_oauth user's same provider key, rotates local session and retains provider fences (43.323ms)
+  ✔ activates an existing linked provider credential without a second registration or credential delta (32.473416ms)
+  ✔ never bootstraps an additional key over an existing provider key or newly created financial history (89.183833ms)
+  ✔ requires unchanged selected mode, same DID, supported public key and only the intended provider delta (77.853541ms)
+  ✔ verifies challenge, RP, origin, user verification and exact credential before activating (59.865875ms)
+  ✔ permits only exact live addition deferral and consumes an intent once under concurrent completion (44.952875ms)
+  ✔ rejects an expired or consumed intent without accepting its provider delta or issuing a cookie (20.137875ms)
+  ✔ does not occupy a pool connection during provider inspection and rejects a logout that wins the race (13.894875ms)
+  ✔ uses the same provider credential for operation-bound proof but rejects independent local login and new-DID replacement (66.012041ms)
+  ✔ requires an existing operation-bound proof for later addition and atomically consumes both signatures (123.240916ms)
+  ✔ denies both valid sessions during one exact pending addition without letting either monitor revoke the account (59.208833ms)
+  ✔ still revokes another valid session when the initiating session is gone or the pending delta is not exact (107.910291ms)
+  ✔ fails temporarily without revocation when an accepted or pending provider public key is unavailable (34.435084ms)
+  ✔ revokes a changed accepted key even while another exact key addition is pending (24.856459ms)
+  ✔ does not defer a provider delta after its original intent is consumed or expired (17.599791ms)
+  ✔ rejects self-authorized provider passkey removal and changed exported keys for fresh operation proof (29.201041ms)
+  ✔ temporarily denies an inspection failure during the matching active provider reset without revoking the rotated cookie (96.004667ms)
+  ✔ still revokes actual key changes or independent/mismatched freezes while a provider reset exists (94.52475ms)
+✔ same Privy credential activation in disposable PostgreSQL (1161.532083ms)
+▶ trusted Privy passkey public-key and exact-addition parsing
+  ✔ accepts complete standard/base64url COSE bytes without inventing missing key evidence (4.713917ms)
+  ✔ rejects trailing data, duplicate COSE labels, private values and unsupported or incomplete keys (1.079125ms)
+  ✔ parses supported public Ed25519 and RSA keys while rejecting curve/algorithm confusion (67.496667ms)
+  ✔ accepts only the exact old credential set plus one trusted new passkey (1.066834ms)
+✔ trusted Privy passkey public-key and exact-addition parsing (75.6405ms)
+✔ generates heterogeneous, reproducible results and independent argument cohorts (107.392792ms)
+✔ adapts only aggregate simulation fields, restores real charts and preserves unavailable states (186.456917ms)
+✔ serves versioned no-store homepage and debate feeds without private identifiers or silent fixtures (100.199792ms)
+✔ issues five-minute scoped credentials and refuses tampering, expiry and cross-recording paths (12.363292ms)
+✔ signs child playlist paths and checks credentials even for cached segments (36.967083ms)
+✔ handles CORS, range seeking, HEAD, malformed requests and missing objects (12.190875ms)
+✔ queue accepts bounded scheduling and rejects invalid worker inputs before querying (5.029041ms)
+✔ room allowlist is validated, copied and fences all publication operations (0.725ms)
+✔ completion releases transactions on revoked visibility, stale lease, missing attempt and database failure (0.75575ms)
+✔ startup checks program/codec/muxer capability before claiming work (2.785417ms)
+✔ encoder runner bounds output/time, drains cancellation and sanitizes failure (185.560542ms)
+✔ stuck encoder ignores SIGTERM then is killed and drained within shutdown budget (2051.542125ms)
+✔ three aligned immutable renditions work with optional reviewed captions (35.120334ms)
+✔ package inspection rejects missing end, traversal, alignment, file and byte limits (26.28675ms)
+✔ encoding disk monitor aborts runaway output before all renditions run (505.361333ms)
+✔ package rejects master injection and corrupted reviewed captions (22.3805ms)
+✔ storage pins a bounded source, verifies immutable files, publishes marker last and cleans only its prefix (55.7475ms)
+✔ partial upload, failed verification and revoked lease never write ready marker (41.022167ms)
+✔ source streaming and cleanup reject corrupt size, missing body, foreign prefix and partial deletion (6.714375ms)
+✔ cleanup pages repeatedly, bounds deletion work and honors abortion (59.146125ms)
+✔ poll failure remains bounded and logs fixed queue event (6.577125ms)
+✔ thumbnail work only uses an idle encoder slot and is aborted during shutdown (4.297542ms)
+✔ worker batches once, publishes without captions and removes private temporary media (2.046917ms)
+✔ worker treats lease loss as fenced failure, retries cleanup and logs sanitized codes (1.919208ms)
+✔ shutdown aborts active media work, drains and stops polling (6.677917ms)
+✔ worker periodic heartbeat cancels lost lease during packaging and drains sibling failures (102.532709ms)
+✔ keeps thumbnails tied to validated recording keys and bounds storage reads and image data (12.177625ms)
+✔ extracts one bounded local frame and reuses the private thumbnail across restarts (4.668ms)
+✔ transient TLS before commit retries with fresh closed streams, bounded jitter and immutable headers (12.757209ms)
+✔ lost acknowledgment for media and ready marker accepts only exact own object provenance (6.068417ms)
+✔ uncertain PUT then uncertain HEAD resolves own conditional 412 without overwrite (12.499959ms)
+✔ successful PUT with transient HEAD failure retries verification without rewriting (4.230375ms)
+✔ mismatch, foreign provenance and authorization refusal fail closed without retry/marker (9.57575ms)
+✔ retries exhaust after three PUTs and sanitize transport details (5.16725ms)
+✔ abort during retry backoff stops further attempts and drained streams (3.261625ms)
+✔ retryable provider statuses recover and unprovable HEAD exhausts without blind overwrite (4.105542ms)
+▶ service runtime
+  ✔ awaits both market jobs when play recovery fails (2.468167ms)
+  ✔ awaits both market jobs when sandbox recovery fails (0.389708ms)
+  ✔ recovers media revocations without overlapping claims and awaits in-flight recovery on shutdown (0.715583ms)
+  ✔ runs only maintenance when no web app is supplied (0.63575ms)
+  ✔ starts a web server without duplicate background jobs when disabled (0.407792ms)
+  ✔ verifies the database before listening and closes resources (1.065417ms)
+  ✔ does not listen when database verification fails (0.613875ms)
+  ✔ runs bounded session cleanup without stopping the service on errors (1.075375ms)
+  ✔ expires wallet challenges and audit records independently (0.188458ms)
+  ✔ expires debate requests without affecting other maintenance (0.154958ms)
+  ✔ prunes community records and logs a failed retention run without stopping cleanup (0.122292ms)
+  ✔ prunes consented measurement and logs a failed retention run (0.500125ms)
+  ✔ advances media turns and stops recordings independently of session cleanup (0.332333ms)
+  ✔ logs a media clock failure and keeps the service alive (0.209458ms)
+  ✔ retries an unsuccessful recording stop without losing the durable request (0.232ms)
+✔ service runtime (10.946167ms)
+▶ PostgreSQL account revocation and controlled interleavings
+  ✔ logout-all denies both devices across instances and permits a fresh password login (248.525792ms)
+  ✔ logout-other-sessions retains the authorized current device, without replacing its cookie (86.825ms)
+  ✔ normal Sign out revokes all account sessions across instances (79.123333ms)
+  ✔ rejects unauthenticated, cross-account selectors, and foreign sessions even after middleware (77.298458ms)
+  ✔ wallet removal revokes password and wallet sessions, preserves account ownership and final method (158.215ms)
+  ✔ supported owner password update atomically revokes sessions; rollback restores old credential and sessions (180.615875ms)
+  ✔ stale password authentication cannot cross logout-all or password-change ordering points (162.331292ms)
+  ✔ password issuance waiting behind a locked revocation fails with its obsolete snapshot (14.988125ms)
+  ✔ wallet completion waiting behind unlink cannot resurrect the old account; remove/readd rejects its old UUID proof (34.572042ms)
+  ✔ wallet challenges issued before logout-all or logout-others are invalidated; fresh challenges succeed (167.144625ms)
+  ✔ issuance ordered first is deleted by a waiting revocation, including across instances (46.294958ms)
+  ✔ credential deletion and session replacement roll back together; a transaction-local successor is unavailable before commit (36.49025ms)
+  ✔ wallet session-insert failure rolls back account provisioning and challenge consumption (4.498792ms)
+  ✔ database rejects old-binary inserts and explicit obsolete generations; expiry stays authoritative (12.3025ms)
+  ✔ runtime role can revoke but cannot edit credentials or execute trigger functions directly (50.38525ms)
+✔ PostgreSQL account revocation and controlled interleavings (1429.6325ms)
+▶ session tokens
+  ✔ creates unique 256-bit URL-safe tokens (1.313084ms)
+  ✔ creates a deterministic SHA-256 digest for storage (0.177166ms)
+✔ session tokens (2.529ms)
+▶ session repository
+  ✔ creates a session using only the token hash (1.441125ms)
+  ✔ finds the user for an unexpired session (0.575834ms)
+  ✔ returns null when a session is missing or expired (0.207833ms)
+  ✔ deletes a session for logout (0.108208ms)
+  ✔ reports when there was no session to delete (0.132583ms)
+  ✔ deletes expired sessions for scheduled maintenance (0.091083ms)
+✔ session repository (3.661958ms)
+▶ session issuance authoritative checks and failure atomicity
+  ✔ rejects missing accounts, obsolete generations, and changed credential snapshots (0.454833ms)
+  ✔ checks wallet ownership again and releases a committed session (0.426917ms)
+  ✔ does not return a session when insertion or commit fails (0.59425ms)
+✔ session issuance authoritative checks and failure atomicity (2.728375ms)
+✔ scopes resolved-account recovery attempts independently, without storing account identifiers or caching authorization (3.239417ms)
+▶ shared abuse operational boundaries
+  ✔ rejects invalid fixed windows and budgets (0.28625ms)
+  ✔ groups IPv6 subnets while separating operations, accounts, environments and secrets (40.649375ms)
+  ✔ rejects evictable configuration before any concurrent mutation and does not extend cooldown on rejected requests (37.737917ms)
+  ✔ bounds accepted TCP connections with a stalled initialization handshake and emits only aggregate errors (1012.638375ms)
+  ✔ bounds sent commands whose replies never arrive and emits only aggregate errors (1026.757709ms)
+  ✔ fails closed on invalid store counters and TTLs (92.9485ms)
+  ✔ bounds the connected pending command queue and destroys stalled commands on overflow (27.1515ms)
+✔ shared abuse operational boundaries (2238.880292ms)
+✔ uses one navigation and session-aware account header across normal pages (2.941958ms)
+✔ keeps the broadcast overlay free of navigation and account controls (0.135958ms)
+▶ SIWE proof
+  ✔ verifies the exact server-issued message and rejects invalid proof (15.797041ms)
+  ✔ validates wallet addresses and chain identifiers (0.266042ms)
+✔ SIWE proof (16.787542ms)
+▶ wallet authentication routes
+  ✔ signs in with a one-use challenge and server session (66.898458ms)
+  ✔ blocks account switching and bad signature attempts (21.994416ms)
+  ✔ validates challenge requests and refuses stale verification (18.018708ms)
+✔ wallet authentication routes (107.276417ms)
+▶ user repository
+  ✔ creates and returns safe user fields (2.040833ms)
+  ✔ finds a user by email for login (0.217416ms)
+  ✔ returns null when an email does not exist (0.11425ms)
+✔ user repository (3.153083ms)
+✔ admits 500 independent viewers behind one IP for reads, join bursts and reports (374.234542ms)
+✔ bounds simultaneous work and releases pressure on close or finish without double release (0.28375ms)
+✔ throttles one viewer without consuming other viewers' allowances and resets bounded windows (1.546083ms)
+✔ does not exempt protected mutations or authentication from their existing controls (0.159125ms)
+✔ rejects tampered/expired/malformed guard values and renews them without authentication privileges (1.090625ms)
+✔ bounds active identities/networks and reclaims expired buckets (0.174166ms)
+✔ bounds anonymous lease churn on one network (27.696416ms)
+✔ supports five open event pages and later bootstrap reads within the browser budget (3.832292ms)
+✔ bounds aggregate network and process traffic with independently signed viewers (898.497542ms)
+▶ wallet credential-management HTTP gate
+  ✔ disables new external links in provider mode and preserves retained removal (96.252417ms)
+  ✔ removes the cookie-only legacy mutation API (15.659583ms)
+  ✔ requires authentication and validates exact operation input (60.991708ms)
+  ✔ rotates a host-only cookie only on successful completion and never returns the token in JSON (7.766042ms)
+  ✔ rejects malformed proofs and retains origin protection (23.913167ms)
+  ✔ maps rejected approvals and provider failures without issuing cookies (29.412334ms)
+  ✔ throttles reauthentication attempts and account-scopes wallet inventory (7.332125ms)
+✔ wallet credential-management HTTP gate (243.280416ms)
+▶ wallet authorization with PostgreSQL runtime role
+  ✔ rejects a genuinely signed unknown-wallet signup in email-first mode and keeps retained wallet sign-in (71.5205ms)
+  ✔ locally reproduces rejection of pre-deletion cookies, passwords and a delayed known-wallet callback without recreating the retired account (128.008834ms)
+  ✔ a stolen cookie and attacker-wallet signature cannot link or unlink (52.888833ms)
+  ✔ current password authorizes each exact operation and rotates only its session (72.995459ms)
+  ✔ linked-wallet authorization supports wallet-only and password accounts (26.571833ms)
+  ✔ the proposed wallet cannot approve itself, and only retained credentials can approve unlink (12.899417ms)
+  ✔ missing, expired, reused, mismatched account/session/purpose/target proofs fail (68.832542ms)
+  ✔ login and proposed-wallet signatures cannot be used as authorizing signatures (16.733167ms)
+  ✔ wrong signing accounts fail and unavailable contract verification fails closed (15.537083ms)
+  ✔ removing then re-adding an authorizer or restoring a password cannot revive a proof (56.476834ms)
+  ✔ unlink proof is purpose-specific and password unlink retains password access (47.6765ms)
+  ✔ logout wins during cryptographic verification and creates neither wallet nor replacement session (19.105916ms)
+  ✔ account-wide revocation wins before a waiting link, and link-first ordering is explicit (45.565208ms)
+  ✔ concurrent proof consumption and concurrent links allow one committed operation (82.1595ms)
+  ✔ cross-account simultaneous linking cannot assign a wallet twice (44.427958ms)
+  ✔ concurrent final-method removals leave a retained usable credential (35.639583ms)
+  ✔ an approval expiring while verification waits cannot commit (18.709458ms)
+  ✔ an expired session after lock waiting and a late failure roll back mutation/audit/notification (56.9915ms)
+  ✔ runtime role cannot retarget an operation, and cleanup removes expired operations (6.864333ms)
+  ✔ SIWE checks chain, URI, scheme, nonce and expiry before accepting an operation signature (1.110208ms)
+✔ wallet authorization with PostgreSQL runtime role (930.504833ms)
+▶ wallet repository atomic identity changes
+  ✔ stores and loads short-lived challenges (1.319458ms)
+  ✔ creates a wallet-only account or reuses the linked account under a transaction lock (0.4875ms)
+  ✔ rolls back a replayed challenge (0.3785ms)
+  ✔ blocks unknown-wallet account creation in email-first mode while retaining known-wallet login (0.265625ms)
+  ✔ keeps wallet inventory scoped and exposes only gated mutations (0.079917ms)
+✔ wallet repository atomic identity changes (3.464875ms)
+ℹ tests 859
+ℹ suites 89
+ℹ pass 859
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 27768.263833
+ℹ start of coverage report
+ℹ -----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ file                                          | line % | branch % | funcs % | uncovered lines
+ℹ -----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ ..                                            |        |          |         | 
+ℹ  ..                                           |        |          |         | 
+ℹ   ..                                          |        |          |         | 
+ℹ    ..                                         |        |          |         | 
+ℹ     ..                                        |        |          |         | 
+ℹ      private                                  |        |          |         | 
+ℹ       var                                     |        |          |         | 
+ℹ        folders                                |        |          |         | 
+ℹ         3b                                    |        |          |         | 
+ℹ          5c6cl0jn4mjchzbjs9s5qclw0000gn       |        |          |         | 
+ℹ           T                                   |        |          |         | 
+ℹ            service-template-cli-eR40Zn        |        |          |         | 
+ℹ             scripts                           |        |          |         | 
+ℹ              initialize-project.js            |  96.02 |    79.17 |   87.50 | 40-41 77 89-90 173-174
+ℹ dist                                          |        |          |         | 
+ℹ  app.js                                       |  83.45 |    68.18 |   86.67 | 31-33 44-45 48-50 143-148 219-227 230-235 240-248 257-267
+ℹ  features                                     |        |          |         | 
+ℹ   a4                                          |        |          |         | 
+ℹ    bots.js                                    | 100.00 |   100.00 |  100.00 | 
+ℹ    engine.js                                  | 100.00 |   100.00 |  100.00 | 
+ℹ    funding.js                                 | 100.00 |   100.00 |  100.00 | 
+ℹ    ledger.js                                  | 100.00 |   100.00 |  100.00 | 
+ℹ    public-bots.js                             | 100.00 |    98.28 |  100.00 | 
+ℹ    repository.js                              |  99.18 |    94.54 |   98.28 | 701-706
+ℹ    router.js                                  | 100.00 |    98.73 |   95.83 | 
+ℹ    timeline.js                                | 100.00 |   100.00 |  100.00 | 
+ℹ   account-wallet                              |        |          |         | 
+ℹ    base-sepolia.js                            |  97.38 |    97.44 |   92.86 | 59-64 121-123
+ℹ    debate-sandbox.js                          |  99.62 |    83.69 |  100.00 | 298-299
+ℹ    external-operations.js                     | 100.00 |   100.00 |  100.00 | 
+ℹ    grant-accounting.js                        |  99.84 |    97.62 |  100.00 | 371
+ℹ    ledger.js                                  | 100.00 |    96.10 |  100.00 | 
+ℹ    repository.js                              | 100.00 |   100.00 |  100.00 | 
+ℹ    sandbox-reports.js                         | 100.00 |    83.95 |  100.00 | 
+ℹ    sandbox-repository.js                      |  93.70 |    87.68 |   96.00 | 150-160 614-631 752 823-870
+ℹ    sandbox-router.js                          |  66.36 |    70.45 |   58.62 | 51-52 69-70 73-74 137-138 141-149 152-153 156-206 212-214
+ℹ    sandbox-webhooks.js                        |  97.14 |    91.53 |  100.00 | 118-119 136-137
+ℹ   community                                   |        |          |         | 
+ℹ    delivery.js                                | 100.00 |    88.89 |   90.48 | 
+ℹ    presence.js                                | 100.00 |   100.00 |  100.00 | 
+ℹ    repository.js                              |  99.64 |    91.88 |   94.44 | 123 369
+ℹ    router.js                                  |  99.07 |    94.05 |  100.00 | 63 259-260
+ℹ    streams.js                                 |  77.05 |    77.78 |   75.00 | 18-21 28-29 40-47
+ℹ    web.js                                     | 100.00 |   100.00 |   85.71 | 
+ℹ   discovery                                   |        |          |         | 
+ℹ    account-web.js                             | 100.00 |   100.00 |  100.00 | 
+ℹ    debate-web.js                              | 100.00 |    88.68 |   87.50 | 
+ℹ    featured-web.js                            | 100.00 |   100.00 |  100.00 | 
+ℹ    homepage-chart.js                          | 100.00 |    96.59 |  100.00 | 
+ℹ    homepage-clock.js                          | 100.00 |    94.44 |  100.00 | 
+ℹ    homepage-model.js                          | 100.00 |    93.55 |   92.31 | 
+ℹ    homepage-reference.js                      | 100.00 |   100.00 |  100.00 | 
+ℹ    homepage-view.js                           | 100.00 |    90.50 |  100.00 | 
+ℹ    repository.js                              |  98.64 |   100.00 |   91.67 | 82-83
+ℹ    router.js                                  | 100.00 |    91.74 |   93.75 | 
+ℹ    site-header-web.js                         | 100.00 |   100.00 |  100.00 | 
+ℹ    video-card-web.js                          | 100.00 |   100.00 |  100.00 | 
+ℹ    web.js                                     | 100.00 |    83.65 |  100.00 | 
+ℹ   identity                                    |        |          |         | 
+ℹ    repository.js                              | 100.00 |    82.05 |   92.31 | 
+ℹ    router.js                                  |  96.81 |    91.00 |  100.00 | 100-101 124 161-163
+ℹ   matching                                    |        |          |         | 
+ℹ    repository.js                              |  99.06 |    90.71 |  100.00 | 182-185
+ℹ    router.js                                  |  92.15 |    87.59 |  100.00 | 97 144-145 152-153 162-163 178-179 184-185 198-199 231-232 254-255 257-260 278-279
+ℹ   measurement                                 |        |          |         | 
+ℹ    repository.js                              | 100.00 |    86.52 |  100.00 | 
+ℹ    router.js                                  |  98.10 |    91.14 |  100.00 | 34 114-115
+ℹ    web.js                                     | 100.00 |   100.00 |   83.33 | 
+ℹ   media                                       |        |          |         | 
+ℹ    account-revocation.js                      | 100.00 |    93.14 |  100.00 | 
+ℹ    operations.js                              | 100.00 |    96.92 |   76.19 | 
+ℹ    provider.js                                | 100.00 |    96.77 |  100.00 | 
+ℹ    replay-jobs.js                             |  98.70 |    96.92 |   93.75 | 109 157-158
+ℹ    replay-packaging.js                        |  98.56 |    93.51 |  100.00 | 230-231 245-248
+ℹ    replay-storage.js                          |  99.63 |    93.16 |   90.48 | 55
+ℹ    replay-thumbnail.js                        | 100.00 |    98.31 |  100.00 | 
+ℹ    replay-worker.js                           |  98.45 |    93.44 |   88.89 | 54 128-129
+ℹ    replay.js                                  | 100.00 |   100.00 |  100.00 | 
+ℹ    repository.js                              |  97.89 |    93.10 |   96.67 | 248-253
+ℹ    router.js                                  |  95.46 |    89.64 |   96.00 | 17-18 25 178-179 193-200 250-251 279-280 387-389
+ℹ    telemetry.js                               | 100.00 |   100.00 |  100.00 | 
+ℹ   messages                                    |        |          |         | 
+ℹ    repository.js                              | 100.00 |    83.33 |  100.00 | 
+ℹ    router.js                                  | 100.00 |   100.00 |  100.00 | 
+ℹ  platform                                     |        |          |         | 
+ℹ   auth                                        |        |          |         | 
+ℹ    account-access.js                          |  95.97 |    68.66 |   76.67 | 22-24 28-29 45-46 59-62 148-149 338-340 406 423 469
+ℹ    account-operations.js                      |  95.88 |    93.52 |   88.89 | 342-343 349-361
+ℹ    browser-security.js                        | 100.00 |   100.00 |  100.00 | 
+ℹ    embedded-wallet-provider.js                |  97.26 |    90.48 |  100.00 | 64-66 78
+ℹ    embedded-wallet-provisioning.js            |  95.79 |    88.57 |  100.00 | 72-74 94-96 124-126 190-192
+ℹ    legacy-provider-link.js                    |  95.93 |    71.43 |  100.00 | 22-25 37
+ℹ    passwords.js                               | 100.00 |   100.00 |  100.00 | 
+ℹ    privy.js                                   |  93.21 |    93.65 |   88.24 | 45-47 79-81 88-92
+ℹ    provider-accounts.js                       | 100.00 |    95.00 |  100.00 | 
+ℹ    provider-config.js                         | 100.00 |   100.00 |  100.00 | 
+ℹ    provider-control-phases.js                 |  93.90 |    88.14 |  100.00 | 49-52 163-165 173-175 226-227 240-242 252-254
+ℹ    provider-credentials.js                    | 100.00 |    92.31 |  100.00 | 
+ℹ    provider-identity-recovery.js              |  97.54 |    86.67 |   91.67 | 42-45 108
+ℹ    provider-passkey-bootstrap.js              | 100.00 |    88.75 |  100.00 | 
+ℹ    provider-passkey-policy.js                 | 100.00 |   100.00 |  100.00 | 
+ℹ    provider-passkey-reset-repair.js           | 100.00 |    85.32 |  100.00 | 
+ℹ    provider-passkeys.js                       |  99.40 |    88.24 |  100.00 | 356-358
+ℹ    provider-revocation.js                     |  94.05 |    89.32 |   96.00 | 65-68 70-73 76-79 83-86 89-92 113-116 273-275 397-401 552-556
+ℹ    provider-session-monitor.js                | 100.00 |    91.94 |  100.00 | 
+ℹ    provider-wallet-operations.js              |  98.21 |    73.17 |  100.00 | 160-162
+ℹ    router.js                                  |  95.74 |    93.12 |   90.48 | 94-97 155-156 231-232 356-357 408-409 412-417 497-500 513-518
+ℹ    security-passkeys.js                       |  96.02 |    77.27 |   92.31 | 88-90 189-191 197-198
+ℹ    security-router.js                         |  91.87 |    82.93 |   93.33 | 433 435-438 627-670 676-677 680-681 684-686
+ℹ    session-tokens.js                          | 100.00 |   100.00 |  100.00 | 
+ℹ    sessions.js                                | 100.00 |    89.71 |  100.00 | 
+ℹ    siwe.js                                    |  90.22 |    97.73 |  100.00 | 80-88
+ℹ    users.js                                   | 100.00 |    85.71 |  100.00 | 
+ℹ    wallet-operations.js                       | 100.00 |    90.59 |  100.00 | 
+ℹ    wallets.js                                 | 100.00 |    83.78 |  100.00 | 
+ℹ   config.js                                   |  97.85 |    96.64 |  100.00 | 31-32 34-35 41-42
+ℹ   database-jobs.js                            | 100.00 |    91.67 |  100.00 | 
+ℹ   database.js                                 |  72.88 |    62.50 |   50.00 | 13 16-30
+ℹ   logger.js                                   | 100.00 |    84.00 |  100.00 | 
+ℹ   metrics.js                                  | 100.00 |    95.65 |  100.00 | 
+ℹ   migrations.js                               | 100.00 |   100.00 |  100.00 | 
+ℹ   pg-listener.js                              |  96.74 |    86.36 |   75.00 | 58-60
+ℹ   room-fanout.js                              |  98.37 |    92.31 |   95.45 | 144-147
+ℹ   runtime.js                                  |  93.43 |    83.10 |   94.12 | 49-50 65-71 75 85-86 91
+ℹ   security.js                                 | 100.00 |   100.00 |  100.00 | 
+ℹ   shared-abuse.js                             | 100.00 |    97.22 |   94.12 | 
+ℹ   shared-read.js                              | 100.00 |   100.00 |  100.00 | 
+ℹ   sse.js                                      | 100.00 |   100.00 |  100.00 | 
+ℹ   viewer-admission.js                         |  99.45 |    99.02 |   90.00 | 40
+ℹ edge                                          |        |          |         | 
+ℹ  replay-worker.ts                             |  99.10 |    98.55 |  100.00 | 82-83
+ℹ frontend                                      |        |          |         | 
+ℹ  auth-return.ts                               |  96.45 |    89.02 |  100.00 | 77 120-121 130-131 156-157
+ℹ public                                        |        |          |         | 
+ℹ  arena-chart.js                               |  17.06 |   100.00 |   88.89 | 51-293
+ℹ  arena-price.js                               |   8.51 |   100.00 |   66.67 | 17-188
+ℹ  arena-statement.js                           |   1.28 |   100.00 |    0.00 | 2-78
+ℹ  community-state.js                           | 100.00 |    94.85 |  100.00 | 
+ℹ  community-stream.js                          |  98.81 |    83.93 |   94.12 | 50 109
+ℹ  community-transport.js                       | 100.00 |    95.24 |  100.00 | 
+ℹ  hero-live.js                                 |  95.24 |    85.71 |  100.00 | 50-52
+ℹ  hero-policy.js                               | 100.00 |   100.00 |  100.00 | 
+ℹ  media-diagnostics.js                         |  98.53 |    95.65 |   96.77 | 156-158
+ℹ  media-presentation.js                        | 100.00 |    96.77 |  100.00 | 
+ℹ  media-recovery.js                            |  99.15 |   100.00 |   94.44 | 12
+ℹ  media-replay-library.js                      | 100.00 |   100.00 |  100.00 | 
+ℹ  media-replay.js                              | 100.00 |    92.31 |   91.89 | 
+ℹ  media-session.js                             | 100.00 |   100.00 |  100.00 | 
+ℹ  media-speaker.js                             | 100.00 |    94.44 |   85.71 | 
+ℹ  media-telemetry.js                           | 100.00 |   100.00 |  100.00 | 
+ℹ  media-tracks.js                              | 100.00 |    90.00 |  100.00 | 
+ℹ -----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ all files                                     |  95.32 |    91.22 |   95.35 | 
+ℹ -----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ end of coverage report

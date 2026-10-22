@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-21T20:41:07.272512+00:00",
+  "reportRevision": "030b60ea0974b70edecf74b322935dc991a17fb1",
+  "comparisonRevision": "70e3e2bf2af02c61997900207ed8322cf56ebe2a",
+  "recordedSourceHashesMatched": 31,
+  "mismatches": [],
+  "supplementalRuntimeHashes": {
+    "src/platform/auth/provider-control-phases.ts": "3623eab43917997a1aba9fdd3d68cffa922307f2eda906e00a9805a9f10058a7",
+    "dist/platform/auth/provider-control-phases.js": "ae5bcbbab983f69c9f04507646900b0c2e5516d884a3ed401c05ab707649996a",
+    "migrations/1792426014000_add-embedded-wallet-provisioning.js": "ed48b610e77793bf4df1d49637f594660598d27dd98684f3dce890fd9f4db1b0",
+    "migrations/1792426015000_add-provider-control-phases.js": "07163766753d22498e9c9308817dbd9c6c6fb7928abb3ea7cd4ccded37e4c3ad"
+  },
+  "scope": "Read-only post-run source/asset/dist comparison. Git metadata advanced without changing these tested files; no rebuild or provider acceptance is inferred."
+}

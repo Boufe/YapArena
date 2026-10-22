@@ -1,0 +1,38 @@
+desktop: checking account accessibility and controls
+desktop: account accessibility passed
+mobile: checking account accessibility and controls
+mobile: account accessibility passed
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
++ actual - expected
+
++ [
++   "Failed to read the 'localStorage' property from 'Window': Access is denied for this document.",
++   "Failed to read the 'localStorage' property from 'Window': Access is denied for this document.",
++   "Failed to read the 'localStorage' property from 'Window': Access is denied for this document.",
++   "Failed to read the 'localStorage' property from 'Window': Access is denied for this document.",
++   "Failed to read the 'localStorage' property from 'Window': Access is denied for this document.",
++   "Failed to read the 'localStorage' property from 'Window': Access is denied for this document."
++ ]
+- []
+
+    at file:///Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:3179:10 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: [
+    "Failed to read the 'localStorage' property from 'Window': Access is denied for this document.",
+    "Failed to read the 'localStorage' property from 'Window': Access is denied for this document.",
+    "Failed to read the 'localStorage' property from 'Window': Access is denied for this document.",
+    "Failed to read the 'localStorage' property from 'Window': Access is denied for this document.",
+    "Failed to read the 'localStorage' property from 'Window': Access is denied for this document.",
+    "Failed to read the 'localStorage' property from 'Window': Access is denied for this document."
+  ],
+  expected: [],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

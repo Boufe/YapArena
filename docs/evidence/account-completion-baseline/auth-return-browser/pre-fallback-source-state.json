@@ -1,0 +1,53 @@
+{
+  "recordedAt": "2026-10-20T16:15:27.677Z",
+  "launchHead": "97be514d568169d5bd3f1acc569bb5494642a42a",
+  "result": "PASS",
+  "exitCode": 0,
+  "checkGroups": 70,
+  "pageErrors": [],
+  "requirementFailures": [],
+  "applicationCommits": ["10d3730", "c98294c"],
+  "scope": "Local synthetic browser HTTP/application-session/OTP fixture, native Chromium desktop/mobile emulation. Installed SDK public metadata only. No hosted signup/provider recovery success, screen reader, physical device or full WCAG conformance claim.",
+  "testedVerifierSha256": "cd77f11bc8275ee23aac0234f9548f5257bd97b489ec0a82d3b6f45365f6659d",
+  "testedVerifierHashMatchesResult": true,
+  "formatOnlyPatch": "verifier-format-only.patch",
+  "formatOnlyNote": "The verifier was formatted after terminal PASS. This patch contains only Prettier line wrapping of the two scroll callbacks; reverse-applying it to the committed verifier reconstructs its exact tested SHA256. No application assets changed.",
+  "sourceHashes": {
+    "frontend/auth-return.ts": "8d07380c992ea926f11e5202d33a923df565c7f0c4268baf69304a624a796d2b",
+    "frontend/site-header.ts": "a43c6d8a62dc765afab7dbc7d5979986b7d45ab9bbb6eee1a3a7245eac9e7b00",
+    "frontend/account-auth.tsx": "a9e77af271b511c237050f8166c4b96935b7f6db72fb7daae5fa2d4d99f71c56",
+    "frontend/auth-events.ts": "e2902e293101e5723806e154073598564fa7fdb082012494f88afb129d662e9d",
+    "frontend/site.ts": "194a4f30c21ffa3cb11e90313fe0fb0017a9e22f2741b38da7cb0a06ee7969c8",
+    "frontend/matching.ts": "8b9a1c7a089d2975b3558792818a3124564618a56712cb72446249e998b80752",
+    "frontend/a4.ts": "d1a3c2b75223aeaf01a8c243af44589cfe68c56639e5804e7d69a606331bc06a",
+    "frontend/a4-inline.ts": "0bfc460a44b5f8fdda2d3e601df3b7b59372a609934bb1371141c5dd73a62689",
+    "frontend/community.ts": "44200b0cdabd12e783c0aaeddbb2db6fc16af36ec46baeaa364a1ed063e1823c",
+    "scripts/verify-email-auth-browser.ts": "c54acc4e8c7782a42b5343bd77a36112078f078483d0c4b418dc0d6fa6d9ddaa",
+    "scripts/verify-chat-client.ts": "45d569413a05d404dfd68046db5efbacc5fad66b64f72c10fb82e8b73c75c139",
+    "tests/email-first-auth.test.js": "edc6cd1feefebead532642e1018b87252f190152a2c129ee53d1f460f7bf60a6"
+  },
+  "assetHashes": {
+    "session-coordination.js": "62fdfdbec9f5d42c20f06846e3c32758ed8e3b6bc79d165455ed758c0ea477f9",
+    "account-auth.bundle.js": "0240e20c93d9419806b5c80436d54276fba4fd47056072f4a781fa4023ea1617",
+    "account-security.bundle.js": "fbd23da267408af036e9ec32f1e844f9ad2bd678fb4978a95cfd41a76d598c21",
+    "account-session-list.js": "1e4da048f89dcea314e10483dc10ea046fb4efae47fe9d4069b1f01373bb49c5",
+    "account-sessions.js": "e544082c908e37d08cb5e05d3e2f72a57556770fba72fa7ab33c05e65b283aef",
+    "account.js": "120efb4ec74cfd49cd897c408939a2b4780165cdb04f0bc771f79e528fa1d62d",
+    "site-header.js": "5fcf24e395827bc16da0014318da0b998b4f20af5846d45c77cabb98307eebe5",
+    "auth-return.js": "891d6907811a6a507800ddb475ace41786885d69448ac699cb7c435029f0626d",
+    "site.js": "0543de8bf00750b5ca1544f3d24502ed11193f00f9289320d6905cacff692dd8",
+    "matching.js": "abc5751fe076f0e8669e7accc003c7aba353ea968935026684b362327729750e",
+    "a4-inline.js": "625070053237abf10adf576b79dd5ebca45d0643fe54ee855464a683a5f88317",
+    "arena-chart.js": "224103157fb3998d1183189bbf900d2396db2cc6d2fdb75533628f516548e126",
+    "arena-price.js": "8d9bf7e9a7ead29652c66a73931238c4af15fa222e06fc74b028b3471fd38b90",
+    "account-auth.css": "dfa7bfe18baa0a76c45a9974aa24785f868f71ca31497794dfcaf11815c12da7",
+    "site-header.css": "512f5ca5985b881f9f7c20fa15a5168c30a06734ec1eb0b6ed85f7fbc069751d",
+    "site.css": "c2481b6017fb564fdaff0bf437a18f64f56e6dbb2492f2047199a93f06514bd7",
+    "arena.css": "087928e12c8be4a87d006b22b91f1534a647b44425d1129b1d54c2d3d4dc3cb1"
+  },
+  "compiledRendererHashes": {
+    "dist/features/discovery/web.js": "1a4130fd43e222d154a5e894a7ca5ae128fcdb96e2ca8a98f3681afd1239c9d0",
+    "dist/features/discovery/account-web.js": "f1c287a85d3929d75e18d8ef8bfd7b4f6ee2be76d48e5d74abe8df35d5753f8a",
+    "dist/features/discovery/debate-web.js": "88bf0e55a53e3b89f48c769dd02fbc0bdb3cd74bf09f987f5b8cac778764992d"
+  }
+}

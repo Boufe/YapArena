@@ -1,0 +1,24 @@
+{
+  "result": "PASS",
+  "checks": {
+    "operatorSeedIsIdempotentAndUsesStoredArgumentResults": true,
+    "separateCreatorKeepsWorkspaceRoundsPrivate": true,
+    "databaseBackedHomeExpansionAndDebateArguments": true,
+    "activeInspectionDefersAndIdleReleasesUpdate": true,
+    "observerAndMixedSettlementRefreshHomeExpandedAndDebateWithoutReload": true,
+    "pendingPrivacyAndAggregateOnlyPublication": true,
+    "publicAndPersonalHistoryRemainDistinct": true,
+    "mobileAndAccessibility": true,
+    "signedOutSharedHistoryWithoutPrivateAccess": true,
+    "consentWithdrawalRemovesPersonalRoundsEverywhere": true,
+    "visibleLiveNavigationAndOriginalLivePage": true
+  },
+  "errors": [],
+  "screenshots": [
+    "home-expanded.png",
+    "debate-shared.png",
+    "home-mobile.png",
+    "debate-mobile.png"
+  ],
+  "scope": "Disposable local PostgreSQL, real A4 worker/HTTP/browser; no hosted test writes or media sessions"
+}

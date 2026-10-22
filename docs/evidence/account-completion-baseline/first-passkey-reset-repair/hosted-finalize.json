@@ -1,0 +1,7 @@
+{
+  "status": "complete",
+  "action": "finalize-first-passkey",
+  "fixedStagingTarget": true,
+  "acceptedCredentialsUnchanged": true,
+  "requiresFreshPasskeyVerification": true
+}

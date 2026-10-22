@@ -100,11 +100,13 @@ export function createCommunityRouter({
   applicationOrigin,
   recordProductAction,
   streams,
+  emailFirst = false,
 }: {
   community: ReturnType<typeof createCommunityRepository>;
   identity: Pick<ReturnType<typeof createIdentityRepository>, "getRoles">;
   requireAuth: RequestHandler;
   applicationOrigin: string;
+  emailFirst?: boolean;
   recordProductAction?: ProductActionRecorder;
   streams?: Pick<ReturnType<typeof createCommunityStreams>, "subscribe">;
 }) {
@@ -147,10 +149,10 @@ export function createCommunityRouter({
       : response.status(404).type("html").send("<h1>Event not found</h1>");
   });
   router.get("/account/moderation", requireAuth, (_request, response) =>
-    response.type("html").send(renderMyModeration()),
+    response.type("html").send(renderMyModeration(emailFirst)),
   );
   router.get("/moderation", requireAuth, moderator, (_request, response) =>
-    response.type("html").send(renderModeration()),
+    response.type("html").send(renderModeration(emailFirst)),
   );
 
   router.post(

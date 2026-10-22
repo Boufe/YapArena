@@ -1,0 +1,99 @@
+{
+  "format": 1,
+  "sourceCommit": "92f11b449337ad12f2c2295d9b81fb72afb14634",
+  "sourceHashes": {
+    "src/platform/auth/provider-control-phases.ts": "a69efe833a44fe3183b239507fa5ecee450fd1c09dd8131aeb106c923e6e315a",
+    "src/platform/auth/provider-revocation.ts": "44fee9a80047ef541f2a706af4d82a48267180095e1230c51fea1808659fbf07",
+    "tests/provider-control-phases-postgres.test.js": "5b036b23652ce35d2a92179f9113a14c98dc4a2b23c2f492a66722cffd997af4"
+  },
+  "artifacts": [
+    {
+      "path": "red/baseline-failure.log",
+      "sha256": "42e66ba8ff29ca5853e25080430b937bdfd7890d5f7f5132f6a638f4d91a5a43",
+      "bytes": 34051,
+      "kind": "controlled baseline expected assertion failure"
+    },
+    {
+      "path": "history/first-candidate-failure.log",
+      "sha256": "40761def652347636f8b5b1012e51cfe68c16b13948914ce8e6f4432e8feca01",
+      "bytes": 34026,
+      "kind": "incomplete first correction failed later assertion"
+    },
+    {
+      "path": "history/normal-drain-241.log",
+      "sha256": "9ecd2415209d247499ae4cb300f50ea5c16306a04f9b3e6c9d07dd28c63dc184",
+      "bytes": 64392,
+      "kind": "intermediate normal-drain241-case acceptance"
+    },
+    {
+      "path": "history/owner-rearm-247.log",
+      "sha256": "b1c0c0648374ddd974a6a549f3bec0a46d85024d3ce863597e528c93297022ac",
+      "bytes": 65911,
+      "kind": "intermediate owner-rearm247-case acceptance"
+    },
+    {
+      "path": "final/run.log",
+      "sha256": "ab0a8ab1208869146e0f35520bdbef45503b9a5ef59107f1de31fb18fa237578",
+      "bytes": 66211,
+      "kind": "final248-case fresh/upgrade gate"
+    },
+    {
+      "path": "final/database/fresh-account-security.log",
+      "sha256": "1e25e6495bc14873ead2fb3d35c997073236d3d2a46c47885aaca8859ca1b2d4",
+      "bytes": 31683,
+      "kind": "final focused raw test log"
+    },
+    {
+      "path": "final/database/fresh-inventory.json.raw",
+      "sha256": "b0a9e53e918160c359b0e88a8bf1816a924c64402700d4478e8b39e80070ade5",
+      "bytes": 409274,
+      "kind": "original catalog JSON bytes"
+    },
+    {
+      "path": "final/database/fresh-inventory.json",
+      "sha256": "31cc42c1659333f9e99357c2ffaab060b06433a05b0ba247697d8c9e490ebe4c",
+      "bytes": 407786,
+      "kind": "final disposable catalog inventory",
+      "original": "final/database/fresh-inventory.json.raw"
+    },
+    {
+      "path": "final/database/treasury-fresh.log",
+      "sha256": "861e98aca38b32ebad9ea0967f414266a5eca04be67cca4a77777813ede02b4d",
+      "bytes": 944,
+      "kind": "final focused raw test log"
+    },
+    {
+      "path": "final/database/treasury-upgrade.log",
+      "sha256": "46d348ce9ef5aa9fd98c8a3b4f690c604816f2fe06a388fe071664ea34de1688",
+      "bytes": 942,
+      "kind": "final focused raw test log"
+    },
+    {
+      "path": "final/database/upgrade-account-security.log",
+      "sha256": "c62dd0e6ec0b0c270abd6ea27287cb6a871f28a36036440959dd662683be3835",
+      "bytes": 31737,
+      "kind": "final focused raw test log"
+    },
+    {
+      "path": "final/database/upgrade-inventory.json.raw",
+      "sha256": "c568776826f2b903e421b9c3de50d2675b1a6f690ba170b696e4e5aae18d7f73",
+      "bytes": 409288,
+      "kind": "original catalog JSON bytes"
+    },
+    {
+      "path": "final/database/upgrade-inventory.json",
+      "sha256": "d731c2489fe1277b712e7e3b4499d9611b8e5a8747c6296cfac673a3a201e836",
+      "bytes": 407800,
+      "kind": "final disposable catalog inventory",
+      "original": "final/database/upgrade-inventory.json.raw"
+    },
+    {
+      "path": "summary.json",
+      "sha256": "80b2cb8b8d015c13081fd9efad9a727f7497380f64192513d19c04ae5117a211",
+      "bytes": 5774,
+      "kind": "independent acceptance/source review and chronology summary"
+    }
+  ],
+  "scope": "Independent static source review plus author-executed real disposable PostgreSQL17.10/Node24 tests with synthetic provider adapter. No hosted repair/provider mutation/returning-login acceptance.",
+  "hashPolicy": "README/manifest excluded to avoid self-reference; original JSON bytes retained alongside equal-value formatted JSON."
+}

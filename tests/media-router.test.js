@@ -843,6 +843,72 @@ describe("media API", () => {
 });
 
 describe("signed media webhooks", () => {
+  it("fences speaker departure pauses and preserves a replacement's current turn", async () => {
+    const calls = [];
+    const identity = "speaker-7c010b32-a0f9-46cb-8f39-8657886819c5";
+    const client = {};
+    let relevant = false;
+    const app = express();
+    app.use((req, _res, next) => {
+      req.log = { warn() {} };
+      next();
+    });
+    app.use(
+      "/webhook",
+      express.raw({ type: "application/webhook+json" }),
+      createMediaWebhookRouter({
+        media: {
+          async pauseWithClient(actualClient, ...args) {
+            assert.equal(actualClient, client);
+            calls.push(args);
+          },
+          async get() {
+            // A moderator resumed the debate after the departure committed.
+            return { state: "running", activeSide: "B" };
+          },
+        },
+        accountRevocation: {
+          async withSpeakerDeparture(debateId, actualIdentity, pause) {
+            assert.equal(debateId, id);
+            assert.equal(actualIdentity, identity);
+            if (!relevant) return false;
+            await pause(client);
+            return true;
+          },
+        },
+        provider: {
+          async webhook() {
+            return {
+              event: "participant_left",
+              room: { name: `debate-${id}` },
+              participant: { identity },
+            };
+          },
+          async setTurn(debateId, side) {
+            calls.push({ debateId, side });
+          },
+        },
+      }),
+    );
+    const deliver = () =>
+      request(app)
+        .post("/webhook")
+        .set("Content-Type", "application/webhook+json")
+        .send("{}");
+    assert.equal((await deliver()).status, 204);
+    assert.deepEqual(
+      calls,
+      [],
+      "a delayed old departure must not pause or mute",
+    );
+    relevant = true;
+    assert.equal((await deliver()).status, 204);
+    assert.deepEqual(calls, [
+      [id, null, "Speaker disconnected. Operator review required."],
+      { debateId: id, side: "B" },
+    ]);
+  });
+
   it("pauses on speaker drop and recording failure, ignoring non-speakers", async () => {
     const calls = [];
     let event = {

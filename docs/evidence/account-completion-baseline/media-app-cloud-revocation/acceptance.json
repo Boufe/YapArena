@@ -1,0 +1,114 @@
+{
+  "at": "2026-10-20T15:58:50.841Z",
+  "revision": "4b880918934f8be0060f260392ea29f0601a01e9",
+  "scope": "Actual local HTTP application logout, disposable PostgreSQL sessions/grant/outbox and separate-runtime-pool processing against hosted LiveKit Cloud. No hosted application account, microphone, camera, publishing, recording or egress. Synthetic local identity/device-check fixture; not hosted Privy, physical-device or audiovisual quality acceptance.",
+  "passed": true,
+  "controlOrigin": "https://yaparena-staging-e100x84o.livekit.cloud",
+  "publicOrigin": "wss://yaparena-staging-e100x84o.livekit.cloud",
+  "fixtureRoom": "debate-cf0abbfe-c6bf-46a6-8139-5c3abc99f07f",
+  "maximumConcurrentClients": 2,
+  "cloudTrialElapsedMs": 51406,
+  "participantUsageUpperBoundMs": 90000,
+  "priorParticipantUsageUpperBoundMs": 90000,
+  "confirmedIncludedQuotaMinutes": 5,
+  "roomExpired": true,
+  "intervals": [
+    {
+      "label": "original speaker baseline",
+      "startedAt": "2026-10-20T15:58:00.120Z",
+      "stoppedAt": "2026-10-20T15:58:03.545Z",
+      "roundedUpperBoundMs": 10000
+    },
+    {
+      "label": "public viewer baseline",
+      "startedAt": "2026-10-20T15:58:00.972Z",
+      "stoppedAt": "2026-10-20T15:58:04.981Z",
+      "roundedUpperBoundMs": 10000
+    },
+    {
+      "label": "server-refreshed speaker baseline",
+      "startedAt": "2026-10-20T15:58:03.676Z",
+      "stoppedAt": "2026-10-20T15:58:04.179Z",
+      "roundedUpperBoundMs": 10000
+    },
+    {
+      "label": "original token replay",
+      "startedAt": "2026-10-20T15:58:04.306Z",
+      "stoppedAt": "2026-10-20T15:58:04.527Z",
+      "roundedUpperBoundMs": 10000
+    },
+    {
+      "label": "server-refreshed token replay",
+      "startedAt": "2026-10-20T15:58:04.639Z",
+      "stoppedAt": "2026-10-20T15:58:04.857Z",
+      "roundedUpperBoundMs": 10000
+    },
+    {
+      "label": "public viewer reconnect",
+      "startedAt": "2026-10-20T15:58:05.076Z",
+      "stoppedAt": "2026-10-20T15:58:05.390Z",
+      "roundedUpperBoundMs": 10000
+    }
+  ],
+  "checks": [
+    "original fresh speaker and independent view-only viewer connect without publishing tracks",
+    "real SignalClient token-refresh event produced a signature-verified newer nbf token accepted before cutoff",
+    "actual integrated explicit-cutoff removal disconnects the fixture and rejects both original and server-refreshed tokens as unauthorized",
+    "Normal application HTTP logout rejects both local sessions and transactionally queues removal; a separate runtime database pool completes the durable Cloud revocation.",
+    "independent public view-only client stays connected, retains no-publish permission and reconnects with its original token"
+  ],
+  "result": {
+    "application": {
+      "localSessionsRejected": 2,
+      "transactionalJobQueued": true,
+      "separateRuntimePoolCompleted": true
+    },
+    "originalNbf": 1792511878,
+    "serverRefreshedNbf": 1792511883,
+    "explicitCutoffUnixSeconds": {
+      "minimum": 1792511914,
+      "maximum": 1792511914,
+      "source": "actual compiled createMediaProvider.removeSpeaker path"
+    },
+    "originalReplay": {
+      "connected": false,
+      "denied": true,
+      "status": 401,
+      "canPublish": false,
+      "canSubscribe": false,
+      "publishedTracks": 0
+    },
+    "refreshedReplay": {
+      "connected": false,
+      "denied": true,
+      "status": 401,
+      "canPublish": false,
+      "canSubscribe": false,
+      "publishedTracks": 0
+    },
+    "viewerReconnect": {
+      "connected": true,
+      "denied": false,
+      "status": null,
+      "canPublish": false,
+      "canSubscribe": true,
+      "publishedTracks": 0
+    }
+  },
+  "sourceHashes": {
+    "scripts/verify-media-cloud-revocation.ts": "9f8bc454e2c74f426e7e8939cbe5f8320d9f07bb0aa8f55db6e23ee69356d0ef",
+    "dist/features/media/provider.js": "327574609bb2c9de05d6fcbcd4d4f3ddaaf69bea2d112a6a944536d08ba80c3d",
+    "dist/features/media/account-revocation.js": "603b1dddb6609683d683340651cf03293a1e2cf91e44ea7d710be9ac5188fec9",
+    "dist/platform/auth/router.js": "d6684273ca83b4d64d59f4e640c783acf83fd36439eb35607b504ef99488a60f",
+    "dist/platform/auth/sessions.js": "be340ddbc411bbe298c669225e3cabca1d265a718b2dfede53f15dc2fa16038a",
+    "migrations/1792426006400_add-account-media-revocation.js": "1eb81bb398c1db6a9dd90ca1c20d899b0e066d7c13a377f0fe2e6b3541f53e33",
+    "migrations/1792426008000_bind-media-replacement-intent.js": "50b915cad1a43c686542d95cf99b46f1803555fb8d4c03b6e7c0ed2a859e50c6",
+    "node_modules/livekit-client/dist/livekit-client.umd.js": "7fa17e37af5e996d8a25f15a637dcc0620215bc01b394e5d209f726afe7dc04d",
+    "node_modules/livekit-client/src/room/RTCEngine.ts": "23b415be2141215d5617eb02ff44754acd60539cd9760615a2f4c742ec5fc536"
+  },
+  "limitations": [
+    "Quota availability was confirmed by the founder; provider billing plan was not changed or inferred.",
+    "Disposable local application identities use synthetic owner-created accounts and device-check fixtures; no hosted database or genuine Privy login is exercised.",
+    "No recordings, physical devices, screen reader or audiovisual quality tested."
+  ]
+}

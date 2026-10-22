@@ -1,0 +1,23 @@
+{
+  "at": "2026-10-20T19:26:55.116262+00:00",
+  "revision": "d6e2d355da255e03c257802c890c036c4d572a62",
+  "projectRef": "ypteqfmjietdqjzyvgtk",
+  "readOnly": true,
+  "requests": [
+    {
+      "type": "security",
+      "result": "permission_denied",
+      "providerError": "MCP error -32600: You do not have permission to perform this action",
+      "errorCode": "INVALID_ARGUMENT"
+    },
+    {
+      "type": "performance",
+      "result": "permission_denied",
+      "providerError": "MCP error -32600: You do not have permission to perform this action",
+      "errorCode": "INVALID_ARGUMENT"
+    }
+  ],
+  "mutations": 0,
+  "alternativeEvidence": "Strict-TLS owner/runtime read-only catalog checks and the fresh/upgrade disposable isolation gate. These do not establish provider advisor clearance.",
+  "limitation": "Supabase connector could not return advisory results; no clean advisory report is claimed."
+}

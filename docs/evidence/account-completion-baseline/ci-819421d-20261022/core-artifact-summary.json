@@ -1,0 +1,211 @@
+{
+  "runId": 39705118511,
+  "artifactId": 12394579842,
+  "archiveBytes": 19294104,
+  "archiveSha256": "25edcec604a87e56f0269805da3ed8371d27ce3e773d9e5f79280659cad8076f",
+  "downloadMatchesGitHubDigest": true,
+  "entryCount": 37,
+  "jsonFiles": 6,
+  "pngFiles": 31,
+  "recordedChecks": 76,
+  "reports": [
+    {
+      "path": "a4/arena/evidence.json",
+      "sha256": "ab111ab3cc4f8e5ab8b24e085aff31008aba74095787780aa228667af4a7977b",
+      "recordedResult": "PASS",
+      "recordedStatus": null,
+      "checks": {
+        "roundProgressDrains": true,
+        "realLiveChat": true,
+        "chartUpdatedAfterRealSettlements": true,
+        "persistentPriceMarkersSlideAndHeadingAnimatesWithoutLayoutShift": true,
+        "latestBadgesAndMedianRestoreTogether": true,
+        "hoverSurvivesRefreshAndScaleAdjoinsAxis": true,
+        "rapidScrubbingAndReducedMotion": true,
+        "hoverPricesArgumentsAndCompactSidebar": true,
+        "expandEscapeRestoreExactBounds": true,
+        "bindingCommitmentAndQuickQuantity": true,
+        "chartSelectionLoadsRound": true,
+        "sidebarTabs": true,
+        "axeNoSeriousViolations": true,
+        "mobileNoOverflow": true,
+        "headerSearch": true,
+        "replayLayoutAndUninterruptedSyntheticPlayback": true,
+        "noPageErrors": true
+      },
+      "recordedErrorCount": null,
+      "recordedAccessibilityCount": null
+    },
+    {
+      "path": "a4/browser-evidence.json",
+      "sha256": "556f18bb93fe68e16a222d55e10a9f6b7d5dd95f6e8c8b42a5f2dfd61cabf4d9",
+      "recordedResult": null,
+      "recordedStatus": null,
+      "checks": [
+        "starter coins",
+        "NO conversion review",
+        "keyboard dialog focus",
+        "binding submit",
+        "reload receipt",
+        "pause/run/step/speed",
+        "sealed response",
+        "worker settlement",
+        "deterministic execution and exploratory no-trade",
+        "exact balances and reservation release",
+        "paginated revealed diagnostics",
+        "bot-only observer",
+        "archive/reset isolation",
+        "mobile overflow",
+        "axe WCAG A/AA"
+      ],
+      "recordedErrorCount": 0,
+      "recordedAccessibilityCount": 0
+    },
+    {
+      "path": "a4/shared-bots/evidence.json",
+      "sha256": "49838fdce2b6c7e36a82df38f8af354e06262e6bd13d5cada9553c012495a2ef",
+      "recordedResult": "PASS",
+      "recordedStatus": null,
+      "checks": {
+        "operatorSeedIsIdempotentAndUsesStoredArgumentResults": true,
+        "separateCreatorKeepsWorkspaceRoundsPrivate": true,
+        "databaseBackedHomeExpansionAndDebateArguments": true,
+        "activeInspectionDefersAndIdleReleasesUpdate": true,
+        "observerAndMixedSettlementRefreshHomeExpandedAndDebateWithoutReload": true,
+        "pendingPrivacyAndAggregateOnlyPublication": true,
+        "publicAndPersonalHistoryRemainDistinct": true,
+        "mobileAndAccessibility": true,
+        "signedOutSharedHistoryWithoutPrivateAccess": true,
+        "consentWithdrawalRemovesPersonalRoundsEverywhere": true,
+        "visibleLiveNavigationAndOriginalLivePage": true
+      },
+      "recordedErrorCount": 0,
+      "recordedAccessibilityCount": null
+    },
+    {
+      "path": "homepage/evidence.json",
+      "sha256": "763363865dea851fb4a524779dd1eb13b420bcfde361a0e73be39990f5679b3d",
+      "recordedResult": "PASS",
+      "recordedStatus": null,
+      "checks": {
+        "responsiveScreenshots": true,
+        "everySlideHasItsOwnArgumentsAndDebate": true,
+        "slideDirectionsTimingAndRapidNavigation": true,
+        "mainExpandedPointerTouchAndKeyboardCharts": true,
+        "independentExpansionPlacementAndDebateFilters": true,
+        "searchCategoriesSortingAndLocalDemoFollows": true,
+        "manualArgumentScrollAndContinuousResume": true,
+        "upwardArgumentLoopAndPause": true,
+        "synchronizedProgressPauseResumeAndRepeatedCycles": true,
+        "manualPauseAttentionAndOffscreenHold": true,
+        "reducedMotionManualNavigation": true,
+        "coarsePointerMobileTouchInspection": true,
+        "realNullableDataWalletFollowsAndCanonicalDebates": true,
+        "accessibilityAndCsp": true,
+        "serverRenderedNoJavaScriptFallback": true,
+        "realDebateAndAccountNavigation": true,
+        "unavailableNeverSubstitutesConceptData": true,
+        "slowTickerDirectionPauseKeyboardCopiesReducedMotionAndNoSeparators": true
+      },
+      "recordedErrorCount": 0,
+      "recordedAccessibilityCount": null
+    },
+    {
+      "path": "live/evidence.json",
+      "sha256": "3f9efe5cb49cdea40d79d60f8eaa4e04f7b98f3fd16f26b24cd940c3c9131d5d",
+      "recordedResult": "PASS",
+      "recordedStatus": null,
+      "checks": {
+        "homeAndLiveNavigation": true,
+        "mutedAutoplayAndDeferredTransport": true,
+        "pausedPreviewShowsOwnRecordingThumbnail": true,
+        "pauseAndOffscreenRelease": true,
+        "hoverCancellation": true,
+        "axeNoViolations": true,
+        "visibleVideoGridAndReplayLoop": true,
+        "hoverAndKeyboardTransferSinglePreview": true,
+        "hiddenTabReleasesAllVideo": true,
+        "bufferingRestartsHoverCountdown": true,
+        "sustainedHoverEntersWatchingInterface": true,
+        "reducedMotionUsesExplicitPlay": true,
+        "mobileAndClickEntry": true,
+        "saveDataSkipsAutoplay": true,
+        "deniedPreviewKeepsUsableHero": true
+      },
+      "recordedErrorCount": 0,
+      "recordedAccessibilityCount": null
+    },
+    {
+      "path": "result.json",
+      "sha256": "cfbf7b2518eb871224e8fd2c3d3e73ed51f51f5d4d28f9e8642b0531133a09fb",
+      "recordedResult": null,
+      "recordedStatus": "passed",
+      "checks": null,
+      "recordedErrorCount": null,
+      "recordedAccessibilityCount": null,
+      "steps": [
+        {
+          "name": "build",
+          "status": "passed"
+        },
+        {
+          "name": "fresh/upgrade database isolation, A4 PostgreSQL and account/arena/shared-data browsers",
+          "status": "passed"
+        },
+        {
+          "name": "homepage navigation, interactions, responsive layout and accessibility",
+          "status": "passed"
+        },
+        {
+          "name": "Live/replay preview playback and handoff",
+          "status": "passed"
+        }
+      ],
+      "scope": "Disposable local PostgreSQL and synthetic browser/media fixtures; no hosted or physical-device acceptance"
+    }
+  ],
+  "fileSha256": {
+    "result.json": "cfbf7b2518eb871224e8fd2c3d3e73ed51f51f5d4d28f9e8642b0531133a09fb",
+    "a4/inline-initializing.png": "a925264a89055fd25981e0bd084b41d9cf3e9fdf34fe1e7324e9b0cd123a7ab7",
+    "a4/inline-debate-desktop.png": "ce5a5190d4ecf695c667d152a4e66e7e85e4aeeed0d4cdc32001fd0d28912105",
+    "a4/execution-2-commitment.png": "fb801af720a15d458f5658ed58ef6a74664d5e0d5566c3a2cdc2bc82d60c7b2d",
+    "a4/settled-desktop.png": "0ebd1d15ae0a6a8f0bdb0698b041d078f8da4c6cd292011983b154644a9bdb66",
+    "a4/no-trade-1-commitment.png": "562ad59437288038d3144978b92dca27abc6cd2d506c7c04343f383245287556",
+    "a4/browser-evidence.json": "556f18bb93fe68e16a222d55e10a9f6b7d5dd95f6e8c8b42a5f2dfd61cabf4d9",
+    "a4/no-trade-2-commitment.png": "ca8cbe3ba954ff0ae65aa5972f3638a36d114687f55d094d562dc0806ce8b845",
+    "a4/execution-1-commitment.png": "4da54cbaf326ce272c347224864558b538f1f7b996f6971cbefd802cbc83fd1a",
+    "a4/settled-mobile.png": "4920abc7716bdf9ca148d31bf9ff88d5ed855a1a6334722a9d94e34d83001189",
+    "homepage/evidence.json": "763363865dea851fb4a524779dd1eb13b420bcfde361a0e73be39990f5679b3d",
+    "homepage/implemented-1440-initial.png": "d7b5b66709c9414dbff4989a1011749510b42929c10def99f36544da9c06bdc5",
+    "homepage/implemented-1920-initial.png": "f9c9f8e6990b6c16ef890d413f4c271427e0a05f866b1d73451991f4ecc68b65",
+    "homepage/implemented-1024-initial.png": "de15701a0c9b75b7f9bf1e99564a5e25d4c3c2e3d7b3547aa0791a6690cdd897",
+    "homepage/implemented-320-initial.png": "fff196633cb0fd95e71be13279978bed9c1b4b35d7b72ac5626cbef7370964f4",
+    "homepage/manual-argument-scroll.png": "8a1f433cf63ac779e6b0ee1ada479ed93691f2a87599a883acd9cb18ced9fc55",
+    "homepage/implemented-768-initial.png": "c7376826af215f02a7f3bb4d068d4c853da41ab78dbcac2c652124767f952bfa",
+    "homepage/ticker-320.png": "bc3458de36d28cca8a3acf95691da4389224316581593c6f8ed16287a7d455c8",
+    "homepage/implemented-390-initial.png": "f01c5052ff61fcb7d1ee88ec18f3eb0e650a3378ca309af61c5da4648c5934db",
+    "live/evidence.json": "3f9efe5cb49cdea40d79d60f8eaa4e04f7b98f3fd16f26b24cd940c3c9131d5d",
+    "live/desktop.png": "f1f5267d33aba51289ce20657f4a323fca036a8460de01fc74a7cf3b0d064883",
+    "live/grid.png": "c0db217d8a00e69e91f949c3d918a5c205b5346c5abfec6bee88a16fc34bfb11",
+    "live/thumbnail.png": "7a733cef2e97ce7b131d24ed4b07545a31218c85b50a467d6b2962bfee4997cc",
+    "live/mobile.png": "19a2ca994b835452d016997e32404cbefb1b89514f6246e69167ad1b0d424d2a",
+    "a4/retained-wallet/retained-removal-mobile.png": "2ec7e1801379f8e06b8a7f6aab1472db90a437f566d7c3d9c599d557a28ab3b1",
+    "a4/retained-wallet/password-removal-desktop.png": "57e325ba61697a0657706255ff82b243ed9bdb640330abe33119ab75fb5e8a71",
+    "a4/retained-wallet/sole-wallet-protection-mobile.png": "35a34f5c6262844ed441814c09b6b0847f927a7b33807bba507b15b94d97a7b9",
+    "a4/arena/evidence.json": "ab111ab3cc4f8e5ab8b24e085aff31008aba74095787780aa228667af4a7977b",
+    "a4/arena/desktop.png": "939fd33ac37707089f96dfb04ac603bff98ae6dc3c633f602fbaef4f16078d92",
+    "a4/arena/mobile.png": "514d0637fef2a9ec1f30d95720b95b0343816aed81f63347ea17b95f4e64575d",
+    "a4/arena/replay-desktop.png": "8df49291f86dabc230c898cc5c03ee2fd1f905421024255e4a4c87121c384b4c",
+    "a4/arena/hover.png": "c58afc153c9ff932a95154583850d565ed8ee5e558978e1c356cc2683835a75c",
+    "a4/shared-bots/evidence.json": "49838fdce2b6c7e36a82df38f8af354e06262e6bd13d5cada9553c012495a2ef",
+    "a4/shared-bots/debate-mobile.png": "7ccf124f8bcedf8eb9776e11846fa324b26722551f70814f02024affccd59735",
+    "a4/shared-bots/home-mobile.png": "1f02638e5a8c849f423fb18a3ff8d88c70d9c01b053c97c79413797eee93b66e",
+    "a4/shared-bots/home-expanded.png": "d87a679bd2ecb0f763395e58391d39d6cdee9955296997109838b0b102612d4e",
+    "a4/shared-bots/debate-shared.png": "8c738d926227ea8ed679828132df0bb8420f96767a2675a9e7f1edd2f6ed1ef9"
+  },
+  "limits": [
+    "The coordinator and four child reports record passed/PASS. The A4 assertion report has no result field; its 15 checks and empty error/accessibility lists are recorded without inventing one.",
+    "Only sanitized status/check/hash projections are published. Raw synthetic account records and all 31 PNGs remain in the private downloaded artifact.",
+    "ZIP CRC and PNG signatures/dimensions were inspected; this audit did not perform a new visual, provider, hosted or physical-device trial."
+  ]
+}

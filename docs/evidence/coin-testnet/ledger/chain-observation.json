@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-20T05:42:01.359Z",
+  "scope": "Read-only original payout receipt observation while the isolated application trial awaits a stable additive migration; this does not settle or modify its ledger.",
+  "adapterSha256": "40ebad070c63fa373bb380fb24bf0f8513d0c41259a06c16421633a09157b35b",
+  "observation": {
+    "status": "completed",
+    "finalNoTransfer": false,
+    "transactionId": "0x49d9ee86df0d21108263e66fd57b52cfe6ea811c6c82de14dbb9d4f946f97cc8",
+    "blockNumber": "48352746",
+    "blockHash": "0xa349764f06612f8ab0ae7d830e172011d3f87b8113052ec3b01ee2cbb30b512a",
+    "finalizedBlockNumber": "48352856",
+    "eventLogIndex": 176,
+    "reason": "exact test-USDC transfer reconciled in finalized canonical state"
+  }
+}

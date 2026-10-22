@@ -1,0 +1,16 @@
+{
+  "observedAt": "2026-10-22T00:11:34.739229+00:00",
+  "method": "GET",
+  "endpointClass": "public_selected_privy_app_metadata",
+  "credentialsUsed": false,
+  "dataClassification": "public",
+  "selectedAppMatched": true,
+  "emailAuthEnabled": true,
+  "captchaEnabled": true,
+  "captchaProvider": "turnstile",
+  "captchaSiteKeyPresent": true,
+  "customApiUrlPresent": false,
+  "stagingAllowedDomain": true,
+  "rawPublicConfigSha256": "4c7421264de106eb2a704c862839d5d2d7eaf44f8fe13f334a765e23ff1a79c4",
+  "scope": "Allowlisted public metadata projection; no provider user, code, account state or cause of failed send is established."
+}

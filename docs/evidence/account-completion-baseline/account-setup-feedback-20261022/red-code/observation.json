@@ -1,0 +1,9 @@
+{
+  "phase": "email verification provider-denied before application exchange",
+  "attempt": 1,
+  "initCalls": 1,
+  "authenticateCalls": 1,
+  "exchanges": 0,
+  "invalidCodeNoticeVisible": true,
+  "expectedNoticeVisible": false
+}

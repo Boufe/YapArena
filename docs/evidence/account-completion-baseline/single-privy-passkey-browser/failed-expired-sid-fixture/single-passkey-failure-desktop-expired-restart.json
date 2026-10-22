@@ -1,0 +1,20 @@
+{
+  "stage": "fresh SDK sign-in after expired first-key setup",
+  "settings": "Sign-in methods\nEmail\nPasskey\n\nYour passkey works for sign-in and secure account approvals. Keep another sign-in method available in case you lose access to a device.\n\nNew sign-in email\nChange email\nAdd Google sign-inAdd a passkey\n\nEmail: single-passkey@example.invalid\n\nRemove Email\n\nPasskey · Finish setup for account approvals\n\nFinish passkey setup\nRemove Passkey\nReview provider changes or recover access\n\nKeep at least one provider sign-in method. Changes require a retained security credential. If all stronger methods are lost, ownership review is required; an email code cannot reset them.",
+  "resume": "",
+  "intentRetained": false,
+  "focus": {
+    "tag": "BODY",
+    "button": null
+  },
+  "errors": [],
+  "counters": {
+    "beginCalls": 1,
+    "operationCalls": 0,
+    "resumedOperationCalls": 0,
+    "scopedCandidateCalls": 0,
+    "providerInitCalls": 1,
+    "providerLinkCalls": 1,
+    "completeCalls": 0
+  }
+}

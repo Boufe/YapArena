@@ -1,0 +1,20 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Error: strict mode violation: getByText('changed-classification@example.invalid') resolved to 3 elements:
+    1) <strong>unchanged-classification@example.invalid</strong> aka getByText('unchanged-classification@example.invalid', { exact: true })
+    2) <li>Email: unchanged-classification@example.invalid</li> aka getByText('Email: unchanged-')
+    3) <li>Email: changed-classification@example.invalid</li> aka getByText('Email: changed-classification')
+
+Call log:
+[2m  - waiting for getByText('changed-classification@example.invalid') to be visible[22m
+
+    at verifyExchangeFailureClassification (/Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:556:12)
+    at async file:///Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:587:5 {
+  log: [
+    "  - waiting for getByText('changed-classification@example.invalid') to be visible"
+  ]
+}
+
+Node.js v24.19.0

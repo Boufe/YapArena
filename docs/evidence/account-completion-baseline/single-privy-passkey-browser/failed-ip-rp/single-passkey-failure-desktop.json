@@ -1,0 +1,6 @@
+{
+  "stage": "SDK creates and activates one passkey",
+  "settings": "Sign-in methods\nPassword\nEmail\n\nYour passkey works for sign-in and secure account approvals. Keep another sign-in method available in case you lose access to a device.\n\nNew sign-in email\nChange email\nAdd Google sign-inAdd a passkey\n\nEmail: single-passkey@example.invalid\n\nRemove Email\nReview provider changes or recover access\n\n127.0.0.1 is an invalid domain\n\nKeep at least one provider sign-in method. Changes require a retained security credential. If all stronger methods are lost, ownership review is required; an email code cannot reset them.",
+  "resume": "Passkey setup\n\nFinish verifying the passkey you added before continuing to your account.\n\nFinish passkey setup\n\n127.0.0.1 is an invalid domain",
+  "errors": []
+}

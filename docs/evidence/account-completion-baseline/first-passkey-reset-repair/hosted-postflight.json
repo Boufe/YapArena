@@ -1,0 +1,38 @@
+{
+  "status": "inspected",
+  "at": "2026-10-21T13:59:08.746Z",
+  "readOnly": true,
+  "activeMappings": 1,
+  "generationMatch": 1,
+  "generationMismatch": 0,
+  "confirmedCutoffPreserved": 1,
+  "storedDigestValid": 1,
+  "storedCredentialsVerifiable": 1,
+  "providerFrozen": 0,
+  "providerUnfrozen": 1,
+  "providerStateInvalid": 0,
+  "providerStateUnknown": 0,
+  "localPasskeys": {
+    "total": 0,
+    "activePrivy": 0,
+    "activeYapArena": 0,
+    "revoked": 0
+  },
+  "currentCredentialsValid": 1,
+  "digestEqual": 0,
+  "digestDifferent": 1,
+  "currentJobs": {
+    "none": 0,
+    "pending": 0,
+    "running": 0,
+    "complete": 1,
+    "manual": 0,
+    "other": 0
+  },
+  "currentManual": {
+    "uncertain": 0,
+    "inherited": 0,
+    "independentFreeze": 0,
+    "other": 0
+  }
+}

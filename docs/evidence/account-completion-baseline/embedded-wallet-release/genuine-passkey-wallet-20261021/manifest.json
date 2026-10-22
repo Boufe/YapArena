@@ -1,0 +1,11 @@
+{
+  "runtimeRevision": "eba1dc5cfe6680a9a41e98482b64d3c725163a1b",
+  "scope": "Sanitized aggregate reports personally executed and inspected by lead; reviewer authored diagnostic and draft, not an independent second execution. Human-reported ceremony remains distinct.",
+  "files": {
+    "README.md": "d66d443299841f97db933450045a0357f89cbfa747dcdd1768861b0413e71c07",
+    "provider-phase-readonly.json": "c82971a8353ccb47a6d3d826aabbce529317ab7c356b93f9fbf0091b067a2aaf",
+    "sandbox-authorization-readonly.json": "ade456be00d34211ce8b699cad8c513fbcc5f99d6571324b3026c38b2d1224d0",
+    "wallet-before-synchronization.json": "868937b3771fd41e8388c2b2dba73f629c7a9394be5bd2fc10879d0bd6089ce7",
+    "wallet-ownership-pass.json": "f63f1c7b4758c04445c2e4c9d2d6f8c7f3a28809fc45d67120bdd01caf84dfaa"
+  }
+}

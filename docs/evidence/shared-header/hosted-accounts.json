@@ -1,0 +1,20 @@
+{
+  "at": "2026-10-20T00:43:39.085Z",
+  "origin": "https://yaparena-staging-web.onrender.com",
+  "revision": "f942dc6290e5794395c380612abc826ea7952b16",
+  "scope": "Read-only PostgreSQL and provider inspection after shared-header rollout; no user, credential, session or financial mutation",
+  "providerIdentities": 1,
+  "verifiedEmailMatchesProvider": true,
+  "activeManualAccountSessions": 0,
+  "consumedProviderSessions": 3,
+  "originalSelectedAccountsAbsent": true,
+  "retainedAccounts": 3,
+  "totalAccounts": 4,
+  "liveMoneyJournals": 0,
+  "liveGrantLotsIssued": 0,
+  "manualUserAccountPreserved": true,
+  "automationAcceptanceAccountsCreated": 0,
+  "latestObservedSessionDeletionAt": "2026-10-20T00:16:38.430Z",
+  "financialFeaturesEnabled": false,
+  "note": "Provider-session exchanges are cumulative; a later exchange did not create another account. Session observations are mutable and are not a captured returning-user/logout acceptance journey."
+}

@@ -1,0 +1,33 @@
+{
+  "at": "2026-10-19T22:40:17.199Z",
+  "origin": "https://yaparena-staging-web.onrender.com",
+  "revision": "a1dcf40abadf6dcfdb861fbb78870aad05d712c2",
+  "topLevelCspViolations": 0,
+  "observations": [
+    {
+      "viewport": "desktop",
+      "initialReadyMs": 2275,
+      "authBundle": {
+        "durationMs": 974,
+        "transferBytes": 1720585,
+        "encodedBytes": 1720285
+      },
+      "captchaFrames": 2,
+      "pageErrors": 0,
+      "overflow": false
+    },
+    {
+      "viewport": "mobile",
+      "initialReadyMs": 2296,
+      "authBundle": {
+        "durationMs": 539,
+        "transferBytes": 1720519,
+        "encodedBytes": 1720219
+      },
+      "captchaFrames": 2,
+      "pageErrors": 0,
+      "overflow": false
+    }
+  ],
+  "scope": "Real staging page and installed provider bundle/public metadata; fresh headless desktop/mobile contexts with no request interception. No email submitted, CAPTCHA solved, authentication token issued or money action attempted. CAPTCHA may initialize only during a login attempt; frame counts do not establish CAPTCHA validation. Local workstation timings are observations, not a population latency budget or mobile device evidence."
+}

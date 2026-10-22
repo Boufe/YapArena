@@ -1,0 +1,109 @@
+{
+  "format": 1,
+  "recordedAt": "2026-10-22T00:58:34Z",
+  "sourceCommit": "92f11b449337ad12f2c2295d9b81fb72afb14634",
+  "sourceHashes": {
+    "src/platform/auth/provider-control-phases.ts": "a69efe833a44fe3183b239507fa5ecee450fd1c09dd8131aeb106c923e6e315a",
+    "src/platform/auth/provider-revocation.ts": "44fee9a80047ef541f2a706af4d82a48267180095e1230c51fea1808659fbf07",
+    "tests/provider-control-phases-postgres.test.js": "5b036b23652ce35d2a92179f9113a14c98dc4a2b23c2f492a66722cffd997af4"
+  },
+  "scope": "Independent static source review plus author-executed real disposable PostgreSQL17.10/Node24 tests with synthetic provider adapter. No hosted repair/provider mutation/returning-login acceptance.",
+  "final": {
+    "fresh": {
+      "accountSecurity": 248,
+      "passed": 248,
+      "failed": 0,
+      "skipped": 0,
+      "treasury": 5
+    },
+    "upgrade": {
+      "accountSecurity": 248,
+      "passed": 248,
+      "failed": 0,
+      "skipped": 0,
+      "treasury": 5
+    },
+    "catalog": "94625c7b",
+    "qualityMode": "Focused account-security/financial suites; not npm run check/full coverage or full browser gate.",
+    "importantRegression": "A competitor observing a committed but not executed unfreeze intent must wait without its own provider I/O or inheriting permanent manual state.",
+    "exitCode": 0,
+    "processSession": 9604
+  },
+  "red": {
+    "status": "expected assertion failure",
+    "tests": 241,
+    "passed": 240,
+    "failed": 1,
+    "skipped": 0,
+    "actualPredecessorState": "manual",
+    "expectedPredecessorState": "pending",
+    "regression": "An acknowledged first-key reset followed by genuine repository logout must remain safely drainable.",
+    "provenance": "Author recorded unmodified7e5c backend+new241st regression. Original actual RED test-file hash was not captured before later additions. Raw diagnostic names/counts locate the failure; final248 test hash is not retroactively attributed to RED.",
+    "exitCode": 1,
+    "processSession": 55830,
+    "baselineCommit": "7e5c0a38b9b474f1712d5d87454842c0c8a7f7ae",
+    "baselineBackendHashes": {
+      "src/platform/auth/provider-control-phases.ts": "11935ce851d67589258032a8033c2db871491cfc703c75107669d5cef6937a3f",
+      "src/platform/auth/provider-revocation.ts": "49a4e3bc97f5602d640b305b8dcd3de24f1cc4b35220dc232cd25d8cb2599897"
+    },
+    "testFileHashCaptured": false
+  },
+  "history": [
+    {
+      "path": "history/first-candidate-failure.log",
+      "tests": 241,
+      "passed": 240,
+      "failed": 1,
+      "detail": "First correction reached later old-job completion assertion but remained manual; not a PASS.",
+      "exitCode": 1,
+      "processSession": 85689
+    },
+    {
+      "path": "history/normal-drain-241.log",
+      "freshPassed": 241,
+      "upgradePassed": 241,
+      "detail": "Intermediate normal-drain acceptance before owner-review tests.",
+      "exitCode": 0,
+      "processSession": 69641
+    },
+    {
+      "path": "history/owner-rearm-247.log",
+      "freshPassed": 247,
+      "upgradePassed": 247,
+      "detail": "Intermediate reviewed-owner rearm acceptance before intent-window concurrency regression.",
+      "exitCode": 0,
+      "processSession": 13161
+    }
+  ],
+  "independentReview": {
+    "reviewedHashesEqualCommitted92f11b4": true,
+    "reviewedHashesEqualRootWorkingFilesAtArchive": true,
+    "findings": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0
+    },
+    "normalInvariants": [
+      "Only exact acknowledged cleanup can drain across a complete same-account/same-DID authenticated logout audit chain.",
+      "Unacknowledged or crashed mutation intents, incidents, changed digest/DID/status/window/leases stay fenced.",
+      "Historical cleanup never advances stale mapping/cutoff or wakes wallets; current reset must complete independently.",
+      "Current app sessions remain revoked and old token/SID replay cannot regain authority."
+    ],
+    "ownerInvariants": [
+      "Dedicated current_user and session_user yaparena_owner only; runtime fails before provider reads.",
+      "Stopped manual ACK pair and untouched inherited logout pair, expired leases, exact current DID/digest/accepted COSE/freeze timestamp window and operator evidence required.",
+      "Remote reads occur without checked-out pool/locks; account/jobs/keys locks and full fingerprint recheck protect SQL rearm.",
+      "One immutable requestUUID/terms/controlId audit grants one fresh120-second/eight-read budget; no direct remote mutation or automatic repeated rearm.",
+      "Audit persistence failure rolls back both queued rows; old generation and all account authority are preserved."
+    ],
+    "limitation": "Owner admission requires expired leases of stopped manual jobs, not necessarily an already expired control_deadline. Operator review is an attestation; timestamps are not provider operation IDs or proof against an unrelated dashboard action."
+  },
+  "limitations": [
+    "No real provider mutation, account repair, key adoption, wallet creation, funding or live operation performed by this acceptance suite.",
+    "Genuine account diagnosis and any later bounded repair require their own reviewed operator evidence.",
+    "No CI/push/deploy or full-quality/browser result for92f11b4 is inferred from this focused run.",
+    "Catalog/privilege evidence is local; hosted Data API/GraphQL/Realtime configuration is not assessed."
+  ],
+  "command": "env PATH=/Users/felixboucher/.nvm/versions/node/v24.19.0/bin:/opt/homebrew/bin:/usr/bin:/bin DATABASE_TEST_MODE=host ACCOUNT_SECURITY_VERIFY=true A4_QUALITY=false node scripts/verify-database-isolation.ts > /private/tmp/yaparena-reset-supersession-<run>.log 2>&1",
+  "commandWorkingDirectory": "dedicated isolated source worktree; verifier-created disposable databases"
+}

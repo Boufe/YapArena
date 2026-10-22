@@ -1,0 +1,6 @@
+{
+  "phase": "mobile retained-wallet removal while account refresh is held",
+  "committedWallets": 1,
+  "signedInVisible": false,
+  "refreshBarrierTimedOut": false
+}

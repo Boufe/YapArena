@@ -79,7 +79,28 @@ if (root) {
     bookOffset = 0,
     historyOffset = 0,
     lastRefresh = 0;
+  let accessEpoch = 0;
+  let accessRefreshPending = false;
+  function clearAccess() {
+    accountId = undefined;
+    run = null;
+    pending = null;
+    bookOffset = 0;
+    historyOffset = 0;
+    el("runs").replaceChildren(new Option("Select a run", ""));
+    el("submit").hidden = true;
+    el("content").hidden = true;
+    el("login").hidden = false;
+    el("controls").hidden = true;
+    el("balance").textContent = "Balance unavailable";
+    el("reserved").textContent = "";
+    el("review-notice").textContent = "";
+    for (const name of ["rounds", "history", "run-summary", "terms"])
+      el(name).replaceChildren();
+    el("review").close();
+  }
   async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const epoch = accessEpoch;
     const response = await fetch(`/api/${path}`, {
       credentials: "same-origin",
       cache: "no-store",
@@ -87,16 +108,13 @@ if (root) {
       headers: { "Content-Type": "application/json", ...options.headers },
     });
     const data: T & { error?: string } = await response.json();
+    if (epoch !== accessEpoch)
+      throw new Error(
+        "Account changed. Review the current account before continuing.",
+      );
     if (!response.ok) {
       if (response.status === 401) {
-        run = null;
-        pending = null;
-        el("submit").hidden = true;
-        el("content").hidden = true;
-        el("login").hidden = false;
-        el("rounds").replaceChildren();
-        el("history").replaceChildren();
-        el("review").close();
+        clearAccess();
       }
       throw new Error(data.error ?? "Request failed");
     }
@@ -116,12 +134,13 @@ if (root) {
   async function perform(action: () => Promise<unknown>) {
     if (busy) return;
     busy = true;
+    const epoch = accessEpoch;
     const buttons = [...root.querySelectorAll("button")];
     buttons.forEach((b) => (b.disabled = true));
     try {
       await action();
     } catch (error) {
-      notice((error as Error).message);
+      if (epoch === accessEpoch) notice((error as Error).message);
     } finally {
       busy = false;
       buttons.forEach((b) => (b.disabled = false));
@@ -130,6 +149,10 @@ if (root) {
         el("book-next").disabled = !run!.rounds!.some(
           (r) => r.diagnostics?.pagination.hasMore,
         );
+      }
+      if (accessRefreshPending) {
+        accessRefreshPending = false;
+        void perform(start);
       }
     }
   }
@@ -176,7 +199,9 @@ if (root) {
     );
   }
   async function refresh() {
+    const owner = accountId;
     const auth = await api<Auth>("auth/me");
+    if (owner !== accountId) return;
     if (auth.user.id !== accountId) {
       run = null;
       pending = null;
@@ -186,18 +211,22 @@ if (root) {
     }
     if (run) {
       const next = await api<Run>(`a4/runs/${run!.id}?offset=${bookOffset}`);
+      if (owner !== accountId) return;
       const changed = JSON.stringify(next) !== JSON.stringify(run);
       run = next;
       if (changed) render();
     } else {
       const wallet = await api<Wallet>("a4/wallet");
+      if (owner !== accountId) return;
       showBalances(wallet.balances);
       showFunding(wallet.fundingPolicy);
     }
     lastRefresh = Date.now();
   }
   async function listRuns(selected?: string) {
+    const owner = accountId;
     const list = await api<Runs>("a4/runs");
+    if (owner !== accountId) return;
     el("runs").replaceChildren(
       new Option("Select a run", ""),
       ...list.items.map(
@@ -207,7 +236,9 @@ if (root) {
     if (selected) el("runs").value = selected;
   }
   async function history() {
+    const owner = accountId;
     const data = await api<History>(`a4/history?offset=${historyOffset}`);
+    if (owner !== accountId) return;
     el("history").innerHTML =
       `<ul>${data.items.map((i) => `<li>${escape(new Date(i.createdAt).toLocaleString())} · ${escape(i.kind)} · ${escape(i.bucket)} ${money(i.amount)} · ${i.scope === "global" ? "ordinary balance" : "bot sandbox"}</li>`).join("")}</ul>`;
     el("history-more").disabled = !data.hasMore;
@@ -302,15 +333,17 @@ if (root) {
   el("cancel").addEventListener("click", () => el("review").close());
   el("commit").addEventListener("click", async () => {
     if (!pending || busy) return;
+    const epoch = accessEpoch,
+      commitment = pending;
     el("commit").disabled = true;
     try {
       const auth = await api<Auth>("auth/me");
-      if (auth.user.id !== pending.accountId)
+      if (auth.user.id !== commitment.accountId)
         throw new Error("Account changed; review again.");
       await write(
-        `a4/rounds/${pending.roundId}/submit`,
-        pending.body,
-        pending.key,
+        `a4/rounds/${commitment.roundId}/submit`,
+        commitment.body,
+        commitment.key,
       );
       pending = null;
       el("review").close();
@@ -318,10 +351,11 @@ if (root) {
       await history();
       notice("Binding commitment recorded. Reloading restores your receipt.");
     } catch (error) {
-      el("review-notice").textContent =
-        `${(error as Error).message}. Retry preserves the same request key.`;
+      if (epoch === accessEpoch)
+        el("review-notice").textContent =
+          `${(error as Error).message}. Retry preserves the same request key.`;
     } finally {
-      el("commit").disabled = false;
+      if (epoch === accessEpoch) el("commit").disabled = false;
     }
   });
   el("refill").addEventListener("click", () =>
@@ -387,45 +421,69 @@ if (root) {
   );
   el("publish").addEventListener("change", () =>
     perform(async () => {
+      const epoch = accessEpoch;
       try {
         const result = await write<Publication>("a4/publication", {
           published: el("publish").checked,
         });
         el("publish").checked = result.published;
       } catch (error) {
-        el("publish").checked = !el("publish").checked;
+        if (epoch === accessEpoch)
+          el("publish").checked = !el("publish").checked;
         throw error;
       }
     }),
   );
   async function start() {
+    const epoch = accessEpoch;
     try {
       const auth = await api<Auth>("auth/me");
+      if (epoch !== accessEpoch) return;
+      if (accountId === auth.user.id) {
+        el("content").hidden = false;
+        el("login").hidden = true;
+        await refresh();
+        return;
+      }
       accountId = auth.user.id;
+      run = null;
+      pending = null;
+      el("review").close();
+      el("rounds").replaceChildren();
+      el("history").replaceChildren();
       const publication = await api<Publication>("a4/publication").catch(
         () => ({
           published: false,
         }),
       );
+      if (epoch !== accessEpoch) return;
       el("publish").checked = publication.published;
       const debates = await api<{
           items: { proposition: string; id: string }[];
         }>("public/debates?limit=50"),
         items = debates.items;
-      const selected = new URLSearchParams(location.search).get("debate");
+      if (epoch !== accessEpoch) return;
+      const selected =
+        new URLSearchParams(location.search).get("debate") ||
+        el("create").elements.debateId.value;
       el("create").elements.debateId.replaceChildren(
         ...items.map((d) => new Option(d.proposition, d.id)),
       );
       if (selected && items.some((d) => d.id === selected))
         el("create").elements.debateId.value = selected;
       el("content").hidden = false;
+      el("login").hidden = true;
       await listRuns();
+      if (epoch !== accessEpoch) return;
       await refresh();
+      if (epoch !== accessEpoch) return;
       await history();
+      if (epoch !== accessEpoch) return;
       notice(
         "Choose a debate and a clearly labeled mode. Watching remains available without a commitment.",
       );
     } catch (error) {
+      if (epoch !== accessEpoch) return;
       notice((error as Error).message);
       el("login").hidden = false;
     }
@@ -442,5 +500,15 @@ if (root) {
       perform(refresh);
   }, 1000);
   window.addEventListener("online", () => perform(refresh));
+  window.addEventListener("yap:account-changed", () => {
+    ++accessEpoch;
+    clearAccess();
+    notice("Checking your account. Review the action before confirming.");
+    accessRefreshPending = true;
+    if (!busy) {
+      accessRefreshPending = false;
+      void perform(start);
+    }
+  });
   start();
 }

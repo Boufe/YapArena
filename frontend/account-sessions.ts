@@ -1,5 +1,8 @@
 // DOM assertions retain the existing server-rendered markup and event-target guarantees.
 /* global document, window */
+let sessionControlEpoch = 0;
+window.addEventListener("yap:account-changed", () => sessionControlEpoch++);
+window.addEventListener("yap:provider-logout", () => sessionControlEpoch++);
 for (const [id, path, retainCurrent] of [
   ["sign-out-all", "logout-all", false],
   ["sign-out-others", "logout-other-sessions", true],
@@ -13,27 +16,56 @@ for (const [id, path, retainCurrent] of [
         ? "Sign out every other session? This device will stay signed in."
         : "Sign out all sessions, including this device? You will need to sign in again.";
       if (!window.confirm(message)) return;
+      if (button.disabled) return;
+      const version = sessionControlEpoch;
+      const expectedAccount = window.yapCurrentSessionAccount?.();
       button.disabled = true;
+      notice.textContent = "Finishing account changes and signing out…";
       try {
-        const response = await fetch(`/api/auth/${path}`, {
+        if (!window.yapSessionFetch)
+          throw new Error(
+            "Secure account controls are unavailable. Reload and try again.",
+          );
+        const response = await window.yapSessionFetch(`/api/auth/${path}`, {
           method: "POST",
           credentials: "same-origin",
+          signal: AbortSignal.timeout(45000),
         });
-        if (!response.ok) {
+        if (version !== sessionControlEpoch) {
+          if (
+            expectedAccount &&
+            expectedAccount === window.yapCurrentSessionAccount?.()
+          )
+            window.dispatchEvent(new Event("yap:account-changed"));
+          return;
+        }
+        const expired = response.status === 401;
+        if (!response.ok && !expired) {
           const body: { error?: string } = await response.json();
           throw new Error(body.error || "Sign-out failed. Please try again.");
         }
-        if (retainCurrent) {
+        if (retainCurrent && !expired) {
           notice.textContent =
             "Other sessions signed out. This device is still signed in.";
         } else {
+          window.dispatchEvent(
+            new CustomEvent("yap:provider-logout", { detail: expired }),
+          );
+          window.dispatchEvent(new Event("yap:account-changed"));
+          if ("BroadcastChannel" in window) {
+            const channel = new BroadcastChannel("yaparena-account");
+            channel.postMessage("changed");
+            channel.close();
+          }
           document.querySelector<HTMLElement>("#signed-in")!.hidden = true;
           document.querySelector<HTMLElement>("#signed-out")!.hidden = false;
-          notice.textContent =
-            "All sessions signed out, including this device. Sign in again to continue.";
+          notice.textContent = expired
+            ? "This session has ended. Sign in again to sign out other devices."
+            : "All sessions signed out, including this device. Sign in again to continue.";
         }
       } catch (error) {
-        notice.textContent = (error as Error).message;
+        if (version === sessionControlEpoch)
+          notice.textContent = (error as Error).message;
       } finally {
         button.disabled = false;
       }

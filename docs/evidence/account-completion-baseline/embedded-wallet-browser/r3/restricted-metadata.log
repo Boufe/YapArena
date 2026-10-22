@@ -1,0 +1,9 @@
+file:///Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:42
+  throw new Error("public provider metadata unavailable for the local fixture");
+        ^
+
+Error: public provider metadata unavailable for the local fixture
+    at file:///Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:42:9
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+Node.js v24.19.0

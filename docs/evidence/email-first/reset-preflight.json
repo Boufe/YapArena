@@ -1,0 +1,57 @@
+{
+  "recordedAt": "2026-10-19T19:49:18.529Z",
+  "target": {
+    "host": "aws-0-us-east-2.pooler.supabase.com",
+    "database": "postgres",
+    "project": "ypteqfmjietdqjzyvgtk",
+    "origin": "https://yaparena-staging-web.onrender.com"
+  },
+  "authorizedDisposableUsers": true,
+  "before": {
+    "users": 7,
+    "sessions": 4,
+    "wallets": 1,
+    "ownedProfiles": 3,
+    "playRuns": 15,
+    "playJournals": 101,
+    "mediaRecords": 13
+  },
+  "conflicts": {
+    "financialObligations": false,
+    "unsettledRounds": false,
+    "activeEvents": false
+  },
+  "backup": {
+    "formatVersion": 2,
+    "encryptedArchiveSha256": "a747edac36af90b9f4fd8be00dc2662c00d155fd017fec11422247c6eb0f9e28",
+    "encryptedBytes": 801069,
+    "directoryMode": "0700",
+    "fileMode": "0600",
+    "restoredTableAndSequenceFingerprintsMatch": true,
+    "location": "Private operator storage, outside source control"
+  },
+  "disposableCopy": {
+    "migrationsApplied": true,
+    "deletionRolledBack": true,
+    "afterDeletion": {
+      "users": 0,
+      "sessions": 0,
+      "wallets": 0,
+      "retained_play_runs": 15,
+      "retained_play_journals": 101,
+      "retained_media": 13
+    }
+  },
+  "hosted": {
+    "migrationsApplied": false,
+    "resetExecuted": false,
+    "usersDeleted": 0,
+    "finalEnvironmentEmpty": false
+  },
+  "remaining": [
+    "Post-migration snapshot and deletion rehearsal",
+    "Zero-runtime-backend execution guard, including pooled connections",
+    "Hosted migration/deployment and real Privy signup acceptance",
+    "Old-credential rejection and final test-identity cleanup"
+  ]
+}

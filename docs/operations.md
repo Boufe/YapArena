@@ -91,6 +91,14 @@ the local stack intentionally does not send them.
 
 ## Local verification
 
+The in-progress [email-first account operating contract](email-first-accounts.md)
+lists Privy/Redis runtime variables, provider-session fences, financial gates and
+the explicit guarded staging-reset command. Provision/migrate as a separate owner
+process; web and worker processes must keep runtime credentials only. The narrowed
+four-account staging reset was executed after backup and rehearsal; retained
+accounts and the later manual signup must remain. The guarded reset command must
+never run at startup or from a migration. Do not repeat the reset for acceptance.
+
 Use Node.js 24 and locked dependencies. The complete source quality gate needs explicit
 disposable A4, wallet and revocation PostgreSQL identities; without them those suites skip
 and the unchanged 90% coverage thresholds can fail. The supported isolation harness creates
@@ -100,12 +108,17 @@ the identities, applies migrations, runs runtime-role journeys, and supplies all
 A4_QUALITY=true npm run verify:database-isolation
 # Native alternative: PostgreSQL 17/18 tools on PATH, non-root user:
 LC_ALL=C LANG=C DATABASE_TEST_MODE=host A4_QUALITY=true npm run verify:database-isolation
+# Include the expanded account/security/coin/media PostgreSQL regression suites:
+LC_ALL=C LANG=C DATABASE_TEST_MODE=host ACCOUNT_SECURITY_VERIFY=true A4_QUALITY=true npm run verify:database-isolation
 ```
 
 `A4_QUALITY=true` runs the full `npm run check` once against the fresh database.
 Add `A4_VERIFY=true` to run the focused A4 PostgreSQL suite separately in both fresh and
 upgrade scenarios. Native initdb explicitly uses UTF-8; the harness verifies server/client
-encoding and C locale when requested. Every run removes its disposable cluster on exit.
+encoding and C locale when requested. Account-security verification runs its focused
+suites on fresh and upgrade paths. The account-security and full-quality modes also
+create separate Base Sepolia treasury fixture databases; these never change the
+simulation rail used by the general suites. Every run removes its disposable cluster on exit.
 No application process should load the combined operator `.env` or receive owner credentials.
 
 For browser changes, `npm run verify:browser` coordinates the full database-backed quality
@@ -126,9 +139,96 @@ is separate from hosted acceptance.
 
 Use the [account session revocation procedure](security/account-session-revocation.md) for
 owner logout-all/logout-others, wallet compromise and operator password credential updates.
-It defines account-first transaction locks, audit and generation checks. These operations
-allow a fresh sign-in with a retained credential; they are not account suspension. Existing
-LiveKit grants and connections need separate provider containment.
+It defines account-first transaction locks, audit and generation checks. Normal
+**Sign out** retires all YapArena sessions. Explicit individual-session and
+other-session controls remain available. These operations allow a fresh sign-in
+with a retained credential; they are not account suspension. The integrated media
+revocation queue disconnects tracked speakers separately and retries provider failures.
+Cloud token rejection, legacy-grant drainage and hosted acceptance retain the
+separate gates documented in that procedure.
+
+New passkeys are enrolled through Privy in Account settings. Sensitive operations
+verify the same key using an application-issued, expiring, one-use WebAuthn
+challenge. Previously enrolled independent application keys remain retained
+credentials. Do not repair a failed first setup by deleting credential history,
+changing its provenance or clearing session-generation fences. The approved
+restart applies only to an account with no financial or prior strong-method
+history and requires fresh provider login plus native passkey verification.
+See [the current passkey contract](security/account-session-revocation.md#one-privy-passkey).
+
+Normal provider reset jobs persist intent before the single mutation. Only an
+acknowledged freeze/unfreeze response enables GET-only confirmation across web
+instances and restarts. Each phase permits at most eight reads or 120 seconds,
+scheduled ten seconds apart. Unknown mutation outcomes, independent freezes and
+exhausted budgets remain fenced for review; do not reset their state to pending.
+An acknowledged reset superseded by an authenticated logout drains its own
+bounded confirmation before the newer logout runs a separate reset. Every
+intervening generation requires the exact successful application logout audit
+and an untouched same-identity job. The older job cannot advance the mapping's
+generation/token cutoff or wake wallet provisioning. Unacknowledged intents,
+changed credentials, suspension and unaudited generation changes remain fenced.
+Read-only propagation checks release database connections. The bounded mutation
+window retains account ordering. These authentication jobs run on the Privy-configured
+web service independently of general `RUN_BACKGROUND_JOBS`; the separate
+maintenance worker does not receive the Privy secret or run this queue.
+
+An uncertain provider freeze/unfreeze requires evidence review. The explicit
+owner-only `scripts/retry-account-provider-reset.ts` modes separate an ordinary
+retry, a single reviewed delayed-freeze reconciliation and read-only-provider
+finalization after a delayed unfreeze confirmation. Finalization can make only
+provider GET requests and requires the exact audit event, review-file hash,
+generation, unchanged credential digest and explicit null freeze timestamp.
+Never repeat an unfreeze merely because its immediate read lagged. The
+[recorded repair](evidence/account-completion-baseline/provider-reset-repair/README.md)
+documents the concrete evidence and limitations. The operator inspection and
+repair processes must not run in the web or worker process.
+
+The separate owner repository methods `prepareAcknowledgedLogoutReset` and
+`resumeAcknowledgedLogoutReset` cover the reviewed stopped pair produced by the
+first-key/logout overlap. Preparation is read-only. Resume requires an explicit
+own-freeze review digest, exact snapshot fingerprint/generation/attempt, two
+expired job leases, unchanged provider identity/accepted public keys and a
+current freeze inside the acknowledged request window. It atomically audits
+and rearms only that acknowledged confirmation and its untouched inherited
+logout. It performs no freeze/unfreeze, changes no credentials or sessions and
+does not clear the token cutoff. A request UUID and durable control marker
+prevent a second budget allocation. Deploy the corrected normal engine before
+using a separately reviewed owner command. This is not an ordinary login or
+general account-unfreeze API; uncertain or independently imposed freezes still
+require separate investigation.
+
+The separate `repair-first-passkey` / `finalize-first-passkey` modes cover only
+the reviewed unfinished first-key case: an unchanged valid accepted baseline,
+exactly one trusted new key, no financial or prior strong-method history, exact
+generation/attempt and an independently reviewed own-freeze window. A durable
+review marker precedes the one unfreeze; finalization is GET-only. Neither mode
+adopts the key or creates a session. `ACCOUNT_STAGING_PROVIDER_ACTION` must match
+the explicit mode, and `ACCOUNT_STAGING_CA_PATH` selects the trusted CA file.
+The [actual first-key repair](evidence/account-completion-baseline/first-passkey-reset-repair/README.md)
+is complete and must not be repeated as a routine login workaround.
+
+The [embedded-wallet runbook](embedded-wallets.md) describes the separate durable
+empty-wallet queue, user-only ownership verification, bounded retry/review states
+and original-DID recovery restriction. Its creation job uses existing runtime
+`PRIVY_APP_ID` / `PRIVY_APP_SECRET`, no application signing key or owner database
+credential. Dashboard creation-on-login remains off because the explicit server
+job handles headless email login and survives browser navigation. Creating an
+empty address does not enable crypto funding, signing or redemption.
+After the exact release, use the [read-only wallet verifier](embedded-wallet-verification.md)
+to distinguish actual provider ownership acceptance from pending setup or a
+synthetic transport result. It performs no creation or repair.
+
+Staging migration release uses `scripts/release-account-staging.ts` explicitly:
+stop and independently verify all writers, pass the exact-revision release gates,
+then run `prepare` for encrypted backup/restore rehearsal before `migrate`.
+`ACCOUNT_STAGING_WRITERS_STOPPED` and
+`ACCOUNT_STAGING_RELEASE_GATES_PASSED` are operator assertions, not proof. Its
+reviewed pending migration list is exact. Preserve earlier release evidence and
+verify retained/manual account counts, runtime-role grants and zero live history
+afterward. Runtime configuration uses `PRIVY_APP_ID`, `PRIVY_APP_SECRET`,
+`REDIS_SECURITY_URL`, `REDIS_NAMESPACE` and `REDIS_KEY_SECRET` as documented in the
+[configuration inventory](email-first-accounts.md#redis-configuration-and-measurements);
+owner credentials and private backup material are never runtime variables.
 
 Deploy the auth fixes with a coordinated restart. The additive F03 migration signs out all
 legacy sessions and consumes pending challenges. Its schema guards must stay installed
@@ -424,9 +524,13 @@ connection values in the local shell/secret store. PostgreSQL tests create uniqu
 accounts; do not point them at shared development, staging or production data. Without the
 explicit URLs those integration suites are skipped; that is not race-safety evidence. CI's
 quality job provisions a disposable PostgreSQL service and includes both suites under coverage.
-The browser trial is `node scripts/verify-wallet-browser.js` with `BROWSER_BASE_URL` and
+The retained-wallet browser trial is `node scripts/verify-wallet-browser.ts` with `BROWSER_BASE_URL` and
 `WALLET_TEST_OWNER_DATABASE_URL` for the same isolated instance. It uses synthetic wallets,
-cleans its fixtures and writes PNG evidence to `BROWSER_ARTIFACT_DIR`.
+seeds disposable retained credentials, cleans only its own fixtures and writes PNG evidence
+to `BROWSER_ARTIFACT_DIR`. It checks retained sign-in/removal, wrong proofs/account/chain,
+rejected signatures, expiry, outage, replay and last-method protection. New external-wallet
+linking is no longer a product control; existing backend link-authorization regression
+tests remain. Embedded-wallet provisioning has separate [contracts and acceptance gates](embedded-wallets.md).
 
 The [operational TypeScript guide](operational-typescript.md) lists the maintained database,
 release and security sources, direct Node 24 commands and explicit quality-gate coverage.

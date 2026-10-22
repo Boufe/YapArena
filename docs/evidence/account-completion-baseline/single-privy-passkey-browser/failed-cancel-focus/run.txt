@@ -1,0 +1,19 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: cancelling trusted authorization restores focus to the re-enabled setup opener
+
+false !== true
+
+    at verifyPrivyPasskeySetup (file:///Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:1212:14)
+    at async file:///Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:1561:5 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

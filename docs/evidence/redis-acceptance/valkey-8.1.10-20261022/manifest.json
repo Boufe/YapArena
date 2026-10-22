@@ -1,0 +1,27 @@
+{
+  "format": 1,
+  "artifacts": [
+    {
+      "path": "result.json",
+      "sha256": "e740faddddfca7c372207ce01e7b8e22bf7b37308c8f12dfe574b126d99f8eeb",
+      "bytes": 2830
+    },
+    {
+      "path": "result.json.raw",
+      "sha256": "e740faddddfca7c372207ce01e7b8e22bf7b37308c8f12dfe574b126d99f8eeb",
+      "bytes": 2830
+    },
+    {
+      "path": "run.log",
+      "sha256": "e740faddddfca7c372207ce01e7b8e22bf7b37308c8f12dfe574b126d99f8eeb",
+      "bytes": 2830
+    },
+    {
+      "path": "validation.json",
+      "sha256": "2329ced178c1c47a31a9133b55ef78e9dedbee224d4180b8137664a11f792103",
+      "bytes": 2197
+    }
+  ],
+  "scope": "Verifier-owned local Valkey8.1.10 compatibility; no hostedRedis fault/topology/provider acceptance.",
+  "hashPolicy": "README/manifest excluded to avoid self-reference."
+}

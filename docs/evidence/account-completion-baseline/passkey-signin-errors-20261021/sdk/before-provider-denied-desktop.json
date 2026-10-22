@@ -1,0 +1,8 @@
+{
+  "phase": "returning passkey provider-denied before SDK completion",
+  "initCalls": 1,
+  "authenticateCalls": 0,
+  "exchanges": 0,
+  "cancellationNoticeVisible": true,
+  "expectedNoticeVisible": false
+}

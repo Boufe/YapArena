@@ -1,27 +1,144 @@
-# Account session revocation — F03
+# Account session revocation
+
+Current email-first work adds account status, PostgreSQL provider-session replay
+fences, per-request Privy credential inspection, a durable Privy freeze/unfreeze
+queue and a separate durable LiveKit speaker-revocation queue. See the
+[provider session contract](../email-first-accounts.md#ownership-sessions-and-recovery)
+and [requirement/evidence matrix](../email-first-completion.md). Combined local,
+hosted provider, legacy-token and physical-device acceptance remain separate;
+the historical F03 trials do not establish acceptance of these additions.
 
 This implementation preserves opaque cookies, server-side token hashes, independent normal
 sign-ins, wallet-only accounts, stable account ownership, and the nonfinancial preview. It
 addresses F03, merged in PR #21 before the final F02 credential routes in PR #22. The original
 auth audit is an untracked historical local artifact, not a portable repository source of truth.
 Use the current contract below and [F03 handoff](f03-integration-handoff.md) for implementation
-evidence; live provider-grant revocation remains separate work.
+evidence. The new Cloud trial separately demonstrates provider-token rejection;
+it does not replace the final hosted rollout and legacy-grant checks.
 
 ## Owner controls and semantics
 
 | Action                                 | Result after successful commit                                                                                                                                                                     |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/auth/logout`                | Deletes only the presented token. Clears its cookie. Other devices stay signed in.                                                                                                                 |
-| `POST /api/auth/logout-all`            | Advances the account generation and deletes every existing account session, including the invoking session. Clears its cookie and creates no replacement.                                          |
+| `POST /api/auth/logout`                | Normal Sign out advances the account generation and retires all existing account sessions. Creates no replacement cookie.                                                                          |
+| `POST /api/auth/logout-all`            | Advances the account generation and deletes every existing account session, including the invoking session. Creates no replacement.                                                                |
 | `POST /api/auth/logout-other-sessions` | Advances the generation, deletes every other session and advances the authorized current row to the new generation. Retains its token and original absolute expiry; creates no replacement cookie. |
+| `DELETE /api/auth/sessions/:id`        | Revokes only a session owned by the authenticated account. Session IDs are server-issued selectors, not ownership evidence.                                                                        |
 | Wallet removal                         | The credential deletion trigger advances the generation and deletes all existing account sessions in the same transaction.                                                                         |
 | Password or email credential update    | The users trigger advances the generation and deletes all existing account sessions in the same transaction.                                                                                       |
 
-Both account-wide controls require a live authenticated session, accept no account/session
+Account-wide controls require a live authenticated session, accept no account/session
 selectors, derive the account from server authentication, and recheck the invoking session
 inside the transaction. The account page explains whether this device stays signed in. Cookie
 attributes and the existing Origin protection remain unchanged. The existing authentication
-limiter covers both controls; it is process-local, so shared throttling remains F07 work.
+limiter remains defense in depth. Logout, owned session reads and revocation bypass
+the shared abuse limiter and external provider inspection so they remain available
+during Redis/Privy outages. PostgreSQL must still confirm account-wide revocation.
+An absent, expired or unknown cookie returns a 401 warning that other devices were
+not confirmed signed out; a database failure must not claim successful revocation.
+Revocation responses do not expire the browser cookie: an old delayed response
+must not delete a newer account's cookie. The remaining opaque cookie has no
+authority after its database session is retired; a new sign-in overwrites it.
+The interface also discards outcomes from the previous account/view generation.
+
+Supported browser flows serialize cookie-issuing requests and session revocation
+with the same origin-wide Web Lock. Native passkey/wallet dialogs run before
+acquiring it. A revocation waits at most 35 seconds for an in-flight account
+change, then allows 10 seconds for its HTTP response; a timeout reports that
+sign-out is unconfirmed. With no pending account change, revocation proceeds
+immediately. Read-only requests do not take that lock. Browsers without the
+required secure-context lock support receive an explicit upgrade message.
+
+Before waiting, the browser captures its last server-verified account as a
+comparison hint. The server compares that hint with the cookie-authenticated
+account and refuses a mismatch; it never uses the hint to select an account or
+establish ownership. This prevents an old tab's queued sign-out from revoking a
+different account that signed in first. The hint is redacted from HTTP logs.
+These ordering protections cover cooperating application browser flows;
+arbitrary API clients do not participate in the browser lock. PostgreSQL
+authorization and revocation still apply to every client.
+
+Protected requests normally verify the local session and current Privy credential
+snapshot. Provider inspection runs without a checked-out database connection or
+account lock; its result is accepted only after revalidating the original
+session, generation, identity mapping and provider-control job state under the
+account lock. A provider change retires local sessions; provider unavailability blocks
+protected actions. A refreshed or replayed provider token cannot reuse a consumed
+Privy session ID to recreate an expired/revoked YapArena session. Local revocation
+commits before external calls; Privy queue failures retain their fence and retry.
+An uncertain provider mutation requires incident reconciliation. Provider freeze/
+unfreeze is not a compare-and-swap ownership API: use a single operator for a
+provider incident rather than racing dashboard edits against the worker.
+The provider-control worker holds the account ordering lock during its bounded
+freeze/unfreeze sequence (up to 20 seconds). A concurrent local revocation may
+wait for that sequence. Per-request provider inspection holds no such lock or
+checked-out connection while awaiting Privy.
+
+An acknowledged reset superseded by a successful authenticated logout drains
+only its existing bounded cleanup, with an exact audit/job for every intervening
+generation. Its completion cannot advance a stale mapping/token cutoff or wake
+wallet work; the current logout still performs its own reset. A committed live
+unfreeze intent remains owned by its original lease. Unknown intents, changed
+credentials, suspension and unaudited generation changes stay fenced. The
+separate reviewed owner rearm can restore one stopped acknowledged/inherited
+pair's confirmation budget once; an exact concurrent request returns the same
+immutable audit receipt without another provider call or budget allocation.
+
+An inspection failure during the matching pending/running provider reset, or
+its uncertain manual outcome, denies protected access temporarily. It must not
+mistake the application's own freeze for another credential incident and revoke
+the deliberately rotated session again. A valid observation of changed
+credentials or changed accepted public-key material still triggers revocation.
+
+## One Privy passkey
+
+New enrollment uses Privy from Account settings, and sign-in offers one passkey
+option. YapArena obtains the credential ID and COSE public key from its trusted
+server-side Privy read, then verifies an application-issued native assertion
+with required user verification, exact origin/RP and a one-use challenge. This
+second ceremony uses the same credential; it does not register a second key.
+The accepted credential's provenance, provider subject and public-key fingerprint
+remain bound to the internal account. Future operation proofs check current
+provider evidence and bind the exact application session, generation and terms.
+Neither token refresh nor a frontend MFA flag substitutes for that proof.
+
+The original enrollment intent lasts at most five minutes. Its original cookie
+can finish the exact pending addition through narrowly scoped routes while
+ordinary protected reads stay unavailable. A refresh stores only the intent ID;
+passwords, signatures and approval proofs stay in memory. Resumed strong
+approvals are still consumed with the key adoption transaction. Account/provider
+changes abort queued application requests and the application's native assertion.
+The installed Privy registration hook exposes no public abort option for an
+already-started registration; its continuation is fenced instead.
+
+The founder also approved restarting unfinished first setup after expiry. It
+requires a fresh unconsumed Privy session, the same provider identity, the exact
+old baseline plus one current provider key, a new short-lived native UV challenge
+and no financial or previously accepted stronger-method history. A captured
+original key must match exactly; when no key was captured, the explicitly
+approved fallback accepts the sole current added key. It cannot prove an
+unrecorded historical key was never replaced. Existing reset, minimum-token-time,
+SID and generation fences still apply. The expired original challenge is never
+extended or reused. Established accounts and financial access require retained
+strong proof; email alone cannot reset it.
+
+Previously enrolled independent application keys remain retained credentials.
+Only those legacy keys can use the older direct application-key login and
+new-provider-identity replacement below. A new Privy passkey instead signs into
+its existing Privy identity, after which retained-proof settings can verify a new
+email and remove an unavailable Google method without changing account ownership.
+
+The retained legacy lost-login replacement has a separate authority boundary: a new
+Privy-verified email identifies the replacement provider user, while a retained
+YapArena security passkey authorizes replacing the existing account's sole email
+or Google binding. A refreshed token or email match does not supply that
+authorization. Retiring the old binding advances the account generation,
+revokes old local sessions and speaking grants, consumes the operation and new
+provider session, and creates one successor cookie after commit. The old
+provider subject stays permanently tombstoned. Provider-control jobs and
+inspection fingerprints must be scoped to the currently bound subject so old
+work cannot affect the successor identity. No old provider user is deleted or
+modified. Acceptance is recorded in the linked completion matrix.
 
 F02 supplies fresh retained-credential proof for credential-management operations. A mutation
 may return a new session only when that proof authorizes it; the old invoking session is never
@@ -46,6 +163,14 @@ serializes new-account provisioning; discovering an existing mapping rejects the
 challenge and requires a new one. No path acquires an existing account lock while holding a
 wallet advisory lock. Password hashing and SIWE/RPC verification happen before the issuance
 transaction; their authoritative state is checked again under the account lock.
+
+Provider provisioning and replacement additionally take the relevant DID
+advisory locks before the account row. Replacement locks both old and new
+subjects in a fixed order, then rechecks account, session, credential and
+operation state. Its remote provider inspections finish before acquiring a
+database connection or these transaction locks. The database exposes a narrow
+replacement function rather than granting runtime general ownership-update
+permission on provider mappings.
 
 The generation advance under that lock is the revocation ordering point. COMMIT makes it
 visible to every instance. An issuance which commits first is deleted by the revocation. An
@@ -78,12 +203,14 @@ are consumed during migration. F02 operations bind their proofs to the same gene
 session, trusted credential UUID and exact action/target; generation changes invalidate
 pending approvals even when logout-others retains the token.
 
-No password-change/reset/email-verification endpoint exists in this baseline; none is claimed
-secured. Future recovery code must verify its purpose-bound proof under the account lock and
-UPDATE the credential inside that transaction. The trigger handles atomic session revocation;
-recovery proofs must also bind to this generation. Suspension must additionally enforce an
-account status at login, lookup and sensitive commit boundaries; revocation alone permits a
-fresh sign-in. There is no suspension implementation in this change.
+The original F03 baseline had no recovery or suspension implementation. Current
+email-first security operations bind retained password/wallet/security-passkey
+proof to account, session generation, nonce, expiry and exact operation terms.
+They consume proof and mutate in one account-locked transaction. Provider login
+refresh is not that proof. Suspension is enforced at login, lookup and sensitive
+commit boundaries; revocation alone still permits a fresh sign-in. Email recovery
+must not replace a lost strong financial credential; all-strong-methods-lost
+accounts require reviewed recovery.
 
 ## Compromised-account procedure
 
@@ -138,23 +265,45 @@ failures/deadlocks. A failed transaction must not be reported as successful cont
 
 A completed request cannot be cancelled retrospectively. Feature writes already authorized
 before revocation may finish if they do not recheck the session at commit. Credential
-management (F02) uses `assertActiveSession` under the shared account lock; future sensitive
+management and new sandbox financial commits use `assertActiveSession` under the shared account lock; future sensitive
 mutations must do likewise. Existing matching/community/media/measurement writes mostly
 check account/role/feature state rather than locking the session at commit, and this change
 does not claim to revoke already authorized work in those features.
 
-Previously issued LiveKit grants, connected speakers and bearer playback URLs have their own
-lifetimes. Application cookie revocation does not terminate them. F12 needs provider removal
-and a durable retry/issuance boundary using the same account ID/generation. The transactional
-revocation helper returns the new generation so F12 can enqueue work inside the caller's
-transaction; no provider/outbox implementation exists here. Credential triggers also emit
-account audit events but that audit is not currently a provider-revocation queue. Handle
-provider access separately during incidents; do not advertise application logout as stopping
-an already connected speaker.
+Tracked speaker grants have a separate durable lifecycle. Issuance requires an
+active assigned speaker, a current YapArena session and a recent device check.
+Viewers receive watch-only access. Each speaker grant uses a unique provider
+identity; refresh keeps that identity only for the same valid session. Changing
+devices requires an explicit Join action and confirmed removal of the old grant
+before the replacement is issued. A durable replacement intent prevents the old
+device's automatic retry from winning that slot. Delayed departure callbacks are
+checked and paused under the same account lock so they cannot pause an already
+active replacement.
+
+Session expiry, revocation, suspension and credential-generation changes enqueue
+removal transactionally. Web/worker processes reconcile expiry and retry bounded
+provider failures; claim tokens prevent late acknowledgments from completing
+another worker's claim. Provider work occurs outside database locks. A successful
+Sign out confirms local revocation and durable containment work, not instantaneous
+external disconnection during a provider outage. Observe queue outcomes/latency
+and investigate sustained failures.
+
+Protected issuance currently requires LiveKit Cloud token revocation. Removal
+supplies an explicit cutoff to cover freshly refreshed tokens, with a bounded
+provider-clock health check. Self-hosted removal alone cannot revoke previously
+issued bearer tokens and is not accepted for this path. Fresh/refreshed-token
+hosted replay remains a distinct acceptance gate. Before rollout, inventory
+legacy `speaker-<accountId>` connections and drain their outstanding JWT lifetime;
+these predate the tracked grant queue. Do not remove viewers or delete unrelated
+rooms. Public watching and existing bearer playback lifetimes remain separate
+from account speaker revocation.
 
 ## Rollout, migration and rollback
 
-Integration order: F04 database isolation → F03 → F02 retained-credential proof. Additive
+The following records the historical F03/F02 rollout. Current additive email-first
+and media migrations must also run as owner before the compatible runtime starts;
+see the current implementation matrix and coin operations guide. Historical
+integration order: F04 database isolation → F03 → F02 retained-credential proof. Additive
 migrations run as owner in this order:
 
 1. `1791158400000_isolate_server_database.js` (F04).

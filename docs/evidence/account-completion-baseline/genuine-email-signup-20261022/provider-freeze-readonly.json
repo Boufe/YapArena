@@ -1,0 +1,59 @@
+{
+  "format": 1,
+  "inspectionResult": "PASS",
+  "observedAt": "2026-10-22T00:35:55.469Z",
+  "deployedRevision": "3096ca776a04f3cf38ad835d7348329791c0385b",
+  "helperSha256": "7555be686c6a25a761abc89fd1811a82c0530b44b46a341de25d6311093925fa",
+  "sourceHashes": {
+    "src/platform/auth/privy.ts": "d11a41fc460d521703a3d4d59543654f8502f8ff3763ea6566109010871fceea",
+    "src/platform/auth/provider-passkeys.ts": "94d981e5abc7c33c8bc10b875dd7e37416da9ef1081d320fce3c281dcb08caeb",
+    "src/platform/auth/provider-credentials.ts": "7af32dffaaac3781e9e9a759af4d812b54b13db2da75cc8d5a9b2462212ac5b5",
+    "src/platform/auth/embedded-wallet-provider.ts": "3476ec1d15d40e940ee1ec0686a63d34029dc3ebbbf2d14473eeb86410aedc2d",
+    "src/platform/auth/embedded-wallet-provisioning.ts": "afadf4f70fc737d033320cb9e6172073282f512dcb845aff8fdb058a9ef325ba",
+    "scripts/verify-embedded-wallet-staging.ts": "5000fcc118e5be8be9d1c62a8c0263c9eb13f8020e09a79e71d9bc9cf92e90ff",
+    "migrations/1792426014000_add-embedded-wallet-provisioning.js": "ed48b610e77793bf4df1d49637f594660598d27dd98684f3dce890fd9f4db1b0",
+    "migrations/1792426015000_add-provider-control-phases.js": "07163766753d22498e9c9308817dbd9c6c6fb7928abb3ea7cd4ccded37e4c3ad",
+    "package.json": "bb5782139785fc6108704012850faadd46eb29a4d6ee3307699a5f3a709f7079",
+    "package-lock.json": "1c79a2f11f62be0ca0c2cda4ebec3d23c8a541d6748dcf4013330d33f203e7a5"
+  },
+  "compiledHashes": {
+    "dist/platform/auth/privy.js": "b73ded13643e8b193ea935a681b7dff715ce88c62b3ca2b08d2de3ed52ccd5b6",
+    "dist/platform/auth/embedded-wallet-provider.js": "2e299a35745ac6cc4293a30fa78e699f9f4f2f13a92d88ae766b69cfd92f0056",
+    "dist/platform/auth/provider-credentials.js": "681fb722fcd81e9793da18e942731725e3d2f0b3341d15a3cac0ac01a9f9ec8d",
+    "dist/platform/auth/provider-passkeys.js": "fbec0566ccacd8222579986fb63d959193ce413dd6e2029b3ddf7272e40d1c78"
+  },
+  "attributionArtifactHash": "d61fa4cefcb7deeadf918141d3d84985d0c62c059639cdd79bb14ed3046de033",
+  "safeAttributionArtifactHash": "8730ba58d7f7492867d336e071e232f4cb4150ab8a05a76039d3f4528d768044",
+  "fixedTargetsVerified": true,
+  "ownerRoleVerified": true,
+  "clientTls": {
+    "ssl": true,
+    "mode": "verify-full",
+    "caProvided": true
+  },
+  "readOnly": true,
+  "ownerConnectionsClosedBeforeProvider": true,
+  "providerFreezeExplicit": true,
+  "providerFrozen": true,
+  "providerReadsAgree": true,
+  "providerCredentialsMatch": true,
+  "acceptedProviderKeyCount": 1,
+  "acceptedProviderKeysMatch": true,
+  "generationMatches": false,
+  "frozenMatchesAcknowledgedLocalJob": true,
+  "walletInspection": "skipped_provider_frozen",
+  "localSnapshotStable": true,
+  "providerRequests": 3,
+  "renderRequests": 4,
+  "databaseSnapshots": 2,
+  "providerMutationAttemptsBlocked": 0,
+  "mutations": 0,
+  "cleanupAuthorized": false,
+  "limitations": [
+    "Inspection PASS establishes only successful fixed-scope reads; frozen state, matching credentials and local counts are not returning-login or recovery acceptance.",
+    "Freeze-window match is local ACK/timestamp evidence, not a provider operation ID or proof against an independent concurrent dashboard action.",
+    "Wallet ownership is confirmed only when walletInspection explicitly says confirmed_user_only_owner; frozen accounts skip adapter ownership reads.",
+    "No raw identity, email, credential descriptor, amount, destination, provider row, timestamp or error is exported. No repair/retry/key adoption/deletion is performed.",
+    "Two local snapshots can detect changes but cannot lock the remote provider; no owner connection is held across any provider request."
+  ]
+}

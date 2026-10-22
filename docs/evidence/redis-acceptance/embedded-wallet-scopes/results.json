@@ -1,0 +1,36 @@
+{
+  "testedAt": "2026-10-21T14:08:36.715Z",
+  "revision": "030b60ea0974b70edecf74b322935dc991a17fb1",
+  "sourceHashes": {
+    "src/platform/shared-abuse.ts": "34a10238ac879bc89126c6d5e527f6e8e59174a640a727094199a5abeabf94f3",
+    "scripts/verify-auth-redis.ts": "ee053bdc1e8b14cd3c782ce2e7c0598c72d0e4f842f08b120fed54ef701c2207"
+  },
+  "environment": "isolated local loopback Redis and synthetic HTTP principals",
+  "runtime": "v24.19.0",
+  "redisVersion": "7.4.11",
+  "mode": "verifier-owned disposable Docker instance",
+  "checks": [
+    "100 atomic concurrent increments through two clients; TTL expiry",
+    "two independent HTTP middleware instances: shared IP budget, account/operation/environment separation, opaque HMAC keys",
+    "two separate Node HTTP worker processes enforce one Redis IP/account budget under concurrent requests",
+    "two separate Node HTTP workers atomically share provider.passkey.link, provider.passkey.restart and embedded.wallet.retry attempt budgets; purpose, account and environment stay separate; stored keys are opaque HMACs with bounded TTL",
+    "closed-port and accepted-but-stalled handshake bounded; backoff fails immediately; protected mutation fails closed while public read works",
+    "evictable policy rejected before concurrent commands can execute",
+    "noeviction memory exhaustion fails closed and retains existing counters",
+    "paused Redis command deadline, connection destruction, retry cooldown and bounded uncertain counter execution",
+    "nonpersistent restart loses counters and permits a new window; this store cannot be financial security state",
+    "aggregate latency/error/throttle metrics contain no fixture identities, key namespace or key secret"
+  ],
+  "observedStoreSeconds": {
+    "samples": 179,
+    "p50": 0.009202541999999994,
+    "p95": 0.009395582999999989,
+    "max": 1.001449333
+  },
+  "limitations": [
+    "HTTP fixtures include separate Node processes, but synthetic principals are not PostgreSQL session acceptance.",
+    "Logout and revocation routing during outages is independently covered by the actual application unit suite.",
+    "No hosted Redis changes, provider acceptance, live financial authorization, physical-device or screen-reader claims.",
+    "Nonpersistent restarts reset abuse budgets. PostgreSQL must own financial and revocation state."
+  ]
+}

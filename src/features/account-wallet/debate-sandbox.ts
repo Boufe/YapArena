@@ -1,0 +1,950 @@
+import { randomUUID } from "node:crypto";
+import type { Pool, PoolClient } from "pg";
+import {
+  RULE,
+  digest,
+  executeRound,
+  priceRound,
+  randomWord,
+  reservation,
+  secureSeed,
+  validateOrder,
+  type Order,
+  type Outcome,
+  type Terms,
+} from "../a4/engine.ts";
+import {
+  assertActiveSession,
+  lockAccount,
+  SessionUnavailableError,
+} from "../../platform/auth/sessions.ts";
+import { CoinOperationError } from "./external-operations.ts";
+import {
+  allocateAtomicProportionally,
+  commitStakeCost,
+  planStake,
+  refundStake,
+  settleStake,
+  type StakeFunding,
+} from "./grant-accounting.ts";
+import {
+  coinJournalReference,
+  postCoinJournal,
+  type CoinPosting,
+  type CoinLedgerAsset,
+} from "./ledger.ts";
+import {
+  appendSandboxBookEvent,
+  ensureSandboxBuckets,
+  lockSandboxBook,
+  assertSandboxRail,
+  assertSandboxFinancialOpen,
+  assertSandboxStrongMethod,
+  type SandboxContext,
+  type SandboxRail,
+  type SandboxBuckets,
+} from "./sandbox-repository.ts";
+
+// Same A4 algorithm and ordinary human schedule. This asset is new: one YC
+// contract has a 0.01 USDC quote, NOT the historical YAP atomic face value.
+export const COIN_DEBATE_TERMS: Readonly<Terms> = Object.freeze({
+  rule: RULE,
+  epsilon: 50_000,
+  feeBps: 0,
+  maxQuantity: 100,
+  capacity: 1001,
+});
+export const COIN_DEBATE_FACE = 10_000n;
+interface Round {
+  id: string;
+  debate_id: string;
+  creator_id: string;
+  proposition: string;
+  rail: SandboxRail;
+  terms: Terms;
+  seed: string;
+  seed_commitment: string;
+  opens_at: Date;
+  closes_at: Date;
+  state: "open" | "settled" | "void";
+  result: {
+    snapshot: Order[];
+    snapshotHash: string;
+    pricing: ReturnType<typeof priceRound>;
+    outcomes: Outcome[];
+  } | null;
+  revealed_at: Date | null;
+}
+interface StoredOrder {
+  user_id: string;
+  request_id: string;
+  side: Order["side"];
+  limit_value: string;
+  quantity: number;
+  funding: StakeFunding;
+  center_reservation: string;
+  promotional_reservation: string;
+}
+const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+const reference = (userId: string, operation: string, key: string) =>
+  coinJournalReference({
+    environment: "sandbox",
+    accountId: userId,
+    operation,
+    idempotencyKey: key,
+  });
+function fail(message: string, status = 409): never {
+  throw new CoinOperationError(message, status);
+}
+function resource(id: string) {
+  if (!uuid.test(id)) fail("sandbox round not found", 404);
+}
+function fundingTotals(funding: StakeFunding | null) {
+  let cash = 0n,
+    promo = 0n;
+  for (const source of funding?.sources ?? []) {
+    if (source.kind === "grant") {
+      promo += BigInt(source.principal);
+      cash += BigInt(source.profit);
+    } else cash += BigInt(source.amount);
+  }
+  return { cash, promo };
+}
+function transfer(
+  postings: CoinPosting[],
+  from: string,
+  to: string,
+  amount: bigint,
+) {
+  if (amount < 0n) fail("negative sandbox transfer", 503);
+  if (amount)
+    postings.push(
+      { accountId: from, amount: String(-amount) },
+      { accountId: to, amount: String(amount) },
+    );
+}
+async function lockLedger(
+  client: PoolClient,
+  buckets: readonly SandboxBuckets[],
+) {
+  const cash = [
+    ...new Set(
+      buckets.flatMap((b) => [
+        b.cashAvailable,
+        b.cashReserved,
+        b.cashPending,
+        ...Object.entries(b.system)
+          .filter(([purpose]) => purpose !== "grant_issuer")
+          .map(([, id]) => id),
+      ]),
+    ),
+  ].sort();
+  const promo = [
+    ...new Set(
+      buckets.flatMap((b) => [
+        b.promoAvailable,
+        b.promoReserved,
+        b.system.grant_issuer,
+      ]),
+    ),
+  ].sort();
+  // Prelock ALL affected assets/accounts once, before the first of the two
+  // journals. Reversed per-asset UUID ordering cannot deadlock concurrent pays.
+  for (const ids of [cash, promo])
+    await client.query(
+      "SELECT id FROM coin_accounts WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE",
+      [ids],
+    );
+}
+async function post(
+  client: PoolClient,
+  userId: string,
+  operation: "reserve" | "payout",
+  key: string,
+  asset: CoinLedgerAsset,
+  postings: CoinPosting[],
+) {
+  if (!postings.length) return undefined;
+  return (
+    await postCoinJournal(client, {
+      id: randomUUID(),
+      environment: "sandbox",
+      asset,
+      operation,
+      reference: reference(
+        userId,
+        `debate.${operation}.${asset.toLowerCase()}`,
+        key,
+      ),
+      postings,
+    })
+  ).id;
+}
+async function serial(client: PoolClient) {
+  // Low-volume sandbox only. Admissions and settlement serialize before account
+  // locks; this prevents settlement taking a partial population while enrolling.
+  await client.query(
+    "SELECT pg_advisory_xact_lock(hashtextextended('coin-debate-transition',0))",
+  );
+}
+export function createCoinDebateSandbox(database: Pool, rail: SandboxRail) {
+  async function transaction<T>(mutation: (client: PoolClient) => Promise<T>) {
+    const client = await database.connect();
+    try {
+      await client.query("BEGIN");
+      await serial(client);
+      await assertSandboxRail(client, rail);
+      const result = await mutation(client);
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  async function assertCallerSession(
+    client: PoolClient,
+    context: SandboxContext,
+  ) {
+    const currentSession = await assertActiveSession(
+      client,
+      context.userId,
+      context.sessionTokenHash,
+    );
+    if (
+      context.expectedSessionId !== undefined &&
+      currentSession.id !== context.expectedSessionId
+    )
+      fail("account context changed; refresh balances and review again");
+  }
+  async function authorize(client: PoolClient, context: SandboxContext) {
+    if (!(await lockAccount(client, context.userId)))
+      throw new SessionUnavailableError("account unavailable");
+    await assertCallerSession(client, context);
+    await assertSandboxStrongMethod(client, context.userId);
+    await assertSandboxFinancialOpen(client, context.userId);
+  }
+  async function stored(client: PoolClient, roundId: string) {
+    resource(roundId);
+    const round = (
+      await client.query<Round>(
+        "SELECT * FROM coin_debate_rounds WHERE id=$1 AND rail=$2 FOR UPDATE",
+        [roundId, rail],
+      )
+    ).rows[0];
+    if (!round) fail("sandbox round not found", 404);
+    if (digest(round.terms) !== digest(COIN_DEBATE_TERMS))
+      fail("sandbox debate uses unsupported terms", 503);
+    return round;
+  }
+  async function dueBatch(
+    client: PoolClient,
+    limit: number,
+    authorizeCaller?: { context: SandboxContext },
+  ) {
+    // Freeze the complete bounded batch before any account/book/ledger write.
+    // Its union is essential: locking a later round's account after an earlier
+    // round's shared ledger rows can deadlock funding or payout reconciliation.
+    const rounds = (
+      await client.query<{ id: string }>(
+        `SELECT id FROM coin_debate_rounds WHERE state='open' AND rail=$1
+        AND closes_at<=clock_timestamp() ORDER BY closes_at,id LIMIT $2`,
+        [rail, limit],
+      )
+    ).rows;
+    const participants = (
+      await client.query<{ user_id: string }>(
+        "SELECT DISTINCT user_id FROM coin_debate_orders WHERE round_id=ANY($1::uuid[]) ORDER BY user_id",
+        [rounds.map((r) => r.id)],
+      )
+    ).rows.map((r) => r.user_id);
+    const users = [
+      ...new Set([
+        ...participants,
+        ...(authorizeCaller ? [authorizeCaller.context.userId] : []),
+      ]),
+    ].sort((a, b) =>
+      BigInt(a) < BigInt(b) ? -1 : BigInt(a) > BigInt(b) ? 1 : 0,
+    );
+    await client.query(
+      "SELECT id FROM users WHERE id=ANY($1::bigint[]) ORDER BY id FOR UPDATE",
+      [users],
+    );
+    // An API caller must be authorized before its request may settle anybody's
+    // obligations or initialize financial books. Worker advancement has no user.
+    if (authorizeCaller) await authorize(client, authorizeCaller.context);
+    const buckets = [];
+    for (const userId of users) {
+      await lockSandboxBook(client, userId);
+      buckets.push(await ensureSandboxBuckets(client, userId));
+    }
+    await lockLedger(client, buckets);
+    return rounds;
+  }
+  async function settle(client: PoolClient, roundId: string) {
+    // The transition lock prevents new admissions while collecting account locks.
+    const orders = (
+      await client.query<StoredOrder>(
+        "SELECT * FROM coin_debate_orders WHERE round_id=$1 ORDER BY user_id",
+        [roundId],
+      )
+    ).rows;
+    await client.query(
+      "SELECT id FROM users WHERE id=ANY($1::bigint[]) ORDER BY id FOR UPDATE",
+      [orders.map((o) => o.user_id)],
+    );
+    const round = await stored(client, roundId);
+    if (round.state !== "open") return false;
+    const due = (
+      await client.query<{ due: boolean }>(
+        "SELECT clock_timestamp()>=closes_at AS due FROM coin_debate_rounds WHERE id=$1",
+        [round.id],
+      )
+    ).rows[0]!.due;
+    if (!due) return false;
+    const snapshot: Order[] = orders.map((o) => ({
+      participant: o.user_id,
+      kind: "human",
+      side: o.side,
+      limit: o.limit_value,
+      quantity: o.quantity,
+    }));
+    if (digest(round.seed) !== round.seed_commitment)
+      fail("sandbox seed commitment mismatch", 503);
+    const pricing = priceRound(
+      snapshot,
+      round.terms,
+      randomWord(round.seed, "branch"),
+      randomWord(round.seed, "price"),
+    );
+    const outcomes = executeRound(
+      snapshot,
+      round.terms,
+      pricing,
+      COIN_DEBATE_FACE,
+    );
+    const snapshots = await Promise.all(
+      orders.map((o) => lockSandboxBook(client, o.user_id)),
+    );
+    const buckets = [];
+    for (const order of orders)
+      buckets.push(await ensureSandboxBuckets(client, order.user_id));
+    await lockLedger(client, buckets);
+    const now = (
+      await client.query<{ now: Date }>(
+        "SELECT date_trunc('milliseconds',clock_timestamp()) AS now",
+      )
+    ).rows[0]!.now.toISOString();
+    for (let index = 0; index < orders.length; index++) {
+      const order = orders[index]!,
+        outcome = outcomes[index]!,
+        before = snapshots[index]!,
+        bucket = buckets[index]!;
+      const committed = commitStakeCost(
+        before.book,
+        order.funding,
+        String(BigInt(outcome.premium) + BigInt(outcome.fee)),
+      );
+      const settlement = committed.funding
+        ? settleStake(committed.book, committed.funding, outcome.net, now)
+        : null;
+      const book = settlement?.book ?? committed.book;
+      const reserved = fundingTotals(order.funding),
+        actual = fundingTotals(committed.funding);
+      const cash: CoinPosting[] = [],
+        promo: CoinPosting[] = [];
+      transfer(
+        cash,
+        bucket.cashReserved,
+        bucket.cashAvailable,
+        reserved.cash - actual.cash,
+      );
+      transfer(
+        promo,
+        bucket.promoReserved,
+        bucket.promoAvailable,
+        reserved.promo - actual.promo,
+      );
+      const cost = actual.cash + actual.promo;
+      const cashFee = cost
+        ? allocateAtomicProportionally(BigInt(outcome.fee), [
+            actual.cash,
+            actual.promo,
+          ])[0]!
+        : 0n;
+      transfer(cash, bucket.cashReserved, bucket.system.fees, cashFee);
+      transfer(
+        cash,
+        bucket.cashReserved,
+        bucket.system.center_available,
+        actual.cash - cashFee,
+      );
+      transfer(
+        promo,
+        bucket.promoReserved,
+        bucket.system.grant_issuer,
+        actual.promo,
+      );
+      let returnedFromCenter = 0n,
+        newPromotionalProfit = 0n;
+      for (const receipt of settlement?.receipts ?? []) {
+        if (receipt.kind === "grant") {
+          const returnedProfit = BigInt(receipt.profitReturned);
+          const previousProfit = BigInt(receipt.profit);
+          const restoredCash =
+            returnedProfit < previousProfit ? returnedProfit : previousProfit;
+          const newProfit = returnedProfit - restoredCash;
+          returnedFromCenter += restoredCash;
+          newPromotionalProfit += newProfit;
+          transfer(
+            cash,
+            bucket.system.center_reserved,
+            bucket.cashAvailable,
+            restoredCash,
+          );
+          transfer(
+            cash,
+            bucket.system.promotional_reserved,
+            bucket.cashAvailable,
+            newProfit,
+          );
+          transfer(
+            promo,
+            bucket.system.grant_issuer,
+            bucket.promoAvailable,
+            BigInt(receipt.principalReturned),
+          );
+        } else {
+          const returned = BigInt(receipt.returned);
+          returnedFromCenter += returned;
+          transfer(
+            cash,
+            bucket.system.center_reserved,
+            bucket.cashAvailable,
+            returned,
+          );
+        }
+      }
+      transfer(
+        cash,
+        bucket.system.center_reserved,
+        bucket.system.center_available,
+        BigInt(order.center_reservation) - returnedFromCenter,
+      );
+      transfer(
+        cash,
+        bucket.system.promotional_reserved,
+        bucket.system.promotional_available,
+        BigInt(order.promotional_reservation) - newPromotionalProfit,
+      );
+      const cashJournalId = await post(
+        client,
+        order.user_id,
+        "payout",
+        order.request_id,
+        "USDC",
+        cash,
+      );
+      const promoJournalId = await post(
+        client,
+        order.user_id,
+        "payout",
+        order.request_id,
+        "YC_PROMO",
+        promo,
+      );
+      for (const receipt of settlement?.receipts ?? []) {
+        if (receipt.kind === "grant" && receipt.netResult !== "0") {
+          if (!cashJournalId) fail("grant result journal missing", 503);
+          await client.query(
+            "INSERT INTO coin_grant_profit_events(lot_id,journal_id,environment,asset,net_profit) VALUES($1,$2,'sandbox','USDC',$3)",
+            [receipt.id, cashJournalId, receipt.netResult],
+          );
+        }
+      }
+      await appendSandboxBookEvent(client, {
+        userId: order.user_id,
+        snapshot: before,
+        book,
+        kind: "debate.settled",
+        reference: reference(
+          order.user_id,
+          "debate.settlement",
+          order.request_id,
+        ),
+        termsDigest: digest([round.id, outcome, committed.funding]),
+        requestId: order.request_id,
+        cashJournalId,
+        promoJournalId,
+        metadata: {
+          roundId: round.id,
+          outcome,
+          reservedFunding: order.funding,
+          committedFunding: committed.funding,
+          sources: settlement?.receipts ?? [],
+          releasedSources: committed.released,
+          newPromotionalProfit: String(newPromotionalProfit),
+          rail,
+        },
+      });
+      await client.query(
+        "UPDATE coin_sandbox_requests SET status='settled' WHERE id=$1",
+        [order.request_id],
+      );
+    }
+    const result = {
+      snapshot,
+      snapshotHash: digest({
+        roundId,
+        terms: round.terms,
+        seedCommitment: round.seed_commitment,
+        orders: snapshot,
+      }),
+      pricing,
+      outcomes,
+    };
+    await client.query(
+      "UPDATE coin_debate_rounds SET state='settled',result=$2::jsonb,revealed_at=clock_timestamp() WHERE id=$1",
+      [roundId, JSON.stringify(result)],
+    );
+    return true;
+  }
+  return Object.freeze({
+    async create(
+      context: SandboxContext,
+      debateId: string,
+      idempotencyKey: string,
+    ) {
+      resource(debateId);
+      const key = reference(context.userId, "debate.open", idempotencyKey);
+      return transaction(async (client) => {
+        const due = await dueBatch(client, 20, { context });
+        const previous = (
+          await client.query<Round>(
+            "SELECT * FROM coin_debate_rounds WHERE reference=$1",
+            [key],
+          )
+        ).rows[0];
+        if (previous) {
+          if (previous.debate_id !== debateId)
+            fail("idempotency key has different debate");
+          await assertCallerSession(client, context);
+          return { id: previous.id, created: false };
+        }
+        const debate = (
+          await client.query<{ proposition: string }>(
+            "SELECT d.proposition FROM debates d JOIN topics t ON t.id=d.topic_id WHERE d.id=$1 AND d.publication_state='published' AND t.publication_state='published' AND d.status NOT IN ('cancelled','void_review')",
+            [debateId],
+          )
+        ).rows[0];
+        if (!debate) fail("debate not found", 404);
+        // Posted net profit and its permanent qualification peak follow round
+        // closing order, with UUID as the fixed tie-breaker. API request timing
+        // cannot settle a selected later round ahead of this bounded batch.
+        for (const round of due) await settle(client, round.id);
+        const current = (
+          await client.query<{ id: string }>(
+            "SELECT id FROM coin_debate_rounds WHERE debate_id=$1 AND state='open'",
+            [debateId],
+          )
+        ).rows[0];
+        if (current) {
+          // If a due target was beyond this batch, leave it open for the next
+          // ordered advance. Never jump older obligations to open its successor.
+          await assertCallerSession(client, context);
+          return { id: current.id, created: false };
+        }
+        const seed = secureSeed(),
+          id = randomUUID();
+        await client.query(
+          `INSERT INTO coin_debate_rounds(id,debate_id,creator_id,proposition,rail,reference,terms,seed,seed_commitment,closes_at)
+          VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,clock_timestamp()+INTERVAL '300 seconds')`,
+          [
+            id,
+            debateId,
+            context.userId,
+            debate.proposition,
+            rail,
+            key,
+            JSON.stringify(COIN_DEBATE_TERMS),
+            seed,
+            digest(seed),
+          ],
+        );
+        await assertCallerSession(client, context);
+        return { id, created: true };
+      });
+    },
+    async submit(
+      context: SandboxContext,
+      roundId: string,
+      idempotencyKey: string,
+      input: { side: Order["side"]; limit: string; quantity: number },
+    ) {
+      resource(roundId);
+      const key = reference(context.userId, "debate.submit", idempotencyKey);
+      return transaction(async (client) => {
+        await authorize(client, context);
+        const round = await stored(client, roundId);
+        const order: Order = {
+          participant: context.userId,
+          kind: "human",
+          ...input,
+        };
+        validateOrder(order, round.terms);
+        const terms = {
+          rail,
+          roundId,
+          rule: RULE,
+          side: input.side,
+          limit: input.limit,
+          quantity: String(input.quantity),
+          asset: "USDC",
+          precision: "6",
+          face: String(COIN_DEBATE_FACE),
+        };
+        const termsDigest = digest(terms);
+        const existing = (
+          await client.query<{ id: string; terms_digest: string }>(
+            "SELECT id,terms_digest FROM coin_sandbox_requests WHERE user_id=$1 AND kind='stake' AND reference=$2",
+            [context.userId, key],
+          )
+        ).rows[0];
+        if (existing) {
+          if (existing.terms_digest !== termsDigest)
+            fail("idempotency key has different participation terms");
+          return { id: existing.id, created: false };
+        }
+        if (round.state !== "open") fail("sandbox round is closed");
+        if (
+          !(
+            await client.query(
+              "SELECT 1 FROM debates d JOIN topics t ON t.id=d.topic_id WHERE d.id=$1 AND d.publication_state='published' AND t.publication_state='published' AND d.status NOT IN ('cancelled','void_review')",
+              [round.debate_id],
+            )
+          ).rowCount
+        )
+          fail("debate unavailable for new commitments");
+        if (
+          (
+            await client.query(
+              "SELECT 1 FROM coin_debate_orders WHERE round_id=$1 AND user_id=$2",
+              [roundId, context.userId],
+            )
+          ).rowCount
+        )
+          fail("your first commitment is final");
+        if (
+          Number(
+            (
+              await client.query<{ count: string }>(
+                "SELECT count(*)::text FROM coin_debate_orders WHERE round_id=$1",
+                [roundId],
+              )
+            ).rows[0]!.count,
+          ) >= round.terms.capacity
+        )
+          fail("sandbox round is full");
+        const before = await lockSandboxBook(client, context.userId),
+          buckets = await ensureSandboxBuckets(client, context.userId);
+        await lockLedger(client, [buckets]);
+        const plan = planStake(
+          before.book,
+          String(
+            reservation(order.quantity, COIN_DEBATE_FACE, round.terms.feeBps),
+          ),
+        );
+        const total = fundingTotals(plan.funding),
+          collateral = BigInt(order.quantity) * COIN_DEBATE_FACE;
+        const promotional = plan.funding.sources.some((s) => s.kind === "grant")
+          ? collateral
+          : 0n;
+        const cash: CoinPosting[] = [],
+          promo: CoinPosting[] = [];
+        transfer(cash, buckets.cashAvailable, buckets.cashReserved, total.cash);
+        transfer(
+          cash,
+          buckets.system.center_available,
+          buckets.system.center_reserved,
+          collateral,
+        );
+        transfer(
+          cash,
+          buckets.system.promotional_available,
+          buckets.system.promotional_reserved,
+          promotional,
+        );
+        transfer(
+          promo,
+          buckets.promoAvailable,
+          buckets.promoReserved,
+          total.promo,
+        );
+        const requestId = randomUUID();
+        const cashJournalId = await post(
+          client,
+          context.userId,
+          "reserve",
+          requestId,
+          "USDC",
+          cash,
+        );
+        const promoJournalId = await post(
+          client,
+          context.userId,
+          "reserve",
+          requestId,
+          "YC_PROMO",
+          promo,
+        );
+        await client.query(
+          `INSERT INTO coin_sandbox_requests(id,user_id,kind,reference,terms_digest,terms,status) VALUES($1,$2,'stake',$3,$4,$5::jsonb,'reserved')`,
+          [requestId, context.userId, key, termsDigest, JSON.stringify(terms)],
+        );
+        // DB cutoff is checked AFTER ledger-lock waits and immediately at insert.
+        await client.query(
+          `INSERT INTO coin_debate_orders(round_id,user_id,request_id,side,limit_value,quantity,funding,center_reservation,promotional_reservation)
+          VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9)`,
+          [
+            roundId,
+            context.userId,
+            requestId,
+            order.side,
+            order.limit,
+            order.quantity,
+            JSON.stringify(plan.funding),
+            String(collateral),
+            String(promotional),
+          ],
+        );
+        await appendSandboxBookEvent(client, {
+          userId: context.userId,
+          snapshot: before,
+          book: plan.book,
+          kind: "debate.reserved",
+          reference: key,
+          termsDigest,
+          requestId,
+          cashJournalId,
+          promoJournalId,
+          metadata: {
+            roundId,
+            funding: plan.funding,
+            centerReservation: String(collateral),
+            promotionalReservation: String(promotional),
+            rail,
+          },
+        });
+        await assertActiveSession(
+          client,
+          context.userId,
+          context.sessionTokenHash,
+        );
+        return { id: requestId, created: true };
+      });
+    },
+    async view(context: SandboxContext, debateId: string) {
+      resource(debateId);
+      return transaction(async (client) => {
+        if (!(await lockAccount(client, context.userId)))
+          throw new SessionUnavailableError("account unavailable");
+        await assertActiveSession(
+          client,
+          context.userId,
+          context.sessionTokenHash,
+        );
+        const rounds = (
+          await client.query<Round>(
+            "SELECT * FROM coin_debate_rounds WHERE debate_id=$1 AND rail=$2 ORDER BY opens_at DESC,id LIMIT 20",
+            [debateId, rail],
+          )
+        ).rows;
+        return Promise.all(
+          rounds.map(async (r) => {
+            const own = (
+              await client.query<StoredOrder>(
+                "SELECT * FROM coin_debate_orders WHERE round_id=$1 AND user_id=$2",
+                [r.id, context.userId],
+              )
+            ).rows[0];
+            const outcome = r.result?.outcomes.find(
+              (o) => o.participant === context.userId,
+            );
+            return {
+              id: r.id,
+              debateId: r.debate_id,
+              proposition: r.proposition,
+              state: r.state,
+              opensAt: r.opens_at,
+              closesAt: r.closes_at,
+              terms: r.terms,
+              asset: "USDC",
+              precision: 6,
+              face: String(COIN_DEBATE_FACE),
+              seedCommitment: r.seed_commitment,
+              own: own
+                ? {
+                    side: own.side,
+                    limit: own.limit_value,
+                    quantity: own.quantity,
+                    requestId: own.request_id,
+                  }
+                : null,
+              ...(r.state === "settled"
+                ? {
+                    seed: r.seed,
+                    snapshotHash: r.result?.snapshotHash,
+                    pricing: r.result?.pricing,
+                    outcome,
+                  }
+                : {}),
+            };
+          }),
+        );
+      });
+    },
+    async advance(limit = 20, context?: SandboxContext) {
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+        fail("invalid transition batch", 400);
+      return transaction(async (client) => {
+        const due = await dueBatch(
+          client,
+          limit,
+          context ? { context } : undefined,
+        );
+        let completed = 0;
+        for (const r of due) if (await settle(client, r.id)) completed++;
+        if (context) await assertCallerSession(client, context);
+        return { completed };
+      });
+    },
+    // Explicit operator command only, never startup/reset behavior or a public
+    // cancellation API. Exact sources return without profit or qualification.
+    async voidRound(
+      roundId: string,
+      reason: "debate_unavailable" | "operator_cancelled",
+    ) {
+      resource(roundId);
+      if (!["debate_unavailable", "operator_cancelled"].includes(reason))
+        fail("invalid void reason", 400);
+      return transaction(async (client) => {
+        if (
+          (await client.query<{ role: string }>("SELECT current_user AS role"))
+            .rows[0]?.role !== "yaparena_owner"
+        )
+          fail("sandbox operator ownership is required", 403);
+        const orders = (
+          await client.query<StoredOrder>(
+            "SELECT * FROM coin_debate_orders WHERE round_id=$1 ORDER BY user_id",
+            [roundId],
+          )
+        ).rows;
+        await client.query(
+          "SELECT id FROM users WHERE id=ANY($1::bigint[]) ORDER BY id FOR UPDATE",
+          [orders.map((o) => o.user_id)],
+        );
+        const round = await stored(client, roundId);
+        if (round.state === "void") return { created: false };
+        if (round.state !== "open")
+          fail("settled obligations cannot be voided");
+        const snapshots = [],
+          buckets = [];
+        for (const order of orders) {
+          snapshots.push(await lockSandboxBook(client, order.user_id));
+          buckets.push(await ensureSandboxBuckets(client, order.user_id));
+        }
+        await lockLedger(client, buckets);
+        for (let index = 0; index < orders.length; index++) {
+          const order = orders[index]!,
+            before = snapshots[index]!,
+            bucket = buckets[index]!,
+            totals = fundingTotals(order.funding);
+          const cash: CoinPosting[] = [],
+            promo: CoinPosting[] = [];
+          transfer(
+            cash,
+            bucket.cashReserved,
+            bucket.cashAvailable,
+            totals.cash,
+          );
+          transfer(
+            cash,
+            bucket.system.center_reserved,
+            bucket.system.center_available,
+            BigInt(order.center_reservation),
+          );
+          transfer(
+            cash,
+            bucket.system.promotional_reserved,
+            bucket.system.promotional_available,
+            BigInt(order.promotional_reservation),
+          );
+          transfer(
+            promo,
+            bucket.promoReserved,
+            bucket.promoAvailable,
+            totals.promo,
+          );
+          const cashJournalId = await post(
+            client,
+            order.user_id,
+            "payout",
+            `void:${order.request_id}`,
+            "USDC",
+            cash,
+          );
+          const promoJournalId = await post(
+            client,
+            order.user_id,
+            "payout",
+            `void:${order.request_id}`,
+            "YC_PROMO",
+            promo,
+          );
+          await appendSandboxBookEvent(client, {
+            userId: order.user_id,
+            snapshot: before,
+            book: refundStake(before.book, order.funding),
+            kind: "debate.voided",
+            reference: reference(
+              order.user_id,
+              "debate.void",
+              order.request_id,
+            ),
+            termsDigest: digest([roundId, reason, order.funding]),
+            requestId: order.request_id,
+            cashJournalId,
+            promoJournalId,
+            metadata: {
+              roundId,
+              reason,
+              funding: order.funding,
+              rail,
+              actorRole: "yaparena_owner",
+            },
+          });
+          await client.query(
+            "UPDATE coin_sandbox_requests SET status='void' WHERE id=$1",
+            [order.request_id],
+          );
+        }
+        await client.query(
+          "UPDATE coin_debate_rounds SET state='void',result=$2::jsonb,revealed_at=clock_timestamp() WHERE id=$1",
+          [
+            roundId,
+            JSON.stringify({
+              voidReason: reason,
+              snapshot: [],
+              snapshotHash: digest([roundId, reason]),
+              pricing: priceRound([], round.terms, 0n, 0n),
+              outcomes: [],
+            }),
+          ],
+        );
+        return { created: true };
+      });
+    },
+  });
+}

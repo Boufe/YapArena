@@ -15,8 +15,11 @@ import type { loadConfig } from "./config.ts";
 export function createRuntime({
   app,
   a4,
+  coinDebates,
   database,
   sessions,
+  accountSecurityCleanup,
+  mediaAccountRevocation,
   identity,
   matching,
   community,
@@ -36,8 +39,11 @@ export function createRuntime({
 }: {
   app?: Express;
   a4?: { tick(): Promise<void> };
+  coinDebates?: { advance(): Promise<unknown> };
   database: Pick<Pool, "end">;
   sessions: Pick<ReturnType<typeof createSessionRepository>, "deleteExpired">;
+  accountSecurityCleanup?: () => Promise<void>;
+  mediaAccountRevocation?: { flush(): Promise<unknown> };
   identity?: Pick<
     ReturnType<typeof createIdentityRepository>,
     "deleteExpiredAudit"
@@ -80,6 +86,9 @@ export function createRuntime({
   let a4Timer: NodeJS.Timeout | undefined;
   let a4Task: Promise<void> | undefined;
   let a4Ticking = false;
+  let speakerTimer: NodeJS.Timeout | undefined;
+  let speakerTask: Promise<void> | undefined;
+  let speakerWorking = false;
   let cleanupTimer: NodeJS.Timeout | undefined;
   let mediaTimer: NodeJS.Timeout | undefined;
   let mediaTicking = false;
@@ -131,6 +140,13 @@ export function createRuntime({
       if (deleted > 0) logger.info({ deleted }, "expired sessions deleted");
     } catch (error) {
       logger.error({ error }, "expired session cleanup failed");
+    }
+    if (accountSecurityCleanup) {
+      try {
+        await accountSecurityCleanup();
+      } catch (error) {
+        logger.error({ error }, "expired account authorization cleanup failed");
+      }
     }
     if (wallets) {
       try {
@@ -184,15 +200,36 @@ export function createRuntime({
       }
 
       if (backgroundJobs) {
-        if (a4) {
+        if (mediaAccountRevocation) {
+          speakerTimer = setIntervalFn(() => {
+            if (speakerWorking || stopping) return speakerTask;
+            speakerWorking = true;
+            speakerTask = mediaAccountRevocation
+              .flush()
+              .then(() => {})
+              .catch((error) =>
+                logger.error({ error }, "speaker access revocation failed"),
+              )
+              .finally(() => {
+                speakerWorking = false;
+              });
+            return speakerTask;
+          }, 1000);
+          if (app) speakerTimer.unref();
+        }
+        if (a4 || coinDebates) {
           a4Timer = setIntervalFn(() => {
             if (a4Ticking || stopping) return a4Task;
             a4Ticking = true;
-            a4Task = a4
-              .tick()
-              .catch((error) =>
-                logger.error({ error }, "A4 recovery tick failed"),
-              )
+            a4Task = Promise.allSettled([a4?.tick(), coinDebates?.advance()])
+              .then((results) => {
+                for (const result of results)
+                  if (result.status === "rejected")
+                    logger.error(
+                      { error: result.reason },
+                      "A4 recovery tick failed",
+                    );
+              })
               .finally(() => {
                 a4Ticking = false;
               });
@@ -216,6 +253,8 @@ export function createRuntime({
     async stop() {
       stopping = true;
       if (a4Timer) clearIntervalFn(a4Timer);
+      if (speakerTimer) clearIntervalFn(speakerTimer);
+      await speakerTask;
       await a4Task;
       if (cleanupTimer) clearIntervalFn(cleanupTimer);
       if (mediaTimer) clearIntervalFn(mediaTimer);

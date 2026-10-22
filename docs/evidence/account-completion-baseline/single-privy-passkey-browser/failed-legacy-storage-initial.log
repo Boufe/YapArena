@@ -1,0 +1,18 @@
+desktop: checking account accessibility and controls
+desktop: account accessibility passed
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('#site-auth-dialog').getByText('Browser storage is required to safely recover sign-in. Allow storage, then try again. No account was changed.', { exact: true }) to be visible[22m
+
+    at /Users/felixboucher/Documents/Codex/YapArena/scripts/verify-email-auth-browser.ts:4165:12 {
+  log: [
+    "  - waiting for locator('#site-auth-dialog').getByText('Browser storage is required to safely recover sign-in. Allow storage, then try again. No account was changed.', { exact: true }) to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.19.0

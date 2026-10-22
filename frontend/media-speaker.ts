@@ -16,6 +16,7 @@ export async function joinSpeaker({
   devices = {},
   microphoneWanted = true,
   rememberDevices = () => {},
+  replaceExisting = false,
 }: {
   button: HTMLButtonElement;
   mediaDevices: MediaDevices;
@@ -30,6 +31,7 @@ export async function joinSpeaker({
   devices?: DeviceChoices;
   microphoneWanted?: boolean;
   rememberDevices?: (devices: DeviceChoices) => void;
+  replaceExisting?: boolean;
 }) {
   const assertCurrent = () => {
     if (!isCurrent())
@@ -73,7 +75,10 @@ export async function joinSpeaker({
       .forEach((track) => track.stop());
     preview = undefined;
 
-    const grant = await request("/speaker-token", { method: "POST" });
+    const grant = await request("/speaker-token", {
+      method: "POST",
+      body: JSON.stringify({ replaceExisting }),
+    });
     assertCurrent();
     const connectedRoom = await connect(grant.token, grant.url);
     assertCurrent();

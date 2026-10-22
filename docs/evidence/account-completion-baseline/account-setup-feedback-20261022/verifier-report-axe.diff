@@ -1,0 +1,100 @@
+--- full-sdk-b2/scripts/verify-email-auth-browser.ts
++++ maintained-aa8/scripts/verify-email-auth-browser.ts
+@@ -2379,6 +2379,32 @@
+     assert.equal(providerLinkCalls, 1);
+     assert.equal(await page.locator("#signed-in").isVisible(), false);
+     const setupCard = page.locator("#passkey-setup-resume");
++    async function checkSetupAccessibility(
++      state: "checking" | "waiting" | "ready",
++    ) {
++      const previousStage = stage;
++      stage = `automated ${state} passkey confirmation accessibility`;
++      await page.waitForFunction(() => Boolean(window.axe));
++      const violations = await page.evaluate(async () =>
++        (
++          await window.axe.run("#passkey-setup-resume", {
++            runOnly: {
++              type: "tag",
++              values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"],
++            },
++          })
++        ).violations.map((entry) => ({ id: entry.id, impact: entry.impact })),
++      );
++      await writeFile(
++        resolve(directory, `passkey-accessibility-${state}-${name}.json`),
++        JSON.stringify({ state, violations }) + "\n",
++      );
++      assert.deepEqual(violations, []);
++      checks.push(
++        `${name}: ${state} passkey confirmation passes automated WCAG 2.2-tagged checks; screen-reader and physical-device testing remain separate`,
++      );
++      stage = previousStage;
++    }
+     const setupVisible = await setupCard.isVisible();
+     await writeFile(
+       resolve(directory, `passkey-confirmation-held-${name}.json`),
+@@ -2424,6 +2450,7 @@
+         headingBox.y >= 0 &&
+         headingBox.y + headingBox.height <= viewport.height,
+     );
++    await checkSetupAccessibility("checking");
+     holdSetupRefresh = false;
+     setupRefreshGate.release();
+     const profileHandle = page.locator('#profile-form input[name="handle"]');
+@@ -2461,6 +2488,7 @@
+     );
+     assert.equal(providerInitCalls, 1);
+     assert.equal(providerLinkCalls, 1);
++    await checkSetupAccessibility("waiting");
+     const profileDraft = "passkey_profile_draft";
+     if (!initialReadUnavailable) {
+       await page.waitForFunction(() =>
+@@ -2578,6 +2606,7 @@
+         confirmedBox.y >= 0 &&
+         confirmedBox.y + confirmedBox.height <= viewport.height,
+     );
++    await checkSetupAccessibility("ready");
+     await capture(page, `passkey-confirmation-complete-${name}.png`, true);
+     if (name === "desktop") {
+       await page.setViewportSize({ width: 1280, height: 900 });
+@@ -2646,9 +2675,9 @@
+           requestAnimationFrame(() => requestAnimationFrame(() => done())),
+         ),
+     );
+-    const profileDraftPreserved =
+-      initialReadUnavailable ||
+-      (await profileHandle.inputValue()) === profileDraft;
++    const profileDraftPreserved = initialReadUnavailable
++      ? null
++      : (await profileHandle.inputValue()) === profileDraft;
+     stage =
+       "passkey confirmation Done restores focus without resetting a profile draft";
+     await setupCard.getByRole("button", { name: "Done", exact: true }).click();
+@@ -2675,18 +2704,21 @@
+       }) + "\n",
+     );
+     await capture(page, `passkey-done-${name}.png`, true);
+-    assert.equal(
+-      profileDraftPreserved,
+-      true,
+-      "successful setup must preserve an already-loaded profile draft",
+-    );
++    if (!initialReadUnavailable)
++      assert.equal(
++        profileDraftPreserved,
++        true,
++        "successful setup must preserve an already-loaded profile draft",
++      );
+     assert.equal(
+       doneFocusRestored,
+       true,
+       "Done returns keyboard focus to the visible Security heading",
+     );
+     checks.push(
+-      `${name}: dismissing confirmed setup restores Security focus and preserves an existing unsaved profile draft without another account reload`,
++      initialReadUnavailable
++        ? `${name}: dismissing confirmed setup restores Security focus after protected initial-account recovery; no prior profile draft exists in this case`
++        : `${name}: dismissing confirmed setup restores Security focus and preserves an existing unsaved profile draft without another account reload`,
+     );
+     if (initialReadUnavailable)
+       checks.push(

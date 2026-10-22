@@ -1,0 +1,52 @@
+{
+  "format": 1,
+  "applicationSourceCommit": "3096ca776a04f3cf38ad835d7348329791c0385b",
+  "scope": "Archive file hashes, separate from exact source/served-asset hashes inside reports. JSON formatting may change bytes; raw and archive provenance are distinct. No new test execution inferred.",
+  "files": {
+    "README.md": "688fbb8b6239d3745b68482cae3b80dd601d7a621a83212756c0229840f07380",
+    "ci/checkout-and-policy.log": "87f4dbae8eb39ed6903b1e0fc54482c7972f42bf35254d103ced31554b10e0bd",
+    "ci/core-artifact-summary.json": "a55961b3e9e1607543c3e25d60b34c728b72df1d833673fd7bff46d3128a8cf5",
+    "ci/integration.log": "f7678cb7af51f23fd92cce747bdd13da82ce38fea08c0f429ddd5f6f41825f77",
+    "ci/quality.log": "563289e8051f58f41f5ff29e203627b6dabaf0ed5a536a3a3b89f8823b523fd8",
+    "ci/result.json": "4d441d4967dd9a8a8b02221cd605c31f222d15f42ba0781b9e63d6a5dad0a747",
+    "ci-review.md": "3fdc887a013fd13bc0c562458a2d09ad9fadf3f1fb6d991d7609d219355ed06f",
+    "integrated/a4.json": "1f050d080c559e60da8fdaa03c17ba08b6f397d54d0d12d2210b8ec0aed40855",
+    "integrated/arena.json": "a88850850e74acbf8eee9df1903adad1d04b3e78c38dc88fee52ce8c5004e60c",
+    "integrated/database/fresh-account-security.log": "98ef2a9d64de4cd09fe70e82f2f61844f6369719ef218748fcea6da1d7d90791",
+    "integrated/database/fresh-inventory.json": "fe53086cd1fe12ac95f32857a361af62e97d4f0832901fd70c4f5e4dd8b51636",
+    "integrated/database/quality.log": "2d428a6ec1779cdf8eddc0f99f8237a6b6947b8de409ebff36211f55a9be513d",
+    "integrated/database/treasury-fresh.log": "935394951053b6cb45399aaf1d11113da4c5b90b1bb3b4a38ed70122380535c2",
+    "integrated/database/treasury-upgrade.log": "d6b49bb571967133040fca418e7963aca8b463e2340053f94d720077f8700a16",
+    "integrated/database/upgrade-account-security.log": "cd6e47f751da5ae3ed1492fc3d40abde4f92ea3b58142815ccd06e86cc865eae",
+    "integrated/database/upgrade-inventory.json": "46e7559898ee20bd3f5a4eac0fdf23e4989c5e934ba048f97e29a1a22f7cfefe",
+    "integrated/homepage.json": "763363865dea851fb4a524779dd1eb13b420bcfde361a0e73be39990f5679b3d",
+    "integrated/live.json": "3f9efe5cb49cdea40d79d60f8eaa4e04f7b98f3fd16f26b24cd940c3c9131d5d",
+    "integrated/result.json": "2cbddf007bcfa56fffd10ffd423378ebc1949d4c40d4941dbc228b47df3ab908",
+    "integrated/retained-wallet.json": "e3918dc1c13f5a5e1c0d53ddf40975cdcb46f1a69ff34653508b5d9da2113971",
+    "integrated/run.log": "2a68e7ca5b4a3e2b3352caaae74fc445f4c722c8e6dfeaaf0c3b63d56bea1263",
+    "integrated/shared-bots.json": "49838fdce2b6c7e36a82df38f8af354e06262e6bd13d5cada9553c012495a2ef",
+    "release/guest/acceptance.json": "9be550b4b73a0df18cb814596a9e5f6506d289c867a54a95813c1e2b47a51ed1",
+    "release/guest/account-desktop.png": "a86cae41fb1080a4cc91f4ddb48a12aa29b3b216a11899826a41a4cf210552bd",
+    "release/guest/account-mobile.png": "90a507465dcaab588f7730285bff855eeb521ac572306304645c49ed3a461623",
+    "release/guest/home-desktop.png": "427ba7c84eeac7fc07040f58528ed937ca569ee5d7310f5190a97a6ca5273b05",
+    "release/guest/home-mobile.png": "63a249d42d5dfe0e2502a3e54c37dccc9ee20f432e8c528727f9d7c5d1e91fce",
+    "release/guest/login-desktop.png": "13b3045214d68976e4d822a6e8571c3f64c93840744cd73d5eb4dfb5e59599bc",
+    "release/guest/login-mobile.png": "c4babf70e7bdbf0d23af2312af894d9c9df0b62f99710e57db475e8cb7a5ae01",
+    "release/render-deploy-accepted.json": "ba0a92b821c2cb8a0379f86a549956cbb4ef773c688173e48a7bf8c2837ddec0",
+    "release/render-live.json": "193358b8a5833a371e8946fa7d72bcd7db05a60135ab2676b662f9c4bcabede1",
+    "release/render-preflight.json": "29daabfbed14ad39c93cc4c62745ce10be4239bbc7fb73873171484523c516ac",
+    "sdk/after-provider-denied-desktop.png": "833a7f0b70d79ee20812de1d80a0e5239b272ae50ff1d3e0fae037412cd39690",
+    "sdk/after-provider-denied-mobile.png": "6ba6925c42f993e79e5c416f3171c523322ebc1642e34fcbf4936bf4f4e6be86",
+    "sdk/before-provider-denied-desktop.json": "b1ec06fcaf992c2d8c655ec7540b3ff992215f7e0c879d98eb8845154a01124a",
+    "sdk/before-provider-denied-desktop.png": "26bbc7049de42b1cf0f967b68647a693ffb6c43d68e4cfd2d26caafc6772dd1d",
+    "sdk/browser-results.json": "3c69be8d3c4e99dd4916d51a6eddc538fe079b1567c83a63f71c4fb4bd79cf7e"
+  },
+  "rawOutputProvenance": {
+    "sdk/browser-results.json": {
+      "rawOutputSha256": "3c69be8d3c4e99dd4916d51a6eddc538fe079b1567c83a63f71c4fb4bd79cf7e",
+      "archiveSha256": "3c69be8d3c4e99dd4916d51a6eddc538fe079b1567c83a63f71c4fb4bd79cf7e",
+      "parsedValuesEqual": true,
+      "formattingOnlyDifference": false
+    }
+  }
+}

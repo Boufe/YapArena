@@ -1,0 +1,17 @@
+# Genuine read-only provider-wallet acceptance
+
+**Status: PENDING; wallet creation and ownership acceptance have not passed.** The maintained verifier ran against exact staging web revision `eba1dc5cfe6680a9a41e98482b64d3c725163a1b` after the lead confirmed its terminal LIVE deployment. The [actual result](acceptance-pending.json), observed **2026-10-21 at 22:09:31 UTC**, returned exit 2 with `credential_verification_required` and job state `retry_wait`.
+
+The actual deployment, fixed service/app/project targets, owner role, verified TLS, and database read-only boundary passed. Exactly one active mapped account and its durable wallet job were present. Local/provider generations matched and the stored accepted credential snapshot was valid, but the current provider credentials differed from that accepted snapshot. Two actual provider reads and two read-only database snapshots agreed. The verifier therefore preserved the credential-acceptance boundary and did not report user-only wallet ownership or provisioning success.
+
+The run made six provider GETs, four Render GETs, two read-only database snapshots, and zero mutations. Database connections closed before provider inspection. It did not create, retry, adopt, sign with, fund, freeze, unfreeze, or delete a wallet/account, accept a passkey, or change a security fence. A genuine user-completed passkey assertion remains separate from the provider's saved public-key parse and from virtual-authenticator testing. Do not retry this inspection indefinitely: repeat it only after a confirmed relevant account-state change.
+
+The first sandboxed attempt ended with exit 1 at **22:09:12 UTC**, before any database snapshot or provider request; it reached only the first Render request. Its separately preserved [initial failure](initial-network-failure.json) records that limitation. The reviewed command then completed using the authorized network-capable execution path. `absent` in the initial attempt is an unqueried default, not evidence that a wallet job was missing.
+
+The exact command used the maintained `scripts/verify-embedded-wallet-staging.ts inspect`, Node 24's `--experimental-transform-types` flag, `ACCOUNT_EMBEDDED_WALLET_EXPECTED_REVISION`, and the reviewed public CA path through `ACCOUNT_STAGING_CA_PATH`. Credentials were read only within the guarded operator process and are absent from commands, output, and this archive.
+
+Verifier SHA256: `5000fcc118e5be8be9d1c62a8c0263c9eb13f8020e09a79e71d9bc9cf92e90ff`. The verifier checked its own file, package manifests, and imported wallet source against the expected committed bytes. Those source hashes are included in each sanitized result; no stale compiled adapter was used.
+
+The [separate offline self-test output](offline-self-test.json) was captured at the same unchanged HEAD on **2026-10-21 at 22:10:45 UTC**, exit 0: 20 checks, zero network calls, database connections, or provider mutations. Its exact output SHA256 is `88b49c4c6facf87436b5e3e2abcc9e95ab223977cc515be300287f5bd05b4a9e`. This establishes guarded synthetic transport behavior, not provider-wallet acceptance.
+
+All archived JSON uses the verifier's explicit allowlist: state, counts, booleans, time, revision, and source hashes. No account ID, email, DID, address, credential, provider response, or private financial data is exported. Signing, funding, withdrawals, default recovery on a physical device, accessibility, and live financial eligibility are outside this read-only result.

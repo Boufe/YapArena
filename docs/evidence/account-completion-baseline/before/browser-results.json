@@ -1,0 +1,50 @@
+{
+  "at": "2026-10-20T04:27:54.273Z",
+  "revision": "c40e0b1ca95a5da58a057d2283bbf064ff954b8d",
+  "phase": "before",
+  "assetHashes": {
+    "account-auth.bundle.js": "f9516960535fc257ddefdab70f0235459265338ace4bb4d32c0034c36abb5199",
+    "account.js": "33677e3d381ff84dfed3e1a4ea0894a815a533a35e4960dc9519a151f2aaf913",
+    "site-header.js": "0b2f9975174637cfdffe2575eaa824baa4ccf19ee548ad1118f282cc8f3065b3",
+    "site.js": "f22481f73bf1a820c95ac47e64e36bdda0f73a483f273cd879a1398a46e99663",
+    "account-auth.css": "f5102eb562b9b892442e0e3fcb779542e7f7723ac4118f12f40f5e91e7b0c61e",
+    "site-header.css": "512f5ca5985b881f9f7c20fa15a5168c30a06734ec1eb0b6ed85f7fbc069751d",
+    "site.css": "c2481b6017fb564fdaff0bf437a18f64f56e6dbb2492f2047199a93f06514bd7",
+    "arena.css": "087928e12c8be4a87d006b22b91f1534a647b44425d1129b1d54c2d3d4dc3cb1"
+  },
+  "checks": [
+    "desktop: account-email reflows with reachable controls at 200% CSS zoom",
+    "desktop: code-error reflows with reachable controls at 200% CSS zoom",
+    "desktop: synthetic withdrawal balance, independent grant bars, sticky qualification, Escape/focus restoration",
+    "desktop: SDK initialization with synthetic CAPTCHA-disabled metadata, email/code form, keyboard submit, focus, resend wait, wrong-code error, change email, refresh, no overflow, automated WCAG tags",
+    "desktop: delayed provider readiness disables submit, delayed send/verification retain busy states and reject repeated native form submissions, paste-style whole-code text insertion",
+    "desktop: invalid-code status has polite/atomic announcements and automated WCAG checks; virtual-clock cooldown permits a single resend, clears old code and restarts the wait",
+    "desktop: balance dialog, Escape/focus, exact debate query/fragment preserved through sign-in link",
+    "desktop: account-settings reflows with reachable controls at 200% CSS zoom",
+    "desktop: server-owned authentication methods, profile create/publish with permanent handle, other/all-session sign-out controls, account/dialog automated WCAG tags, no account overflow and unused wallet directory disabled",
+    "desktop: identical header geometry, typography and colors with and without debate styles",
+    "desktop: guest header reflows at 200% CSS zoom",
+    "desktop: delayed code-send response after dismissal cannot restore credentials or advance a reopened popup",
+    "desktop: member header reflows at 200% CSS zoom",
+    "desktop: anonymous controls only, lazy SDK, unified login/signup/protected-action popup, exact return path, cancellation clears credentials, Back/Escape/focus restoration, server-session-only member balance/deposit/user menu, honest funding gate, cross-tab logout, outage recovery, stale balance rejection and modal WCAG tags",
+    "desktop: initial and refreshed application-session requests retain a checking state without showing guest controls before the server responds",
+    "desktop: interrupted provider-bundle download is announced and close/reopen retries the real installed SDK successfully",
+    "mobile: synthetic withdrawal balance, independent grant bars, sticky qualification, Escape/focus restoration",
+    "mobile: SDK initialization with synthetic CAPTCHA-disabled metadata, email/code form, keyboard submit, focus, resend wait, wrong-code error, change email, refresh, no overflow, automated WCAG tags",
+    "mobile: delayed provider readiness disables submit, delayed send/verification retain busy states and reject repeated native form submissions, paste-style whole-code text insertion",
+    "mobile: invalid-code status has polite/atomic announcements and automated WCAG checks; virtual-clock cooldown permits a single resend, clears old code and restarts the wait",
+    "mobile: balance dialog, Escape/focus, exact debate query/fragment preserved through sign-in link",
+    "mobile: server-owned authentication methods, profile create/publish with permanent handle, other/all-session sign-out controls, account/dialog automated WCAG tags, no account overflow and unused wallet directory disabled",
+    "mobile: identical header geometry, typography and colors with and without debate styles",
+    "mobile: delayed code-send response after dismissal cannot restore credentials or advance a reopened popup",
+    "mobile: anonymous controls only, lazy SDK, unified login/signup/protected-action popup, exact return path, cancellation clears credentials, Back/Escape/focus restoration, server-session-only member balance/deposit/user menu, honest funding gate, cross-tab logout, outage recovery, stale balance rejection and modal WCAG tags",
+    "mobile: initial and refreshed application-session requests retain a checking state without showing guest controls before the server responds",
+    "mobile: interrupted provider-bundle download is announced and close/reopen retries the real installed SDK successfully"
+  ],
+  "errors": [],
+  "requirementFailures": [
+    "desktop: Back dismisses a reopened popup after refresh\n\ntrue !== false\n",
+    "mobile: Back dismisses a reopened popup after refresh\n\ntrue !== false\n"
+  ],
+  "scope": "Local SSR fixture and installed Privy SDK; public provider metadata fetched live with CAPTCHA explicitly disabled in the fixture response only; OTP endpoints intercepted. No real CAPTCHA validation, email delivery, successful provider login, hosted session, physical device or complete WCAG conformance evidence."
+}

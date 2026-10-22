@@ -99,6 +99,17 @@ four-account staging reset was executed after backup and rehearsal; retained
 accounts and the later manual signup must remain. The guarded reset command must
 never run at startup or from a migration. Do not repeat the reset for acceptance.
 
+Current state (2026-10-22): the founder decided on 2026-10-22 to reset, not repair,
+the frozen staging accounts. This supersedes the retention rule above. The guarded
+command ran on 2026-10-22 at 04:54:25 UTC with `--user-ids=72,73,134,135,136`
+(every account; `--all-users` fails its own post-delete check while an unowned
+wallet challenge exists). It removed five users, one session and one linked
+wallet after an encrypted backup and a passing local restore rehearsal, with both
+Render services suspended. Play runs, journals, media and subject IDs remain. The
+two linked Privy users were deleted in the Privy dashboard. Staging then had no accounts.
+Readiness returned 200 after resume and a fresh email signup succeeded; passkey,
+wallet and other journeys were not retested after this reset.
+
 Use Node.js 24 and locked dependencies. The complete source quality gate needs explicit
 disposable A4, wallet and revocation PostgreSQL identities; without them those suites skip
 and the unchanged 90% coverage thresholds can fail. The supported isolation harness creates

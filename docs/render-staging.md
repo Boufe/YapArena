@@ -83,7 +83,9 @@ credentials or API settings. Verify those in the provider dashboards and keep th
 3. In Render, set the web service's image URL to that web digest, or create/update the Free web
    Blueprint for that reviewed commit if the service still builds from source. Confirm automatic
    deployments are off in the **actual service**, including existing services whose settings may
-   differ from the file. Set `DATABASE_URL` to the **runtime** Session pooler URL. Remove all
+   differ from the file. Set `DATABASE_URL` to the **runtime** Session pooler URL. The Blueprint
+   generates `METRICS_TOKEN`; metrics collectors and hosted verifiers send it as a bearer token,
+   and `/metrics` returns 404 without it. Remove all
    migration/admin secrets and combined operator files from web/worker environments. Replacing the
    URL does not rotate the old shared owner password; handle old credentials/deployment copies under
    separately authorized credential rotation.

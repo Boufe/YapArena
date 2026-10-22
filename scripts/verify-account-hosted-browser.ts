@@ -20,6 +20,9 @@ assert.equal(
   "run from the exact revision selected for staging acceptance",
 );
 const probeRedis = process.env.ACCOUNT_HOSTED_REDIS_PROBE === "approved";
+const metricsHeaders: Record<string, string> = process.env.METRICS_TOKEN
+  ? { Authorization: `Bearer ${process.env.METRICS_TOKEN}` }
+  : {};
 assert.ok(
   process.env.ACCOUNT_HOSTED_REDIS_PROBE === undefined || probeRedis,
   "Redis probe accepts only the explicit approved value",
@@ -443,7 +446,9 @@ try {
     const limiter = await readFile("src/platform/shared-abuse.ts", "utf8");
     assert.match(limiter, /client\.info\("memory"\)/);
     assert.match(limiter, /maxmemory_policy:noeviction/);
-    const beforeResponse = await request("/metrics");
+    const beforeResponse = await request("/metrics", {
+      headers: metricsHeaders,
+    });
     assert.equal(beforeResponse.status, 200);
     const before = redisMetrics(await beforeResponse.text());
     const response = await request("/api/auth/register", {
@@ -458,7 +463,9 @@ try {
       "use verified email signup",
     );
     noStore(response);
-    const afterResponse = await request("/metrics");
+    const afterResponse = await request("/metrics", {
+      headers: metricsHeaders,
+    });
     assert.equal(afterResponse.status, 200);
     const after = redisMetrics(await afterResponse.text());
     assert.ok(after.ok >= before.ok + 1);

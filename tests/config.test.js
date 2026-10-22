@@ -59,6 +59,7 @@ describe("configuration", () => {
       logLevel: "info",
       applicationOrigin: undefined,
       trustProxy: false,
+      metricsToken: undefined,
       requestBodyLimit: "10kb",
       apiRateLimit: 300,
       authRateLimit: 10,
@@ -89,6 +90,7 @@ describe("configuration", () => {
         AUTH_RATE_LIMIT: "20",
         RATE_LIMIT_WINDOW_MS: "60000",
         SESSION_DURATION_MS: "3600000",
+        METRICS_TOKEN: "scraper-token-0123456789abcdefghijkl",
       }),
       {
         environment: "production",
@@ -101,6 +103,7 @@ describe("configuration", () => {
         logLevel: "warn",
         applicationOrigin: "https://service.example.com",
         trustProxy: 1,
+        metricsToken: "scraper-token-0123456789abcdefghijkl",
         requestBodyLimit: "20kb",
         apiRateLimit: 500,
         authRateLimit: 20,
@@ -115,6 +118,18 @@ describe("configuration", () => {
         a4Funding: { starterCoins: 1000, refillCoins: 1000, botCoins: 1000 },
       },
     );
+  });
+
+  it("accepts only a long metrics token without whitespace", () => {
+    assert.equal(
+      loadConfig({ DATABASE_URL: databaseUrl, METRICS_TOKEN: "" }).metricsToken,
+      undefined,
+    );
+    for (const value of ["short-token", `${"a".repeat(31)} `, "a".repeat(513)])
+      assert.throws(
+        () => loadConfig({ DATABASE_URL: databaseUrl, METRICS_TOKEN: value }),
+        /METRICS_TOKEN/,
+      );
   });
 
   it("enables only an explicit isolated coin sandbox and requires a strong enabled webhook secret", () => {

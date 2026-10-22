@@ -4,6 +4,7 @@ import request from "../scripts/test-http-request.ts";
 
 import { createApp, handleError } from "../dist/app.js";
 import { createLogger } from "../dist/platform/logger.js";
+import { pingDatabase } from "../dist/platform/database.js";
 
 describe("yaparena API", () => {
   const logger = createLogger({ enabled: false });
@@ -34,7 +35,8 @@ describe("yaparena API", () => {
     findUserByTokenHash: async () => ({ id: "7" }),
     deleteByTokenHash: async () => false,
   };
-  const app = createApp({ messages, users, sessions, logger });
+  const database = { query: mock.fn(async () => ({ rows: [] })) };
+  const app = createApp({ messages, database, users, sessions, logger });
 
   function authenticated(method, path) {
     return request(app)[method](path).set("Cookie", "session=test-token");
@@ -94,10 +96,75 @@ describe("yaparena API", () => {
   });
 
   it("reports that it is ready for traffic", async () => {
+    database.query.mock.resetCalls();
+    messages.isReady.mock.resetCalls();
     const response = await request(app).get("/ready");
 
     assert.equal(response.status, 200);
     assert.deepEqual(response.body, { status: "ready" });
+    assert.deepEqual(database.query.mock.calls[0].arguments, ["SELECT 1"]);
+    assert.equal(messages.isReady.mock.callCount(), 0);
+  });
+
+  it("bounds the readiness database ping with a short deadline", async () => {
+    const started = performance.now();
+    await assert.rejects(
+      pingDatabase({ query: () => new Promise(() => {}) }, 20),
+      /database readiness timed out/,
+    );
+    assert.ok(performance.now() - started < 1_000);
+    await pingDatabase({ query: async () => ({ rows: [] }) });
+  });
+
+  it("requires the configured bearer token for metrics", async () => {
+    const token = "scraper-token-0123456789abcdefghijkl";
+    for (const environment of ["development", "production"]) {
+      const protectedApp = createApp({
+        messages,
+        users,
+        sessions,
+        logger,
+        environment,
+        applicationOrigin: "https://arena.example",
+        metricsToken: token,
+      });
+      for (const authorization of [
+        undefined,
+        `Bearer ${token}x`,
+        `Bearer ${token.slice(1)}`,
+        token,
+        `Basic ${token}`,
+      ]) {
+        const denied = request(protectedApp).get("/metrics");
+        if (authorization) denied.set("Authorization", authorization);
+        const response = await denied;
+        assert.equal(response.status, 401);
+        assert.equal(
+          response.headers["www-authenticate"],
+          'Bearer realm="metrics"',
+        );
+        assert.doesNotMatch(response.text, /yaparena_/);
+      }
+      const response = await request(protectedApp)
+        .get("/metrics")
+        .set("Authorization", `Bearer ${token}`);
+      assert.equal(response.status, 200);
+      assert.match(response.text, /yaparena_process_cpu_user_seconds_total/);
+    }
+  });
+
+  it("hides metrics in production until a token is configured", async () => {
+    const productionApp = createApp({
+      messages,
+      users,
+      sessions,
+      logger,
+      environment: "production",
+      applicationOrigin: "https://arena.example",
+    });
+    const response = await request(productionApp).get("/metrics");
+    assert.equal(response.status, 404);
+    assert.deepEqual(response.body, { error: "resource not found" });
   });
 
   it("exposes bounded Prometheus HTTP and process metrics", async () => {
@@ -120,13 +187,13 @@ describe("yaparena API", () => {
   });
 
   it("reports when it is not ready for traffic", async () => {
-    const unavailableMessages = {
-      isReady: async () => {
-        throw new Error("database unavailable");
-      },
-    };
     const unavailableApp = createApp({
-      messages: unavailableMessages,
+      messages,
+      database: {
+        query: async () => {
+          throw new Error("database unavailable");
+        },
+      },
       users,
       sessions,
       logger,
@@ -135,6 +202,10 @@ describe("yaparena API", () => {
 
     assert.equal(response.status, 503);
     assert.deepEqual(response.body, { status: "not ready" });
+    const unconfigured = await request(
+      createApp({ messages, users, sessions, logger }),
+    ).get("/ready");
+    assert.equal(unconfigured.status, 503);
   });
 
   it("preserves an incoming request ID", async () => {

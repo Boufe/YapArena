@@ -43,6 +43,7 @@ import {
   createRedisAbuseStore,
   createSharedAbuseLimiter,
   createSharedAccountAttemptLimiter,
+  createSharedRateLimits,
 } from "./platform/shared-abuse.ts";
 import { loadConfig } from "./platform/config.ts";
 import { createDatabase } from "./platform/database.ts";
@@ -251,6 +252,7 @@ const app = createApp({
       }
     : undefined,
   messages,
+  database,
   a4,
   publicBots: createPublicBotRepository(database),
   discovery,
@@ -263,6 +265,7 @@ const app = createApp({
   community,
   communityStreams,
   metrics,
+  metricsToken: config.metricsToken,
   measurement,
   users,
   sessions,
@@ -294,6 +297,16 @@ const app = createApp({
           account: true,
           limit: 30,
           windowMs: 15 * 60 * 1000,
+          observe: (outcome) => metrics.redisOutcome.inc({ outcome }),
+        })
+      : undefined,
+  sharedRateLimits:
+    providerConfig && abuseStore
+      ? createSharedRateLimits({
+          store: abuseStore,
+          namespace: providerConfig.namespace,
+          secret: providerConfig.keySecret,
+          logger,
           observe: (outcome) => metrics.redisOutcome.inc({ outcome }),
         })
       : undefined,

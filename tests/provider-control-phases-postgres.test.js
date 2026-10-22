@@ -103,6 +103,701 @@ describe(
         },
       };
     }
+    async function brokenAcceptedKeyLogout() {
+      const origin = "http://localhost:53024";
+      const initialHash = hashSessionToken(randomUUID());
+      const credentials = [
+        { type: "email", id: `${randomUUID()}@example.invalid` },
+      ];
+      let identity = {
+        subject: `did:privy:${randomUUID()}`,
+        sessionId: randomUUID(),
+        email: credentials[0].id,
+        methods: ["email"],
+        credentials,
+        credentialsDigest: providerCredentialsDigest(credentials),
+        issuedAt: Math.floor(Date.now() / 1000),
+      };
+      const { user } = await createProviderAccounts(a).exchange(
+        identity,
+        initialHash,
+        new Date(Date.now() + 600000),
+      );
+      const verifier = {
+        verify: async () => structuredClone(identity),
+        inspect: async () => structuredClone(identity),
+      };
+      const passkeys = createProviderPasskeys(a, verifier),
+        key = providerPasskeyFixture(origin);
+      const input = { userId: user.id, sessionTokenHash: initialHash, origin };
+      const intent = await passkeys.begin(input);
+      identity = {
+        ...identity,
+        methods: ["email", "passkey"],
+        credentials: [
+          ...credentials,
+          { type: "passkey", id: key.credentialId },
+        ],
+        passkeys: [key.evidence],
+      };
+      identity.credentialsDigest = providerCredentialsDigest(
+        identity.credentials,
+      );
+      const options = await passkeys.activationOptions({
+        ...input,
+        id: intent.id,
+        token: "synthetic-provider-token",
+      });
+      const activated = await passkeys.complete({
+        ...input,
+        id: intent.id,
+        token: "synthetic-provider-token",
+        sessionDurationMs: 600000,
+        authentication: key.authentication(options.authenticationOptions),
+      });
+      const f = {
+        userId: user.id,
+        tokenHash: hashSessionToken(activated.token),
+        identity,
+      };
+      let frozenAt = null,
+        visible = false;
+      const calls = [];
+      const control = {
+        calls,
+        async state() {
+          calls.push("get");
+          return { frozenAt: visible ? frozenAt : null };
+        },
+        async freeze() {
+          calls.push("freeze");
+          frozenAt = Math.floor(Date.now() / 1000);
+        },
+        async unfreeze() {
+          calls.push("unfreeze");
+          frozenAt = null;
+        },
+      };
+      await createProviderRevocation(a, control).synchronize(user.id);
+      const first = await job(f);
+      await createSessionRepository(a).revoke(user.id, f.tokenHash, false);
+      // Faithfully retain the old deployed engine's recorded manual outcome,
+      // including an expired budget; the new engine never auto-admits it.
+      await owner.query(
+        `UPDATE provider_revocation_jobs SET state='manual',
+        failure_reason=CASE WHEN generation=$2 THEN 'uncertain_provider_outcome' ELSE 'inherited_manual' END,
+        lease_until=clock_timestamp()-interval '1 microsecond',control_lease_until='-infinity',
+        control_deadline_at=CASE WHEN generation=$2 THEN clock_timestamp()-interval '1 second' ELSE control_deadline_at END
+        WHERE user_id=$1`,
+        [user.id, first.generation],
+      );
+      visible = true;
+      const inspector = { inspect: async () => structuredClone(identity) };
+      const repository = createProviderRevocation(owner, control, {
+        operatorFrozenInspector: inspector,
+      });
+      const prepared = await repository.prepareAcknowledgedLogoutReset({
+        userId: user.id,
+      });
+      const request = {
+        userId: user.id,
+        requestId: randomUUID(),
+        review: {
+          evidenceDigest: "e".repeat(64),
+          expectedFingerprint: prepared.fingerprint,
+          expectedGeneration: prepared.expectedGeneration,
+          expectedAttempts: prepared.expectedAttempts,
+          knownOwnFreezeReviewed: true,
+        },
+      };
+      return {
+        ...f,
+        key,
+        first,
+        control,
+        inspector,
+        repository,
+        request,
+        setFrozen: (value) => {
+          frozenAt = value;
+        },
+      };
+    }
+    async function preservedAccount(userId) {
+      return (
+        await owner.query(
+          `SELECT jsonb_build_object('account',to_jsonb(u),'mapping',to_jsonb(p),
+        'keys',(SELECT jsonb_agg(to_jsonb(k) ORDER BY id) FROM account_security_keys k WHERE k.user_id=u.id),
+        'wallet',(SELECT to_jsonb(w) FROM embedded_wallet_provisioning w WHERE w.user_id=u.id),
+        'book',(SELECT to_jsonb(b) FROM coin_sandbox_books b WHERE b.user_id=u.id),
+        'sessions',(SELECT jsonb_agg(to_jsonb(s) ORDER BY id) FROM sessions s WHERE s.user_id=u.id)) AS value
+        FROM users u JOIN provider_identities p ON p.user_id=u.id WHERE u.id=$1`,
+          [userId],
+        )
+      ).rows[0].value;
+    }
+    it("owner review rearms only the exact expired acknowledged/logout pair without changing account authority or repeating a mutation", async () => {
+      const f = await brokenAcceptedKeyLogout();
+      const before = await preservedAccount(f.userId);
+      const mutations = f.control.calls.filter((v) => v !== "get");
+      const results = await Promise.all([
+        f.repository.resumeAcknowledgedLogoutReset(f.request),
+        f.repository.resumeAcknowledgedLogoutReset(f.request),
+      ]);
+      assert.deepEqual(results.map((v) => v.created).sort(), [false, true]);
+      assert.deepEqual(await preservedAccount(f.userId), before);
+      assert.deepEqual(
+        f.control.calls.filter((v) => v !== "get"),
+        mutations,
+      );
+      const rows = (
+        await owner.query(
+          "SELECT * FROM provider_revocation_jobs WHERE user_id=$1 ORDER BY generation",
+          [f.userId],
+        )
+      ).rows;
+      assert.equal(rows[0].state, "pending");
+      assert.equal(rows[0].control_phase, "freeze_confirm");
+      assert.equal(rows[0].control_id, f.first.control_id);
+      assert.equal(rows[0].attempts, f.first.attempts);
+      assert.equal(rows[1].state, "pending");
+      assert.equal(rows[1].attempts, 0);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int AS n FROM identity_audit_events WHERE user_id=$1 AND event_type='provider.reset.logout_resumed'",
+            [f.userId],
+          )
+        ).rows[0].n,
+        1,
+      );
+      const readCount = f.control.calls.length;
+      assert.deepEqual(
+        await f.repository.resumeAcknowledgedLogoutReset(f.request),
+        { state: "rearmed", created: false },
+      );
+      assert.equal(f.control.calls.length, readCount);
+      await assert.rejects(
+        f.repository.resumeAcknowledgedLogoutReset({
+          ...f.request,
+          review: { ...f.request.review, evidenceDigest: "f".repeat(64) },
+        }),
+      );
+      await assert.rejects(
+        f.repository.resumeAcknowledgedLogoutReset({
+          ...f.request,
+          requestId: randomUUID(),
+        }),
+      );
+      for (
+        let tick = 0;
+        tick < 4 && (await job(f)).state !== "complete";
+        tick++
+      ) {
+        await due(f);
+        await createProviderRevocation(a, f.control).synchronize(f.userId);
+      }
+      const completed = await job(f);
+      assert.equal(completed.state, "complete");
+      assert.equal(completed.mapped_generation, completed.current_generation);
+      assert.equal(f.control.calls.filter((v) => v === "freeze").length, 2);
+      assert.equal(f.control.calls.filter((v) => v === "unfreeze").length, 2);
+      const callsAfterCompletion = f.control.calls.length;
+      assert.equal(
+        (await f.repository.resumeAcknowledgedLogoutReset(f.request)).created,
+        false,
+      );
+      assert.equal(f.control.calls.length, callsAfterCompletion);
+    });
+    it("denies runtime preparation/rearm before provider I/O and rejects changed review terms or cross-account request reuse", async () => {
+      const f = await brokenAcceptedKeyLogout();
+      let inspected = 0;
+      const runtime = createProviderRevocation(a, f.control, {
+        operatorFrozenInspector: {
+          inspect: async () => {
+            inspected++;
+            return f.identity;
+          },
+        },
+      });
+      await assert.rejects(
+        runtime.prepareAcknowledgedLogoutReset({ userId: f.userId }),
+        (error) => error.stage === "owner",
+      );
+      await assert.rejects(
+        runtime.resumeAcknowledgedLogoutReset(f.request),
+        (error) => error.stage === "owner",
+      );
+      assert.equal(inspected, 0);
+      for (const review of [
+        { ...f.request.review, expectedFingerprint: "a".repeat(64) },
+        { ...f.request.review, expectedGeneration: "999999" },
+        { ...f.request.review, expectedAttempts: 9 },
+        { ...f.request.review, knownOwnFreezeReviewed: false },
+      ])
+        await assert.rejects(
+          f.repository.resumeAcknowledgedLogoutReset({ ...f.request, review }),
+        );
+      await f.repository.resumeAcknowledgedLogoutReset(f.request);
+      const other = await brokenAcceptedKeyLogout();
+      await assert.rejects(
+        other.repository.resumeAcknowledgedLogoutReset({
+          ...other.request,
+          requestId: f.request.requestId,
+        }),
+        (error) => error.stage === "input",
+      );
+    });
+    it("rejects owner rearm for missing acknowledgements, changed authority, unrecognized audit lineage, live leases or another unresolved job", async () => {
+      for (const change of [
+        "ack",
+        "audit",
+        "lease",
+        "key",
+        "digest",
+        "status",
+        "unfreeze",
+        "other_job",
+      ]) {
+        const f = await brokenAcceptedKeyLogout();
+        if (change === "ack")
+          await owner.query(
+            "UPDATE provider_revocation_jobs SET freeze_acknowledged_at=NULL WHERE user_id=$1 AND generation=$2",
+            [f.userId, f.first.generation],
+          );
+        if (change === "audit")
+          await owner.query(
+            "UPDATE identity_audit_events SET metadata=metadata-'actorSessionId' WHERE user_id=$1 AND event_type='sessions.logout_all'",
+            [f.userId],
+          );
+        if (change === "lease")
+          await owner.query(
+            "UPDATE provider_revocation_jobs SET control_lease_until=clock_timestamp()+interval '30 seconds' WHERE user_id=$1 AND generation=$2",
+            [f.userId, f.first.generation],
+          );
+        if (change === "key")
+          await owner.query(
+            "UPDATE account_security_keys SET revoked_at=clock_timestamp() WHERE user_id=$1",
+            [f.userId],
+          );
+        if (change === "digest")
+          await owner.query(
+            "UPDATE provider_identities SET credentials_digest=$2 WHERE user_id=$1",
+            [f.userId, "b".repeat(64)],
+          );
+        if (change === "status")
+          await owner.query(
+            "UPDATE users SET account_status='suspended' WHERE id=$1",
+            [f.userId],
+          );
+        if (change === "unfreeze")
+          await owner.query(
+            "UPDATE provider_revocation_jobs SET unfreeze_requested_at=clock_timestamp() WHERE user_id=$1 AND generation=$2",
+            [f.userId, f.first.generation],
+          );
+        if (change === "other_job")
+          await owner.query(
+            "UPDATE users SET auth_generation=auth_generation+1 WHERE id=$1",
+            [f.userId],
+          );
+        let inspections = 0;
+        const repository = createProviderRevocation(owner, f.control, {
+          operatorFrozenInspector: {
+            inspect: async () => {
+              inspections++;
+              return f.identity;
+            },
+          },
+        });
+        const before = await preservedAccount(f.userId);
+        await assert.rejects(
+          repository.prepareAcknowledgedLogoutReset({ userId: f.userId }),
+        );
+        await assert.rejects(
+          repository.resumeAcknowledgedLogoutReset(f.request),
+        );
+        assert.equal(inspections, 0, change);
+        assert.deepEqual(await preservedAccount(f.userId), before, change);
+        assert.equal(
+          f.control.calls.filter((v) => v === "unfreeze").length,
+          0,
+          change,
+        );
+      }
+    });
+    it("requires fresh exact provider identity, accepted key and owned freeze window before any owner rearm", async () => {
+      for (const change of [
+        "subject",
+        "digest",
+        "key",
+        "missing_key",
+        "unfrozen",
+        "outside_window",
+        "provider_failure",
+      ]) {
+        const f = await brokenAcceptedKeyLogout();
+        let candidate = structuredClone(f.identity);
+        if (change === "subject")
+          candidate.subject = `did:privy:${randomUUID()}`;
+        if (change === "digest") candidate.credentialsDigest = "b".repeat(64);
+        if (change === "key")
+          candidate.passkeys = [
+            {
+              ...f.key.evidence,
+              publicKey: providerPasskeyFixture("http://localhost:53024")
+                .evidence.publicKey,
+            },
+          ];
+        if (change === "missing_key") candidate.passkeys = [];
+        if (change === "unfrozen") f.setFrozen(null);
+        if (change === "outside_window")
+          f.setFrozen(Math.floor(Date.now() / 1000) - 3600);
+        const repository = createProviderRevocation(owner, f.control, {
+          operatorFrozenInspector: {
+            inspect: async () => {
+              if (change === "provider_failure")
+                throw new ProviderUnavailableError("synthetic outage");
+              return candidate;
+            },
+          },
+        });
+        const before = await preservedAccount(f.userId);
+        await assert.rejects(
+          repository.resumeAcknowledgedLogoutReset(f.request),
+        );
+        assert.deepEqual(await preservedAccount(f.userId), before, change);
+        assert.equal((await job(f)).state, "manual", change);
+        assert.equal(
+          f.control.calls.filter((v) => v === "unfreeze").length,
+          0,
+          change,
+        );
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT count(*)::int AS n FROM identity_audit_events WHERE user_id=$1 AND event_type='provider.reset.logout_resumed'",
+              [f.userId],
+            )
+          ).rows[0].n,
+          0,
+          change,
+        );
+      }
+    });
+    it("releases the owner connection during inspection and rejects a changed fingerprint before rearm", async () => {
+      const f = await brokenAcceptedKeyLogout();
+      const single = new pg.Pool({
+        connectionString: ownerUrl,
+        max: 1,
+        options: "-c search_path=pg_catalog,yaparena,pg_temp",
+      });
+      let enter, release;
+      const entered = new Promise((resolve) => {
+        enter = resolve;
+      });
+      const held = new Promise((resolve) => {
+        release = resolve;
+      });
+      const repository = createProviderRevocation(single, f.control, {
+        operatorFrozenInspector: {
+          inspect: async () => {
+            enter();
+            await held;
+            return f.identity;
+          },
+        },
+      });
+      const pending = repository.resumeAcknowledgedLogoutReset(f.request).then(
+        () => ({ ok: true }),
+        (error) => ({ ok: false, error }),
+      );
+      try {
+        await bounded(entered, "owner inspection did not start");
+        assert.equal(
+          (
+            await bounded(
+              single.query("SELECT 1 AS n"),
+              "remote inspection retained the sole owner connection",
+            )
+          ).rows[0].n,
+          1,
+        );
+        await owner.query(
+          "UPDATE account_security_keys SET counter=counter+1 WHERE user_id=$1",
+          [f.userId],
+        );
+        release();
+        const result = await bounded(
+          pending,
+          "changed fingerprint completion did not stop",
+        );
+        assert.equal(result.ok, false);
+        assert.equal((await job(f)).state, "manual");
+        assert.equal(f.control.calls.filter((v) => v === "unfreeze").length, 0);
+      } finally {
+        release();
+        await pending;
+        await single.end();
+      }
+    });
+    it("rolls back both reviewed rearm rows if the immutable review audit cannot commit", async () => {
+      const f = await brokenAcceptedKeyLogout();
+      const suffix = randomUUID().replaceAll("-", "");
+      const name = `resume_fault_${suffix}`;
+      const before = (
+        await owner.query(
+          "SELECT * FROM provider_revocation_jobs WHERE user_id=$1 ORDER BY generation",
+          [f.userId],
+        )
+      ).rows;
+      await owner.query(`CREATE FUNCTION yaparena.${name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+        IF NEW.user_id=${f.userId} AND NEW.event_type='provider.reset.logout_resumed' THEN RAISE EXCEPTION 'synthetic audit failure'; END IF;
+        RETURN NEW; END $$`);
+      await owner.query(
+        `CREATE TRIGGER ${name} BEFORE INSERT ON yaparena.identity_audit_events FOR EACH ROW EXECUTE FUNCTION yaparena.${name}()`,
+      );
+      try {
+        await assert.rejects(
+          f.repository.resumeAcknowledgedLogoutReset(f.request),
+          (error) => error.stage === "commit",
+        );
+        assert.deepEqual(
+          (
+            await owner.query(
+              "SELECT * FROM provider_revocation_jobs WHERE user_id=$1 ORDER BY generation",
+              [f.userId],
+            )
+          ).rows,
+          before,
+        );
+        assert.equal(f.control.calls.filter((v) => v === "unfreeze").length, 0);
+      } finally {
+        await owner.query(
+          `DROP TRIGGER ${name} ON yaparena.identity_audit_events`,
+        );
+        await owner.query(`DROP FUNCTION yaparena.${name}()`);
+      }
+    });
+    it("keeps the newer logout pending when a competitor observes the predecessor's live unfreeze intent before its one mutation", async () => {
+      const f = await brokenAcceptedKeyLogout();
+      await f.repository.resumeAcknowledgedLogoutReset(f.request);
+      let intercepted = false;
+      const pausedDatabase = {
+        query: (...args) => a.query(...args),
+        async connect() {
+          const client = await a.connect();
+          let unfreezeIntent = false;
+          return {
+            release: () => client.release(),
+            async query(text, ...args) {
+              const result = await client.query(text, ...args);
+              if (
+                typeof text === "string" &&
+                text.includes("SET control_phase='unfreeze_intent'")
+              )
+                unfreezeIntent = true;
+              if (text === "COMMIT" && unfreezeIntent && !intercepted) {
+                intercepted = true;
+                const beforeReads = f.control.calls.length;
+                await owner.query(
+                  "UPDATE provider_revocation_jobs SET control_next_check_at='-infinity' WHERE user_id=$1 AND generation>$2",
+                  [f.userId, f.first.generation],
+                );
+                await bounded(
+                  createProviderRevocation(b, f.control).synchronize(f.userId),
+                  "competitor waited on an already committed predecessor intent",
+                );
+                const latest = await job(f);
+                assert.equal(latest.state, "pending");
+                assert.equal(latest.attempts, 0);
+                assert.equal(
+                  f.control.calls.length,
+                  beforeReads,
+                  "a waiting successor performs no provider I/O",
+                );
+                assert.equal(
+                  f.control.calls.filter((v) => v === "unfreeze").length,
+                  0,
+                );
+              }
+              return result;
+            },
+          };
+        },
+      };
+      await bounded(
+        createProviderRevocation(pausedDatabase, f.control).synchronize(
+          f.userId,
+        ),
+        "predecessor did not drain after the competitor wait",
+      );
+      assert.equal(intercepted, true);
+      await due(f);
+      await createProviderRevocation(b, f.control).synchronize(f.userId);
+      assert.equal((await job(f)).state, "complete");
+      assert.equal(f.control.calls.filter((v) => v === "freeze").length, 2);
+      assert.equal(f.control.calls.filter((v) => v === "unfreeze").length, 2);
+    });
+    it("drains an acknowledged first-key reset before a later authenticated logout performs its own reset", async () => {
+      const origin = "http://localhost:53024";
+      const initialTokenHash = hashSessionToken(randomUUID());
+      const credentials = [
+        { type: "email", id: `${randomUUID()}@example.invalid` },
+      ];
+      let identity = {
+        subject: `did:privy:${randomUUID()}`,
+        sessionId: randomUUID(),
+        email: credentials[0].id,
+        methods: ["email"],
+        credentials,
+        credentialsDigest: providerCredentialsDigest(credentials),
+        issuedAt: Math.floor(Date.now() / 1000),
+      };
+      const { user } = await createProviderAccounts(a).exchange(
+        identity,
+        initialTokenHash,
+        new Date(Date.now() + 600000),
+      );
+      const verifier = {
+        verify: async () => structuredClone(identity),
+        inspect: async () => structuredClone(identity),
+      };
+      const passkeys = createProviderPasskeys(a, verifier);
+      const input = {
+        userId: user.id,
+        sessionTokenHash: initialTokenHash,
+        origin,
+      };
+      const intent = await passkeys.begin(input);
+      const key = providerPasskeyFixture(origin);
+      identity = {
+        ...identity,
+        methods: ["email", "passkey"],
+        credentials: [
+          ...credentials,
+          { type: "passkey", id: key.credentialId },
+        ],
+        passkeys: [key.evidence],
+      };
+      identity.credentialsDigest = providerCredentialsDigest(
+        identity.credentials,
+      );
+      const challenge = await passkeys.activationOptions({
+        ...input,
+        id: intent.id,
+        token: "synthetic-provider-token",
+      });
+      const activated = await passkeys.complete({
+        ...input,
+        id: intent.id,
+        token: "synthetic-provider-token",
+        sessionDurationMs: 600000,
+        authentication: key.authentication(challenge.authenticationOptions),
+      });
+      const tokenHash = hashSessionToken(activated.token);
+      const f = { userId: user.id, tokenHash, identity };
+      let frozenAt = null,
+        visible = false;
+      const calls = [];
+      const control = {
+        async state() {
+          calls.push("get");
+          return { frozenAt: visible ? frozenAt : null };
+        },
+        async freeze() {
+          calls.push("freeze");
+          frozenAt = Math.floor(Date.now() / 1000);
+        },
+        async unfreeze() {
+          calls.push("unfreeze");
+          frozenAt = null;
+        },
+      };
+      await createProviderRevocation(a, control).synchronize(user.id);
+      const first = await job(f);
+      assert.equal(first.control_phase, "freeze_confirm");
+      assert.ok(first.freeze_acknowledged_at);
+      assert.equal(first.confirmed_frozen_at, null);
+      await createSessionRepository(a).revoke(user.id, tokenHash, false);
+      const current = await job(f);
+      assert.notEqual(first.generation, current.generation);
+      assert.equal(current.attempts, 0);
+      await due(f);
+      await createProviderRevocation(b, control).synchronize(user.id);
+      const rows = (
+        await owner.query(
+          "SELECT state,control_id,attempts,generation FROM provider_revocation_jobs WHERE user_id=$1 ORDER BY generation",
+          [user.id],
+        )
+      ).rows;
+      assert.equal(
+        rows[0].state,
+        "pending",
+        "an ACK-confirmation predecessor must remain drainable after genuine logout",
+      );
+      assert.equal(
+        rows[1].state,
+        "pending",
+        "new authenticated logout waits instead of inheriting a permanent manual fence",
+      );
+      assert.equal(rows[1].attempts, 0);
+      assert.equal(calls.filter((v) => v === "freeze").length, 1);
+      assert.equal(calls.filter((v) => v === "unfreeze").length, 0);
+      visible = true;
+      await due(f);
+      await Promise.all([
+        createProviderRevocation(a, control).synchronize(user.id),
+        createProviderRevocation(b, control).synchronize(user.id),
+      ]);
+      const oldDone = (
+        await owner.query(
+          "SELECT * FROM provider_revocation_jobs WHERE user_id=$1 AND generation=$2",
+          [user.id, first.generation],
+        )
+      ).rows[0];
+      assert.equal(oldDone.state, "complete");
+      assert.equal(oldDone.control_phase, "done");
+      assert.equal(oldDone.control_id, first.control_id);
+      assert.equal(oldDone.attempts, first.attempts);
+      const between = await job(f);
+      assert.notEqual(
+        between.mapped_generation,
+        first.generation,
+        "old cleanup cannot advance the mapping to its stale generation",
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int AS n FROM sessions WHERE user_id=$1",
+            [user.id],
+          )
+        ).rows[0].n,
+        0,
+      );
+      await due(f);
+      await createProviderRevocation(b, control).synchronize(user.id);
+      const finished = await job(f);
+      assert.equal(finished.state, "complete");
+      assert.equal(finished.control_phase, "done");
+      assert.equal(finished.mapped_generation, finished.current_generation);
+      assert.equal(finished.attempts, 1);
+      assert.equal(calls.filter((v) => v === "freeze").length, 2);
+      assert.equal(calls.filter((v) => v === "unfreeze").length, 2);
+      assert.ok(
+        BigInt(finished.minimum_issued_at) >= BigInt(first.minimum_issued_at),
+      );
+      assert.equal(
+        await createSessionRepository(a).findUserByTokenHash(tokenHash),
+        null,
+      );
+      await assert.rejects(
+        createProviderAccounts(a).exchange(
+          identity,
+          hashSessionToken(randomUUID()),
+          new Date(Date.now() + 600000),
+        ),
+      );
+    });
     it("rearms a parked wallet only after real accepted-passkey activation and confirmed reset, preserving ownership and retry budget", async () => {
       const origin = "http://localhost:53024";
       const tokenHash = hashSessionToken(randomUUID());

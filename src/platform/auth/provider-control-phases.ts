@@ -33,6 +33,9 @@ type Job = {
   reads: number;
   frozenAt: string | null;
   freezeRequested: Date | null;
+  freezeAcknowledged: boolean;
+  unfreezeRequested: boolean;
+  unfreezeAcknowledged: boolean;
 };
 type Action = { job: Job; kind: "read" | "freeze" | "unfreeze" };
 const fields = `SELECT j.user_id::text AS "userId",j.generation::text AS generation,
@@ -44,7 +47,10 @@ const fields = `SELECT j.user_id::text AS "userId",j.generation::text AS generat
  j.lease_until<clock_timestamp() AS "legacyAvailable",
  j.control_lease_until>clock_timestamp() AS "leaseValid",
  j.control_deadline_at>clock_timestamp() AS "deadlineValid",j.control_reads AS reads,
- j.confirmed_frozen_at::text AS "frozenAt",j.freeze_requested_at AS "freezeRequested"
+ j.confirmed_frozen_at::text AS "frozenAt",j.freeze_requested_at AS "freezeRequested",
+ j.freeze_acknowledged_at IS NOT NULL AS "freezeAcknowledged",
+ j.unfreeze_requested_at IS NOT NULL AS "unfreezeRequested",
+ j.unfreeze_acknowledged_at IS NOT NULL AS "unfreezeAcknowledged"
  FROM provider_revocation_jobs j JOIN users u ON u.id=j.user_id
  LEFT JOIN provider_identities p ON p.user_id=u.id AND p.provider='privy'
  WHERE j.user_id=$1 AND j.generation=$2`;
@@ -94,7 +100,52 @@ export function createProviderControlPhases(
       [job.userId, job.generation, reason],
     );
   }
-  async function validLocal(client: PoolClient, job: Job) {
+  function acknowledgedDrain(job: Job, ownUnfreezeIntent = false) {
+    return Boolean(
+      job.accountStatus === "active" &&
+      job.controlId &&
+      job.controlDigest &&
+      job.controlDigest === job.digest &&
+      job.controlAttempt === job.attempts &&
+      job.freezeRequested &&
+      job.freezeAcknowledged &&
+      job.deadlineValid &&
+      job.reads <= 8 &&
+      ((job.phase === "freeze_confirm" &&
+        !job.unfreezeRequested &&
+        !job.unfreezeAcknowledged) ||
+        (job.phase === "unfreeze_confirm" &&
+          job.frozenAt &&
+          job.unfreezeAcknowledged) ||
+        (ownUnfreezeIntent &&
+          job.phase === "unfreeze_intent" &&
+          job.frozenAt &&
+          job.unfreezeRequested &&
+          !job.unfreezeAcknowledged)),
+    );
+  }
+  async function supportedLogoutSuccessors(client: PoolClient, job: Job) {
+    const result = await client.query<{ valid: boolean }>(
+      `SELECT $3::bigint>$2::bigint
+       AND count(*)=$3::bigint-$2::bigint AND COALESCE(bool_and(
+         j.subject=$4 AND j.state='pending' AND j.attempts=0 AND j.control_id IS NULL
+         AND j.freeze_requested_at IS NULL AND j.unfreeze_requested_at IS NULL
+         AND EXISTS(SELECT 1 FROM identity_audit_events e WHERE e.user_id=j.user_id
+           AND e.event_type IN('sessions.logout_all','sessions.logout_others')
+           AND e.metadata->>'authGeneration'=j.generation::text
+           AND e.metadata->>'outcome'='success' AND e.metadata->>'actorUserId'=j.user_id::text
+           AND e.metadata->>'actorDatabaseRole'='yaparena_runtime'
+           AND e.metadata ? 'actorSessionId')),false) AS valid
+       FROM provider_revocation_jobs j WHERE j.user_id=$1 AND j.generation>$2::bigint AND j.generation<=$3::bigint`,
+      [job.userId, job.generation, job.accountGeneration, job.subject],
+    );
+    return result.rows[0]?.valid === true;
+  }
+  async function validLocal(
+    client: PoolClient,
+    job: Job,
+    ownUnfreezeIntent = false,
+  ) {
     if (job.mappedSubject !== job.subject) {
       await client.query(
         `UPDATE provider_revocation_jobs SET state='complete',failure_reason='retired_identity'
@@ -103,7 +154,13 @@ export function createProviderControlPhases(
       );
       return false;
     }
-    if (job.accountGeneration !== job.generation) {
+    if (
+      job.accountGeneration !== job.generation &&
+      !(
+        acknowledgedDrain(job, ownUnfreezeIntent) &&
+        (await supportedLogoutSuccessors(client, job))
+      )
+    ) {
       if (job.freezeRequested) await manual(client, job);
       else
         await client.query(
@@ -120,14 +177,34 @@ export function createProviderControlPhases(
       await manual(client, job);
       return false;
     }
-    const older = await client.query(
-      `SELECT 1 FROM provider_revocation_jobs WHERE user_id=$1 AND generation<$2
+    const older = await client.query<{ generation: string }>(
+      `SELECT generation::text AS generation FROM provider_revocation_jobs WHERE user_id=$1 AND generation<$2
        AND subject=$3 AND (state='manual' OR (state='running'
          AND (control_phase='legacy' OR freeze_requested_at IS NOT NULL)) OR (state='pending'
-         AND (freeze_requested_at IS NOT NULL OR (control_phase='legacy' AND attempts>0)))) LIMIT 1`,
+         AND (freeze_requested_at IS NOT NULL OR (control_phase='legacy' AND attempts>0)))) ORDER BY generation LIMIT 1`,
       [job.userId, job.generation, job.subject],
     );
     if (older.rowCount) {
+      const predecessor = (
+        await client.query<Job>(fields, [job.userId, older.rows[0]!.generation])
+      ).rows[0];
+      if (
+        predecessor &&
+        ["pending", "running"].includes(predecessor.state) &&
+        predecessor.mappedSubject === predecessor.subject &&
+        (acknowledgedDrain(predecessor) ||
+          (predecessor.leaseValid && acknowledgedDrain(predecessor, true))) &&
+        (await supportedLogoutSuccessors(client, predecessor))
+      ) {
+        // A positively acknowledged predecessor still owns its cleanup.
+        // Waiting creates neither a new mutation nor an authorization result.
+        await client.query(
+          `UPDATE provider_revocation_jobs SET control_next_check_at=clock_timestamp()+interval '10 seconds'
+           WHERE user_id=$1 AND generation=$2`,
+          [job.userId, job.generation],
+        );
+        return false;
+      }
       await manual(client, job, "inherited_manual");
       return false;
     }
@@ -299,17 +376,18 @@ export function createProviderControlPhases(
           job.frozenAt !== null &&
           job.controlDigest !== null
         ) {
-          await client.query(
-            `UPDATE provider_identities SET auth_generation=$2,minimum_issued_at=GREATEST(minimum_issued_at,$3::bigint+1)
+          if (job.accountGeneration === job.generation)
+            await client.query(
+              `UPDATE provider_identities SET auth_generation=$2,minimum_issued_at=GREATEST(minimum_issued_at,$3::bigint+1)
              WHERE user_id=$1 AND subject=$4 AND credentials_digest=$5`,
-            [
-              job.userId,
-              job.generation,
-              job.frozenAt,
-              job.subject,
-              job.controlDigest,
-            ],
-          );
+              [
+                job.userId,
+                job.generation,
+                job.frozenAt,
+                job.subject,
+                job.controlDigest,
+              ],
+            );
           await client.query(
             `UPDATE provider_revocation_jobs SET state='complete',control_phase='done',control_lease_until='-infinity'
              WHERE user_id=$1 AND generation=$2`,
@@ -318,12 +396,13 @@ export function createProviderControlPhases(
           // A credential change parks wallet creation until its accepted
           // baseline and provider reset are both synchronized. Wake only that
           // exact account-owned job, without changing its retry budget.
-          await enqueueEmbeddedWalletProvisioning(
-            client,
-            job.userId,
-            job.subject,
-            job.controlDigest,
-          );
+          if (job.accountGeneration === job.generation)
+            await enqueueEmbeddedWalletProvisioning(
+              client,
+              job.userId,
+              job.subject,
+              job.controlDigest,
+            );
         } else if (frozenAt !== null && String(frozenAt) === job.frozenAt)
           await defer(client, job);
         else await manual(client, job);
@@ -337,7 +416,8 @@ export function createProviderControlPhases(
     const claimed = action.job;
     return locked(claimed.userId, claimed.generation, async (client, job) => {
       if (!owns(job, claimed) || !job) return false;
-      if (!(await validLocal(client, job))) return false;
+      if (!(await validLocal(client, job, action.kind === "unfreeze")))
+        return false;
       const live = await client.query<{ valid: boolean }>(
         `SELECT control_lease_until>clock_timestamp() AND control_deadline_at>clock_timestamp() AS valid FROM provider_revocation_jobs
          WHERE user_id=$1 AND generation=$2`,

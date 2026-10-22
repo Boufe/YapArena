@@ -19,8 +19,10 @@ services:
         value: "10000"
       - key: TRUST_PROXY
         value: "1"
+      # yaparena-staging-jobs below runs every background job. Set "true" only
+      # to roll back or while that worker is missing; see docs/render-staging.md.
       - key: RUN_BACKGROUND_JOBS
-        value: "true"
+        value: "false"
       - key: COMMUNITY_STREAM_ENABLED
         value: "false"
       - key: APP_ORIGIN
@@ -38,10 +40,11 @@ services:
   # recording stops, speaker revocation, Privy revocation, embedded-wallet
   # provisioning and hourly cleanup. Render has no free plan for background
   # workers: this service needs a paid instance, Starter (0.5 CPU, 512 MB) or
-  # larger. It ignores RUN_BACKGROUND_JOBS and serves no HTTP. Create and deploy
-  # it manually, then follow the cut-over in docs/render-staging.md before
-  # changing RUN_BACKGROUND_JOBS on the web service. Copy the web service's
-  # A4/coin sandbox, media, Privy and Redis settings so both build the same jobs.
+  # larger. It ignores RUN_BACKGROUND_JOBS and serves no HTTP. Web sets
+  # RUN_BACKGROUND_JOBS=false, so keep this worker running: suspended or missing,
+  # no process runs the jobs. Copy the web service's A4/coin sandbox, media,
+  # Privy and Redis settings so both build the same jobs; see the cut-over in
+  # docs/render-staging.md.
   - type: worker
     name: yaparena-staging-jobs
     runtime: docker

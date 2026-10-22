@@ -255,10 +255,10 @@ After `quality / check` and `container` pass on a push to `main`, CI publishes t
 images; Render runs only that platform. Tagged `vX.Y.Z` releases still publish multi-platform web
 images separately.
 
-| Image                            | Contents                                  | Render service             |
-| -------------------------------- | ----------------------------------------- | -------------------------- |
-| `ghcr.io/boufe/yaparena`         | Production web image                      | Web service, migration job |
-| `ghcr.io/boufe/yaparena-encoder` | Same build with `MEDIA_WORKER_TOOLS=true` | Replay encoder worker      |
+| Image                            | Contents                                  | Render service                          |
+| -------------------------------- | ----------------------------------------- | --------------------------------------- |
+| `ghcr.io/boufe/yaparena`         | Production web image                      | Web service, jobs worker, migration job |
+| `ghcr.io/boufe/yaparena-encoder` | Same build with `MEDIA_WORKER_TOOLS=true` | Replay encoder worker                   |
 
 The `publish` jobs push each image by digest without a tag, scan that pushed digest with the
 `container` job's Trivy settings, and only then tag it `sha-<full commit SHA>`. A failed scan
@@ -303,11 +303,13 @@ worker. This has not yet been tried on these services.
    credential if the package is private. Keep Docker Command `/bin/sh /app/scripts/start-staging.sh`,
    health check path `/ready` and every environment variable. Render deploys the image after the
    change; confirm `/ready` and the smoke checks.
-4. Switch the encoder to `ghcr.io/boufe/yaparena-encoder@sha256:ENCODER_DIGEST` from the same CI
+4. Once it exists, switch the `yaparena-staging-jobs` worker to the same web digest and keep Docker
+   Command `node dist/worker.js`. Confirm its `background worker started` log line.
+5. Switch the encoder to `ghcr.io/boufe/yaparena-encoder@sha256:ENCODER_DIGEST` from the same CI
    run and keep Docker Command `node dist/replay-worker.js`. `MEDIA_WORKER_TOOLS` only affected
    source builds and can be removed. Confirm the worker passes its tool, codec and runtime
    identity checks before it claims jobs.
-5. If Render does not offer an image source for an existing service, create new image-backed
+6. If Render does not offer an image source for an existing service, create new image-backed
    services of the same type and plan instead. Copy every environment variable and set the Docker
    Command. A new web service gets a new hostname, so `APP_ORIGIN`, the LiveKit webhook URL and
    the R2 CORS origin must follow it. Delete the old services only after the new ones pass.
@@ -316,8 +318,9 @@ worker. This has not yet been tried on these services.
 
 1. Copy the web and encoder digests from a `main` commit whose CI run passed every job.
 2. Migrate with the web digest as in step 2 of [deploy the web service](#deploy-the-web-service).
-3. Change each service's image URL to its new digest and save. Use digests from one CI run so web
-   and encoder stay a matching pair. Confirm `/ready` and the encoder startup checks.
+3. Change each service's image URL to its new digest and save. Use digests from one CI run so web,
+   the jobs worker (web digest) and the encoder match. Confirm `/ready`, the jobs worker's startup
+   log and the encoder startup checks.
 
 Prefer the digest. The `sha-<full commit SHA>` tag is an acceptable pin because the workflow never
 moves it, but anyone with write access to the package could. A deploy hook with an `imgURL`

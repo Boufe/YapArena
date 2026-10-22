@@ -20,6 +20,24 @@ import {
 const execute = promisify(execFile);
 const disposable = process.argv.includes("--disposable");
 const worker = process.argv.includes("--http-worker");
+const optionsOnly = process.argv.includes("--options-only");
+const engineArgument = process.argv
+  .find((argument) => argument.startsWith("--disposable-engine="))
+  ?.slice("--disposable-engine=".length);
+const engine = engineArgument ?? "redis-7.4";
+assert.ok(
+  engine === "redis-7.4" || engine === "valkey-8.1.10",
+  "disposable engine must be redis-7.4 or valkey-8.1.10",
+);
+assert.ok(
+  !engineArgument || disposable,
+  "--disposable-engine requires --disposable",
+);
+const image =
+  engine === "valkey-8.1.10"
+    ? "valkey/valkey:8.1.10-alpine"
+    : "redis:7.4-alpine";
+const binary = engine === "valkey-8.1.10" ? "valkey-server" : "redis-server";
 const evidencePath = process.argv
   .find((argument) => argument.startsWith("--evidence="))
   ?.slice("--evidence=".length);
@@ -30,14 +48,31 @@ assert.ok(
       (argument) =>
         argument === "--disposable" ||
         argument === "--http-worker" ||
+        argument === "--options-only" ||
+        argument.startsWith("--disposable-engine=") ||
         argument.startsWith("--evidence="),
     ),
-  "only --disposable and --evidence=PATH are supported",
+  "unsupported Redis verifier option",
+);
+assert.equal(
+  new Set(process.argv.slice(2).map((argument) => argument.split("=")[0])).size,
+  process.argv.length - 2,
+  "duplicate Redis verifier options are not supported",
 );
 assert.ok(
   !disposable || !process.env.REDIS_TEST_URL,
   "disposable mode must not use an existing Redis target",
 );
+assert.ok(
+  !optionsOnly || (!worker && !evidencePath),
+  "options-only mode cannot run a worker or write evidence",
+);
+if (optionsOnly) {
+  // Offline entry-point tests exercise the same argument gates without starting
+  // Docker, connecting to Redis, spawning workers or writing an evidence file.
+  console.log(JSON.stringify({ disposable, engine, image, binary }));
+  process.exit(0);
+}
 const runId = randomUUID();
 const container = `yaparena-redis-acceptance-${runId}`;
 assert.ok(
@@ -64,6 +99,8 @@ const workers: ChildProcess[] = [];
 const checks: string[] = [];
 let owned = false;
 let paused = false;
+let imageIdentity:
+  { tag: string; id: string; repositoryDigests: string[] } | undefined;
 let admin: Awaited<ReturnType<typeof connectAdmin>> | undefined;
 let endpoint = new URL(process.env.REDIS_TEST_URL ?? "redis://127.0.0.1:56379");
 
@@ -290,8 +327,8 @@ try {
       `com.yaparena.acceptance=${runId}`,
       "--publish",
       "127.0.0.1::6379",
-      "redis:7.4-alpine",
-      "redis-server",
+      image,
+      binary,
       "--maxmemory",
       "16mb",
       "--maxmemory-policy",
@@ -302,6 +339,26 @@ try {
       "no",
     );
     owned = true;
+    const id = await docker("inspect", "--format", "{{.Image}}", container);
+    assert.match(id, /^sha256:[a-f0-9]{64}$/);
+    const repositoryDigests: unknown = JSON.parse(
+      await docker("image", "inspect", "--format", "{{json .RepoDigests}}", id),
+    );
+    assert.ok(
+      Array.isArray(repositoryDigests) &&
+        repositoryDigests.every(
+          (value): value is string =>
+            typeof value === "string" &&
+            /^[a-z0-9/.-]+@sha256:[a-f0-9]{64}$/.test(value),
+        ),
+      "Docker image repository digests must be explicit SHA256 identifiers",
+    );
+    if (engine === "valkey-8.1.10")
+      assert.ok(
+        repositoryDigests.length > 0,
+        "Valkey image digest is required",
+      );
+    imageIdentity = { tag: image, id, repositoryDigests };
     const address = await docker("port", container, "6379/tcp");
     assert.match(address, /^127\.0\.0\.1:\d+$/);
     endpoint = new URL(`redis://${address}`);
@@ -311,6 +368,15 @@ try {
     "Redis verifier accepts disposable loopback targets only",
   );
   admin = await connectAdmin();
+  const serverInfo = await admin.info("server");
+  const infoField = (name: string) =>
+    serverInfo.match(new RegExp(`^${name}:(.+)\\r?$`, "m"))?.[1]?.trim();
+  const serverName = infoField("server_name") ?? null;
+  const valkeyVersion = infoField("valkey_version") ?? null;
+  if (disposable && engine === "valkey-8.1.10") {
+    assert.equal(serverName, "valkey");
+    assert.equal(valkeyVersion, "8.1.10");
+  }
   const memory = await admin.info("memory");
   assert.match(memory, /^maxmemory_policy:noeviction\r?$/m);
   const a = store(),
@@ -563,9 +629,12 @@ try {
     sourceHashes,
     environment: "isolated local loopback Redis and synthetic HTTP principals",
     runtime: process.version,
-    redisVersion: (await admin.info("server"))
-      .match(/^redis_version:(.+)\r?$/m)?.[1]
-      ?.trim(),
+    serverName,
+    valkeyVersion,
+    // Valkey documents redis_version as its Redis protocol compatibility
+    // version; it is not the actual Valkey release identifier.
+    redisVersion: infoField("redis_version"),
+    dockerImage: imageIdentity ?? null,
     mode: disposable
       ? "verifier-owned disposable Docker instance"
       : "existing loopback instance; unique expiring keys only",
@@ -580,6 +649,7 @@ try {
       "HTTP fixtures include separate Node processes, but synthetic principals are not PostgreSQL session acceptance.",
       "Logout and revocation routing during outages is independently covered by the actual application unit suite.",
       "No hosted Redis changes, provider acceptance, live financial authorization, physical-device or screen-reader claims.",
+      "Local engine compatibility does not establish hosted multi-host topology, ACL/INFO availability, eviction configuration or outage behavior.",
       "Nonpersistent restarts reset abuse budgets. PostgreSQL must own financial and revocation state.",
       ...(!disposable
         ? [

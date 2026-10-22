@@ -145,10 +145,10 @@ same factory (`src/services.ts`) and always runs them, whatever `RUN_BACKGROUND_
 serves no HTTP and starts no community stream. The worker is paid compute and needs the separate
 hosted-change/deployment authorization.
 
-Release tooling does not know this worker yet. `scripts/release-account-render.ts` operates only
-web and the replay encoder, and its `deploy` mode refuses web while `RUN_BACKGROUND_JOBS=false`.
-Until it is updated, suspend the jobs worker yourself whenever a release stops web/worker writers
-(including migrations that require stopped background jobs), and deploy web from the dashboard.
+`scripts/release-account-render.ts` finds the jobs worker by exact name, type and workspace.
+It suspends and resumes it with web and the replay encoder, requires the same runtime database
+URL, and deploys the release SHA to it after web. Its `deploy` mode accepts
+`RUN_BACKGROUND_JOBS=false` on web only while the jobs worker is running.
 
 1. Create the worker from the `yaparena-staging-jobs` Blueprint entry (Starter or larger) and deploy
    the same reviewed commit as web, after its migrations. Give it the runtime `DATABASE_URL` and DB

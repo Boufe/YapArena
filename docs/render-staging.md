@@ -24,6 +24,11 @@ commit. A second migration URL in the web service environment would expose that 
 compromised app and is prohibited. Keep this deployment to one instance. Review current provider
 allowances and billing settings before use.
 
+`render.yaml` builds the web service from the Dockerfile. CI also publishes the scanned web and
+encoder images for every `main` commit; [deploy the CI-published images](#deploy-the-ci-published-images)
+switches both services to those images, pinned by digest. After that switch, `render.yaml` only
+describes a source-built service.
+
 This is a small trial environment. Render Free sleeps after 15 minutes without inbound traffic and
 can take about a minute to wake. A live debate page polls the app every three seconds, but an
 instance restart can still interrupt the turn clock. Supabase Free can pause after a week of low
@@ -54,17 +59,19 @@ credentials or API settings. Verify those in the provider dashboards and keep th
 [measurement release sequence](measurement-operations.md#release-and-rollback-sequence) and
 [operating trial record](operating-readiness-trial.md) as separate evidence.
 
-1. Obtain the separate hosted-change/deployment authorization. Select the reviewed commit/image,
-   run CI (including database isolation checks), and validate `render.yaml` with
-   `render blueprints validate render.yaml`. Inventory and back up the target first. For an upgrade,
-   stop traffic/background jobs while provisioning moves the existing public schema objects.
+1. Obtain the separate hosted-change/deployment authorization. Select a reviewed `main` commit
+   whose CI run passed every job (including database isolation checks) and copy its web and
+   encoder digests from that run's summary ([CI-published images](#deploy-the-ci-published-images)).
+   For a source-built service, validate `render.yaml` with `render blueprints validate render.yaml`.
+   Inventory and back up the target first. For an upgrade, stop traffic/background jobs while
+   provisioning moves the existing public schema objects.
 2. In a secured operator container or release runner, run `scripts/provision-database.ts` as the
-   administrator using a provisioning-only secret environment. Next run the **same reviewed image**
-   with the owner URL as `DATABASE_URL`, in a separate one-off process:
+   administrator using a provisioning-only secret environment. Next run the **same reviewed web
+   image** with the owner URL as `DATABASE_URL`, in a separate one-off process:
 
    ```sh
    docker run --rm --env-file /secure/yaparena-migration.env \
-     ghcr.io/OWNER/REPOSITORY@sha256:REVIEWED_DIGEST \
+     ghcr.io/boufe/yaparena@sha256:WEB_DIGEST \
      node scripts/migrate-database.ts
    ```
 
@@ -73,7 +80,8 @@ credentials or API settings. Verify those in the provider dashboards and keep th
    For a source-built trial image, build the reviewed checkout and record its image ID/commit before
    using it for this step; confirm the web build uses that exact commit as well.
 
-3. In Render, create/update the Free web Blueprint for that reviewed commit. Confirm automatic
+3. In Render, set the web service's image URL to that web digest, or create/update the Free web
+   Blueprint for that reviewed commit if the service still builds from source. Confirm automatic
    deployments are off in the **actual service**, including existing services whose settings may
    differ from the file. Set `DATABASE_URL` to the **runtime** Session pooler URL. Remove all
    migration/admin secrets and combined operator files from web/worker environments. Replacing the
@@ -154,10 +162,11 @@ per-recording operations or evidence that the Blueprint creates a worker.
 1. Back up and apply `1791385198189_automatic-replay-packaging.js` through the isolated migration
    operator, then run the runtime database identity/isolation checks. Deploy the reviewed web
    commit with packaging disabled first. Keep the additive migration on rollback.
-2. Create a Docker background worker from the same reviewed commit, set Docker Command to
-   `node dist/replay-worker.js`, and set `MEDIA_WORKER_TOOLS=true` so the image installs FFmpeg
-   and ffprobe. Render maps that non-secret environment flag to a Docker build argument.
-   Web images keep the default `false`. Never reference secrets in Docker build arguments.
+2. Create a background worker from the encoder image published by the same CI run as the web
+   image (`ghcr.io/boufe/yaparena-encoder@sha256:ENCODER_DIGEST`) and set Docker Command to
+   `node dist/replay-worker.js`. That image already contains FFmpeg and ffprobe. A worker built
+   from source instead needs `MEDIA_WORKER_TOOLS=true`, which Render maps to a Docker build
+   argument; web images keep the default `false`. Never reference secrets in build arguments.
 3. Give the worker only runtime database credentials, strict DB TLS/search-path settings,
    LiveKit credentials and private bucket credentials. Match `MEDIA_REPLAY_EDGE_URL`,
    `MEDIA_REPLAY_SIGNING_SECRET` and canary `MEDIA_REPLAY_EDGE_ROOMS` with the web service.
@@ -179,3 +188,80 @@ service configuration and incident response remain deployment operations, not a 
 approval step. Existing eligible MP4 replay remains the fallback until a verified package is ready.
 See [replay automation](replay-automation.md) and [delivery controls](media-delivery-controls.md)
 for queue invariants, limits, rollback and the unverified hosting/physical-device acceptance gates.
+
+## Deploy the CI-published images
+
+After `quality / check` and `container` pass on a push to `main`, CI publishes two `linux/amd64`
+images; Render runs only that platform. Tagged `vX.Y.Z` releases still publish multi-platform web
+images separately.
+
+| Image                            | Contents                                  | Render service             |
+| -------------------------------- | ----------------------------------------- | -------------------------- |
+| `ghcr.io/boufe/yaparena`         | Production web image                      | Web service, migration job |
+| `ghcr.io/boufe/yaparena-encoder` | Same build with `MEDIA_WORKER_TOOLS=true` | Replay encoder worker      |
+
+The `publish` jobs push each image by digest without a tag, scan that pushed digest with the
+`container` job's Trivy settings, and only then tag it `sha-<full commit SHA>`. A failed scan
+leaves no tag, and an existing tag is never moved. The CI run summary lists each
+`image@sha256:...`; both images carry SBOM and provenance attestations. `publish` does not wait
+for `integration`, so deploy only a commit whose whole CI run passed.
+
+### Registry access
+
+GHCR makes a new package private, even for a public repository: a linked package inherits the
+repository's access permissions but not its visibility. After the first `main` publication,
+choose one option for both packages:
+
+- **Public (recommended).** On GitHub, open each package from the repository's **Packages** list,
+  then **Package settings → Danger Zone → Change visibility → Public**. Render then pulls without
+  credentials. The images contain only what the public Dockerfile builds from the public
+  repository; build arguments are non-secret and `.dockerignore` excludes `.env` files. A public
+  package cannot be made private again.
+- **Private.** Create a personal access token (classic) with only `read:packages`. In Render's
+  workspace settings under **Registry Credentials**, add a GitHub credential with your GitHub
+  username and that token, then select it on both services. The token can read every package your
+  account can read, so store and rotate it like other deployment secrets.
+
+If a package with either name existed before this workflow, grant this repository write access
+under the package's **Manage Actions access**, or the first publication fails.
+
+### Switch the existing services
+
+Render can change an existing service's source to a prebuilt image in place: **Settings → Build →
+Source → Edit**, then choose an existing image
+([Render changelog, 2026-04-30](https://render.com/changelog/change-your-services-backing-repo-or-image-in-the-render-dashboard)).
+The service keeps its ID, `onrender.com` hostname, plan, health check and environment variables.
+Its type cannot change, so the web service stays a web service and the encoder a background
+worker. This has not yet been tried on these services.
+
+1. On Render's **Blueprints** page, check whether this repository's `render.yaml` manages the web
+   service. If it does, disconnect that Blueprint (its services remain) or turn off its automatic
+   sync before switching. `render.yaml` still declares `runtime: docker`, and a Blueprint cannot
+   change an existing service's runtime, so a later sync would conflict.
+2. Migrate with the chosen web digest as in step 2 of [deploy the web service](#deploy-the-web-service).
+3. Switch the web service to `ghcr.io/boufe/yaparena@sha256:WEB_DIGEST`, selecting the registry
+   credential if the package is private. Keep Docker Command `/bin/sh /app/scripts/start-staging.sh`,
+   health check path `/ready` and every environment variable. Render deploys the image after the
+   change; confirm `/ready` and the smoke checks.
+4. Switch the encoder to `ghcr.io/boufe/yaparena-encoder@sha256:ENCODER_DIGEST` from the same CI
+   run and keep Docker Command `node dist/replay-worker.js`. `MEDIA_WORKER_TOOLS` only affected
+   source builds and can be removed. Confirm the worker passes its tool, codec and runtime
+   identity checks before it claims jobs.
+5. If Render does not offer an image source for an existing service, create new image-backed
+   services of the same type and plan instead. Copy every environment variable and set the Docker
+   Command. A new web service gets a new hostname, so `APP_ORIGIN`, the LiveKit webhook URL and
+   the R2 CORS origin must follow it. Delete the old services only after the new ones pass.
+
+### Deploy a later commit
+
+1. Copy the web and encoder digests from a `main` commit whose CI run passed every job.
+2. Migrate with the web digest as in step 2 of [deploy the web service](#deploy-the-web-service).
+3. Change each service's image URL to its new digest and save. Use digests from one CI run so web
+   and encoder stay a matching pair. Confirm `/ready` and the encoder startup checks.
+
+Prefer the digest. The `sha-<full commit SHA>` tag is an acceptable pin because the workflow never
+moves it, but anyone with write access to the package could. A deploy hook with an `imgURL`
+parameter deploys an image without changing the saved image URL, so a later manual deploy returns
+to the saved one; change the URL in settings instead. To roll back, set the previous digest.
+Render's rollback also needs that image in the registry, so keep published package versions.
+Migrations are additive and are not rolled back.

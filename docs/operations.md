@@ -449,6 +449,13 @@ After the first release, verify the registry manifest lists both platforms, the 
 are attached to the published image, and the summary digest resolves to that manifest. Confirm the
 deployment host has read access to the package if GHCR keeps it private.
 
+Releases and the `CI` workflow's `main`-only `publish` jobs share `reusable-publish.yml`. Each
+push to `main` publishes `linux/amd64` web and encoder images tagged `sha-<full commit SHA>`, which
+the [Render staging runbook](render-staging.md#deploy-the-ci-published-images) deploys. The shared
+workflow pushes by digest without a tag, scans every platform of that pushed digest with the
+`container` job's Trivy settings, and tags it only after the scan passes. It never moves an
+existing tag; if the first requested tag exists, the run reports its digest and publishes nothing.
+
 On the deployment host, provide the immutable image reference and production database URL through
 an access-controlled environment file. Apply migrations as a separate release step:
 

@@ -13,13 +13,20 @@ import {
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-// Fixed staging targets only. Secrets and raw API bodies remain in memory.
+// Fixed staging targets, plus the background-jobs worker once it exists: it is
+// found by exact name, type and workspace because its ID is not fixed here.
+// Secrets and raw API bodies remain in memory.
 // inspect never mutates. Every other mode needs its exact explicit action flag.
 // https://api-docs.render.com/reference/suspend-service-1
 // https://api-docs.render.com/reference/resume-service-1
 // https://api-docs.render.com/reference/update-env-var
 // https://api-docs.render.com/reference/create-deploy
-const targets = [
+type Target = {
+  id: string;
+  name: string;
+  type: "web_service" | "background_worker";
+};
+const fixedTargets: readonly Target[] = [
   {
     id: "srv-datv1kjncjis73a500cg",
     name: "yaparena-staging-web",
@@ -30,7 +37,9 @@ const targets = [
     name: "yaparena-replay-worker",
     type: "background_worker",
   },
-] as const;
+];
+const jobsWorkerName = "yaparena-staging-jobs";
+let targets: readonly Target[] = fixedTargets;
 const mode = process.argv[2] ?? "inspect";
 assert.ok(
   ["inspect", "suspend", "resume", "configure-sandbox", "deploy"].includes(
@@ -96,7 +105,24 @@ async function request(
   assert.ok(Buffer.byteLength(bytes) < 1024 * 1024);
   return bytes.trim() ? (JSON.parse(bytes) as unknown) : null;
 }
-async function snapshot(target: (typeof targets)[number]): Promise<Snapshot> {
+async function findJobsWorker(): Promise<Target | undefined> {
+  const web = await request(`/services/${fixedTargets[0]!.id}`);
+  assert.ok(object(web));
+  const ownerId = string(web.ownerId);
+  assert.match(ownerId, /^tea-[a-z0-9]+$/);
+  const rows = await request(
+    `/services?name=${jobsWorkerName}&type=background_worker&ownerId=${ownerId}&limit=20`,
+  );
+  assert.ok(Array.isArray(rows) && rows.length <= 1);
+  const row: unknown = rows[0];
+  if (row === undefined) return undefined;
+  assert.ok(object(row) && object(row.service));
+  const id = string(row.service.id);
+  assert.match(id, /^srv-[a-z0-9]+$/);
+  assert.equal(row.service.ownerId, ownerId);
+  return { id, name: jobsWorkerName, type: "background_worker" };
+}
+async function snapshot(target: Target): Promise<Snapshot> {
   const service = await request(`/services/${target.id}`);
   assert.ok(object(service));
   assert.equal(service.id, target.id);
@@ -236,9 +262,12 @@ try {
   assert.ok(typeof parsed === "string" && parsed.length > 20);
   key = parsed;
   if (mode !== "inspect") lock = await open(lockPath, "wx", 0o600);
+  step = "find the optional background-jobs worker by exact name";
+  const jobsWorker = await findJobsWorker();
+  if (jobsWorker) targets = [...fixedTargets, jobsWorker];
   step = "inspect exact staging services without exposing environment values";
   let states = await all();
-  const web = states.find((state) => state.service.id === targets[0].id);
+  const web = states.find((state) => state.service.id === fixedTargets[0]!.id);
   assert.ok(web);
   assert.ok(
     states.every(
@@ -258,7 +287,7 @@ try {
     operations: { service: string; operation: string; accepted: boolean }[] =
       [];
   if (mode === "suspend" || mode === "resume") {
-    step = `request ${mode} only for both named staging services`;
+    step = `request ${mode} only for the named staging services`;
     for (const target of targets) {
       await request(`/services/${target.id}/${mode}`, "POST", undefined, [202]);
       operations.push({
@@ -292,38 +321,44 @@ try {
           "unexpected financial setting requires review",
         );
     await request(
-      `/services/${targets[0].id}/env-vars/COIN_SANDBOX_ENABLED`,
+      `/services/${fixedTargets[0]!.id}/env-vars/COIN_SANDBOX_ENABLED`,
       "PUT",
       { value: "true" },
     );
     operations.push({
-      service: targets[0].name,
+      service: fixedTargets[0]!.name,
       operation: "enable deterministic sandbox only",
       accepted: true,
     });
     states = await all();
     assert.equal(states[0]?.variables.get("COIN_SANDBOX_ENABLED"), "true");
   } else if (mode === "deploy") {
-    assert.equal(
-      web.variables.get("RUN_BACKGROUND_JOBS") ?? "true",
-      "true",
-      "the updated staging web service must process account and media revocation",
+    step = "require web or a running jobs worker to run background jobs";
+    const jobs = states.find((state) => state.service.name === jobsWorkerName);
+    assert.ok(
+      (web.variables.get("RUN_BACKGROUND_JOBS") ?? "true") === "true" ||
+        jobs?.service.suspended === "not_suspended",
+      "web or a running jobs worker must process account and media revocation",
     );
-    step = "deploy explicitly supplied current repository commit to web only";
+    step =
+      "deploy explicitly supplied current repository commit to web and the jobs worker";
     assert.equal(process.env.ACCOUNT_STAGING_RENDER_COMMIT, revision);
     assert.match(revision, /^[a-f0-9]{40}$/);
-    const deploy = await request(
-      `/services/${targets[0].id}/deploys`,
-      "POST",
-      { commitId: revision, clearCache: "do_not_clear" },
-      [201, 202],
-    );
-    assert.ok(object(deploy) && typeof deploy.id === "string");
-    operations.push({
-      service: targets[0].name,
-      operation: "deploy exact HEAD (acceptance only; not live confirmation)",
-      accepted: true,
-    });
+    // The jobs worker verifies the same migrations as web, so both get HEAD.
+    for (const target of [web.service, ...(jobs ? [jobs.service] : [])]) {
+      const deploy = await request(
+        `/services/${target.id}/deploys`,
+        "POST",
+        { commitId: revision, clearCache: "do_not_clear" },
+        [201, 202],
+      );
+      assert.ok(object(deploy) && typeof deploy.id === "string");
+      operations.push({
+        service: target.name,
+        operation: "deploy exact HEAD (acceptance only; not live confirmation)",
+        accepted: true,
+      });
+    }
     states = await all();
   }
   const report = {

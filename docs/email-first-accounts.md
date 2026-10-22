@@ -323,7 +323,10 @@ Redis stores shared abuse counters only. Atomic Lua increments/install TTLs
 together. Namespaced HMAC IP-subnet/operation keys contain no raw identity or
 bearer credential. Direct OTP requests go to Privy; application auth POST
 mutations use Redis, with logout and session reads available during outages.
-Existing process-local limits remain defense in depth. Verified account-scoped
+With Redis configured, the general API, A4 and coin-sandbox limiters count in
+the same store and fail open on a store error (logged, `fail_open` outcome); the
+auth and wallet-sign-in limiters fail closed (503). Without Redis they stay
+process-local. Verified account-scoped
 wallet-operation creation uses a separate 30-per-15-minute budget; auth POSTs
 share a 120-per-15-minute IP-subnet budget. Logout/current-session inspection and
 account-wide revocation remain usable during Redis outages. These are initial

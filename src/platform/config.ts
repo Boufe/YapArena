@@ -30,6 +30,15 @@ function parseTrustProxy(value: string | undefined): number | false {
   return parseInteger(value, "TRUST_PROXY", { minimum: 1, maximum: 10 });
 }
 
+function parseMetricsToken(value: string | undefined) {
+  if (!value) return undefined;
+  if (!/^[A-Za-z0-9._~+/=-]{32,512}$/.test(value))
+    throw new Error(
+      "METRICS_TOKEN must be 32 to 512 URL-safe or base64 characters",
+    );
+  return value;
+}
+
 function parseSiweRpcUrls(
   value: string | undefined,
   environment: string,
@@ -203,6 +212,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
   const logLevel = environment.LOG_LEVEL ?? "info";
   const applicationOrigin = environment.APP_ORIGIN;
   const trustProxy = parseTrustProxy(environment.TRUST_PROXY);
+  const metricsToken = parseMetricsToken(environment.METRICS_TOKEN);
   const requestBodyLimit = environment.REQUEST_BODY_LIMIT ?? "10kb";
   const apiRateLimit = parseInteger(
     environment.API_RATE_LIMIT ?? "300",
@@ -380,6 +390,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
     logLevel,
     applicationOrigin,
     trustProxy,
+    metricsToken,
     requestBodyLimit,
     apiRateLimit,
     authRateLimit,

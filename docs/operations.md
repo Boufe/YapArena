@@ -179,9 +179,11 @@ and an untouched same-identity job. The older job cannot advance the mapping's
 generation/token cutoff or wake wallet provisioning. Unacknowledged intents,
 changed credentials, suspension and unaudited generation changes remain fenced.
 Read-only propagation checks release database connections. The bounded mutation
-window retains account ordering. These authentication jobs run on the Privy-configured
-web service independently of general `RUN_BACKGROUND_JOBS`; the separate
-maintenance worker does not receive the Privy secret or run this queue.
+window retains account ordering. These authentication jobs run every ten seconds with
+the other background jobs: on the web service while `RUN_BACKGROUND_JOBS` is true,
+and in the maintenance worker (`npm run start:worker`), which always runs them when it
+has the same Privy configuration. The worker validates but never connects to Redis.
+See [the staging cut-over](render-staging.md#move-background-jobs-to-the-worker).
 
 An uncertain provider freeze/unfreeze requires evidence review. The explicit
 owner-only `scripts/retry-account-provider-reset.ts` modes separate an ordinary
@@ -466,6 +468,7 @@ APP_ORIGIN=https://service.example.com
 TRUST_PROXY=1
 LOG_LEVEL=info
 HOST_PORT=3000
+METRICS_TOKEN=RANDOM_SCRAPER_TOKEN
 ```
 
 This block is an example of the file's contents, not a command to paste into the shell. Create the
@@ -479,6 +482,8 @@ and restrict who can read it. It is separate from the local `.env` file and must
   large value.
 - `LOG_LEVEL` controls operational detail, while `HOST_PORT` selects the loopback port used by the
   host reverse proxy.
+- `METRICS_TOKEN` is the bearer token the metrics collector sends to `/metrics`; without it the
+  production endpoint returns 404.
 
 ```sh
 docker compose --env-file /secure/yaparena.env \

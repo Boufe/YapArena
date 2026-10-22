@@ -6,6 +6,7 @@ import express from "express";
 import { fileURLToPath } from "node:url";
 import helmet from "helmet";
 import type { ErrorRequestHandler, Request } from "express";
+import type { Pool } from "pg";
 import type { Logger } from "pino";
 import type { createMessageRepository } from "./features/messages/repository.ts";
 import type { createDiscoveryRepository } from "./features/discovery/repository.ts";
@@ -47,12 +48,18 @@ import {
   createMediaWebhookRouter,
 } from "./features/media/router.ts";
 import { renderUnavailable } from "./features/discovery/web.ts";
+import { assetRevision } from "./features/discovery/assets.ts";
 import {
   createAuthRouter,
   createRequireAuthentication,
 } from "./platform/auth/router.ts";
+import { pingDatabase } from "./platform/database.ts";
 import { createHttpLogger } from "./platform/logger.ts";
-import { createMetrics } from "./platform/metrics.ts";
+import {
+  createMetrics,
+  createMetricsAuthorization,
+} from "./platform/metrics.ts";
+import type { SharedRateLimits } from "./platform/shared-abuse.ts";
 import { SharedReadCapacityError } from "./platform/shared-read.ts";
 import {
   createViewerAdmission,
@@ -116,6 +123,7 @@ export const handleError: ErrorRequestHandler = (
 
 export function createApp({
   messages,
+  database,
   a4,
   discovery,
   identity,
@@ -135,6 +143,7 @@ export function createApp({
   homepageReferenceEnabled = false,
   publicBots,
   metrics = createMetrics(),
+  metricsToken,
   applicationOrigin,
   trustProxy = false,
   requestBodyLimit = "10kb",
@@ -149,10 +158,13 @@ export function createApp({
   coinWebhook,
   sharedAuthLimiter,
   sharedAccountLimiter,
+  sharedRateLimits,
   accountWallet,
   synchronizeProvider,
 }: {
   messages: ReturnType<typeof createMessageRepository>;
+  // Readiness pings this pool. Without it the service reports not ready.
+  database?: Pick<Pool, "query">;
   a4?: ReturnType<typeof createA4Repository>;
   discovery?: ReturnType<typeof createDiscoveryRepository>;
   identity?: ReturnType<typeof createIdentityRepository>;
@@ -175,6 +187,7 @@ export function createApp({
   homepageReferenceEnabled?: boolean;
   publicBots?: ReturnType<typeof createPublicBotRepository>;
   metrics?: ReturnType<typeof createMetrics>;
+  metricsToken?: string;
   applicationOrigin?: string;
   trustProxy?: number | false;
   requestBodyLimit?: string;
@@ -195,6 +208,9 @@ export function createApp({
   >;
   sharedAuthLimiter?: RequestHandler;
   sharedAccountLimiter?: RequestHandler;
+  // Backs the general, auth and account-security API limiters with the shared
+  // Redis abuse store.
+  sharedRateLimits?: SharedRateLimits;
   accountWallet?: ReturnType<typeof createAccountWallet>;
   coinSandbox?: Pick<
     Parameters<typeof createCoinSandboxRouter>[0],
@@ -289,6 +305,7 @@ export function createApp({
         !liveRead(request) ||
         streamRead(request) ||
         Boolean(mediaDeliveryLane(request)),
+      shared: sharedRateLimits?.("api-live", "open"),
     }),
   );
   app.use(
@@ -299,6 +316,7 @@ export function createApp({
         liveRead(request) ||
         streamRead(request) ||
         Boolean(mediaDeliveryLane(request)),
+      shared: sharedRateLimits?.("api", "open"),
     }),
   );
   if (media && mediaProvider) {
@@ -335,7 +353,8 @@ export function createApp({
 
   app.get("/ready", async (_request, response) => {
     try {
-      await messages.isReady();
+      if (!database) throw new Error("database is not configured");
+      await pingDatabase(database);
       return response.json({ status: "ready" });
     } catch (error) {
       _request.log.error({ error }, "readiness check failed");
@@ -344,7 +363,11 @@ export function createApp({
     }
   });
 
-  app.get("/metrics", metrics.handler);
+  app.get(
+    "/metrics",
+    createMetricsAuthorization({ token: metricsToken, environment }),
+    metrics.handler,
+  );
 
   const recordProductAction = measurement
     ? createProductActionRecorder({ measurement, environment })
@@ -356,11 +379,18 @@ export function createApp({
         .set("Cache-Control", "no-cache")
         .sendFile(fileURLToPath(new URL("../public/sw.js", import.meta.url)));
     });
-    app.use(
-      "/assets",
-      express.static(fileURLToPath(new URL("../public", import.meta.url)), {
-        maxAge: 0,
-      }),
+    const assetRoot = fileURLToPath(new URL("../public", import.meta.url));
+    const assets = express.static(assetRoot, { maxAge: 0 });
+    // Only the current revision is immutable: a stale ?v= from another
+    // deploy must not pin this build's content under an old URL.
+    const versionedAssets = express.static(assetRoot, {
+      maxAge: "1y",
+      immutable: true,
+    });
+    app.use("/assets", (request, response, next) =>
+      request.query.v === assetRevision && request.path !== "/offline.html"
+        ? versionedAssets(request, response, next)
+        : assets(request, response, next),
     );
     app.use(
       createDiscoveryRouter({
@@ -391,6 +421,7 @@ export function createApp({
       provider: authProvider,
       synchronizeProvider,
       sharedAccountLimiter,
+      sharedRateLimits,
       recordAuth: (event, seconds, phase = "journey") => {
         metrics.authJourney.inc({ event });
         if (seconds !== undefined)
@@ -410,6 +441,7 @@ export function createApp({
         sessionDurationMs,
         siweRpcUrls,
         sharedAccountLimiter,
+        sharedRateLimits,
       }),
     );
   if (coinSandbox)
@@ -422,13 +454,14 @@ export function createApp({
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",
         rpcUrls: siweRpcUrls,
         sharedWriteLimiter: sharedAccountLimiter,
+        sharedRateLimits,
       }),
     );
   if (a4)
     app.use(
       "/api/a4",
       createRequireAuthentication({ sessions, environment }),
-      createA4Router(a4, environment),
+      createA4Router(a4, environment, sharedRateLimits),
     );
   if (accountWallet)
     app.get(

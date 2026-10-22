@@ -1,5 +1,4 @@
 import { Router, type Request, type RequestHandler } from "express";
-import { rateLimit } from "express-rate-limit";
 import type { createCoinSandboxRepository } from "./sandbox-repository.ts";
 import type { createCoinDebateSandbox } from "./debate-sandbox.ts";
 import type { createSandboxErrorReports } from "./sandbox-reports.ts";
@@ -11,6 +10,8 @@ import {
   parseAccountOperationCredential,
 } from "../../platform/auth/security-router.ts";
 import { hashSessionToken } from "../../platform/auth/session-tokens.ts";
+import { createApiRateLimiter } from "../../platform/security.ts";
+import type { SharedRateLimits } from "../../platform/shared-abuse.ts";
 import { SessionUnavailableError } from "../../platform/auth/sessions.ts";
 import { A4Error, purchaseLimit } from "../a4/engine.ts";
 
@@ -51,6 +52,7 @@ export function createCoinSandboxRouter(options: {
   applicationOrigin: string;
   rpcUrls?: Readonly<Record<string, string>>;
   sharedWriteLimiter?: RequestHandler;
+  sharedRateLimits?: SharedRateLimits;
 }) {
   const router = Router(),
     { sandbox, debates, operations } = options;
@@ -88,12 +90,11 @@ export function createCoinSandboxRouter(options: {
     next();
   });
   router.use(
-    rateLimit({
+    createApiRateLimiter({
       windowMs: 60_000,
       limit: 120,
       keyGenerator: (r) => r.user!.id,
-      standardHeaders: "draft-8",
-      legacyHeaders: false,
+      shared: options.sharedRateLimits?.("coin-sandbox", "open"),
     }),
   );
   router.use((r, s, next) => {

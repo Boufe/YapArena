@@ -5120,22 +5120,22 @@ exports[`renders community moderation and the broadcast overlay 1`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My moderation · YAP Arena</title>
-<link rel="stylesheet" href="/assets/site.css">
-<link rel="stylesheet" href="/assets/site-header.css">
-<script defer src="/assets/session-coordination.js">
+<link rel="stylesheet" href="/assets/site.css?v=0123456789ab">
+<link rel="stylesheet" href="/assets/site-header.css?v=0123456789ab">
+<script defer src="/assets/session-coordination.js?v=0123456789ab">
 </script>
-<script defer src="/assets/site.js">
+<script defer src="/assets/site.js?v=0123456789ab">
 </script>
-<script defer src="/assets/account-balance.js">
+<script defer src="/assets/account-balance.js?v=0123456789ab">
 </script>
-<script type="module" src="/assets/site-header.js">
+<script type="module" src="/assets/site-header.js?v=0123456789ab">
 </script>
-<script type="module" src="/assets/community.js">
+<script type="module" src="/assets/community.js?v=0123456789ab">
 </script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header" data-site-header data-session="checking" data-auth-script="/assets/account-auth.bundle.js" data-auth-style="/assets/account-auth.css">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
+<header class="site-header" data-site-header data-session="checking" data-auth-script="/assets/account-auth.bundle.js?v=0123456789ab" data-auth-style="/assets/account-auth.css?v=0123456789ab">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
 <svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true">
 <ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/>
 <path d="M9 35 31 5"/>
@@ -5217,22 +5217,22 @@ exports[`renders community moderation and the broadcast overlay 2`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Moderation review · YAP Arena</title>
-<link rel="stylesheet" href="/assets/site.css">
-<link rel="stylesheet" href="/assets/site-header.css">
-<script defer src="/assets/session-coordination.js">
+<link rel="stylesheet" href="/assets/site.css?v=0123456789ab">
+<link rel="stylesheet" href="/assets/site-header.css?v=0123456789ab">
+<script defer src="/assets/session-coordination.js?v=0123456789ab">
 </script>
-<script defer src="/assets/site.js">
+<script defer src="/assets/site.js?v=0123456789ab">
 </script>
-<script defer src="/assets/account-balance.js">
+<script defer src="/assets/account-balance.js?v=0123456789ab">
 </script>
-<script type="module" src="/assets/site-header.js">
+<script type="module" src="/assets/site-header.js?v=0123456789ab">
 </script>
-<script type="module" src="/assets/community.js">
+<script type="module" src="/assets/community.js?v=0123456789ab">
 </script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header" data-site-header data-session="checking" data-auth-script="/assets/account-auth.bundle.js" data-auth-style="/assets/account-auth.css">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
+<header class="site-header" data-site-header data-session="checking" data-auth-script="/assets/account-auth.bundle.js?v=0123456789ab" data-auth-style="/assets/account-auth.css?v=0123456789ab">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
 <svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true">
 <ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/>
 <path d="M9 35 31 5"/>
@@ -5330,22 +5330,22 @@ exports[`renders community moderation and the broadcast overlay 3`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My moderation · YAP Arena</title>
-<link rel="stylesheet" href="/assets/site.css">
-<link rel="stylesheet" href="/assets/site-header.css">
-<script defer src="/assets/session-coordination.js">
+<link rel="stylesheet" href="/assets/site.css?v=0123456789ab">
+<link rel="stylesheet" href="/assets/site-header.css?v=0123456789ab">
+<script defer src="/assets/session-coordination.js?v=0123456789ab">
 </script>
-<script defer src="/assets/site.js">
+<script defer src="/assets/site.js?v=0123456789ab">
 </script>
-<script defer src="/assets/account-balance.js">
+<script defer src="/assets/account-balance.js?v=0123456789ab">
 </script>
-<script type="module" src="/assets/site-header.js">
+<script type="module" src="/assets/site-header.js?v=0123456789ab">
 </script>
-<script type="module" src="/assets/community.js">
+<script type="module" src="/assets/community.js?v=0123456789ab">
 </script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header" data-site-header data-session="checking" data-auth-script="/assets/account-auth.bundle.js" data-auth-style="/assets/account-auth.css">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
+<header class="site-header" data-site-header data-session="checking" data-auth-script="/assets/account-auth.bundle.js?v=0123456789ab" data-auth-style="/assets/account-auth.css?v=0123456789ab">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
 <svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true">
 <ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/>
 <path d="M9 35 31 5"/>
@@ -5427,22 +5427,22 @@ exports[`renders community moderation and the broadcast overlay 4`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Moderation review · YAP Arena</title>
-<link rel="stylesheet" href="/assets/site.css">
-<link rel="stylesheet" href="/assets/site-header.css">
-<script defer src="/assets/session-coordination.js">
+<link rel="stylesheet" href="/assets/site.css?v=0123456789ab">
+<link rel="stylesheet" href="/assets/site-header.css?v=0123456789ab">
+<script defer src="/assets/session-coordination.js?v=0123456789ab">
 </script>
-<script defer src="/assets/site.js">
+<script defer src="/assets/site.js?v=0123456789ab">
 </script>
-<script defer src="/assets/account-balance.js">
+<script defer src="/assets/account-balance.js?v=0123456789ab">
 </script>
-<script type="module" src="/assets/site-header.js">
+<script type="module" src="/assets/site-header.js?v=0123456789ab">
 </script>
-<script type="module" src="/assets/community.js">
+<script type="module" src="/assets/community.js?v=0123456789ab">
 </script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header" data-site-header data-session="checking" data-auth-script="/assets/account-auth.bundle.js" data-auth-style="/assets/account-auth.css">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
+<header class="site-header" data-site-header data-session="checking" data-auth-script="/assets/account-auth.bundle.js?v=0123456789ab" data-auth-style="/assets/account-auth.css?v=0123456789ab">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
 <svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true">
 <ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/>
 <path d="M9 35 31 5"/>
@@ -5540,7 +5540,7 @@ exports[`renders community moderation and the broadcast overlay 5`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>A public fixture · Broadcast overlay</title>
-<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/site.css?v=0123456789ab">
 </head>
 <body class="overlay-page">
 <main class="broadcast-overlay" aria-label="Debate broadcast information">
@@ -5565,7 +5565,7 @@ exports[`renders community moderation and the broadcast overlay 6`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Proposition &lt;b&gt;&amp;amp;&lt;/b&gt; &quot;quoted&quot; &#39;single&#39; &amp; &lt; · Broadcast overlay</title>
-<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/site.css?v=0123456789ab">
 </head>
 <body class="overlay-page">
 <main class="broadcast-overlay" aria-label="Debate broadcast information">
@@ -6115,9 +6115,9 @@ exports[`renders the about and account pages 2`] = `
 </div>
 <button id="cancel-wallet-change" type="button" class="button-secondary">Cancel</button>
 </dialog>
-<script defer src="/assets/account.js">
+<script defer src="/assets/account.js?v=0123456789ab">
 </script>
-<script defer src="/assets/account-sessions.js">
+<script defer src="/assets/account-sessions.js?v=0123456789ab">
 </script>
 </main>
 <footer class="site-footer">
@@ -6748,7 +6748,7 @@ exports[`renders the coins and match pages 1`] = `
 <summary>Research assumptions and diagnostics</summary>
 <p>Heterogeneous bots use fresh broad private beliefs each period. This is a behavioral UX stress test, not a coherent Bayesian proof. The homogeneous preset preserves the 0.22 / 0.34 analytical reference. Finite populations can reward deviations. No guaranteed truthfulness, Sybil resistance or event winner is claimed.</p>
 <p>
-<a href="/assets/a4-research.json">Read reproducible finite counterfactual results</a>. The audit recomputes medians, acceptance and settlement with fixed quantity, paired random draws and independent confirmation.</p>
+<a href="/assets/a4-research.json?v=0123456789ab">Read reproducible finite counterfactual results</a>. The audit recomputes medians, acceptance and settlement with fixed quantity, paired random draws and independent confirmation.</p>
 </details>
 </section>
 </div>
@@ -6952,7 +6952,7 @@ exports[`renders the coins and match pages 2`] = `
 </div>
 </div>
 </section>
-<script defer src="/assets/matching.js">
+<script defer src="/assets/matching.js?v=0123456789ab">
 </script>
 </main>
 <footer class="site-footer">
@@ -10358,22 +10358,22 @@ exports[`renders the measurement dashboard 1`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Product measurement · YAP Arena</title>
-<link rel="stylesheet" href="/assets/site.css">
-<link rel="stylesheet" href="/assets/site-header.css">
-<script defer src="/assets/session-coordination.js">
+<link rel="stylesheet" href="/assets/site.css?v=0123456789ab">
+<link rel="stylesheet" href="/assets/site-header.css?v=0123456789ab">
+<script defer src="/assets/session-coordination.js?v=0123456789ab">
 </script>
-<script defer src="/assets/site.js">
+<script defer src="/assets/site.js?v=0123456789ab">
 </script>
-<script defer src="/assets/account-balance.js">
+<script defer src="/assets/account-balance.js?v=0123456789ab">
 </script>
-<script type="module" src="/assets/site-header.js">
+<script type="module" src="/assets/site-header.js?v=0123456789ab">
 </script>
-<script defer src="/assets/measurement-dashboard.js">
+<script defer src="/assets/measurement-dashboard.js?v=0123456789ab">
 </script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header" data-site-header data-session="checking" data-auth-script="/assets/account-auth.bundle.js" data-auth-style="/assets/account-auth.css">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
+<header class="site-header" data-site-header data-session="checking" data-auth-script="/assets/account-auth.bundle.js?v=0123456789ab" data-auth-style="/assets/account-auth.css?v=0123456789ab">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
 <svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true">
 <ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/>
 <path d="M9 35 31 5"/>
@@ -10575,22 +10575,22 @@ exports[`renders the measurement dashboard 2`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Product measurement · YAP Arena</title>
-<link rel="stylesheet" href="/assets/site.css">
-<link rel="stylesheet" href="/assets/site-header.css">
-<script defer src="/assets/session-coordination.js">
+<link rel="stylesheet" href="/assets/site.css?v=0123456789ab">
+<link rel="stylesheet" href="/assets/site-header.css?v=0123456789ab">
+<script defer src="/assets/session-coordination.js?v=0123456789ab">
 </script>
-<script defer src="/assets/site.js">
+<script defer src="/assets/site.js?v=0123456789ab">
 </script>
-<script defer src="/assets/account-balance.js">
+<script defer src="/assets/account-balance.js?v=0123456789ab">
 </script>
-<script type="module" src="/assets/site-header.js">
+<script type="module" src="/assets/site-header.js?v=0123456789ab">
 </script>
-<script defer src="/assets/measurement-dashboard.js">
+<script defer src="/assets/measurement-dashboard.js?v=0123456789ab">
 </script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header" data-site-header data-session="checking" data-auth-script="/assets/account-auth.bundle.js" data-auth-style="/assets/account-auth.css">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
+<header class="site-header" data-site-header data-session="checking" data-auth-script="/assets/account-auth.bundle.js?v=0123456789ab" data-auth-style="/assets/account-auth.css?v=0123456789ab">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
 <svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true">
 <ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/>
 <path d="M9 35 31 5"/>

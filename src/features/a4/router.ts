@@ -7,7 +7,8 @@ import {
 } from "./repository.ts";
 import { SessionUnavailableError } from "../../platform/auth/sessions.ts";
 import { hashSessionToken } from "../../platform/auth/session-tokens.ts";
-import { rateLimit } from "express-rate-limit";
+import { createApiRateLimiter } from "../../platform/security.ts";
+import type { SharedRateLimits } from "../../platform/shared-abuse.ts";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 function id(value: unknown): string {
   if (typeof value !== "string" || !uuid.test(value))
@@ -37,6 +38,7 @@ function page(value: unknown, max: number, fallback: number) {
 export function createA4Router(
   a4: ReturnType<typeof createA4Repository>,
   environment: string,
+  sharedRateLimits?: SharedRateLimits,
 ) {
   const router = Router();
   const actor = (r: Request): Actor => ({
@@ -55,12 +57,11 @@ export function createA4Router(
     next();
   });
   router.use(
-    rateLimit({
+    createApiRateLimiter({
       windowMs: 60000,
       limit: 120,
       keyGenerator: (r) => r.user!.id,
-      standardHeaders: "draft-8",
-      legacyHeaders: false,
+      shared: sharedRateLimits?.("a4", "open"),
     }),
   );
   router.use((r, _s, next) => {
@@ -68,12 +69,11 @@ export function createA4Router(
       return writeLimit(r, _s, next);
     next();
   });
-  const writeLimit = rateLimit({
+  const writeLimit = createApiRateLimiter({
     windowMs: 60000,
     limit: 30,
     keyGenerator: (r) => r.user!.id,
-    standardHeaders: "draft-8",
-    legacyHeaders: false,
+    shared: sharedRateLimits?.("a4-write", "open"),
   });
   router.get("/wallet", async (r, s) => s.json(await a4.wallet(actor(r))));
   router.get("/publication", async (r, s) =>

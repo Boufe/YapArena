@@ -1,7 +1,13 @@
 import { createHmac } from "node:crypto";
 import { createClient } from "redis";
 import { ipKeyGenerator } from "express-rate-limit";
+import type {
+  Logger as RateLimitLogger,
+  Options as RateLimitOptions,
+  Store,
+} from "express-rate-limit";
 import type { RequestHandler } from "express";
+import type { Logger } from "pino";
 
 // One atomic fixed window with a TTL installed in the same operation. Redis time
 // is authoritative; application clocks cannot split a shared window.
@@ -234,3 +240,94 @@ export function createSharedAbuseLimiter({
     }
   };
 }
+
+export class RateLimitStoreUnavailableError extends Error {
+  constructor() {
+    super("rate limit store unavailable");
+  }
+}
+
+export type SharedRateLimit = {
+  store: Store;
+  passOnStoreError: boolean;
+  logger: RateLimitLogger;
+};
+
+// Backs express-rate-limit limiters with the shared abuse store so limits hold
+// across instances. Keys are HMAC digests: Redis never holds client IPs or
+// account IDs. Each call returns a fresh store for one named limiter.
+export function createSharedRateLimits({
+  store,
+  namespace,
+  secret,
+  logger,
+  observe = () => {},
+}: {
+  store: AbuseStore;
+  namespace: string;
+  secret: string;
+  logger: Pick<Logger, "warn" | "error">;
+  observe?: (outcome: "fail_open" | "unavailable") => void;
+}) {
+  if (!/^[a-z0-9_-]{1,48}$/.test(namespace) || secret.length < 32)
+    throw new Error("invalid shared abuse configuration");
+  return (name: string, failure: "open" | "closed"): SharedRateLimit => {
+    if (!/^[a-z0-9-]{1,32}$/.test(name))
+      throw new Error("invalid shared rate limit name");
+    let windowMs = 60_000;
+    let lastWarning = 0;
+    return {
+      passOnStoreError: failure === "open",
+      // Store failures are logged below with the limiter name, at most once
+      // every 10 seconds per limiter so an outage cannot flood the logs.
+      logger: {
+        error: (error, message) => {
+          if (!(error instanceof RateLimitStoreUnavailableError))
+            logger.error({ error, limiter: name }, message);
+        },
+        warn: (error, message) =>
+          logger.warn({ error, limiter: name }, message),
+      },
+      store: {
+        localKeys: false,
+        prefix: name,
+        init(options: RateLimitOptions) {
+          windowMs = options.windowMs;
+        },
+        async increment(key: string) {
+          const digest = createHmac("sha256", secret)
+            .update(`${name}:${key}`)
+            .digest("hex");
+          try {
+            const result = await store.increment(
+              `${namespace}:security:limit:api:${name}:${digest}`,
+              windowMs,
+            );
+            return {
+              totalHits: result.count,
+              resetTime: new Date(Date.now() + result.ttl),
+            };
+          } catch {
+            observe(failure === "open" ? "fail_open" : "unavailable");
+            if (Date.now() - lastWarning >= 10_000) {
+              lastWarning = Date.now();
+              logger.warn(
+                { limiter: name, failure },
+                failure === "open"
+                  ? "shared rate limit unavailable; allowing requests"
+                  : "shared rate limit unavailable; refusing requests",
+              );
+            }
+            throw new RateLimitStoreUnavailableError();
+          }
+        },
+        // The fixed-window script only counts up. These limiters never refund
+        // requests (no skipSuccessfulRequests/skipFailedRequests) or reset keys.
+        async decrement() {},
+        async resetKey() {},
+      },
+    };
+  };
+}
+
+export type SharedRateLimits = ReturnType<typeof createSharedRateLimits>;

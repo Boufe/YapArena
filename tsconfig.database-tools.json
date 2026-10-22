@@ -12,6 +12,7 @@
     "allowImportingTsExtensions": true
   },
   "files": [
+    "scripts/check-repository-files.ts",
     "scripts/verify-auth-redis.ts",
     "scripts/verify-coin-testnet.ts",
     "scripts/verify-coin-testnet-ledger.ts",

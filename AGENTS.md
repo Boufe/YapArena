@@ -22,10 +22,10 @@ The Node.js 24 service uses strict TypeScript in `src/`. Keep reusable infrastru
 - `npm ci` installs the locked dependencies from `package-lock.json`.
 - `docker compose up --detach --wait db` starts local PostgreSQL.
 - `npm run dev` builds and watches frontend assets and runs the API with reload, loading a separate runtime-only `.env.runtime` file.
-- `npm run build` checks operational and frontend sources, compiles server TypeScript, and generates all browser JavaScript and the four existing bundles.
+- `npm run build` checks operational and frontend sources, compiles server TypeScript, and generates all browser JavaScript and the six bundles (`media`, `replay`, `hero-live`, `homepage`, `account-security` and `account-auth`).
 - `npm run typecheck:operations` checks the edge worker and critical database/release automation in separate strict compiler projects; see [the source inventory](docs/operational-typescript.md).
 - `npm run typecheck:frontend` checks the source inventory, strict browser types, isolated service-worker types, and the frontend build tool. `npm run typecheck` includes this gate.
-- `npm run check` runs lint, format, type checks, and coverage tests. Run it before opening a pull request.
+- `npm run check` runs lint, format, the tracked-file policy (`npm run check:files`), type checks, and coverage tests. Run it before opening a pull request.
 
 See `README.md` for the migration and media container commands.
 Provision and migrate in separate owner/admin processes before starting runtime. Never load the
@@ -38,6 +38,9 @@ maintenance worker does not encode recordings.
 Use two-space indentation and the existing Prettier defaults. ESLint checks JavaScript and TypeScript; run `npm run lint` and `npm run format:check` after edits. Use `camelCase` for variables and functions, `PascalCase` for types, and descriptive lowercase file names. Keep API authorization and state transitions on the server.
 
 ## Frontend preservation and TypeScript policy
+
+The preservation rules below apply to language migrations. Refactors and fixes requested by a
+prompt may change internals, but list every user-visible change in the PR.
 
 All new or substantially modified handwritten frontend code must use strict TypeScript, including browser utilities and service workers. Add modules under `frontend/` following [the frontend workflow](CONTRIBUTING.md#frontend-development); never author or commit served JavaScript. The normal CI quality gate enforces this source policy and strict checking. Do not introduce `any`, type-check suppression directives, or broad assertions to bypass errors; type existing API data and runtime guarantees faithfully.
 
@@ -53,9 +56,19 @@ or [the auth regression gate](docs/operations.md#wallet-credential-change-gate) 
 Database isolation, durable community delivery and replay pipeline verifiers are separate checks
 from `npm run check`. Record skips and distinguish local, hosted and physical-device evidence.
 
+## Evidence and Status Records
+
+Put evidence (test output, timings, screenshots) in the PR description or CI artifacts; the
+`integration` job already uploads `core-browser-evidence`. Do not commit screenshots, videos, raw
+logs or evidence folders. Add a short Markdown record in `docs/` only for a decision, or for a
+hosted or manual result that CI cannot reproduce. Update the
+[status table](docs/nonfinancial-implementation-plan.md#current-implementation-and-evidence) in place
+instead of writing status prose, and keep reports short. `npm run check:files` enforces the file
+rules; see [the evidence policy](CONTRIBUTING.md#evidence-and-status-records).
+
 ## Commit & Pull Request Guidelines
 
-Recent commits use short imperative subjects such as `Validate media prototype failure handling`. Keep commits focused. Pull requests should explain the change, link the relevant issue or decision, list checks run, and include screenshots for UI changes or staging evidence for media changes. Follow `CONTRIBUTING.md` and the repository pull request template.
+Recent commits use short imperative subjects such as `Validate media prototype failure handling`. Keep commits focused. Pull requests should explain the change, link the relevant issue or decision, list checks run, and put screenshots for UI changes or staging evidence for media changes in the PR description, not in commits. Follow `CONTRIBUTING.md` and the repository pull request template.
 
 ## Security & Configuration
 

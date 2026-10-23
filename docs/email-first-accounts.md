@@ -395,8 +395,8 @@ settled; no ready/live debate or redeemable asset found. These are pre-reset cou
 
 Explicit command: `npm run reset:test-accounts -- --dry-run --user-ids=1,2,3,4`,
 then the same selection with `--prepare`, `--rehearse`, `--execute`. The restore
-proof must match the exact selection. Unselected users, sessions, wallets,
-challenges and owned profiles are checked unchanged in the deletion transaction.
+proof must match the exact selection. Unselected users, sessions, linked sign-in
+identities and owned profiles are checked unchanged in the deletion transaction.
 Every invocation requires either an explicit ID selection or `--all-users`;
 omitting the scope fails before database access.
 Never invoked at startup or by migrations. Requires

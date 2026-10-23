@@ -208,6 +208,12 @@ withdrawal and each recovery consent) are confirmed by a fresh sign-in; see
 `confirmation_completed`, `provider_error`, `signin_expired` and `signin_<code>` /
 `confirmation_<code>` refusals.
 
+Migration `1792426019000_remove-legacy-sign-in` (PR B) drops the wallet, password and
+identity-recovery schema. Deploy it only after the release without legacy sign-in runs and
+the account reset has finished. It refuses, naming the account IDs, while any account still
+has a password, wallet or native passkey; reset those accounts rather than editing the
+migration.
+
 The Privy sections below describe code that is unmounted since Decision 0009 and is deleted
 in prompt 12. No request, re-check or background job calls Privy.
 

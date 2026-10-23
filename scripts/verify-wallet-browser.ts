@@ -290,11 +290,14 @@ try {
     ]);
     assert.equal(refreshBarrierTimedOut, false);
     assert.equal(await countWallets(accountId), 1);
-    assert.equal(await page.locator("#signed-in").isVisible(), false);
-    await page
-      .locator("#account-notice")
-      .filter({ hasText: "Checking your account…" })
-      .waitFor();
+    // Refreshing the same account updates it in place: while the lookup is
+    // held, the account area stays visible and is not reset to "Checking".
+    assert.equal(await page.locator("#signed-in").isVisible(), true);
+    assert.notEqual(
+      await page.locator("#account-notice").textContent(),
+      "Checking your account…",
+    );
+    assert.equal(await page.locator("#sign-out").isEnabled(), true);
   } finally {
     holdAccountRefresh = false;
     clearTimeout(refreshBarrierTimer);
@@ -329,7 +332,7 @@ try {
     true,
   );
   checks.push(
-    "retained proof rejects wrong account, wrong chain, cancelled signature, expiry and synthetic service outage; committed mobile removal keeps private account data hidden during a held refresh, then restores the confirmed session and notification",
+    "retained proof rejects wrong account, wrong chain, cancelled signature, expiry and synthetic service outage; committed mobile removal keeps the same account on screen during a held refresh without emptying it, then shows the renewed session and notification",
   );
   phase = "retained-wallet consumed completion replay";
   assert.ok(completed);

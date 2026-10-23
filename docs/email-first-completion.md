@@ -101,6 +101,12 @@ frozen source and actual logs. Integrated attempts failed as recorded above; cor
 owner repair remain pending. No
 CAPTCHA bypass, key replacement or provider configuration change follows.
 
+**Current state — 2026-10-22, passkey confirmation:** the setup panel no longer appears above the
+page. It sits under **Add a passkey** with three labelled steps (create, confirm for YapArena, ready),
+one **Confirm passkey** action and plain-language prompts; a same-account refresh no longer hides the
+account area. This is on branch `feat/account-setup-ux` and has local installed-SDK browser checks only;
+hosted and physical-device passkey acceptance remain open.
+
 **Earlier corrective work (2026-10-20):** genuine returning-user acceptance was
 incomplete at that recorded revision. Its initial blocker was an uncertain provider-session reset with
 unchanged server-verified sign-in methods. The browser incorrectly presented

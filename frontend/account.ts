@@ -202,10 +202,11 @@ async function loadProfile(version = accountVersion) {
 
 async function loadWallets(version = accountVersion) {
   const list = document.querySelector<HTMLElement>("#wallet-list")!;
-  list.replaceChildren();
   const wallets = (await api<{ wallets: LinkedWallet[] }>("/api/auth/wallets"))
     .wallets;
   if (version !== accountVersion) return;
+  // Replace rows only when new ones arrive, so a refresh never flashes empty.
+  list.replaceChildren();
   linkedWallets = wallets;
   const retained = document.querySelector<HTMLElement>("#retained-wallets");
   if (retained) retained.hidden = wallets.length === 0;
@@ -237,13 +238,13 @@ async function loadCollection<T>(
   version = accountVersion,
 ) {
   const list = document.querySelector<HTMLElement>(selector)!;
-  list.replaceChildren();
   let offset = 0;
   async function nextPage() {
     const data = await api<CollectionPage<T>>(
       `${path}?limit=20&offset=${offset}`,
     );
     if (version !== accountVersion) return;
+    if (!offset) list.replaceChildren();
     if (!offset && !data.items.length) list.append(item("Nothing here yet."));
     for (const entry of data.items) list.append(render(entry));
     offset += data.items.length;
@@ -268,12 +269,25 @@ async function loadCollection<T>(
 }
 
 async function loadAccount() {
-  clearAccountState(true);
-  say("Checking your account…");
-  const version = accountVersion;
+  // Refreshing the account already on screen updates it in place, so the page
+  // does not collapse and lose the reader's place. Another account, or none,
+  // still clears everything first.
+  const shown = signedIn.hidden
+    ? null
+    : (window.yapCurrentSessionAccount?.() ?? null);
+  if (shown) ++accountVersion;
+  else {
+    clearAccountState(true);
+    say("Checking your account…");
+  }
+  let version = accountVersion;
   try {
     const { user } = await api<{ user: AccountUser }>("/api/auth/me");
     if (version !== accountVersion) return;
+    if (shown && user.id !== shown) {
+      clearAccountState(true);
+      version = accountVersion;
+    }
     window.yapRememberSessionAccount?.(user.id);
     endedSessionNotice = "";
     passwordAvailable = Boolean(user.email);
@@ -339,6 +353,9 @@ async function loadAccount() {
       );
       return;
     }
+    // An in-place refresh that cannot confirm the account must not leave the
+    // previous details on screen.
+    if (shown) clearAccountState(true);
     say((error as AccountError).message);
   }
 }
@@ -449,11 +466,11 @@ profileForm.addEventListener("submit", async (event) => {
 
 async function loadNotifications(version = accountVersion) {
   const list = document.querySelector<HTMLElement>("#account-notifications")!;
-  list.replaceChildren();
   const { notifications } = await api<{ notifications: { message: string }[] }>(
     "/api/matching/notifications",
   );
   if (version !== accountVersion) return;
+  list.replaceChildren();
   if (!notifications.length) list.append(item("No account notifications."));
   for (const notification of notifications)
     list.append(item(notification.message));

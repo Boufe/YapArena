@@ -11,6 +11,7 @@ import { promisify } from "node:util";
 import { mkdir, writeFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import axe from "axe-core";
+import { signInForTest } from "./browser-sign-in.ts";
 
 export async function verifyPublicBotsBrowser({
   base,
@@ -80,10 +81,11 @@ export async function verifyPublicBotsBrowser({
   try {
     // The arena creator can still have its normal 60-second round in flight.
     // Keep its consent and settlements independent of this shared-history trial.
-    await api("auth/register", {
-      email: `public-bots-${randomUUID()}@example.test`,
-      password: randomUUID() + randomUUID(),
-    });
+    await signInForTest(
+      isolated,
+      base,
+      `public-bots-${randomUUID()}@example.test`,
+    );
     const account = (await api<{ user: { id: string } }>("auth/me")).user.id;
     const caller = await context.request.get(base + "/api/auth/me");
     assert.equal(caller.status(), 200);

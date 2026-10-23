@@ -158,7 +158,6 @@ try {
   const routes = [
     ["POST", "/api/auth/register"],
     ["POST", "/api/auth/login"],
-    ["POST", "/api/auth/privy/exchange"],
     ["POST", "/api/auth/wallet/login/verify"],
     ["POST", `/api/auth/wallet/operations/${id}/complete`],
     ["POST", `/api/auth/security/access/login/${id}/complete`],

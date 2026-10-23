@@ -1,0 +1,11 @@
+# CI and local checks only. Runs the web service through the test identity
+# entry (scripts/test-identity-entry.ts), which signs in without Auth0 and
+# refuses production, Render, provider settings and non-loopback origins.
+# The production image does not contain scripts/, so they are mounted
+# read-only:
+#   docker compose -f compose.yaml -f compose.test-identity.yaml up app
+services:
+  app:
+    command: [node, scripts/test-identity-entry.ts]
+    volumes:
+      - ./scripts:/app/scripts:ro

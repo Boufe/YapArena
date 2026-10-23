@@ -1017,8 +1017,15 @@ try {
   ]);
   assert.equal(new URL(plain.url()).searchParams.get("q"), "idea");
   await plain.goto(base);
-  await plain.getByRole("link", { name: "Log in", exact: true }).click();
-  assert.equal(await plain.locator("#wallet-login").count(), 1);
+  // Without JavaScript the header still offers both Auth0 sign-in methods.
+  for (const [name, connection] of [
+    ["Continue with Google", "google"],
+    ["Continue with email", "email"],
+  ])
+    assert.equal(
+      await plain.getByRole("link", { name, exact: true }).getAttribute("href"),
+      `/api/auth/login?connection=${connection}`,
+    );
   await nojs.close();
   checks.serverRenderedNoJavaScriptFallback = true;
   checks.realDebateAndAccountNavigation = true;

@@ -13,34 +13,14 @@ import { createMeasurementRepository } from "./features/measurement/repository.t
 import { createSessionRepository } from "./platform/auth/sessions.ts";
 import { createWalletRepository } from "./platform/auth/wallets.ts";
 import { createUserRepository } from "./platform/auth/users.ts";
-import type { loadProviderConfig } from "./platform/auth/provider-config.ts";
-import {
-  createPrivyVerifier,
-  createPrivySessionControl,
-} from "./platform/auth/privy.ts";
-import { createProviderRevocation } from "./platform/auth/provider-revocation.ts";
-import { createProviderAccounts } from "./platform/auth/provider-accounts.ts";
-import { createEmbeddedWalletProvisioning } from "./platform/auth/embedded-wallet-provisioning.ts";
-import { createPrivyEmbeddedWalletProvider } from "./platform/auth/embedded-wallet-provider.ts";
-import { createProviderRecheck } from "./platform/auth/provider-recheck.ts";
-import {
-  AccountOperationError,
-  createAccountOperationRepository,
-} from "./platform/auth/account-operations.ts";
+import type { AbuseControlConfig } from "./platform/abuse-config.ts";
+import { createAuth0Accounts } from "./platform/auth/auth0-accounts.ts";
+import { createSignInState } from "./platform/auth/sign-in-state.ts";
+import { createAccountOperationRepository } from "./platform/auth/account-operations.ts";
 import { createSecurityPasskeyRepository } from "./platform/auth/security-passkeys.ts";
-import { createProviderPasskeys } from "./platform/auth/provider-passkeys.ts";
-import { createProviderPasskeyBootstrap } from "./platform/auth/provider-passkey-bootstrap.ts";
 import { createProviderWalletOperations } from "./platform/auth/provider-wallet-operations.ts";
-import { createLegacyProviderLink } from "./platform/auth/legacy-provider-link.ts";
-import { createProviderIdentityRecovery } from "./platform/auth/provider-identity-recovery.ts";
-import {
-  createAccountAccessRepository,
-  deleteExpiredAccessChallenges,
-} from "./platform/auth/account-access.ts";
-import {
-  createRedisAbuseStore,
-  createSharedAccountAttemptLimiter,
-} from "./platform/shared-abuse.ts";
+import { deleteExpiredAccessChallenges } from "./platform/auth/account-access.ts";
+import { createRedisAbuseStore } from "./platform/shared-abuse.ts";
 import type { loadConfig } from "./platform/config.ts";
 import type { createLogger } from "./platform/logger.ts";
 import type { createMetrics } from "./platform/metrics.ts";
@@ -49,7 +29,10 @@ import { createRuntime } from "./platform/runtime.ts";
 
 type ServiceOptions = {
   config: ReturnType<typeof loadConfig>;
-  providerConfig: ReturnType<typeof loadProviderConfig>;
+  abuseConfig?: AbuseControlConfig;
+  // While the legacy wallet sign-in remains mounted it must not create
+  // accounts beside Auth0 sign-in.
+  legacyWalletSignup?: boolean;
   database: Pool;
   logger: ReturnType<typeof createLogger>;
   metrics: ReturnType<typeof createMetrics>;
@@ -59,7 +42,8 @@ type ServiceOptions = {
 // server and the background worker, so both processes run identical jobs.
 export function createServices({
   config,
-  providerConfig,
+  abuseConfig,
+  legacyWalletSignup = false,
   database,
   logger,
   metrics,
@@ -113,125 +97,26 @@ export function createServices({
     : undefined;
   const users = createUserRepository(database);
   const wallets = createWalletRepository(database, {
-    allowNewAccounts: !providerConfig,
+    allowNewAccounts: legacyWalletSignup,
   });
-  const abuseStore = providerConfig
+  const abuseStore = abuseConfig
     ? createRedisAbuseStore({
-        url: providerConfig.redisUrl,
+        url: abuseConfig.redisUrl,
         observe: (outcome, seconds) => {
           metrics.redisOutcome.inc({ outcome });
           metrics.redisLatency.observe(seconds);
         },
       })
     : undefined;
-  const embeddedWallet = providerConfig
-    ? createEmbeddedWalletProvisioning(
-        database,
-        createPrivyEmbeddedWalletProvider({
-          appId: providerConfig.appId,
-          appSecret: providerConfig.appSecret,
-        }),
-      )
-    : undefined;
-  const authProvider = providerConfig
-    ? {
-        appId: providerConfig.appId,
-        clientId: providerConfig.clientId,
-        verifier: createPrivyVerifier(providerConfig),
-        accounts: createProviderAccounts(database),
-        embeddedWallet: embeddedWallet
-          ? {
-              repository: embeddedWallet,
-              authorizeAttempt: (userId: string) =>
-                authorizeAccountAttempt(userId, "embedded.wallet.retry"),
-            }
-          : undefined,
-      }
-    : undefined;
-  // Requests never call Privy; a stale Privy read schedules this re-check.
-  // Only web requests trigger it; the worker never serves a session lookup.
-  const providerRecheck = authProvider
-    ? createProviderRecheck(database, authProvider.verifier, {
-        observe: (outcome, error) => {
-          metrics.authJourney.inc({ event: `provider_recheck_${outcome}` });
-          if (error) logger.error({ error }, "provider re-check failed");
-        },
-      })
-    : undefined;
-  const sessions = createSessionRepository(database, {
-    providerCheck: providerRecheck,
-  });
-  const providerRevocation = providerConfig
-    ? createProviderRevocation(
-        database,
-        createPrivySessionControl(providerConfig),
-      )
-    : undefined;
-  const accountAttempt =
-    providerConfig && abuseStore
-      ? createSharedAccountAttemptLimiter({
-          store: abuseStore,
-          namespace: providerConfig.namespace,
-          secret: providerConfig.keySecret,
-          limit: 20,
-          windowMs: 15 * 60_000,
-          observe: (outcome) => metrics.redisOutcome.inc({ outcome }),
-        })
-      : undefined;
-  async function authorizeAccountAttempt(
-    userId: string,
-    purpose:
-      | "security.login"
-      | "provider.credentials.reconcile"
-      | "provider.passkey.link"
-      | "provider.passkey.restart"
-      | "embedded.wallet.retry",
-  ) {
-    if (!accountAttempt)
-      throw new AccountOperationError(
-        503,
-        "sign-in protection is temporarily unavailable",
-      );
-    const outcome = await accountAttempt(userId, purpose);
-    if (outcome !== "allowed")
-      throw new AccountOperationError(
-        outcome === "throttled" ? 429 : 503,
-        outcome === "throttled"
-          ? "too many attempts; try again shortly"
-          : "sign-in protection is temporarily unavailable",
-      );
-  }
+  // Decision 0009: requests never call Auth0. Only the web service holds the
+  // Auth0 client; mapping, linking and sign-in state need just the database.
+  const auth0Accounts = createAuth0Accounts(database);
+  const signInState = createSignInState(database);
+  const sessions = createSessionRepository(database);
   const accountSecurity = {
-    operations: createAccountOperationRepository(
-      database,
-      authProvider?.verifier,
-    ),
+    operations: createAccountOperationRepository(database),
     passkeys: createSecurityPasskeyRepository(database),
-    providerPasskeys: authProvider
-      ? createProviderPasskeys(database, authProvider.verifier)
-      : undefined,
-    providerPasskeyBootstrap: authProvider
-      ? createProviderPasskeyBootstrap(database, authProvider.verifier, {
-          authorizeAttempt: authorizeAccountAttempt,
-        })
-      : undefined,
-    authorizeProviderPasskeyAttempt: (userId: string) =>
-      authorizeAccountAttempt(userId, "provider.passkey.link"),
-    walletOperations: createProviderWalletOperations(
-      database,
-      authProvider?.verifier,
-    ),
-    legacyProviderLink: authProvider
-      ? createLegacyProviderLink(database, authProvider.verifier)
-      : undefined,
-    providerIdentityRecovery: authProvider
-      ? createProviderIdentityRecovery(database, authProvider.verifier)
-      : undefined,
-    access: authProvider
-      ? createAccountAccessRepository(database, authProvider.verifier, {
-          authorizeAttempt: authorizeAccountAttempt,
-        })
-      : undefined,
+    walletOperations: createProviderWalletOperations(database),
   };
   const coinDebates = config.coinSandboxEnabled
     ? createCoinDebateSandbox(database, "simulation")
@@ -249,10 +134,9 @@ export function createServices({
     users,
     wallets,
     abuseStore,
-    authProvider,
+    auth0Accounts,
+    signInState,
     sessions,
-    providerRecheck,
-    providerRevocation,
     accountSecurity,
     coinDebates,
     // Everything createRuntime needs except the web-only app and community
@@ -267,6 +151,7 @@ export function createServices({
           accountSecurity.operations.deleteExpired(),
           accountSecurity.passkeys.deleteExpiredChallenges(),
           deleteExpiredAccessChallenges(database),
+          signInState.deleteExpired(),
         ]);
       },
       mediaAccountRevocation,
@@ -278,8 +163,6 @@ export function createServices({
       mediaProvider,
       mediaOperations,
       wallets,
-      providerRevocation,
-      embeddedWallet,
       metrics,
       logger,
       config,
@@ -299,7 +182,6 @@ export function createServices({
 // RUN_BACKGROUND_JOBS; it never listens for HTTP or starts community streams.
 export function createBackgroundWorker({
   config,
-  providerConfig,
   database,
   logger,
   metrics,
@@ -311,13 +193,9 @@ export function createBackgroundWorker({
       "verifyDatabase" | "setIntervalFn" | "clearIntervalFn"
     >
   >) {
-  const services = createServices({
-    config,
-    providerConfig,
-    database,
-    logger,
-    metrics,
-  });
+  // The jobs worker needs no sign-in or Redis settings (Decision 0009,
+  // point 11): it never serves a request.
+  const services = createServices({ config, database, logger, metrics });
   const runtime = createRuntime({ ...services.background, ...runtimeOptions });
   return Object.freeze({
     start: runtime.start,

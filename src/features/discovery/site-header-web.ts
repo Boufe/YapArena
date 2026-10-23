@@ -1,21 +1,21 @@
 import { html } from "../../platform/html.ts";
 
-export function siteHeaderMarkup(asset: (name: string) => string) {
-  return html`<header class="site-header" data-site-header data-session="checking" data-auth-script="${asset("account-auth.bundle.js")}" data-auth-style="${asset("account-auth.css")}">
+export function siteHeaderMarkup() {
+  return html`<header class="site-header" data-site-header data-session="checking">
     <div class="container nav arena-nav">
       <a class="brand" href="/" aria-label="YAP Arena home"><svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/><path d="M9 35 31 5"/></svg><span>YAP ARENA</span></a>
       <nav aria-label="Main navigation"><a href="/live">Live</a><a href="/debates">Explore</a><a href="/match">Create</a></nav>
       <form class="arena-header-search" action="/debates" method="get" role="search"><label class="sr-only" for="header-search">Search debates</label><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="header-search" type="search" name="q" maxlength="80" placeholder="Search debates…"><button type="submit" class="sr-only">Search</button></form>
       <div class="arena-header-account">
         <span data-header-checking class="header-session-loading" role="status"><span class="sr-only">Checking your account…</span></span>
-        <div class="header-auth-actions" data-header-guest hidden><a class="header-login" href="/account?mode=login" data-auth-open="login">Log in</a><a class="header-signup" href="/account?mode=signup" data-auth-open="signup">Sign up</a></div>
+        <div class="header-auth-actions" data-header-guest hidden><a class="header-login" href="/api/auth/login?connection=google" data-sign-in="google">Continue with Google</a><a class="header-signup" href="/api/auth/login?connection=email" data-sign-in="email">Continue with email</a></div>
         <button class="header-retry" type="button" data-header-retry hidden>Retry account</button>
         <div class="header-member-actions" data-header-member hidden>
           <details class="arena-wallet-menu"><summary aria-label="Yap Coins balance and actions"><span class="header-balance-label">Balance</span><strong data-header-balance>—</strong><span class="arena-chevron" aria-hidden="true">⌄</span></summary><div class="arena-wallet-popover"><strong data-header-balance-heading>Your Yap Coins</strong><span data-header-reserved>Checking balance…</span><a href="/account#account-wallet" data-header-balances-link>Balances &amp; activity →</a></div></details>
           <button class="header-deposit" type="button" data-deposit-open><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>Deposit</button>
           <details class="header-user-menu"><summary class="arena-avatar" data-header-account aria-label="Open account menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg></summary><div class="header-user-popover"><span class="header-menu-caption">YOUR ACCOUNT</span><a href="/account">Account settings</a><a href="/account#account-wallet">Yap Coins &amp; activity</a><button type="button" data-header-logout>Log out <span aria-hidden="true">↗</span></button></div></details>
         </div>
-        <noscript><div class="header-auth-actions"><a class="header-login" href="/account">Log in</a><a class="header-signup" href="/account">Sign up</a></div></noscript>
+        <noscript><div class="header-auth-actions"><a class="header-login" href="/api/auth/login?connection=google">Continue with Google</a><a class="header-signup" href="/api/auth/login?connection=email">Continue with email</a></div></noscript>
       </div>
       <p class="sr-only" role="status" data-header-status></p>
     </div>

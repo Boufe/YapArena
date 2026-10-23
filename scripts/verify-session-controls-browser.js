@@ -17,7 +17,6 @@ const output =
   process.env.REVOCATION_BROWSER_EVIDENCE ||
   "/private/tmp/yaparena-f03-browser-evidence";
 const email = `f03-browser-${randomUUID()}@example.test`;
-const password = "Synthetic browser account passphrase";
 let browser;
 try {
   await mkdir(output, { recursive: true });
@@ -35,27 +34,24 @@ try {
   });
   const a = await first.newPage(),
     b = await second.newPage();
+  // Both devices sign in to one account through the local test identity
+  // entry (scripts/test-identity-entry.ts).
+  const signIn = async (context) => {
+    const response = await context.request.post(
+      `${origin}/api/test-identity/sign-in`,
+      { data: { email } },
+    );
+    if (!response.ok()) throw new Error(`test sign-in: ${response.status()}`);
+  };
+  await signIn(first);
   await a.goto(`${origin}/account`);
-  await a.locator("#signed-out:not([hidden])").waitFor();
-  await a.locator(".account-details").evaluate((element) => {
-    element.open = true;
-  });
-  await a.locator('#email-register input[name="email"]').fill(email);
-  await a.locator('#email-register input[name="password"]').fill(password);
-  await a.locator('#email-register button[type="submit"]').click();
   await a.locator("#signed-in:not([hidden])").waitFor();
   await a
     .locator("#account-notice")
     .filter({ hasText: "Account ready." })
     .waitFor();
+  await signIn(second);
   await b.goto(`${origin}/account`);
-  await b.locator("#signed-out:not([hidden])").waitFor();
-  await b.locator(".account-details").evaluate((element) => {
-    element.open = true;
-  });
-  await b.locator('#email-login input[name="email"]').fill(email);
-  await b.locator('#email-login input[name="password"]').fill(password);
-  await b.locator('#email-login button[type="submit"]').click();
   await b.locator("#signed-in:not([hidden])").waitFor();
   // A second tab on device A shares its cookie and must follow its sign-out.
   const sibling = await first.newPage();

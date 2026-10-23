@@ -160,6 +160,18 @@ it("does not exempt protected mutations or authentication from their existing co
     assert.equal(result.next, true);
     assert.equal(result.cookie, undefined);
   }
+  // Auth0 sign-in, callback and confirmation are GET navigations that keep
+  // their own sign-in rate limit instead of a viewer lane.
+  for (const url of [
+    "/api/auth/login",
+    "/api/auth/callback",
+    "/api/auth/confirm",
+  ]) {
+    assert.equal(mediaDeliveryLane({ method: "GET", path: url }), undefined);
+    const result = f.call({ method: "GET", url });
+    assert.equal(result.next, true);
+    assert.equal(result.cookie, undefined);
+  }
   for (const url of [
     "/api/me/roles",
     `${path}/speaker-seat`,

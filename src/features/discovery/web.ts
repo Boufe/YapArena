@@ -49,7 +49,7 @@ function layout(
 ) {
   const home = bodyClass.startsWith("arena-market-home");
   const reference = bodyClass.includes("reference-home");
-  const page = html`${siteHeaderMarkup(asset)}${
+  const page = html`${siteHeaderMarkup()}${
     home
       ? content
       : html`<main id="main">${content}</main><footer class="site-footer"><div class="container footer-inner"><span>YAP ARENA <span class="muted">/ Ideas under pressure.</span></span><span><a href="/topics">Topics</a> · <a href="/coins">Yap Coins</a> · <a href="/about">About</a> · Play money</span></div></footer>`

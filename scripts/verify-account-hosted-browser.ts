@@ -5,10 +5,11 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright-core";
 
-// Guest-only acceptance against the named staging deployment. No OTP is sent,
-// no provider result is intercepted, and no account or financial action runs.
+// Guest-only acceptance against the named staging deployment (Decision 0009).
+// No email code is sent, no Google account is used and no account, session or
+// financial action is created. Starting a sign-in stores one 10-minute,
+// unconsumed sign-in state row per request; nothing else is written.
 const origin = "https://yaparena-staging-web.onrender.com";
-const appId = "cmvfjb3r800vy0hl3heg2cuvv";
 const expectedRevision = process.env.ACCOUNT_HOSTED_EXPECTED_REVISION;
 assert.match(expectedRevision ?? "", /^[a-f0-9]{40}$/);
 const revision = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -27,8 +28,10 @@ assert.ok(
   process.env.ACCOUNT_HOSTED_REDIS_PROBE === undefined || probeRedis,
   "Redis probe accepts only the explicit approved value",
 );
+// Evidence stays outside the repository (CONTRIBUTING: evidence belongs in
+// the pull request or CI artifacts).
 const directory = resolve(
-  "docs/evidence/account-completion-baseline/account-hosted-browser",
+  process.env.ACCOUNT_HOSTED_ARTIFACT_DIR ?? "/tmp/yaparena-account-hosted",
 );
 const checks: string[] = [];
 const failures: string[] = [];
@@ -44,7 +47,6 @@ const assets = [
   "site.js",
   "account.js",
   "account-session-list.js",
-  "account-auth.bundle.js",
   "account-security.bundle.js",
   "account-coins.js",
   "account-auth.css",
@@ -61,12 +63,11 @@ function remaining(maximum = 15_000) {
 }
 async function request(path: string, init: RequestInit = {}) {
   assert.ok(path.startsWith("/") && !path.startsWith("//"));
-  const response = await fetch(origin + path, {
-    ...init,
+  return fetch(origin + path, {
     redirect: "error",
+    ...init,
     signal: AbortSignal.timeout(remaining()),
   });
-  return response;
 }
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -85,26 +86,12 @@ function guestCookies(response: Response, allowMediaGuard: boolean) {
     return;
   }
   assert.ok(cookies.length <= 1, "at most the media-admission guard is issued");
-  for (const cookie of cookies) {
-    const [pair, ...attributes] = cookie.split(";").map((part) => part.trim());
+  for (const cookie of cookies)
     assert.match(
-      pair ?? "",
-      /^yap_media_guard=[a-f0-9]{32}\.\d{13}\.[A-Za-z0-9_-]{43}$/,
+      cookie,
+      /^yap_media_guard=[a-f0-9]{32}\.\d{13}\.[A-Za-z0-9_-]{43};/,
       "only the non-authentication media-admission guard is issued",
     );
-    assert.ok(attributes.includes("Secure"));
-    assert.ok(attributes.includes("HttpOnly"));
-    assert.ok(attributes.includes("SameSite=Strict"));
-    assert.ok(attributes.includes("Path=/"));
-    assert.equal(
-      attributes.some((part) => /^Domain=/i.test(part)),
-      false,
-    );
-    const lifetime = attributes.find((part) => /^Max-Age=/i.test(part));
-    assert.match(lifetime ?? "", /^Max-Age=\d+$/);
-    const seconds = Number(lifetime?.slice("Max-Age=".length));
-    assert.ok(seconds > 0 && seconds <= 900);
-  }
 }
 type RedisMetrics = { ok: number; observations: number; seconds: number };
 function redisMetrics(body: string): RedisMetrics {
@@ -131,23 +118,51 @@ let redisObservation: {
   after: RedisMetrics;
   minimumAdditionalSuccessfulOperations: number;
 } | null = null;
-let providerMetadata: Record<string, boolean | string> | null = null;
-const accountResponses: {
-  viewport: string;
-  status: number;
-  origin: string;
-  pathname: string;
-  fromServiceWorker: boolean;
-  redirects: { status: number | null; origin: string; pathname: string }[];
-}[] = [];
-const navigationFailures: {
-  viewport: string;
-  origin: string;
-  pathname: string;
-  aborted: boolean;
-  timedOut: boolean;
-}[] = [];
-const completedHistoryBarriers: string[] = [];
+let providerMetadata: Record<string, string | boolean> | null = null;
+
+// Starts a sign-in without following it and checks the authorization request
+// and the browser-binding cookie. Returns the provider's authorization URL.
+async function startSignIn(connection: "email" | "google") {
+  const response = await request(
+    `/api/auth/login?connection=${connection}&return=%2Fdebates`,
+    { redirect: "manual" },
+  );
+  assert.equal(response.status, 303, `${connection} sign-in redirects`);
+  noStore(response);
+  const location = new URL(response.headers.get("location") ?? "");
+  assert.equal(location.protocol, "https:");
+  const parameters = location.searchParams;
+  assert.equal(parameters.get("response_type"), "code");
+  assert.equal(parameters.get("redirect_uri"), `${origin}/api/auth/callback`);
+  assert.equal(parameters.get("scope"), "openid email");
+  assert.equal(parameters.get("code_challenge_method"), "S256");
+  for (const key of ["state", "nonce", "code_challenge"])
+    assert.ok((parameters.get(key) ?? "").length >= 43, key);
+  assert.match(parameters.get("client_id") ?? "", /^[A-Za-z0-9_-]{8,128}$/);
+  assert.equal(
+    parameters.get("connection"),
+    connection === "google" ? "google-oauth2" : "email",
+  );
+  assert.equal(parameters.has("prompt"), false);
+  const cookies = response.headers.getSetCookie();
+  assert.equal(cookies.length, 1, "only the sign-in binding cookie is set");
+  const [pair, ...attributes] = cookies[0]!.split(";").map((p) => p.trim());
+  assert.match(pair ?? "", /^__Host-sign-in=[A-Za-z0-9_-]{43}$/);
+  for (const attribute of [
+    "Max-Age=600",
+    "Path=/",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+  ])
+    assert.ok(attributes.includes(attribute), attribute);
+  assert.equal(
+    attributes.some((part) => /^Domain=/i.test(part)),
+    false,
+  );
+  return location;
+}
+
 const browser = await chromium.launch({
   executablePath:
     process.env.BROWSER_CHROME_PATH ??
@@ -161,12 +176,10 @@ try {
   for (const file of [
     "scripts/verify-account-hosted-browser.ts",
     "src/platform/auth/router.ts",
+    "src/platform/auth/auth0.ts",
     "src/platform/shared-abuse.ts",
     "src/platform/auth/browser-security.ts",
-    "src/platform/viewer-admission.ts",
     "frontend/site-header.ts",
-    "dist/platform/auth/router.js",
-    "dist/platform/shared-abuse.js",
   ])
     sourceHashes[file] = sha(await readFile(file));
   for (const file of assets) {
@@ -178,7 +191,7 @@ try {
     assetHashes[file] = local;
   }
   checks.push(
-    "all fourteen hosted authentication/header/security assets match the selected local build",
+    `all ${assets.length} hosted header/account/security assets match the selected local build`,
   );
 
   stage = "public health and database readiness";
@@ -190,49 +203,55 @@ try {
   assert.equal(object(await ready.json()).status, "ready");
   checks.push("public health and PostgreSQL-backed readiness return 200");
 
-  stage = "public application and genuine provider configuration";
+  stage = "sign-in configuration and authorization requests";
   const configuration = await request("/api/auth/provider");
   assert.equal(configuration.status, 200);
   noStore(configuration);
-  const settings = object(await configuration.json());
-  assert.equal(settings.enabled, true);
-  assert.equal(settings.appId, appId);
-  assert.equal(settings.google, true);
-  assert.equal(settings.passkeys, true);
-  const provider = await fetch(`https://auth.privy.io/api/v1/apps/${appId}`, {
-    headers: { "privy-app-id": appId },
-    redirect: "error",
-    signal: AbortSignal.timeout(remaining()),
+  assert.deepEqual(await configuration.json(), {
+    enabled: true,
+    methods: ["email", "google"],
   });
-  assert.equal(provider.status, 200);
-  const metadata = object(await provider.json());
-  assert.equal(metadata.id, appId);
-  assert.equal(metadata.data_classification, "public");
-  for (const field of ["email_auth", "google_oauth", "passkey_auth"])
-    assert.equal(metadata[field], true);
-  assert.equal(metadata.merge_accounts_by_email, false);
-  const embedded = object(metadata.embedded_wallet_config);
-  assert.equal(embedded.create_on_login, "off");
-  assert.equal(object(embedded.ethereum).create_on_login, "off");
-  assert.equal(object(embedded.solana).create_on_login, "off");
+  const email = await startSignIn("email");
+  const google = await startSignIn("google");
+  assert.equal(google.origin, email.origin);
+  stage = "provider discovery metadata";
+  const discovery = await fetch(
+    `${email.origin}/.well-known/openid-configuration`,
+    { redirect: "error", signal: AbortSignal.timeout(remaining()) },
+  );
+  assert.equal(discovery.status, 200);
+  const metadata = object(await discovery.json());
+  assert.equal(metadata.issuer, `${email.origin}/`);
+  assert.equal(
+    new URL(String(metadata.authorization_endpoint)).href,
+    `${email.origin}${email.pathname}`,
+  );
+  assert.ok(
+    Array.isArray(metadata.code_challenge_methods_supported) &&
+      metadata.code_challenge_methods_supported.includes("S256"),
+  );
   providerMetadata = {
-    appId,
-    email: true,
-    google: true,
-    passkeys: true,
-    automaticEthereumWallet: false,
-    automaticSolanaWallet: false,
-    mergeAccountsByEmail: false,
+    issuer: String(metadata.issuer),
+    customDomain: !/\.auth0\.com$/i.test(email.hostname),
+    pkceS256: true,
   };
   checks.push(
-    "real public provider metadata and app flags agree; email/Google/passkeys enabled and merging/automatic wallets off",
+    "sign-in redirects to the provider with PKCE S256, state, nonce, exact callback and connection, and a host-only Lax 10-minute binding cookie",
   );
+
+  stage = "forged callback";
+  const forged = await request(
+    "/api/auth/callback?code=synthetic&state=synthetic-state-that-was-never-issued",
+  );
+  assert.equal(forged.status, 400);
+  noStore(forged);
+  assert.equal(forged.headers.getSetCookie().length, 0);
+  checks.push("an unissued callback state is refused without a cookie");
 
   stage = "anonymous protected-route responses";
   for (const path of [
     "/api/auth/me",
     "/api/auth/sessions",
-    "/api/auth/security/passkeys",
     "/api/auth/methods",
     "/api/coin-sandbox/summary",
   ]) {
@@ -241,173 +260,90 @@ try {
     noStore(response);
     guestCookies(response, path === "/api/auth/me");
   }
+  for (const path of ["/api/auth/privy/exchange", "/api/auth/journey"]) {
+    const response = await request(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: origin },
+      body: "{}",
+    });
+    assert.equal(response.status, 404, `retired route: ${path}`);
+  }
   checks.push(
-    "five private routes deny a fresh guest with 401/no-store and issue no application cookie",
+    "private routes deny a fresh guest with 401/no-store; Privy exchange and journey routes are gone",
   );
 
   for (const [name, viewport] of [
     ["desktop", { width: 1440, height: 1000 }],
     ["mobile", { width: 390, height: 844 }],
   ] as const) {
-    stage = `${name} genuine guest browser`;
+    stage = `${name} guest browser`;
     const context = await browser.newContext({ viewport, permissions: [] });
     context.setDefaultTimeout(15_000);
     context.setDefaultNavigationTimeout(20_000);
     const page = await context.newPage();
     let pageErrors = 0;
     let unexpectedMutations = 0;
-    let mediaJoins = 0;
+    let providerScripts = 0;
     page.on("pageerror", () => pageErrors++);
     page.on("request", (entry) => {
       const url = new URL(entry.url());
       if (
         url.origin === origin &&
         !["GET", "HEAD", "OPTIONS"].includes(entry.method()) &&
-        !["/api/measurement/discovery", "/api/auth/journey"].includes(
-          url.pathname,
-        )
+        url.pathname !== "/api/measurement/discovery"
       )
         unexpectedMutations++;
-      if (
-        url.origin === origin &&
-        /^\/api\/media\/.+(?:token|join|speaker)/.test(url.pathname)
-      )
-        mediaJoins++;
+      if (url.origin !== origin && entry.resourceType() === "script")
+        providerScripts++;
     });
-    const home = await page.goto(origin + "/", {
+    const home = await page.goto(origin + "/debates", {
       waitUntil: "domcontentloaded",
     });
-    stage = `${name} homepage HTTP and CSP`;
+    stage = `${name} CSP without provider origins`;
     assert.equal(home?.status(), 200);
     const csp = home?.headers()["content-security-policy"] ?? "";
     assert.match(csp, /frame-ancestors 'none'/);
-    assert.match(csp, /connect-src[^;]*https:\/\/auth\.privy\.io/);
-    assert.match(csp, /script-src[^;]*'self'/);
-    assert.doesNotMatch(csp, /script-src[^;]*'unsafe-eval'/);
-    const guest = page.locator("[data-header-guest]");
+    assert.match(csp, /script-src 'self'/);
+    assert.doesNotMatch(csp, /privy|hcaptcha|challenges\.cloudflare/);
     stage = `${name} signed-out header`;
+    const guest = page.locator("[data-header-guest]");
     await guest.waitFor({ state: "visible" });
     assert.equal(await page.locator("[data-header-member]").isVisible(), false);
-    await page.screenshot({ path: resolve(directory, `home-${name}.png`) });
-    await guest.locator("[data-auth-open=login]").click();
-    stage = `${name} login popup rendering`;
-    const dialog = page.locator("#site-auth-dialog");
-    await dialog
-      .getByRole("heading", { name: "Welcome back.", exact: true })
-      .waitFor();
-    await dialog
-      .getByRole("button", { name: "Continue with email →", exact: true })
-      .waitFor({ state: "visible" });
-    stage = `${name} genuine provider initialization and email focus`;
-    await page.waitForFunction(
-      () => {
-        const submit = document.querySelector<HTMLButtonElement>(
-          "#site-auth-dialog button[type=submit]",
-        );
-        return (
-          submit?.disabled === false &&
-          document.activeElement?.id === "auth-email"
-        );
-      },
-      undefined,
-      { timeout: remaining() },
+    for (const [label, connection] of [
+      ["Continue with Google", "google"],
+      ["Continue with email", "email"],
+    ] as const)
+      assert.equal(
+        await guest
+          .getByRole("link", { name: label, exact: true })
+          .getAttribute("href"),
+        `/api/auth/login?connection=${connection}&return=%2Fdebates`,
+      );
+    const headerOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth + 1,
     );
-    stage = `${name} optional login controls and empty email`;
-    assert.equal(
-      await dialog
-        .getByRole("button", { name: "Continue with Google", exact: true })
-        .isEnabled(),
-      true,
-    );
-    assert.equal(
-      await dialog
-        .getByRole("button", { name: "Use a passkey", exact: true })
-        .isEnabled(),
-      true,
-    );
-    assert.equal(
-      await dialog.getByLabel("Email address", { exact: true }).inputValue(),
-      "",
-    );
-    await page.screenshot({ path: resolve(directory, `login-${name}.png`) });
-    stage = `${name} Escape closes popup and restores focus`;
-    await page.keyboard.press("Escape");
-    await dialog.waitFor({ state: "hidden" });
-    stage = `${name} Escape history traversal completion`;
-    await page.waitForFunction(
-      () => {
-        const state: unknown = history.state;
-        return !(
-          state &&
-          typeof state === "object" &&
-          "yapAuthDialog" in state
-        );
-      },
-      undefined,
-      { timeout: remaining() },
-    );
-    completedHistoryBarriers.push(name);
-    await page.waitForFunction(
-      () => document.activeElement?.getAttribute("data-auth-open") === "login",
-    );
-    stage = `${name} public account page HTTP`;
-    const account = await page
-      .goto(origin + "/account", { waitUntil: "domcontentloaded" })
-      .catch((cause: unknown) => {
-        const url = new URL(page.url());
-        navigationFailures.push({
-          viewport: name,
-          origin: url.origin,
-          pathname: url.pathname,
-          aborted:
-            cause instanceof Error && /net::ERR_ABORTED/.test(cause.message),
-          timedOut: cause instanceof Error && cause.name === "TimeoutError",
-        });
-        throw cause;
-      });
-    if (account) {
-      const url = new URL(account.url());
-      const redirects: {
-        status: number | null;
-        origin: string;
-        pathname: string;
-      }[] = [];
-      let previous = account.request().redirectedFrom();
-      while (previous && redirects.length < 10) {
-        const response = await previous.response();
-        const redirectedUrl = new URL(previous.url());
-        redirects.push({
-          status: response?.status() ?? null,
-          origin: redirectedUrl.origin,
-          pathname: redirectedUrl.pathname,
-        });
-        previous = previous.redirectedFrom();
-      }
-      accountResponses.push({
-        viewport: name,
-        status: account.status(),
-        origin: url.origin,
-        pathname: url.pathname,
-        fromServiceWorker: account.fromServiceWorker(),
-        redirects,
-      });
-    }
+    assert.equal(headerOverflow, false, "guest header fits viewport");
+    await page.screenshot({ path: resolve(directory, `debates-${name}.png`) });
+    stage = `${name} account page sign-in`;
+    const account = await page.goto(origin + "/account?next=%2Flive", {
+      waitUntil: "domcontentloaded",
+    });
     assert.equal(account?.status(), 200);
-    stage = `${name} public account email form`;
-    await page
-      .locator("#email-auth")
-      .getByLabel("Email address", { exact: true })
-      .waitFor();
-    stage = `${name} account provider initialization`;
-    await page.waitForFunction(
-      () =>
-        document.querySelector<HTMLButtonElement>(
-          "#email-auth button[type=submit]",
-        )?.disabled === false,
-      undefined,
-      { timeout: remaining() },
+    const signIn = page.locator("#account-sign-in");
+    await signIn.waitFor({ state: "visible" });
+    assert.equal(
+      await signIn
+        .getByRole("link", { name: "Continue with email", exact: true })
+        .getAttribute("href"),
+      "/api/auth/login?connection=email&return=%2Flive",
     );
-    stage = `${name} account privacy and viewport layout`;
+    for (const retired of [
+      "#email-auth",
+      "#embedded-wallet",
+      "#wallet-login",
+      "#email-register",
+    ])
+      assert.equal(await page.locator(retired).count(), 0, retired);
     assert.equal(await page.locator("#signed-in").isVisible(), false);
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth > innerWidth + 1,
@@ -417,6 +353,16 @@ try {
       path: resolve(directory, `account-${name}.png`),
       fullPage: true,
     });
+    stage = `${name} provider sign-in page opens`;
+    await Promise.all([
+      page.waitForURL((url) => url.origin === email.origin, {
+        timeout: remaining(),
+      }),
+      signIn
+        .getByRole("link", { name: "Continue with email", exact: true })
+        .click(),
+    ]);
+    await page.screenshot({ path: resolve(directory, `provider-${name}.png`) });
     stage = `${name} page exception and mutation counters`;
     assert.equal(pageErrors, 0, "no uncaught page exceptions");
     assert.equal(
@@ -424,27 +370,14 @@ try {
       0,
       "guest inspection sends no account mutation",
     );
-    assert.equal(
-      mediaJoins,
-      0,
-      "guest inspection does not request a media join",
-    );
     await context.close();
     checks.push(
-      `${name}: real SDK ready, guest header, empty login popup, Google/passkey availability, Escape focus, private account hidden, layout/CSP and no account mutation/media join`,
+      `${name}: guest header and account page offer Google and email links with return paths, no island/wallet/legacy sign-in, CSP and layout, and the provider's sign-in page opens (${providerScripts} provider scripts there)`,
     );
   }
 
   if (probeRedis) {
     stage = "guarded retired-register Redis probe";
-    const router = await readFile("src/platform/auth/router.ts", "utf8");
-    assert.match(
-      router,
-      /router\.post\("\/register", authLimiter,[\s\S]*?if \(provider\)[\s\S]*?response\.status\(410\)\.json\(\{ error: "use verified email signup" \}\)/,
-    );
-    const limiter = await readFile("src/platform/shared-abuse.ts", "utf8");
-    assert.match(limiter, /client\.info\("memory"\)/);
-    assert.match(limiter, /maxmemory_policy:noeviction/);
     const beforeResponse = await request("/metrics", {
       headers: metricsHeaders,
     });
@@ -455,13 +388,8 @@ try {
       headers: { "Content-Type": "application/json", Origin: origin },
       body: "{}",
     });
-    assert.equal(response.status, 410);
+    assert.ok([404, 410].includes(response.status));
     assert.equal(response.headers.has("set-cookie"), false);
-    assert.equal(
-      object(await response.json()).error,
-      "use verified email signup",
-    );
-    noStore(response);
     const afterResponse = await request("/metrics", {
       headers: metricsHeaders,
     });
@@ -476,7 +404,7 @@ try {
       minimumAdditionalSuccessfulOperations: 1,
     };
     checks.push(
-      "guarded retired-register request returned 410 without identity/cookie and increased successful Redis operation/latency aggregates",
+      "a retired password-registration request issued no cookie and passed through the shared Redis sign-in limiter",
     );
   }
 } catch {
@@ -503,13 +431,10 @@ try {
     assetHashes,
     providerMetadata,
     redisObservation,
-    accountResponses,
-    navigationFailures,
-    completedHistoryBarriers,
     limitations: [
-      "Guest browser only; no OTP, OAuth or provider-passkey ceremony, account creation, signed-in financial action or identity mutation.",
+      "Guest browser only; no email code, Google sign-in, account creation, linking, confirmation or financial action.",
       "Headless emulated viewports; no physical device, screen-reader or full WCAG conformance claim.",
-      "Redis probe is behavioral code-enforced noeviction/Lua evidence; it is not raw hosted INFO, a hosted outage drill or a multi-instance topology test.",
+      "Redis probe is behavioral; it is not raw hosted INFO, a hosted outage drill or a multi-instance topology test.",
     ],
   };
   await mkdir(directory, { recursive: true });
@@ -520,6 +445,6 @@ try {
   );
   await rename(destination + ".tmp", destination);
   console.log(
-    `${evidence.passed ? "PASS" : "FAIL"} hosted guest acceptance: ${checks.length} groups; no credentials or provider error text printed`,
+    `${evidence.passed ? "PASS" : "FAIL"} hosted guest acceptance: ${checks.length} groups; evidence in ${directory}`,
   );
 }

@@ -26,8 +26,6 @@ import type { createAccountWallet } from "./features/account-wallet/repository.t
 import type { createMediaAccountRevocation } from "./features/media/account-revocation.ts";
 import { createCoinSandboxRouter } from "./features/account-wallet/sandbox-router.ts";
 import { createEmailAuthSecurity } from "./platform/auth/browser-security.ts";
-import { ProviderAccountError } from "./platform/auth/provider-accounts.ts";
-import { ProviderUnavailableError } from "./platform/auth/privy.ts";
 import { SessionUnavailableError } from "./platform/auth/sessions.ts";
 import {
   createAccountSecurityRouter,
@@ -52,6 +50,7 @@ import { assetRevision } from "./features/discovery/assets.ts";
 import {
   createAuthRouter,
   createRequireAuthentication,
+  type Auth0SignIn,
 } from "./platform/auth/router.ts";
 import { pingDatabase } from "./platform/database.ts";
 import { createHttpLogger } from "./platform/logger.ts";
@@ -82,19 +81,6 @@ export const handleError: ErrorRequestHandler = (
       .set("Retry-After", "1")
       .status(503)
       .json({ error: "public media temporarily busy; retry shortly" });
-  if (error instanceof ProviderUnavailableError)
-    return response
-      .set("Cache-Control", "no-store")
-      .set("Retry-After", "5")
-      .status(503)
-      .json({
-        error:
-          "Account verification is temporarily unavailable. Logout and session revocation remain available.",
-      });
-  if (error instanceof ProviderAccountError)
-    return response.set("Cache-Control", "no-store").status(error.status).json({
-      error: "Account access changed. Ownership verification is required.",
-    });
   if (error instanceof SessionUnavailableError)
     return response
       .set("Cache-Control", "no-store")
@@ -152,7 +138,7 @@ export function createApp({
   rateLimitWindowMs = 15 * 60 * 1_000,
   sessionDurationMs = 7 * 24 * 60 * 60 * 1_000,
   siweRpcUrls = {},
-  authProvider,
+  auth0,
   accountSecurity,
   coinSandbox,
   coinWebhook,
@@ -195,7 +181,9 @@ export function createApp({
   rateLimitWindowMs?: number;
   sessionDurationMs?: number;
   siweRpcUrls?: Readonly<Record<string, string>>;
-  authProvider?: Parameters<typeof createAuthRouter>[0]["provider"];
+  // Auth0 sign-in (Decision 0009). Without it, sign-in is unavailable; local
+  // tests sign in through the test identity entry under scripts/.
+  auth0?: Auth0SignIn;
   accountSecurity?: Pick<
     SecurityRouterOptions,
     | "operations"
@@ -257,7 +245,7 @@ export function createApp({
         })
       : helmet(),
   );
-  if (authProvider)
+  if (auth0)
     app.use(
       createEmailAuthSecurity(
         environment,
@@ -394,7 +382,7 @@ export function createApp({
         a4Enabled: a4?.mode !== undefined && a4.mode !== "disabled",
         mediaEnabled: Boolean(media && mediaProvider && matching && identity),
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",
-        emailFirst: Boolean(authProvider),
+        emailFirst: true,
       }),
     );
   }
@@ -411,7 +399,7 @@ export function createApp({
       sessionDurationMs,
       authRateLimit,
       rateLimitWindowMs,
-      provider: authProvider,
+      auth0,
       sharedAccountLimiter,
       sharedRateLimits,
       recordAuth: (event, seconds, phase = "journey") => {
@@ -426,7 +414,7 @@ export function createApp({
       "/api/auth",
       createAccountSecurityRouter({
         ...accountSecurity,
-        allowExternalWalletLinks: !authProvider,
+        allowExternalWalletLinks: !auth0,
         sessions,
         environment,
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",
@@ -464,7 +452,7 @@ export function createApp({
           .set("Cache-Control", "private, no-store")
           .set("Vary", "Cookie");
         return response.json({
-          enabled: Boolean(authProvider),
+          enabled: Boolean(auth0),
           withdrawalsEnabled: false,
           ...(await accountWallet.balances(request.user!.id)),
         });
@@ -513,7 +501,7 @@ export function createApp({
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",
         recordProductAction,
         streams: communityStreams,
-        emailFirst: Boolean(authProvider),
+        emailFirst: true,
       }),
     );
   }
@@ -525,7 +513,7 @@ export function createApp({
         identity,
         requireAuth: createRequireAuthentication({ sessions, environment }),
         environment,
-        emailFirst: Boolean(authProvider),
+        emailFirst: true,
       }),
     );
   }

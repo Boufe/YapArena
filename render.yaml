@@ -35,16 +35,26 @@ services:
       # Bearer token for GET /metrics; production returns 404 without it.
       - key: METRICS_TOKEN
         generateValue: true
+      # Auth0 sign-in (Decision 0009). Web service only: the jobs worker below
+      # must not receive them. NODE_ENV=production refuses to start without all
+      # three. This staging service uses its tenant domain; only the production
+      # service sets PRODUCTION_SERVICE=true, which refuses *.auth0.com.
+      - key: AUTH0_ISSUER_BASE_URL
+        sync: false
+      - key: AUTH0_CLIENT_ID
+        sync: false
+      - key: AUTH0_CLIENT_SECRET
+        sync: false
 
   # Dedicated background-jobs worker: A4 and coin-debate clocks, media clock and
-  # recording stops, speaker revocation, Privy revocation, embedded-wallet
-  # provisioning and hourly cleanup. Render has no free plan for background
-  # workers: this service needs a paid instance, Starter (0.5 CPU, 512 MB) or
-  # larger. It ignores RUN_BACKGROUND_JOBS and serves no HTTP. Web sets
-  # RUN_BACKGROUND_JOBS=false, so keep this worker running: suspended or missing,
-  # no process runs the jobs. Copy the web service's A4/coin sandbox, media,
-  # Privy and Redis settings so both build the same jobs; see the cut-over in
-  # docs/render-staging.md.
+  # recording stops, speaker revocation and hourly cleanup. Render has no free
+  # plan for background workers: this service needs a paid instance, Starter
+  # (0.5 CPU, 512 MB) or larger. It ignores RUN_BACKGROUND_JOBS and serves no
+  # HTTP. Web sets RUN_BACKGROUND_JOBS=false, so keep this worker running:
+  # suspended or missing, no process runs the jobs. Copy the web service's
+  # A4/coin sandbox and media settings so both build the same jobs; never copy
+  # AUTH0_* (web only). It no longer reads PRIVY_* or REDIS_*; see the cut-over
+  # in docs/render-staging.md.
   - type: worker
     name: yaparena-staging-jobs
     runtime: docker

@@ -30,9 +30,8 @@ specifications and proof. When product guidance differs from the older
 [service template PRD](docs/template-prd.md), follow the product PRD for YapArena behavior.
 
 The planned first paid release includes two real-money crypto markets together: a debate-event
-market and a continuing ideas market. Wallet sign-in and linked identities support this
-nonfinancial preview. The existing email/password flow remains available for earlier accounts;
-neither sign-in flow authorizes financial activity.
+market and a continuing ideas market. People sign in with Auth0, using an email code or Google
+([Decision 0009](docs/decisions/0009-auth0.md)); signing in never authorizes financial activity.
 The PRD does not authorize accepting funds. Prototypes and simulations may precede launch, while
 real-fund activation depends on the companion document's evidence checklist and qualified
 jurisdiction-specific review.
@@ -57,6 +56,9 @@ The [topic and event decision](docs/decisions/0003-topics-matching-events.md) re
 preview's challenge, scheduling, no-show, audit, and lifecycle rules.
 The [live media decision](docs/decisions/0004-live-debate-replay.md) records prototype timings,
 recording gates, incident behavior, and the validation still needed before a production media choice.
+The [Auth0 decision](docs/decisions/0009-auth0.md) replaces Privy with Auth0 email-code and Google
+sign-in, links the two only after a verified email code, and confirms sensitive operations by a
+fresh sign-in.
 The [low cost staging runbook](docs/render-staging.md) describes the Render app, Supabase database,
 deployment procedure and LiveKit/R2 media integration steps. The
 [hosted replay trial](docs/replay-starter-trial-2026-10-07.md) records the existing separate encoder,
@@ -339,10 +341,14 @@ source code, and a running process or container must be restarted before it sees
 | `TRUST_PROXY`                        | `false`                            | Trusts no reverse proxy locally; production must use the exact trusted proxy-hop count.                                                  |
 | `REQUEST_BODY_LIMIT`                 | `10kb`                             | Rejects JSON request bodies larger than this amount.                                                                                     |
 | `API_RATE_LIMIT`                     | `300`                              | Limits general API requests from one client during each rate-limit window.                                                               |
-| `AUTH_RATE_LIMIT`                    | `10`                               | Applies a stricter limit to registration and login attempts during the same window.                                                      |
+| `AUTH_RATE_LIMIT`                    | `10`                               | Applies a stricter limit to sign-in starts, callbacks and confirmations during the same window.                                          |
 | `RATE_LIMIT_WINDOW_MS`               | `900000` (15 minutes)              | Defines the time window, in milliseconds, for both request limits.                                                                       |
 | `SESSION_DURATION_MS`                | `604800000` (7 days)               | Defines how long a signed-in server-side session remains valid.                                                                          |
 | `METRICS_TOKEN`                      | unset                              | Bearer token required by `/metrics` (32+ characters); production returns 404 for `/metrics` while it is unset.                           |
+| `AUTH0_ISSUER_BASE_URL`              | unset                              | Auth0 tenant or custom domain (`https://…`). Web service only; production refuses to start without the three Auth0 settings.             |
+| `AUTH0_CLIENT_ID` / `..._SECRET`     | unset                              | The Regular Web Application's credentials. Locally, leave all Auth0 settings unset and use `npm run start:test-identity`.                |
+| `PRODUCTION_SERVICE`                 | unset                              | Set to `true` only on the production web service; it then refuses an `*.auth0.com` issuer.                                               |
+| `REDIS_SECURITY_URL` / `...`         | unset                              | Optional shared Redis abuse controls (`REDIS_SECURITY_URL`, `REDIS_NAMESPACE`, `REDIS_KEY_SECRET`); production requires TLS.             |
 | `POSTGRES_DB` / `POSTGRES_USER`      | project-specific                   | Name the local PostgreSQL database and its bootstrap administrator, separate from runtime.                                               |
 | `POSTGRES_PASSWORD`                  | `local-development-only`           | Authenticates the local PostgreSQL user; never reuse this example password outside local development.                                    |
 | `POSTGRES_PORT`                      | `5433`                             | Exposes PostgreSQL on this host port while PostgreSQL continues to use port `5432` in its container.                                     |

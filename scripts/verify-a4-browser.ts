@@ -5,6 +5,7 @@ import type {
   Page,
   Request,
 } from "playwright-core";
+import { signInForTest, testIdentityEntry } from "./browser-sign-in.ts";
 import type { ChildProcess } from "node:child_process";
 import type { AddressInfo } from "node:net";
 import type { Run, Round, Fraction } from "./browser-fixture-types.ts";
@@ -26,8 +27,7 @@ import { verifyPublicBotsBrowser } from "./verify-public-bots-browser.ts";
 /* global window, document */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { execFile, spawn } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:net";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -121,7 +121,7 @@ try {
     )
   ).rows[0]!.id;
   // Separate web child receives only runtime secrets; owner fixture URL stays here.
-  server = spawn(process.execPath, ["dist/server.js"], {
+  server = spawn(process.execPath, [testIdentityEntry], {
     env: {
       PATH: process.env.PATH,
       HOME: process.env.HOME,
@@ -172,16 +172,12 @@ try {
   page = await context.newPage();
   page.on("pageerror", (e) => errors.push(e.message));
   async function register(label: string) {
+    await signInForTest(
+      page.context(),
+      base,
+      `a4-browser-${tag}-${label}@example.test`,
+    );
     await page.goto(`${base}/account`);
-    await page.locator("#signed-out").waitFor({ state: "visible" });
-    await page.locator(".account-details summary").click();
-    await page
-      .locator('#email-register input[name="email"]')
-      .fill(`a4-browser-${tag}-${label}@example.test`);
-    await page
-      .locator('#email-register input[name="password"]')
-      .fill(`Synthetic browser passphrase ${tag}`);
-    await page.locator("#email-register button").click();
     await page.locator("#signed-in").waitFor({ state: "visible" });
   }
   await register("inline");
@@ -613,22 +609,6 @@ try {
     debateSlug: `a4-browser-${tag}`,
     artifactDir: `${artifactDir}/shared-bots`,
   });
-  phase = "retained wallet account controls";
-  const retainedWallets = await promisify(execFile)(
-    process.execPath,
-    ["scripts/verify-wallet-browser.ts"],
-    {
-      env: {
-        ...process.env,
-        BROWSER_BASE_URL: base,
-        WALLET_TEST_OWNER_DATABASE_URL: ownerUrl.href,
-        BROWSER_ARTIFACT_DIR: `${artifactDir}/retained-wallet`,
-      },
-      timeout: 120000,
-      maxBuffer: 1024 * 1024,
-    },
-  );
-  process.stdout.write(retainedWallets.stdout);
   console.log(`A4 browser PASS; evidence ${artifactDir}`);
 } catch (error) {
   if (page && !page.isClosed())

@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 import express from "express";
 import cookieParser from "cookie-parser";
-import { createRequireAuthentication } from "../dist/platform/auth/router.js";
-import { ProviderUnavailableError } from "../dist/platform/auth/privy.js";
+import {
+  createRequireAuthentication,
+  getCookieSettings,
+} from "../dist/platform/auth/router.js";
+import { getBindingCookieSettings } from "../dist/platform/auth/sign-in-state.js";
 import request from "../scripts/test-http-request.ts";
+import { createTestIdentityRouter } from "../scripts/test-identity.ts";
 
 import { createApp } from "../dist/app.js";
 import { hashPassword } from "../dist/platform/auth/passwords.js";
@@ -33,11 +37,30 @@ function createAuthenticationApp({
   },
   environment = "development",
 } = {}) {
-  return {
-    app: createApp({ messages, users, sessions, logger, environment }),
-    users,
-    sessions,
+  // Sign-in goes through the local test identity entry, which calls the same
+  // post-callback sign-in function as Auth0's callback.
+  let nextUserId = 0;
+  const accounts = {
+    signIn: mock.fn(async (identity, _context, grant) => {
+      const user = {
+        ...publicUser,
+        id: String(++nextUserId),
+        email: null,
+        authGeneration: "0",
+      };
+      await sessions.create?.(user.id, grant.tokenHash, grant.expiresAt, {
+        authGeneration: "0",
+      });
+      return { kind: "session", user, created: true, linked: [] };
+    }),
   };
+  const app = express()
+    .use(
+      "/api/test-identity",
+      createTestIdentityRouter({ accounts, environment }),
+    )
+    .use(createApp({ messages, users, sessions, logger, environment }));
+  return { app, users, sessions, accounts };
 }
 
 describe("private authentication response caching", () => {
@@ -75,18 +98,18 @@ describe("private authentication response caching", () => {
       assert.equal(response.headers.vary, "Origin, Cookie");
     }
   });
-  it("keeps provider-outage responses uncacheable and cookie-varying through the real app error handler", async () => {
+  it("keeps session-store outage responses uncacheable and cookie-varying through the real app error handler", async () => {
     const { app } = createAuthenticationApp({
       sessions: {
         findUserByTokenHash: async () => {
-          throw new ProviderUnavailableError("synthetic provider outage");
+          throw new Error("synthetic session store outage");
         },
       },
     });
     const response = await request(app)
       .get("/api/auth/me")
       .set("Cookie", "session=synthetic-current-cookie");
-    assert.equal(response.status, 503);
+    assert.equal(response.status, 500);
     assert.match(
       response.headers["cache-control"],
       /(?:^|,\s*)no-store(?:,|$)/,
@@ -207,19 +230,62 @@ describe("authentication API", () => {
     }
   });
 
-  it("uses a secure host-only cookie in production", async () => {
-    const { app } = createAuthenticationApp({ environment: "production" });
-    const response = await request(app)
-      .post("/api/auth/register")
-      .set("Origin", "https://service.example.com")
-      .send({
-        email: "user@example.com",
-        password: "a secure passphrase",
-      });
+  it("uses secure host-only cookies in production", () => {
+    assert.deepEqual(getCookieSettings("production"), {
+      name: "__Host-session",
+      options: {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        path: "/",
+      },
+    });
+    assert.deepEqual(getCookieSettings("development").name, "session");
+    // The sign-in binding cookie must survive the provider's cross-site
+    // redirect back to the callback, so it is Lax and short-lived.
+    assert.deepEqual(getBindingCookieSettings("production"), {
+      name: "__Host-sign-in",
+      options: {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 600_000,
+      },
+    });
+    assert.equal(getBindingCookieSettings("test").options.secure, false);
+  });
 
-    assert.match(response.headers["set-cookie"][0], /^__Host-session=/);
-    assert.match(response.headers["set-cookie"][0], /Secure/);
-    assert.match(response.headers["set-cookie"][0], /Path=\//);
+  it("signs in through the test identity entry with an HTTP-only strict cookie", async () => {
+    const { app, accounts, sessions } = createAuthenticationApp({
+      sessions: {
+        create: mock.fn(async () => ({})),
+        findUserByTokenHash: mock.fn(async () => null),
+      },
+    });
+    const response = await request(app)
+      .post("/api/test-identity/sign-in")
+      .send({ email: " Person@Example.com ", method: "google" })
+      .expect(201);
+    const [identity, context, grant] = accounts.signIn.mock.calls[0].arguments;
+    assert.equal(identity.email, "person@example.com");
+    assert.equal(identity.method, "google");
+    assert.match(identity.subject, /^google-oauth2\|test-[0-9a-f]{24}$/);
+    assert.deepEqual(context, { purpose: "sign_in" });
+    assert.match(grant.tokenHash, /^[a-f0-9]{64}$/);
+    assert.equal(sessions.create.mock.calls[0].arguments[1], grant.tokenHash);
+    assert.match(response.headers["set-cookie"][0], /^session=/);
+    assert.match(response.headers["set-cookie"][0], /HttpOnly/);
+    assert.match(response.headers["set-cookie"][0], /SameSite=Strict/);
+    assert.equal(response.headers["cache-control"], "no-store");
+    await request(app)
+      .post("/api/test-identity/sign-in")
+      .send({ email: "not-an-email" })
+      .expect(400);
+    await request(app)
+      .post("/api/test-identity/sign-in")
+      .send({ email: "person@example.com", subject: "google-oauth2|x" })
+      .expect(400);
   });
 
   it("returns the current user for a valid session", async () => {
@@ -264,25 +330,38 @@ describe("authentication API", () => {
     const fail = () => {
       throw new Error("sign out must not call the sign-in provider");
     };
-    const verifier = {
-      verify: mock.fn(fail),
-      inspect: mock.fn(fail),
-      configuration: mock.fn(fail),
+    const client = {
+      authorizationUrl: mock.fn(fail),
+      verifyCallback: mock.fn(fail),
+      logoutUrl: mock.fn(
+        (returnTo) =>
+          new URL(
+            `https://tenant.example.test/v2/logout?returnTo=${encodeURIComponent(returnTo)}`,
+          ),
+      ),
     };
-    const accounts = { exchange: mock.fn(fail), details: mock.fn(fail) };
+    const accounts = { signIn: mock.fn(fail), methods: mock.fn(fail) };
+    const state = { create: mock.fn(fail), consume: mock.fn(fail) };
     const app = createApp({
       messages,
       users: {},
       sessions,
       logger,
       environment: "development",
-      authProvider: { appId: "synthetic-app", verifier, accounts },
+      applicationOrigin: "http://localhost:3000",
+      auth0: { client, accounts, state },
     });
     const response = await request(app)
       .post("/api/auth/logout")
       .set("Cookie", "session=raw-session-token");
 
-    assert.equal(response.status, 204);
+    // The device's row is gone first; the browser then visits the provider's
+    // logout endpoint, which returns to the site.
+    assert.equal(response.status, 200);
+    assert.equal(
+      response.body.redirectTo,
+      "https://tenant.example.test/v2/logout?returnTo=http%3A%2F%2Flocalhost%3A3000%2F",
+    );
     assert.equal(sessions.deleteByTokenHash.mock.callCount(), 0);
     assert.equal(sessions.revokeSession.mock.callCount(), 1);
     const [userId, tokenHash, target, requestId] =
@@ -295,11 +374,12 @@ describe("authentication API", () => {
       localRevocation: true,
     });
     for (const call of [
-      verifier.verify,
-      verifier.inspect,
-      verifier.configuration,
-      accounts.exchange,
-      accounts.details,
+      client.authorizationUrl,
+      client.verifyCallback,
+      accounts.signIn,
+      accounts.methods,
+      state.create,
+      state.consume,
     ])
       assert.equal(call.mock.callCount(), 0);
     assert.equal(response.headers["set-cookie"], undefined);
@@ -390,8 +470,7 @@ describe("authentication API", () => {
       "authorization-ended",
     ]) {
       const live = new Map();
-      let nextUserId = 0,
-        release,
+      let release,
         arrived,
         revocations = 0;
       const gate = new Promise((resolve) => (release = resolve)),
@@ -410,17 +489,7 @@ describe("authentication API", () => {
           return { current: true };
         },
       };
-      const { app } = createAuthenticationApp({
-        users: {
-          create: async (email) => ({
-            ...publicUser,
-            id: String(++nextUserId),
-            email,
-            authGeneration: "0",
-          }),
-        },
-        sessions,
-      });
+      const { app } = createAuthenticationApp({ sessions });
       const outer = express(),
         path =
           scenario === "current-session"
@@ -437,10 +506,9 @@ describe("authentication API", () => {
       const browser = request.agent(outer);
       let oldCookie;
       if (scenario !== "absent") {
-        const original = await browser.post("/api/auth/register").send({
-          email: "original-cookie-fixture@example.invalid",
-          password: "synthetic cookie fixture passphrase",
-        });
+        const original = await browser
+          .post("/api/test-identity/sign-in")
+          .send({ email: "original-cookie-fixture@example.invalid" });
         assert.equal(original.status, 201);
         oldCookie = original.headers["set-cookie"][0].split(";")[0];
       }
@@ -452,10 +520,9 @@ describe("authentication API", () => {
       ).then((response) => response);
       await started;
       try {
-        const replacement = await browser.post("/api/auth/register").send({
-          email: "replacement-cookie-fixture@example.invalid",
-          password: "synthetic cookie fixture passphrase",
-        });
+        const replacement = await browser
+          .post("/api/test-identity/sign-in")
+          .send({ email: "replacement-cookie-fixture@example.invalid" });
         assert.equal(replacement.status, 201);
         release();
         const previous = await pending;

@@ -13,10 +13,7 @@ import {
 import { loadProviderConfig } from "../dist/platform/auth/provider-config.js";
 import { createSharedAbuseLimiter } from "../dist/platform/shared-abuse.js";
 import { createApp } from "../dist/app.js";
-import { createAuthRouter } from "../dist/platform/auth/router.js";
 import { createLogger } from "../dist/platform/logger.js";
-import { ProviderAccountError } from "../dist/platform/auth/provider-accounts.js";
-import { SessionUnavailableError } from "../dist/platform/auth/sessions.js";
 import {
   formatYapCoins,
   createAccountWallet,
@@ -32,7 +29,7 @@ import {
 } from "../frontend/auth-return.ts";
 import { createEmailAuthSecurity } from "../dist/platform/auth/browser-security.js";
 
-it("admits lazy authentication while preserving media CSP and frame isolation", async () => {
+it("admits no sign-in provider origins while preserving media CSP and frame isolation", async () => {
   const app = express()
     .use(
       createEmailAuthSecurity("production", {
@@ -47,10 +44,15 @@ it("admits lazy authentication while preserving media CSP and frame isolation", 
     .get("/live", (_req, res) => res.send("public fixture"));
   const response = await request(app).get("/live");
   const policy = response.headers["content-security-policy"];
+  // Auth0 sign-in is a full-page redirect: no provider scripts, frames,
+  // CAPTCHA widgets or connections are admitted.
   assert.match(
     policy,
-    /connect-src[^;]*https:\/\/auth\.privy\.io[^;]*wss:\/\/live\.example/,
+    /connect-src 'self' wss:\/\/live\.example https:\/\/live\.example https:\/\/replay\.example;/,
   );
+  assert.match(policy, /frame-src 'self';/);
+  assert.match(policy, /script-src 'self';/);
+  assert.doesNotMatch(policy, /privy|hcaptcha|challenges\.cloudflare|auth0/);
   assert.match(policy, /media-src 'self' blob: https:\/\/replay\.example/);
   assert.match(policy, /worker-src 'self' blob:/);
   assert.match(policy, /frame-ancestors 'none'/);
@@ -387,73 +389,6 @@ describe("verified provider evidence", () => {
       }).configuration(),
       { google: false, passkeys: true },
     );
-  });
-  it("serves GET /api/auth/provider from a five-minute cache and backs off after failures", async () => {
-    function providerApp() {
-      const state = { clock: 0, reads: 0, failing: false };
-      const app = express();
-      app.use(
-        "/api/auth",
-        createAuthRouter({
-          users: {},
-          sessions: {},
-          environment: "test",
-          now: () => state.clock,
-          provider: {
-            appId,
-            accounts: {},
-            verifier: {
-              async configuration() {
-                state.reads++;
-                if (state.failing)
-                  throw new ProviderUnavailableError("synthetic");
-                return { google: true, passkeys: state.reads % 2 === 1 };
-              },
-            },
-          },
-        }),
-      );
-      const methods = async () => {
-        const response = await request(app).get("/api/auth/provider");
-        return [response.status, response.body.passkeys];
-      };
-      return { state, methods };
-    }
-    const cached = providerApp();
-    assert.deepEqual(
-      await Promise.all([cached.methods(), cached.methods(), cached.methods()]),
-      [
-        [200, true],
-        [200, true],
-        [200, true],
-      ],
-    );
-    assert.equal(cached.state.reads, 1);
-    cached.state.clock = 5 * 60_000 - 1;
-    assert.deepEqual(await cached.methods(), [200, true]);
-    assert.equal(cached.state.reads, 1);
-    // A failed refresh serves the last good answer and waits 15 seconds.
-    cached.state.clock = 5 * 60_000;
-    cached.state.failing = true;
-    assert.deepEqual(await cached.methods(), [200, true]);
-    cached.state.failing = false;
-    cached.state.clock = 5 * 60_000 + 14_999;
-    assert.deepEqual(await cached.methods(), [200, true]);
-    assert.equal(cached.state.reads, 2);
-    cached.state.clock = 5 * 60_000 + 15_000;
-    assert.deepEqual(await cached.methods(), [200, true]);
-    assert.equal(cached.state.reads, 3);
-    // Without a good answer yet, a failure is a 503 and is not retried at once.
-    const cold = providerApp();
-    cold.state.failing = true;
-    assert.deepEqual(await cold.methods(), [503, undefined]);
-    cold.state.failing = false;
-    cold.state.clock = 14_999;
-    assert.deepEqual(await cold.methods(), [503, undefined]);
-    assert.equal(cold.state.reads, 1);
-    cold.state.clock = 15_000;
-    assert.equal((await cold.methods())[0], 200);
-    assert.equal(cold.state.reads, 2);
   });
   it("verifies a real ES256 signature and obtains ownership data only from the provider", async () => {
     assert.deepEqual(await verifier().verify(jwt()), {
@@ -827,65 +762,73 @@ describe("shared abuse middleware", () => {
   });
 });
 
-describe("provider exchange API", () => {
+describe("Auth0 account routes", () => {
+  const fail = () => {
+    throw new Error("this route must not call the sign-in provider");
+  };
   function setup({
-    fail,
     active = false,
     configured = true,
     sharedAuthLimiter,
-    providerDetails = null,
   } = {}) {
-    const provider = {
-      appId,
+    const auth0 = {
+      client: {
+        authorizationUrl: async () =>
+          new URL("https://tenant.example.test/authorize?state=x"),
+        verifyCallback: fail,
+        logoutUrl: (returnTo) =>
+          new URL(
+            `https://tenant.example.test/v2/logout?returnTo=${encodeURIComponent(returnTo)}`,
+          ),
+      },
       accounts: {
-        exchange: async () => {
-          if (fail) throw fail;
-          return {
-            user: { id: "11", email: null, createdAt: new Date(0) },
-            created: true,
-          };
-        },
-        details: async (accountId) => {
+        signIn: fail,
+        methods: async (accountId) => {
           assert.equal(accountId, "11");
-          return providerDetails;
+          return [
+            {
+              method: "google",
+              email: "person@example.test",
+              linkedAt: new Date(0),
+            },
+          ];
         },
       },
-      verifier: verifier(),
+      state: { create: async () => {}, consume: fail },
     };
     return createApp({
       messages: {},
       users: {},
       sessions: {
         findUserByTokenHash: async () => (active ? { id: "11" } : null),
-        deleteByTokenHash: async () => {},
         revokeSession: async () => ({ current: true }),
       },
       logger: createLogger({ enabled: false }),
       environment: "production",
       applicationOrigin: "https://arena.example",
-      authProvider: configured ? provider : undefined,
+      auth0: configured ? auth0 : undefined,
       authRateLimit: 100,
       sharedAuthLimiter,
     });
   }
-  const exchange = (app) =>
-    request(app)
-      .post("/api/auth/privy/exchange")
-      .set("Origin", "https://arena.example")
-      .set("Authorization", `Bearer ${jwt()}`);
-  it("pairs the provider mapping with its authenticated account in one response", async () => {
-    const providerDetails = { subject: claims.sub, methods: ["email"] };
-    const response = await request(setup({ active: true, providerDetails }))
+  it("pairs the sign-in methods with the authenticated account in one response", async () => {
+    const response = await request(setup({ active: true }))
       .get("/api/auth/methods?accountId=attacker-controlled")
       .set("Cookie", "__Host-session=synthetic");
     assert.equal(response.status, 200);
     assert.deepEqual(response.body, {
       accountId: "11",
-      provider: providerDetails,
+      methods: [
+        {
+          method: "google",
+          email: "person@example.test",
+          linkedAt: new Date(0).toISOString(),
+        },
+      ],
       legacyPassword: false,
     });
   });
-  it("keeps logout and session reads usable when shared abuse protection is unavailable", async () => {
+  it("keeps sign-in, logout and session reads usable when shared abuse protection is unavailable", async () => {
     const app = setup({
       active: true,
       sharedAuthLimiter: (_request, response) => response.sendStatus(503),
@@ -898,33 +841,38 @@ describe("provider exchange API", () => {
       ).status,
       200,
     );
-    assert.equal(
-      (
-        await request(app)
-          .post("/api/auth/logout")
-          .set("Origin", "https://arena.example")
-          .set("Cookie", "__Host-session=synthetic")
-      ).status,
-      204,
-    );
-    assert.equal((await exchange(app)).status, 503);
-  });
-  it("publishes a host-only secure session after provisioning and retires new unverified registration", async () => {
-    const app = setup();
-    const r = await exchange(app);
-    assert.equal(r.status, 201);
+    const logout = await request(app)
+      .post("/api/auth/logout")
+      .set("Origin", "https://arena.example")
+      .set("Cookie", "__Host-session=synthetic");
+    assert.equal(logout.status, 200);
     assert.match(
-      r.headers["set-cookie"][0],
-      /__Host-session=.*HttpOnly; Secure; SameSite=Strict/,
+      logout.body.redirectTo,
+      /^https:\/\/tenant\.example\.test\/v2\/logout\?returnTo=https%3A%2F%2Farena\.example%2F$/,
     );
-    assert.equal(r.body.user.authGeneration, undefined);
+    const login = await request(
+      setup({ sharedAuthLimiter: (_r, s) => s.sendStatus(503) }),
+    ).get("/api/auth/login?connection=google");
+    assert.equal(login.status, 303);
+    assert.match(
+      login.headers["set-cookie"][0],
+      /^__Host-sign-in=.*; Max-Age=600;.*HttpOnly; Secure; SameSite=Lax/,
+    );
+  });
+  it("retires password registration and Privy routes, and reports configured methods", async () => {
+    const app = setup();
     assert.equal(
       (await request(app).post("/api/auth/register").send({})).status,
       410,
     );
-    assert.equal(
-      (await request(app).get("/api/auth/provider")).body.appId,
-      appId,
+    assert.deepEqual((await request(app).get("/api/auth/provider")).body, {
+      enabled: true,
+      methods: ["email", "google"],
+    });
+    assert.deepEqual(
+      (await request(setup({ configured: false })).get("/api/auth/provider"))
+        .body,
+      { enabled: false, methods: [] },
     );
     assert.equal(
       (
@@ -934,112 +882,31 @@ describe("provider exchange API", () => {
       ).status,
       401,
     );
-  });
-  it("rejects login CSRF, missing/bad tokens, account switching and unavailable provider", async () => {
-    assert.equal(
-      (await request(setup()).post("/api/auth/privy/exchange")).status,
-      403,
-    );
-    assert.equal(
-      (
-        await request(setup())
-          .post("/api/auth/privy/exchange")
-          .set("Origin", "https://arena.example")
-      ).status,
-      401,
-    );
-    assert.equal(
-      (
-        await request(setup())
-          .post("/api/auth/privy/exchange")
-          .set("Origin", "https://arena.example")
-          .set("Authorization", "Bearer invalid")
-      ).status,
-      401,
-    );
-    assert.equal(
-      (
-        await exchange(setup({ active: true })).set(
-          "Cookie",
-          "__Host-session=x",
-        )
-      ).status,
-      409,
-    );
-    assert.equal((await exchange(setup({ configured: false }))).status, 503);
-    for (const fail of [
-      new ProviderAccountError("blocked", 403),
-      new SessionUnavailableError(),
-      new Error("private provider data"),
-    ]) {
-      const r = await exchange(setup({ fail }));
-      assert.equal(
-        r.status,
-        fail instanceof ProviderAccountError
-          ? 403
-          : fail instanceof SessionUnavailableError
-            ? 401
-            : 500,
-      );
-      assert.ok(!JSON.stringify(r.body).includes("private provider data"));
-      assert.equal(r.headers["set-cookie"], undefined);
-    }
-  });
-  it("distinguishes credential reconciliation from reset, retired-identity and revoked-session refusals without issuing cookies or private reset metadata", async () => {
-    for (const [code, status] of [
-      ["provider_credentials_changed", 403],
-      ["provider_identity_retired", 403],
-      ["provider_reset_pending", 503],
-      ["provider_reset_review_required", 403],
-      ["provider_access_review_required", 403],
-      ["provider_session_revoked", 401],
-      ["provider_signin_paused", 503],
-    ]) {
-      const response = await exchange(
-        setup({ fail: new ProviderAccountError("safe refusal", status, code) }),
-      );
-      assert.equal(response.status, status);
-      assert.deepEqual(response.body, { error: "safe refusal", code });
-      assert.equal(response.headers["set-cookie"], undefined);
-      assert.equal(response.headers["cache-control"], "no-store");
-      assert.equal(
-        response.headers["retry-after"],
-        code === "provider_reset_pending" ? "5" : undefined,
-      );
-      assert.equal(
-        Object.keys(response.body).some((key) =>
-          /subject|account|generation|frozen|attempt|digest|job/i.test(key),
-        ),
-        false,
-      );
-    }
-  });
-  it("allows only bounded aggregate telemetry fields", async () => {
-    for (const event of [
-      "code_resent",
-      "recovery_started",
-      "recovery_completed",
-      "recovery_failed",
-      "recovery_cancelled",
+    for (const [method, path] of [
+      ["post", "/api/auth/privy/exchange"],
+      ["post", "/api/auth/journey"],
+      ["get", "/api/auth/embedded-wallet"],
+      ["post", "/api/auth/embedded-wallet"],
     ])
       assert.equal(
         (
-          await request(setup())
-            .post("/api/auth/journey")
-            .send({ event, seconds: 1.25 })
+          await request(app)
+            [method](path)
+            .set("Origin", "https://arena.example")
         ).status,
-        204,
+        404,
+        path,
       );
-    for (const body of [
-      { event: "code", code: "secret" },
-      { event: "code_sent", email: "private@example.test" },
-      { event: "code_sent", seconds: 601 },
-      { event: "recovery_failed", error: "private provider response" },
-      { event: "recovery_completed", signature: "private proof" },
-    ])
-      assert.equal(
-        (await request(setup()).post("/api/auth/journey").send(body)).status,
-        400,
-      );
+  });
+  it("explains that sign-in is unavailable without Auth0 settings", async () => {
+    for (const path of [
+      "/api/auth/login",
+      "/api/auth/callback?state=x&code=y",
+    ]) {
+      const response = await request(setup({ configured: false })).get(path);
+      assert.equal(response.status, 503, path);
+      assert.match(response.headers["content-type"], /^text\/html/);
+      assert.match(response.text, /Sign-in is temporarily unavailable/);
+    }
   });
 });

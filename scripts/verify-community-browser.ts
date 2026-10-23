@@ -6,6 +6,7 @@ import { chromium, type Browser, type Page } from "playwright-core";
 import axe from "axe-core";
 import pg from "pg";
 import { verifyChatClient } from "./verify-chat-client.ts";
+import { signInForTest } from "./browser-sign-in.ts";
 
 const base = process.env.BROWSER_BASE_URL ?? "http://localhost:53000";
 const chromePath =
@@ -69,21 +70,12 @@ async function axeViolations(page: Page, selector: string) {
 
 async function register(name: string, publishProfile = false) {
   const email = `community-browser-${name}-${suffix}@example.test`;
-  const password = `Test-only-${randomUUID()}-Aa1!`;
   const context = await browser.newContext({ bypassCSP: true });
+  const { user } = await signInForTest(context, base, email);
   const page = await context.newPage();
   await page.goto(`${base}/account`);
-  await page.locator("#signed-out").waitFor({ state: "visible" });
-  await page.locator(".account-details summary").click();
-  await page.locator("#email-register input[name=email]").fill(email);
-  await page.locator("#email-register input[name=password]").fill(password);
-  await page.locator("#email-register button").click();
   await page.locator("#signed-in").waitFor({ state: "visible" });
-  const result = await pool.query<{ id: string }>(
-    "SELECT id FROM users WHERE email = $1",
-    [email],
-  );
-  const userId = result.rows[0]?.id;
+  const userId = user.id;
   assert.ok(userId, `registered ${name}`);
   accounts.push(userId);
   if (publishProfile) {

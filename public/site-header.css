@@ -965,3 +965,28 @@
     height: 32px;
   }
 }
+
+/* Signed-out and no-JavaScript headers show two sign-in links. At phone
+   widths the wordmark gives way to them, as it already does for members. */
+@media (max-width: 560px) {
+  .site-header[data-session="guest"] .brand span,
+  .site-header:not([data-enhanced]) .brand span {
+    display: none;
+  }
+}
+@container site-header (max-width: 560px) {
+  .site-header[data-session="guest"] .brand span,
+  .site-header:not([data-enhanced]) .brand span {
+    display: none;
+  }
+}
+@media (max-width: 380px) {
+  .header-login,
+  .header-signup {
+    max-width: 7.25rem;
+    padding: 6px 8px;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
+  }
+}

@@ -29,6 +29,8 @@
     "scripts/inventory-database.ts",
     "scripts/verify-database-isolation.ts",
     "scripts/test-http-request.ts",
+    "scripts/test-identity.ts",
+    "scripts/test-identity-entry.ts",
     "scripts/verify-discovery.ts",
     "scripts/verify-identity-social.ts",
     "scripts/verify-matching.ts",

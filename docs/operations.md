@@ -195,8 +195,9 @@ drain for resets superseded by sign-out-all/others was removed with those action
 on 2026-10-22. Read-only propagation checks release database connections. The bounded mutation
 window retains account ordering. These authentication jobs run every ten seconds with
 the other background jobs: on the web service while `RUN_BACKGROUND_JOBS` is true,
-and in the maintenance worker (`npm run start:worker`), which always runs them when it
-has the same Privy configuration. The worker validates but never connects to Redis.
+and in the maintenance worker (`npm run start:worker`). Since
+[Decision 0009](decisions/0009-auth0.md) neither process starts these Privy jobs; the
+code remains until prompt 12 deletes it.
 See [the staging cut-over](render-staging.md#move-background-jobs-to-the-worker).
 
 An uncertain provider freeze/unfreeze requires evidence review. The explicit
@@ -246,10 +247,10 @@ then run `prepare` for encrypted backup/restore rehearsal before `migrate`.
 `ACCOUNT_STAGING_RELEASE_GATES_PASSED` are operator assertions, not proof. Its
 reviewed pending migration list is exact. Preserve earlier release evidence and
 verify retained/manual account counts, runtime-role grants and zero live history
-afterward. Runtime configuration uses `PRIVY_APP_ID`, `PRIVY_APP_SECRET`,
-`REDIS_SECURITY_URL`, `REDIS_NAMESPACE` and `REDIS_KEY_SECRET` as documented in the
-[configuration inventory](email-first-accounts.md#redis-configuration-and-measurements);
-owner credentials and private backup material are never runtime variables.
+afterward. Web runtime configuration uses `AUTH0_ISSUER_BASE_URL`, `AUTH0_CLIENT_ID`,
+`AUTH0_CLIENT_SECRET` and the optional `REDIS_SECURITY_URL`, `REDIS_NAMESPACE` and
+`REDIS_KEY_SECRET` ([Decision 0009](decisions/0009-auth0.md)); the jobs worker needs none of
+them. Owner credentials and private backup material are never runtime variables.
 
 Deploy the auth fixes with a coordinated restart. The additive F03 migration signs out all
 legacy sessions and consumes pending challenges. Its schema guards must stay installed

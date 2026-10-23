@@ -17,17 +17,17 @@ or production setting is added.
 `npm run check:files` and enforces the [evidence file policy](../CONTRIBUTING.md#evidence-and-status-records).
 
 New email-first automation is also strict TypeScript: `reset-test-accounts` and
-`verify-auth-redis` are checked in the database-tools project;
-`verify-email-auth-browser` is checked in browser automation. The explicit reset
+`verify-auth-redis` are checked in the database-tools project. The explicit reset
 is never imported by runtime or migrations. See [scope and limits](email-first-accounts.md).
 
-`verify-wallet-browser.ts` is now checked in browser automation. It supersedes the
-historical new-wallet-linking browser trial after external linking was removed
-from the product. The retained-wallet trial requires an explicit disposable
-loopback database and local runtime, seeds only synthetic retained credentials,
-and preserves negative proof/replay/expiry and last-method checks. Existing
-backend wallet-linking regression suites remain. It does not call Privy or a
-chain and does not establish genuine embedded-wallet acceptance.
+The test identity entry (`test-identity.ts`, `test-identity-entry.ts`) is checked in the
+database-tools project. It signs tests, browser verifiers and local development in through the
+same post-callback function as the Auth0 callback, never ships in the image and refuses
+`NODE_ENV=production`, Render, any provider setting and a non-loopback `APP_ORIGIN`
+([Decision 0009](decisions/0009-auth0.md), point 10). `browser-sign-in.ts`,
+`oidc-test-issuer.ts` and `verify-email-auth-browser.ts` are checked in browser automation:
+the last drives Chrome through Auth0 sign-in, Google linking, sign-out and a cancelled sign-in
+against the in-process issuer and does not establish hosted Auth0 acceptance.
 
 `coin-sandbox-operator.ts` is also checked in the database-tools project. It is an
 explicit owner-only, sandbox-only command, with no `.env` loading or HTTP listener.
@@ -40,12 +40,10 @@ schemas, secret variable names, physical rail isolation and release boundaries.
 `verify-coin-testnet.ts` and `verify-coin-testnet-ledger.ts` are checked in the same
 project. Their fixed Base Sepolia/Circle test-asset paths use private disposable
 operator keys and distinguish standalone chain receipts from integrated
-application-ledger acceptance. `verify-security-passkey-browser.ts`,
-`verify-coin-sandbox-browser.ts`, `verify-session-coordination-browser.ts` and
-`verify-media-cloud-revocation.ts` are checked
-in browser automation. The first two use isolated real application backends with
-virtual browser devices; the last requires an explicitly authorized bounded
-hosted LiveKit trial. None substitutes for physical-device or screen-reader
+application-ledger acceptance. `verify-coin-sandbox-browser.ts`,
+`verify-session-coordination-browser.ts` and `verify-media-cloud-revocation.ts` are checked
+in browser automation. The first uses an isolated real application backend; the last requires
+an explicitly authorized bounded hosted LiveKit trial. None substitutes for physical-device or screen-reader
 acceptance. See the [completion matrix](email-first-completion.md) for current
 commands, tested revisions and limits.
 

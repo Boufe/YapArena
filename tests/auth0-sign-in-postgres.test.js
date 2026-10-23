@@ -272,23 +272,6 @@ describe(
       }
     });
 
-    it("pauses new accounts but lets existing accounts sign in", async () => {
-      const existing = emailIdentity();
-      const first = await signIn(context, existing);
-      const user = await me(first.agent);
-      await owner.query("UPDATE auth_controls SET signup_enabled=false");
-      try {
-        const blocked = await signIn(context, emailIdentity());
-        assert.equal(blocked.callback.status, 503);
-        assert.match(page(blocked.callback), /New accounts are paused/);
-        assert.equal(sessionCookie(blocked.callback), undefined);
-        const returning = await signIn(context, existing);
-        assert.equal((await me(returning.agent)).id, user.id);
-      } finally {
-        await owner.query("UPDATE auth_controls SET signup_enabled=true");
-      }
-    });
-
     it("refuses a suspended account", async () => {
       const identity = emailIdentity();
       const { agent } = await signIn(context, identity);

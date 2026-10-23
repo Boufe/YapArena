@@ -17,6 +17,12 @@ services:
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
       SESSION_DURATION_MS: ${SESSION_DURATION_MS:-604800000}
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the production PostgreSQL connection string}
+      # Auth0 sign-in (Decision 0009). The production service refuses an
+      # *.auth0.com issuer; use the production custom domain.
+      PRODUCTION_SERVICE: "true"
+      AUTH0_ISSUER_BASE_URL: ${AUTH0_ISSUER_BASE_URL:?Set AUTH0_ISSUER_BASE_URL to the production Auth0 custom domain}
+      AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID:?Set AUTH0_CLIENT_ID}
+      AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET:?Set AUTH0_CLIENT_SECRET}
       COMMUNITY_STREAM_ENABLED: ${COMMUNITY_STREAM_ENABLED:-false}
       COMMUNITY_MAX_STREAMS: ${COMMUNITY_MAX_STREAMS:-500}
       COMMUNITY_MAX_ROOMS: ${COMMUNITY_MAX_ROOMS:-50}

@@ -39,8 +39,15 @@ it("uses one navigation and session-aware account header across normal pages", (
       /href="\/live">Live<\/a><a href="\/debates">Explore<\/a><a href="\/match">Create<\/a>/,
     );
     assert.match(html, /data-header-member hidden/);
-    assert.match(html, /data-auth-open="login">Log in/);
-    assert.match(html, /data-auth-open="signup">Sign up/);
+    assert.match(
+      html,
+      /href="\/api\/auth\/login\?connection=google" data-sign-in="google">Continue with Google</,
+    );
+    assert.match(
+      html,
+      /href="\/api\/auth\/login\?connection=email" data-sign-in="email">Continue with email</,
+    );
+    assert.doesNotMatch(html, /data-auth-(?:open|script|style)/);
     assert.match(html, /data-deposit-open/);
     assert.match(html, /site-header\.js/);
     assert.doesNotMatch(html, /class="ya-top"/);

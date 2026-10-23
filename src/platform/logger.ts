@@ -38,6 +38,8 @@ export function createLogger({
           'req.headers["x-yaparena-expected-account"]',
           'req.headers["x-yaparena-session"]',
           'res.headers["set-cookie"]',
+          // Sign-in redirects carry state, nonce and PKCE challenges.
+          "res.headers.location",
         ],
         censor: "[REDACTED]",
       },
@@ -54,11 +56,14 @@ export function createHttpLogger(logger: Logger) {
     serializers: {
       req(request) {
         const record = pino.stdSerializers.req(request);
-        // Lazy authentication can return to any public page after OAuth.
-        // Keep the route useful for operations without persisting query values.
+        // Sign-in routes carry one-use codes, state and return paths. Keep the
+        // route useful for operations without persisting query values.
         const query = new URLSearchParams((record.url ?? "").split("?")[1]);
         if (
           /^\/account(?:[/?]|$)/.test(record.url ?? "") ||
+          /^\/api\/auth\/(?:login|callback|confirm)(?:[/?]|$)/.test(
+            record.url ?? "",
+          ) ||
           [...query.keys()].some((key) => key.startsWith("privy_"))
         ) {
           record.url = record.url.replace(/\?.*$/, "");

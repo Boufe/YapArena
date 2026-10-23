@@ -17,27 +17,11 @@ import { once } from "node:events";
 import pg from "pg";
 import type { Response as HttpTestResponse } from "supertest";
 import type { PublicUser } from "../src/platform/auth/users.ts";
-import type { WalletChallenge } from "../src/platform/auth/wallets.ts";
-import type { WalletOperation } from "../src/platform/auth/wallet-operations.ts";
 import type { PublicTopic } from "../src/features/discovery/public-types.ts";
 
 type HttpResponse<Body> = Omit<HttpTestResponse, "body"> & { body: Body };
 type HttpUser = Omit<PublicUser, "createdAt"> & { createdAt: string };
-type RegisteredUser = HttpUser & { email: string };
-type ChallengeResponse = Pick<WalletChallenge, "id" | "message"> & {
-  expiresAt: string;
-};
-type OperationResponse = Pick<
-  WalletOperation,
-  | "id"
-  | "purpose"
-  | "address"
-  | "chainId"
-  | "authorizationMessage"
-  | "proposedMessage"
-  | "authorizingAddress"
-  | "authorizingChainId"
-> & { expiresAt: string };
+type RegisteredUser = HttpUser;
 type CreatedTopic = Pick<
   PublicTopic,
   "id" | "slug" | "title" | "summary" | "sideALabel" | "sideBLabel"
@@ -52,9 +36,9 @@ type AccountNotification = {
   createdAt: Date;
 };
 import pino from "pino";
+import express from "express";
 import supertest from "./test-http-request.ts";
 import { runner, MigrationBuilder } from "node-pg-migrate";
-import { privateKeyToAccount } from "viem/accounts";
 import { deliveryTables } from "../migrations/1791335211412_durable-community-delivery.js";
 import { receiptTables } from "../migrations/1791345540042_preserve-chat-idempotency.js";
 import { a4Tables } from "../migrations/1792093616251_add-a4-yap-coins.js";
@@ -79,6 +63,10 @@ import { createCoinSandboxRepository } from "../dist/features/account-wallet/san
 import { createWalletRepository } from "../dist/platform/auth/wallets.js";
 import { createMessageRepository } from "../dist/features/messages/repository.js";
 import { createDiscoveryRepository } from "../dist/features/discovery/repository.js";
+import { createAuth0Accounts } from "../dist/platform/auth/auth0-accounts.js";
+import { createSignInState } from "../dist/platform/auth/sign-in-state.js";
+import { createLoginSecrets } from "../dist/platform/auth/auth0.js";
+import { createTestIdentityRouter } from "./test-identity.ts";
 import { createIdentityRepository } from "../dist/features/identity/repository.js";
 import { createMatchingRepository } from "../dist/features/matching/repository.js";
 import { createMediaRepository } from "../dist/features/media/repository.js";
@@ -105,6 +93,8 @@ const applicationTables = [
   "provider_session_exchanges",
   "provider_revocation_jobs",
   "embedded_wallet_provisioning",
+  "auth_login_transactions",
+  "auth_pending_links",
   "account_subjects",
   "auth_controls",
   "coin_accounts",
@@ -633,43 +623,99 @@ async function runtimeChecks(
     const media = createMediaRepository(pool);
     const community = createCommunityRepository(pool);
     const measurement = createMeasurementRepository(pool);
-    const app = createApp({
-      users,
-      sessions,
-      wallets,
-      messages,
-      database: pool,
-      discovery,
-      identity,
-      matching,
-      community,
-      measurement,
-      logger,
-      applicationOrigin: "http://localhost:3000",
-      authRateLimit: 100,
-    });
+    // Sign-in runs through the test identity entry, which calls the same
+    // post-callback sign-in function as the Auth0 callback under the runtime
+    // role: account creation, mapping, linking and session issue.
+    const auth0Accounts = createAuth0Accounts(pool);
+    const app = express()
+      .use(
+        "/api/test-identity",
+        createTestIdentityRouter({
+          accounts: auth0Accounts,
+          environment: "development",
+        }),
+      )
+      .use(
+        createApp({
+          users,
+          sessions,
+          wallets,
+          messages,
+          database: pool,
+          discovery,
+          identity,
+          matching,
+          community,
+          measurement,
+          logger,
+          applicationOrigin: "http://localhost:3000",
+          authRateLimit: 100,
+        }),
+      );
     const agents = [];
     const people: RegisteredUser[] = [];
     for (const name of ["alice", "bob", "moderator", "reviewer"]) {
       const agent = supertest.agent(app);
       agents.push(agent);
-      const credentials = {
-        email: `${name}@isolation.test`,
-        password: "Synthetic local verification passphrase",
-      };
+      const email = `${name}@isolation.test`;
       const response: HttpResponse<{ user: RegisteredUser }> = await agent
-        .post("/api/auth/register")
-        .send(credentials)
+        .post("/api/test-identity/sign-in")
+        .send({ email })
         .expect(201);
       const user = response.body.user;
       people.push(user);
       assert.deepEqual(await identity.getRoles(user.id), ["participant"]);
       await agent.get("/api/auth/me").expect(200);
       await agent.post("/api/auth/logout").expect(204);
-      await agent.post("/api/auth/login").send(credentials).expect(200);
+      const again: HttpResponse<{ user: RegisteredUser }> = await agent
+        .post("/api/test-identity/sign-in")
+        .send({ email })
+        .expect(200);
+      assert.equal(again.body.user.id, user.id);
       await identity.createProfile(user.id, name, name, null);
       await identity.updateProfile(user.id, { publicationState: "published" });
     }
+    // Google for a known address: no account or session until the email
+    // code, then the Google subject joins the same account.
+    const linking = supertest.agent(app);
+    const pending: HttpResponse<{ pendingLinkId: string }> = await linking
+      .post("/api/test-identity/sign-in")
+      .send({ email: "alice@isolation.test", method: "google" })
+      .expect(202);
+    const linked: HttpResponse<{ user: RegisteredUser; linked: string[] }> =
+      await linking
+        .post("/api/test-identity/sign-in")
+        .send({
+          email: "alice@isolation.test",
+          method: "email",
+          pendingLinkId: pending.body.pendingLinkId,
+        })
+        .expect(200);
+    assert.equal(linked.body.user.id, people[0]!.id);
+    assert.deepEqual(linked.body.linked, ["google"]);
+    // Sign-in state is stored, consumed once and pruned by the runtime role.
+    const signInState = createSignInState(pool);
+    const secrets = createLoginSecrets();
+    const binding = randomBytes(32).toString("base64url");
+    await signInState.create({
+      binding,
+      purpose: "sign_in",
+      returnPath: "/",
+      secrets,
+    });
+    assert.equal(
+      (await signInState.consume(secrets.state, binding))?.purpose,
+      "sign_in",
+    );
+    assert.equal(await signInState.consume(secrets.state, binding), null);
+    await denied(
+      login,
+      "UPDATE yaparena.auth_login_transactions SET return_path='/x'",
+    );
+    await denied(
+      login,
+      "UPDATE yaparena.provider_identities SET user_id=NULL WHERE provider='auth0'",
+    );
     const [alice, bob, moderator, reviewer] = people as [
       RegisteredUser,
       RegisteredUser,
@@ -693,68 +739,6 @@ async function runtimeChecks(
       .send({ name: "Boundary" })
       .expect(201);
     await agents[0]!.get("/api/messages").expect(200);
-
-    // Actual SIWE endpoints: signature verification, wallet-only registration, second
-    // login, session lookup, linking, and row-lock-protected unlink through runtime.
-    const account = privateKeyToAccount(`0x${"31".repeat(32)}`);
-    const walletAgent = supertest.agent(app);
-    const challenge: HttpResponse<ChallengeResponse> = await walletAgent
-      .post("/api/auth/wallet/login/challenge")
-      .send({ address: account.address, chainId: 1 })
-      .expect(201);
-    const signature = await account.signMessage({
-      message: challenge.body.message,
-    });
-    const walletLogin: HttpResponse<{ user: HttpUser }> = await walletAgent
-      .post("/api/auth/wallet/login/verify")
-      .send({ challengeId: challenge.body.id, signature })
-      .expect(200);
-    await walletAgent.get("/api/auth/me").expect(200);
-    assert.equal(walletLogin.body.user.email, null);
-    const linkAccount = privateKeyToAccount(`0x${"32".repeat(32)}`);
-    const linkTarget = {
-      purpose: "link",
-      address: linkAccount.address,
-      chainId: 1,
-    };
-    const link: HttpResponse<OperationResponse> = await agents[0]!
-      .post("/api/auth/wallet/operations")
-      .send({ ...linkTarget, credential: { type: "password" } })
-      .expect(201);
-    await agents[0]!
-      .post(`/api/auth/wallet/operations/${link.body.id}/complete`)
-      .send({
-        ...linkTarget,
-        password: "Synthetic local verification passphrase",
-        proposedSignature: await linkAccount.signMessage({
-          message: link.body.proposedMessage!,
-        }),
-      })
-      .expect(200);
-    const linked = (await wallets.listWallets(alice.id))[0]!;
-    const unlinkTarget = {
-      purpose: "unlink",
-      address: linked.address,
-      chainId: Number(linked.chainId),
-      targetWalletId: linked.id,
-    };
-    const unlink: HttpResponse<OperationResponse> = await agents[0]!
-      .post("/api/auth/wallet/operations")
-      .send({ ...unlinkTarget, credential: { type: "password" } })
-      .expect(201);
-    await agents[0]!
-      .post(`/api/auth/wallet/operations/${unlink.body.id}/complete`)
-      .send({
-        ...unlinkTarget,
-        password: "Synthetic local verification passphrase",
-      })
-      .expect(200);
-
-    assert.ok(
-      (await identity.listActivity(alice.id, 100, 0)).items.some(
-        (item) => item.eventType === "wallet_identities.insert",
-      ),
-    );
 
     const topic: CreatedTopic = await matching.createTopic(alice.id, {
       slug: "isolation-topic",
@@ -934,17 +918,21 @@ async function runtimeChecks(
     const failures = [];
     // Repository jobs also get called directly so runtime's logged-error recovery
     // cannot hide a permission failure behind a resolved callback.
+    const aliceGeneration = (
+      await owner.query<{ generation: string }>(
+        "SELECT auth_generation::text AS generation FROM yaparena.users WHERE id=$1",
+        [alice.id],
+      )
+    ).rows[0]!.generation;
     await sessions.create(
       alice.id,
       "b".repeat(64),
       new Date(Date.now() - 60_000),
-      (await users.findByEmail(alice.email)) as NonNullable<
-        Awaited<ReturnType<typeof users.findByEmail>>
-      > & { passwordHash: string; email: string },
+      { authGeneration: aliceGeneration },
     );
     assert.equal(await sessions.deleteExpired(), 1);
     const expiredWallet = await wallets.createChallenge({
-      address: account.address.toLowerCase(),
+      address: `0x${"31".repeat(20)}`,
       chainId: 1,
       purpose: "login",
       message: "Synthetic expired challenge",

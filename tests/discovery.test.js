@@ -318,7 +318,24 @@ describe("public discovery", () => {
   it("exposes the account page and follow controls in the public journey", async () => {
     const account = await request(app).get("/account");
     assert.equal(account.status, 200);
-    assert.match(account.text, /Sign-In with Ethereum/);
+    assert.match(
+      account.text,
+      /href="\/api\/auth\/login\?connection=google&amp;return=%2Faccount" data-sign-in="google">Continue with Google</,
+    );
+    assert.match(
+      account.text,
+      /href="\/api\/auth\/login\?connection=email&amp;return=%2Faccount" data-sign-in="email">Continue with email</,
+    );
+    for (const retired of [
+      /Sign-In with Ethereum/,
+      /id="wallet-login"/,
+      /id="email-login"/,
+      /id="email-register"/,
+      /id="email-auth"/,
+      /id="embedded-wallet"/,
+      /account-auth\.bundle/,
+    ])
+      assert.doesNotMatch(account.text, retired);
     assert.match(account.text, /id="profile-form"/);
     assert.doesNotMatch(account.text, /id="wallet-link"|Link another wallet/);
     assert.match(account.text, /id="retained-wallets"[^>]*hidden/);

@@ -1,5 +1,7 @@
 # Decision 0008 — Simpler authentication
 
+Superseded in part by [Decision 0009](0009-auth0.md).
+
 Status: proposed for founder approval, 2026-10-22. Design only; nothing here is implemented.
 References were verified against `origin/main` at `fc130d2` and will drift as prompts 9–12 land.
 

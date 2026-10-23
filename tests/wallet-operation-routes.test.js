@@ -48,9 +48,7 @@ function fixture({
     environment,
     applicationOrigin: "https://arena.example.test",
     authRateLimit,
-    authProvider: provider
-      ? { appId: "synthetic", verifier: {}, accounts: {} }
-      : undefined,
+    auth0: provider ? { client: {}, accounts: {}, state: {} } : undefined,
   });
   const call = (path, body, method = "post") =>
     request(app)

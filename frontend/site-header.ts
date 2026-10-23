@@ -5,7 +5,7 @@ import {
   safeAuthReturn,
   type AuthResumeAction,
 } from "./auth-return.js";
-import type { AuthMode, AuthRequest } from "./auth-events.js";
+import type { AuthRequest } from "./auth-events.js";
 
 const header = document.querySelector<HTMLElement>("[data-site-header]");
 if (header) {
@@ -151,6 +151,20 @@ if (header) {
         "Account access is temporarily unavailable. Retry when your connection returns.";
     }
   }
+  async function providerLogout(response: Response) {
+    if (!response.headers.get("Content-Type")?.includes("application/json"))
+      return null;
+    try {
+      const body: { redirectTo?: unknown } = await response.json();
+      if (typeof body.redirectTo !== "string") return null;
+      const target = new URL(body.redirectTo);
+      return target.protocol === "https:" || target.protocol === "http:"
+        ? target.href
+        : null;
+    } catch {
+      return null;
+    }
+  }
   window.addEventListener("yap:balance", (event) => {
     if (!emailFirst && header.dataset.session === "member")
       legacyBalance(event.detail);
@@ -164,7 +178,6 @@ if (header) {
   window.addEventListener("yap:provider-logout", (event) => {
     clearAuthReturn();
     cancelResume?.();
-    resumeOpener = null;
     resumeNotice = "";
     ++version;
     const expired: unknown =
@@ -194,31 +207,7 @@ if (header) {
   }, 45000);
   void refresh();
 
-  const authDialog = document.createElement("dialog");
-  authDialog.id = "site-auth-dialog";
-  authDialog.className = "site-auth-dialog";
-  authDialog.setAttribute("aria-label", "Log in to YapArena");
-  const close = document.createElement("button");
-  close.type = "button";
-  close.className = "site-auth-close";
-  close.setAttribute("aria-label", "Close sign-in");
-  close.textContent = "×";
-  const panel = document.createElement("div");
-  panel.className = "site-auth-panel";
-  authDialog.append(close, panel);
-  document.body.append(authDialog);
-  let authRoot = document.querySelector<HTMLElement>("#email-auth");
-  const accountRoot = authRoot;
-  let marker: Comment | undefined;
-  let opener: HTMLElement | null = null;
-  let scriptLoad: Promise<void> | undefined;
-  let closingFromHistory = false;
-  let completed = false;
-  let resumeOpener: HTMLElement | null = null;
   let cancelResume: (() => void) | undefined;
-  // A reload discards the dialog but retains history.state. Bind entries to
-  // this document so Back cannot mistake an older dialog entry for this one.
-  const authHistoryId = crypto.randomUUID();
   function returnPath(candidate?: string) {
     return (
       safeAuthReturn(candidate ?? null, location.origin) ??
@@ -295,44 +284,27 @@ if (header) {
     };
     return document.querySelector<HTMLElement>(selectors[action.kind]);
   }
+  // Sign-in is a full-page redirect through the provider. The stored intent
+  // returns focus to the action that needed an account once the page the
+  // reader started from loads signed in.
   function resumeConfirmedAction() {
-    if (
-      authDialog.open ||
-      document.hidden ||
-      header!.dataset.session !== "member"
-    )
-      return;
+    if (document.hidden || header!.dataset.session !== "member") return;
     const intent = readAuthReturn();
-    if (
-      (intent && (intent.phase === "oauth" || intent.next !== returnPath())) ||
-      (!intent && !resumeOpener)
-    )
+    if (!intent || intent.phase === "oauth" || intent.next !== returnPath())
       return;
-    const action = intent?.action ?? resumeAction(resumeOpener);
+    const action = intent.action;
     cancelResume?.();
-    const original = resumeOpener;
     const stop = () => {
       observer.disconnect();
       clearTimeout(timer);
       document.removeEventListener("pointerdown", stop);
       document.removeEventListener("keydown", stop);
       cancelResume = undefined;
-      resumeOpener = null;
       clearAuthReturn();
     };
     const focus = () => {
-      if (authDialog.open || header!.dataset.session !== "member") return;
-      const source =
-        original instanceof HTMLFormElement
-          ? original.querySelector<HTMLElement>("input,textarea,select,button")
-          : original;
-      const loginLink =
-        source instanceof HTMLAnchorElement &&
-        new URL(source.href, location.origin).pathname.startsWith("/account");
-      const control =
-        focusable(source) && !(loginLink && action.kind !== "page")
-          ? source
-          : actionControl(action);
+      if (header!.dataset.session !== "member") return;
+      const control = actionControl(action);
       if (!focusable(control)) return;
       resumeNotice =
         "You’re signed in. Review the action, then confirm when you’re ready.";
@@ -343,7 +315,7 @@ if (header) {
         )
       )
         control.tabIndex = -1;
-      control.focus({ preventScroll: control === source });
+      control.focus();
       stop();
     };
     const observer = new MutationObserver(focus);
@@ -362,178 +334,38 @@ if (header) {
     document.addEventListener("keydown", stop, { once: true });
     focus();
   }
-  function loadProvider() {
-    if (accountRoot) return Promise.resolve();
-    scriptLoad ??= new Promise<void>((resolve, reject) => {
-      const css = document.createElement("link");
-      css.rel = "stylesheet";
-      css.href = header!.dataset.authStyle!;
-      document.head.append(css);
-      const script = document.createElement("script");
-      script.src = header!.dataset.authScript!;
-      script.addEventListener("load", () => resolve(), { once: true });
-      script.addEventListener(
-        "error",
-        () => {
-          script.remove();
-          css.remove();
-          scriptLoad = undefined;
-          reject(new Error("sign-in unavailable"));
-        },
-        { once: true },
-      );
-      document.head.append(script);
-    });
-    return scriptLoad;
-  }
-  function ensureAuthRoot() {
-    if (authRoot) return authRoot;
-    authRoot = document.createElement("div");
-    authRoot.id = "email-auth";
-    authRoot.className = "auth-mount";
-    const loading = document.createElement("p");
-    loading.role = "status";
-    loading.textContent = "Preparing secure sign-in…";
-    authRoot.append(loading);
-    return authRoot;
-  }
-  // Log out ends only this device, so this browser's Privy session must end
-  // too. The account page already runs the sign-in island; elsewhere, mount it
-  // inside the closed dialog so it can finish the Privy logout.
-  function endProviderSession() {
-    if (!emailFirst || accountRoot) return;
-    if (!scriptLoad) panel.append(ensureAuthRoot());
-    void loadProvider().catch(() => {});
-  }
-  function openAuth(
-    mode: AuthMode,
-    next?: string,
-    push = true,
-    source?: HTMLElement,
-  ) {
-    if (!emailFirst) return false;
-    authRoot = ensureAuthRoot();
-    if (!authDialog.open) {
-      cancelResume?.();
-      completed = false;
-      resumeOpener = null;
-      resumeNotice = "";
-      opener =
-        source ??
-        (document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null);
-      if (push)
-        captureAuthReturn(returnPath(next) ?? null, resumeAction(opener));
-      if (accountRoot) {
-        marker = document.createComment("Account auth panel");
-        accountRoot.before(marker);
-      }
-      panel.append(authRoot);
-      authDialog.showModal();
-      if (push)
-        history.pushState(
-          { yapAuthDialog: authHistoryId, mode, returnTo: returnPath(next) },
-          "",
-          location.href,
-        );
+  // Header sign-in links return to the page the reader is on.
+  function updateSignInLinks() {
+    const next = returnPath();
+    for (const link of header!.querySelectorAll<HTMLAnchorElement>(
+      "a[data-sign-in]",
+    )) {
+      const target = new URL(link.href, location.origin);
+      if (next) target.searchParams.set("return", next);
+      else target.searchParams.delete("return");
+      link.href = target.pathname + target.search;
     }
-    authRoot.dataset.authSurface = "modal";
-    authRoot.dataset.authMode = mode;
-    const target = returnPath(next);
-    if (target) authRoot.dataset.authReturn = target;
-    else delete authRoot.dataset.authReturn;
-    authDialog.setAttribute(
-      "aria-label",
-      mode === "signup" ? "Sign up for YapArena" : "Log in to YapArena",
-    );
-    window.dispatchEvent(new CustomEvent("yap:auth-mode", { detail: mode }));
-    requestAnimationFrame(() => {
-      if (authDialog.open)
-        authRoot
-          ?.querySelector<HTMLInputElement>("input:not([disabled])")
-          ?.focus();
-    });
-    void loadProvider().catch(() => {
-      if (!authRoot) return;
-      authRoot.replaceChildren();
-      const notice = document.createElement("p");
-      notice.role = "status";
-      notice.textContent =
-        "Sign-in could not load. Check your connection, then close and reopen this window to retry.";
-      authRoot.append(notice);
-    });
-    return true;
   }
-  function isAuthHistory() {
-    const value: unknown = history.state;
-    return Boolean(
-      value &&
-      typeof value === "object" &&
-      "yapAuthDialog" in value &&
-      value.yapAuthDialog === authHistoryId,
+  updateSignInLinks();
+  window.addEventListener("hashchange", updateSignInLinks);
+  window.addEventListener("popstate", updateSignInLinks);
+  function remember(next: string | undefined, source: HTMLElement | null) {
+    if (!next) return;
+    const existing = readAuthReturn();
+    captureAuthReturn(
+      next,
+      existing?.next === next && existing.phase === "pending"
+        ? existing.action
+        : resumeAction(source),
     );
   }
-  close.addEventListener("click", () => authDialog.close());
-  authDialog.addEventListener("click", (event) => {
-    if (event.target === authDialog) {
-      const box = authDialog.getBoundingClientRect();
-      if (
-        event.clientX < box.left ||
-        event.clientX > box.right ||
-        event.clientY < box.top ||
-        event.clientY > box.bottom
-      )
-        authDialog.close();
-    }
-  });
-  authDialog.addEventListener("close", () => {
-    window.dispatchEvent(new Event("yap:auth-dismissed"));
-    if (marker && accountRoot) {
-      marker.replaceWith(accountRoot);
-      marker = undefined;
-      delete accountRoot.dataset.authSurface;
-      delete accountRoot.dataset.authReturn;
-      delete accountRoot.dataset.authMode;
-      window.dispatchEvent(new CustomEvent("yap:auth-mode", { detail: null }));
-    }
-    if (!completed) clearAuthReturn();
-    if (isAuthHistory() && !closingFromHistory) {
-      if (completed) history.replaceState(null, "", location.href);
-      else history.back();
-    }
-    closingFromHistory = false;
-    const resume = completed;
-    completed = false;
-    if (resume) resumeConfirmedAction();
-    else if (focusable(opener)) opener.focus({ preventScroll: true });
-  });
-  window.addEventListener("popstate", () => {
-    if (authDialog.open && !isAuthHistory()) {
-      closingFromHistory = true;
-      authDialog.close();
-    }
-  });
-  window.addEventListener("yap:auth-complete", (event) => {
-    completed = true;
-    resumeOpener = opener;
-    if (event instanceof CustomEvent && event.detail?.returnTo === returnPath())
-      event.preventDefault();
-    if (authDialog.open) authDialog.close();
-    else resumeConfirmedAction();
-  });
+  // Features ask for an account and then open the account page, which offers
+  // both sign-in methods. Remember what the reader was doing.
   window.addEventListener(
     "yap:request-auth",
     (event: CustomEvent<AuthRequest>) => {
-      if (
-        openAuth(
-          event.detail.mode ?? "login",
-          event.detail.returnTo,
-          true,
-          event.detail.source,
-        )
-      )
-        event.preventDefault();
+      cancelResume?.();
+      remember(returnPath(event.detail.returnTo), event.detail.source ?? null);
     },
   );
   document.addEventListener("click", (event) => {
@@ -547,57 +379,22 @@ if (header) {
       !(event.target instanceof Element)
     )
       return;
-    const control = event.target.closest<HTMLElement>(
-      "[data-auth-open],a[href]",
-    );
-    if (!control || control.hasAttribute("data-auth-fallback")) return;
-    const explicitMode = control.dataset.authOpen;
-    const link =
-      control instanceof HTMLAnchorElement
-        ? new URL(control.href, location.origin)
-        : null;
-    if (
-      control instanceof HTMLAnchorElement &&
-      ((control.target && control.target !== "_self") ||
-        control.hasAttribute("download"))
-    )
-      return;
-    const protectedAccount =
-      link?.pathname.startsWith("/account/") &&
-      header.dataset.session === "guest";
-    if (
-      !explicitMode &&
-      !(
-        link?.origin === location.origin &&
-        ((link.pathname === "/account" &&
-          (link.searchParams.has("next") ||
-            header.dataset.session === "guest")) ||
-          protectedAccount)
-      )
-    )
-      return;
-    const mode = explicitMode === "signup" ? "signup" : "login";
-    const candidate = safeAuthReturn(
-      (protectedAccount && link
-        ? link.pathname + link.search + link.hash
-        : link?.searchParams.get("next")) ?? null,
-      location.origin,
-    );
-    const destination = candidate ? new URL(candidate, location.origin) : null;
-    const next =
-      destination?.origin === location.origin &&
-      destination.pathname === location.pathname
-        ? undefined
-        : (candidate ?? undefined);
-    if (openAuth(mode, next, true, control)) event.preventDefault();
+    const link = event.target.closest<HTMLAnchorElement>("a[href]");
+    if (!link || (link.target && link.target !== "_self")) return;
+    const url = new URL(link.href, location.origin);
+    if (url.origin !== location.origin) return;
+    if (link.hasAttribute("data-sign-in")) {
+      cancelResume?.();
+      remember(returnPath(url.searchParams.get("return") ?? undefined), link);
+    } else if (
+      header.dataset.session === "guest" &&
+      url.pathname === "/account" &&
+      url.searchParams.has("next")
+    ) {
+      cancelResume?.();
+      remember(returnPath(url.searchParams.get("next") ?? undefined), link);
+    }
   });
-  const pendingReturn = readAuthReturn();
-  if (
-    pendingReturn?.phase === "oauth" &&
-    pendingReturn.next === returnPath() &&
-    !accountRoot
-  )
-    openAuth("login", pendingReturn.next, false);
 
   header
     .querySelector<HTMLButtonElement>("[data-header-logout]")!
@@ -626,6 +423,7 @@ if (header) {
         }
         if (!response.ok && response.status !== 401)
           throw new Error("logout unavailable");
+        const redirectTo = await providerLogout(response);
         clearAccount();
         session("guest");
         window.dispatchEvent(
@@ -633,10 +431,12 @@ if (header) {
             detail: response.status === 401,
           }),
         );
-        endProviderSession();
         window.dispatchEvent(new Event("yap:account-changed"));
         channel?.postMessage("changed");
-        guest.querySelector<HTMLAnchorElement>("a")?.focus();
+        // Signing out also ends this browser's provider session; the provider
+        // then returns to the home page.
+        if (redirectTo) location.assign(redirectTo);
+        else guest.querySelector<HTMLAnchorElement>("a")?.focus();
       } catch {
         if (logoutVersion === version)
           status.textContent = "Log out could not complete. Please try again.";

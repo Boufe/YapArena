@@ -128,11 +128,12 @@ browser-safe shared implementations in `src/features/`. Never edit or commit gen
   `account-auth.bundle.js`. Type-only modules produce no asset. Run the type check before this
   focused build; `npm run build` runs both and also compiles the server.
 - `npm run dev` generates assets before starting the API, then watches frontend and shared discovery
-  sources. The account authentication island is strict TSX, checked separately by
-  `tsconfig.frontend-auth.json` and emitted with the automatic JSX runtime into
-  `account-auth.bundle.js`. When Privy is configured, the account page loads it
-  directly and the shared header loads it on demand for the login/signup popup.
-  Public discovery does not download the provider bundle until authentication is opened.
+  sources. Sign-in is a full-page redirect through Auth0
+  ([Decision 0009](docs/decisions/0009-auth0.md)): the header and `/account` link to
+  `/api/auth/login`, and no page loads a provider script. With no `AUTH0_*` settings, sign in
+  locally through the test identity entry instead: `npm run build`, then
+  `npm run start:test-identity` serves the application with `/api/test-identity`. The retired
+  Privy island (`account-auth.bundle.js`, still built until prompt 12) is not loaded by any page.
   `npm run watch:frontend` watches assets independently. Runtime configuration remains in
   `.env.runtime`; build processes do not load the operator `.env`.
 

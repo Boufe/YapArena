@@ -477,7 +477,7 @@ try {
     await new Promise((resolve) => reservation.close(resolve));
     const base = `http://127.0.0.1:${httpPort}`;
     async function startServer() {
-      app = spawn(process.execPath, ["dist/server.js"], {
+      app = spawn(process.execPath, ["scripts/test-identity-entry.ts"], {
         env: {
           PATH: process.env.PATH,
           NODE_ENV: "development",
@@ -571,7 +571,7 @@ try {
       const secondPort = (secondReservation.address() as AddressInfo).port;
       await new Promise((resolve) => secondReservation.close(resolve));
       const secondBase = `http://127.0.0.1:${secondPort}`;
-      secondary = spawn(process.execPath, ["dist/server.js"], {
+      secondary = spawn(process.execPath, ["scripts/test-identity-entry.ts"], {
         env: {
           PATH: process.env.PATH,
           NODE_ENV: "development",

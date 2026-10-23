@@ -11,18 +11,12 @@ import type {} from "./auth-events.js";
   window.yapCurrentSessionAccount = () => verifiedAccountId;
   window.addEventListener("yap:provider-logout", () => {
     verifiedAccountId = null;
-    // Signing out ends only this device's app session, so this browser must
-    // also end its Privy session. The sign-in island clears this marker after
-    // Privy logout, including on a later page if this page closes first.
-    try {
-      localStorage.setItem("yaparena-provider-logout", "pending");
-    } catch {
-      // Without storage the island still logs out while it is loaded.
-    }
   });
   const identifier = "[a-f0-9-]+";
+  // Sign-in itself is a full-page navigation through the provider, so only
+  // the remaining legacy credential requests issue cookies from fetch.
   const postIssuers = [
-    /^\/api\/auth\/(?:register|login|privy\/exchange|wallet\/login\/verify)$/,
+    /^\/api\/auth\/(?:register|login|wallet\/login\/verify)$/,
     new RegExp(`^/api/auth/wallet/operations/${identifier}/complete$`),
     new RegExp(
       `^/api/auth/security/access/(?:login|reconciliation)/${identifier}/complete$`,

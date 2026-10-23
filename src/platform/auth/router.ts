@@ -1,11 +1,5 @@
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
-import type { IdentityVerifier } from "./privy.ts";
-import { ProviderUnavailableError } from "./privy.ts";
-import {
-  ProviderAccountError,
-  type createProviderAccounts,
-} from "./provider-accounts.ts";
 import { publicUser } from "./users.ts";
 import type { PublicUser, AuthenticationUser } from "./users.ts";
 import { SessionUnavailableError } from "./sessions.ts";
@@ -31,14 +25,53 @@ import {
 import { createApiRateLimiter } from "../security.ts";
 import type { SharedRateLimits } from "../shared-abuse.ts";
 import { WalletOperationError } from "./wallet-operations.ts";
-import { AccountOperationError } from "./account-operations.ts";
-import type { createEmbeddedWalletProvisioning } from "./embedded-wallet-provisioning.ts";
+import {
+  Auth0SignInError,
+  Auth0UnavailableError,
+  createLoginSecrets,
+  type Auth0Client,
+  type Auth0SignInFailure,
+} from "./auth0.ts";
+import { SignInError, type Auth0Accounts } from "./auth0-accounts.ts";
+import {
+  createBindingValue,
+  getBindingCookieSettings,
+  safeReturnPath,
+  validBindingValue,
+  type createSignInState,
+} from "./sign-in-state.ts";
+import { renderSignInContinue, renderSignInProblem } from "./sign-in-pages.ts";
 
-const providerMethodsCacheMs = 5 * 60_000;
-const providerMethodsRetryMs = 15_000;
+export type Auth0SignIn = {
+  client: Auth0Client;
+  accounts: Auth0Accounts;
+  state: ReturnType<typeof createSignInState>;
+};
 
 const dummyPasswordHash =
   "$argon2id$v=19$m=19456,p=1,t=2$lyjbixDyiZIjLayIBjKzug$XkfmwNfqtaLsRnC6LtyIEGEQ5pApGzGiypF/XpcVboI";
+
+const providerFailures: Readonly<
+  Record<Auth0SignInFailure, { title: string; message: string }>
+> = {
+  cancelled: {
+    title: "Sign-in cancelled",
+    message: "Sign-in was cancelled. Nothing changed.",
+  },
+  invalid: {
+    title: "Sign-in didn't finish",
+    message: "We couldn't verify this sign-in. Start again.",
+  },
+  email_unverified: {
+    title: "Email not verified",
+    message:
+      "Your email address isn't verified, so we can't sign you in. Contact YapArena support for help.",
+  },
+  unsupported_method: {
+    title: "Use Google or an email code",
+    message: "YAP Arena accepts Google and email-code sign-in only.",
+  },
+};
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -128,7 +161,7 @@ export function createAuthRouter({
   sessionDurationMs = 7 * 24 * 60 * 60 * 1_000,
   authRateLimit = 10,
   rateLimitWindowMs = 15 * 60 * 1_000,
-  provider,
+  auth0,
   recordAuth = () => {},
   sharedAccountLimiter,
   sharedRateLimits,
@@ -143,19 +176,7 @@ export function createAuthRouter({
   sessionDurationMs?: number;
   authRateLimit?: number;
   rateLimitWindowMs?: number;
-  provider?: {
-    appId: string;
-    clientId?: string;
-    verifier: IdentityVerifier;
-    accounts: ReturnType<typeof createProviderAccounts>;
-    embeddedWallet?: {
-      repository: Pick<
-        ReturnType<typeof createEmbeddedWalletProvisioning>,
-        "get" | "requestRetry"
-      >;
-      authorizeAttempt: (userId: string) => Promise<void>;
-    };
-  };
+  auth0?: Auth0SignIn;
   recordAuth?: (
     event: string,
     seconds?: number,
@@ -166,6 +187,7 @@ export function createAuthRouter({
 }) {
   const router = express.Router();
   const cookie = getCookieSettings(environment);
+  const bindingCookie = getBindingCookieSettings(environment);
   const requireAuthentication = createRequireAuthentication({
     sessions,
     environment,
@@ -191,223 +213,192 @@ export function createAuthRouter({
     next();
   });
 
-  // Public and unauthenticated: serve Privy's sign-in settings from a short
-  // cache. The exchange still reads and checks them live. After a failed read
-  // the last good answer is served, and Privy is asked again after a pause.
-  type ProviderMethods = { google: boolean; passkeys: boolean };
-  let providerMethods:
-    { value: ProviderMethods; expiresAt: number } | undefined;
-  let providerMethodsRetryAt = 0;
-  let providerMethodsRead: Promise<ProviderMethods> | undefined;
-  function cachedProviderMethods(verifier: IdentityVerifier) {
-    const at = now();
-    if (
-      providerMethods &&
-      (providerMethods.expiresAt > at || at < providerMethodsRetryAt)
-    )
-      return Promise.resolve(providerMethods.value);
-    if (at < providerMethodsRetryAt)
-      return Promise.reject(
-        new ProviderUnavailableError("provider configuration unavailable"),
-      );
-    providerMethodsRead ??= verifier
-      .configuration()
-      .then(
-        (value) => {
-          providerMethods = {
-            value,
-            expiresAt: now() + providerMethodsCacheMs,
-          };
-          return value;
-        },
-        (error: unknown) => {
-          providerMethodsRetryAt = now() + providerMethodsRetryMs;
-          if (providerMethods) return providerMethods.value;
-          throw error;
-        },
-      )
-      .finally(() => {
-        providerMethodsRead = undefined;
-      });
-    return providerMethodsRead;
+  function problem(
+    response: Response,
+    status: number,
+    input: { title: string; message: string; back: string; retry?: string },
+  ) {
+    return response
+      .status(status)
+      .type("html")
+      .send(renderSignInProblem(input));
+  }
+  const signInLink = (returnPath: string) =>
+    `/api/auth/login?return=${encodeURIComponent(returnPath)}`;
+  const unavailablePage = (back: string) => ({
+    title: "Sign-in unavailable",
+    message:
+      "Sign-in is temporarily unavailable. You can keep browsing and try again shortly.",
+    back,
+    retry: signInLink(back),
+  });
+
+  // One random value per browser binds every pending sign-in to it. Reusing a
+  // live value lets two tabs sign in at once.
+  function browserBinding(request: Request, response: Response) {
+    const current: unknown = request.cookies[bindingCookie.name];
+    const binding = validBindingValue(current) ? current : createBindingValue();
+    response.cookie(bindingCookie.name, binding, bindingCookie.options);
+    return binding;
   }
 
-  router.get("/provider", async (_request, response) => {
-    if (!provider) return response.json({ enabled: false });
-    try {
-      const methods = await cachedProviderMethods(provider.verifier);
-      return response.json({
-        enabled: true,
-        appId: provider.appId,
-        clientId: provider.clientId,
-        ...methods,
-      });
-    } catch {
-      return response
-        .status(503)
-        .json({ error: "sign-in is temporarily unavailable" });
-    }
-  });
-  router.post("/journey", authLimiter, (request, response) => {
-    const events = new Set([
-      "started",
-      "completed",
-      "code_sent",
-      "code_resent",
-      "provider_error",
-      "recovery_started",
-      "recovery_completed",
-      "recovery_failed",
-      "recovery_cancelled",
-      "cancelled",
-    ]);
-    const { event, seconds } = request.body ?? {};
+  async function signedIn(request: Request) {
+    const token: unknown = request.cookies[cookie.name];
+    return (
+      typeof token === "string" &&
+      Boolean(await sessions.findUserByTokenHash(hashSessionToken(token)))
+    );
+  }
+
+  // Public: which sign-in methods this deployment offers.
+  router.get("/provider", (_request, response) =>
+    response.json(
+      auth0
+        ? { enabled: true, methods: ["email", "google"] }
+        : { enabled: false, methods: [] },
+    ),
+  );
+
+  router.get("/login", authLimiter, async (request, response) => {
+    const returnPath =
+      safeReturnPath(request.query.return, applicationOrigin) ?? "/";
+    if (!auth0) return problem(response, 503, unavailablePage(returnPath));
+    const connection = request.query.connection;
     if (
-      !request.body ||
-      Object.keys(request.body).some(
-        (key) => key !== "event" && key !== "seconds",
-      ) ||
-      !events.has(event) ||
-      (seconds !== undefined &&
-        (typeof seconds !== "number" ||
-          !Number.isFinite(seconds) ||
-          seconds < 0 ||
-          seconds > 600))
+      connection !== undefined &&
+      connection !== "email" &&
+      connection !== "google"
     )
-      return response.status(400).json({ error: "invalid journey event" });
-    recordAuth(event, seconds);
-    return response.status(204).end();
-  });
-  router.post("/privy/exchange", authLimiter, async (request, response) => {
-    const exchangeStart = performance.now();
-    if (!provider)
-      return response
-        .status(503)
-        .json({ error: "email verification is not configured" });
-    // Login CSRF applies even before there is an application cookie.
-    if (request.get("origin") !== applicationOrigin)
-      return response
-        .status(403)
-        .json({ error: "request origin is not allowed" });
-    const currentToken = request.cookies[cookie.name];
-    if (
-      typeof currentToken === "string" &&
-      (await sessions.findUserByTokenHash(hashSessionToken(currentToken)))
-    )
-      return response.status(409).json({
-        error: "already signed in; sign out before changing accounts",
+      return problem(response, 400, {
+        title: "Sign-in unavailable",
+        message: "Choose Google or an email code to sign in.",
+        back: returnPath,
       });
-    const header = request.get("authorization");
-    if (!header?.startsWith("Bearer ") || header.length > 12_000)
-      return response
-        .status(401)
-        .json({ error: "provider authentication required" });
-    let identity;
+    // Already signed in on this device: there is nothing to do.
+    if (await signedIn(request)) return response.redirect(303, returnPath);
     try {
-      identity = await provider.verifier.verify(header.slice(7));
+      const secrets = createLoginSecrets();
+      const url = await auth0.client.authorizationUrl({
+        ...secrets,
+        ...(connection ? { connection } : {}),
+      });
+      await auth0.state.create({
+        binding: browserBinding(request, response),
+        purpose: "sign_in",
+        returnPath,
+        secrets,
+      });
+      recordAuth("login_started");
+      return response.redirect(303, url.href);
     } catch (error) {
+      if (!(error instanceof Auth0UnavailableError)) throw error;
       recordAuth("provider_error");
-      if (error instanceof ProviderUnavailableError)
-        return response
-          .status(503)
-          .json({ error: "sign-in is temporarily unavailable" });
-      return response
-        .status(401)
-        .json({ error: "provider verification failed; sign in again" });
+      return problem(response, 503, unavailablePage(returnPath));
     }
+  });
+
+  router.get("/callback", authLimiter, async (request, response) => {
+    if (!auth0) return problem(response, 503, unavailablePage("/"));
+    const query = new URLSearchParams(
+      request.originalUrl.includes("?")
+        ? request.originalUrl.slice(request.originalUrl.indexOf("?") + 1)
+        : "",
+    );
+    const state = query.get("state");
+    const binding: unknown = request.cookies[bindingCookie.name];
+    const transaction =
+      state && state.length <= 512 && validBindingValue(binding)
+        ? await auth0.state.consume(state, binding)
+        : null;
+    if (!transaction || transaction.purpose === "confirm") {
+      recordAuth("signin_expired");
+      return problem(response, 400, {
+        title: "Sign-in expired",
+        message:
+          "This sign-in expired or was already used, so nothing changed. Start again.",
+        back: "/",
+        retry: signInLink("/"),
+      });
+    }
+    const back = transaction.returnPath;
     try {
+      const identity = await auth0.client.verifyCallback(query, {
+        ...transaction.secrets,
+      });
       const { token, tokenHash } = createSessionToken();
-      const result = await provider.accounts.exchange(
+      const result = await auth0.accounts.signIn(
         identity,
-        tokenHash,
-        new Date(now() + sessionDurationMs),
+        transaction.purpose === "link" && transaction.pendingLinkId
+          ? { purpose: "link", pendingLinkId: transaction.pendingLinkId }
+          : { purpose: "sign_in" },
+        { tokenHash, expiresAt: new Date(now() + sessionDurationMs) },
       );
+      if (result.kind === "link_required") {
+        // Decision 0009, point 4: no account and no session until the same
+        // address is proven with an email code.
+        const secrets = createLoginSecrets();
+        const url = await auth0.client.authorizationUrl({
+          ...secrets,
+          connection: "email",
+          loginHint: result.email,
+          prompt: "login",
+        });
+        await auth0.state.create({
+          binding: browserBinding(request, response),
+          purpose: "link",
+          returnPath: back,
+          pendingLinkId: result.pendingLinkId,
+          secrets,
+        });
+        recordAuth("link_required");
+        return response.redirect(303, url.href);
+      }
       response.cookie(cookie.name, token, {
         ...cookie.options,
         maxAge: sessionDurationMs,
       });
       recordAuth(
-        result.created ? "signup_completed" : "signin_completed",
-        (performance.now() - exchangeStart) / 1000,
-        "exchange",
+        result.created
+          ? "signup_completed"
+          : result.linked.length
+            ? "link_completed"
+            : "signin_completed",
       );
-      return response
-        .status(result.created ? 201 : 200)
-        .json({ user: publicUser(result.user), created: result.created });
+      return response.type("html").send(renderSignInContinue(back));
     } catch (error) {
-      if (error instanceof ProviderAccountError) {
-        if (error.code === "provider_reset_pending")
-          response.set("Retry-After", "5");
-        return response
-          .status(error.status)
-          .json({ error: error.message, code: error.code });
+      if (error instanceof Auth0UnavailableError) {
+        recordAuth("provider_error");
+        return problem(response, 503, unavailablePage(back));
       }
-      if (error instanceof SessionUnavailableError)
-        return response.status(401).json({ error: "account unavailable" });
+      if (error instanceof Auth0SignInError) {
+        recordAuth(`signin_${error.code}`);
+        return problem(response, error.code === "cancelled" ? 400 : 401, {
+          ...providerFailures[error.code],
+          back,
+          retry: signInLink(back),
+        });
+      }
+      if (error instanceof SignInError) {
+        recordAuth(`signin_${error.code}`);
+        return problem(response, error.status, {
+          title: "Sign-in didn't finish",
+          message: error.message,
+          back,
+          ...(error.code === "link_failed" || error.code === "signup_paused"
+            ? { retry: signInLink(back) }
+            : {}),
+        });
+      }
       throw error;
     }
   });
+
   router.get("/methods", requireAuthentication, async (request, response) =>
     response.json({
       accountId: request.user!.id,
-      provider: provider
-        ? await provider.accounts.details(request.user!.id)
-        : null,
+      methods: auth0 ? await auth0.accounts.methods(request.user!.id) : [],
       legacyPassword: Boolean(request.user!.email),
     }),
-  );
-  router.get(
-    "/embedded-wallet",
-    requireAuthentication,
-    async (request, response) => {
-      if (!provider?.embeddedWallet)
-        return response
-          .status(503)
-          .json({ error: "wallet setup is temporarily unavailable" });
-      return response.json(
-        await provider.embeddedWallet.repository.get(request.user!.id),
-      );
-    },
-  );
-  router.post(
-    "/embedded-wallet",
-    requireAuthentication,
-    async (request, response, next) => {
-      if (request.get("origin") !== applicationOrigin)
-        return response
-          .status(403)
-          .json({ error: "request origin is not allowed" });
-      const body: unknown = request.body;
-      if (
-        !body ||
-        typeof body !== "object" ||
-        Array.isArray(body) ||
-        Object.keys(body).length !== 0
-      )
-        return response.status(400).json({ error: "invalid wallet request" });
-      if (request.get("X-YapArena-Expected-Account") !== request.user!.id)
-        return response
-          .status(409)
-          .json({ error: "account changed; refresh wallet setup" });
-      if (!provider?.embeddedWallet || !sharedAccountLimiter)
-        return response
-          .status(503)
-          .json({ error: "wallet setup is temporarily unavailable" });
-      return sharedAccountLimiter(request, response, next);
-    },
-    async (request, response) => {
-      const wallet = provider!.embeddedWallet!;
-      try {
-        await wallet.authorizeAttempt(request.user!.id);
-        return response
-          .status(202)
-          .json(await wallet.repository.requestRetry(request.user!.id));
-      } catch (error) {
-        if (error instanceof AccountOperationError)
-          return response.status(error.status).json({ error: error.message });
-        throw error;
-      }
-    },
   );
   if (sharedAccountLimiter)
     router.use(
@@ -432,7 +423,7 @@ export function createAuthRouter({
   }
 
   router.post("/register", authLimiter, async (request, response) => {
-    if (provider)
+    if (auth0)
       return response.status(410).json({ error: "use verified email signup" });
     const email = normalizeEmail(request.body?.email);
     const password = request.body?.password;
@@ -503,12 +494,21 @@ export function createAuthRouter({
     return response.json({ user: request.user });
   });
 
+  // Sign out ends this device only (Decision 0009, point 6): it deletes this
+  // session row, then the browser visits the provider's logout endpoint so
+  // the next sign-in on this device asks for credentials again.
   router.post("/logout", async (request, response) => {
     if (request.body && Object.keys(request.body).length)
       return response.status(400).json({
         error: "this operation accepts no account or session selectors",
       });
-    const ended = { error: "this session has already ended" };
+    const redirectTo = auth0?.client
+      .logoutUrl(new URL("/", applicationOrigin).href)
+      .toString();
+    const ended = {
+      error: "this session has already ended",
+      ...(redirectTo ? { redirectTo } : {}),
+    };
     const token = request.cookies[cookie.name];
     if (!token) return response.status(401).json(ended);
     const hash = hashSessionToken(token);
@@ -521,9 +521,6 @@ export function createAuthRouter({
       return response.status(409).json({
         error: "the account changed before sign-out; refresh and try again",
       });
-    // Sign out ends this device only (Decision 0008, point 4). Other sessions
-    // keep working and the sign-in provider is not called; the browser ends
-    // its own provider session.
     try {
       if (
         !(await sessions.revokeSession(
@@ -541,7 +538,9 @@ export function createAuthRouter({
 
     // Revocation is authoritative in PostgreSQL. Do not delete the shared cookie
     // in a delayed response: another tab may have established a newer session.
-    return response.status(204).end();
+    return redirectTo
+      ? response.json({ redirectTo })
+      : response.status(204).end();
   });
 
   router.get("/sessions", requireLocalRevocation, async (request, response) => {
@@ -798,7 +797,7 @@ export function createAuthRouter({
             .status(400)
             .json({ error: "invalid wallet operation" });
         try {
-          if (provider && input.purpose === "link")
+          if (auth0 && input.purpose === "link")
             return response
               .status(410)
               .json({ error: "external wallet linking is unavailable" });
@@ -853,7 +852,7 @@ export function createAuthRouter({
             .status(400)
             .json({ error: "invalid wallet operation proof" });
         try {
-          if (provider && input.purpose === "link")
+          if (auth0 && input.purpose === "link")
             return response
               .status(410)
               .json({ error: "external wallet linking is unavailable" });

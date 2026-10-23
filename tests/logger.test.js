@@ -160,13 +160,117 @@ it("redacts the financial browser session comparison hint from HTTP logs", async
   assert.equal(record.req.url, "/api/coin-sandbox/withdrawals");
 });
 
-function fixture({ environment = "development", ...overrides } = {}) {
+// One-use values a sign-in carries through the provider round trip.
+const authorizationCode = "synthetic-authorization-code";
+const nonce = "synthetic-nonce-value-0123456789abcdefghijklmnop";
+
+// Auth0 sign-in with a fake provider client: the real login, callback and
+// logout routes run, so their cookies, codes and redirects reach the logger.
+function auth0Fixture(sessionRecords) {
+  const transactions = new Map();
+  return {
+    client: {
+      async authorizationUrl(request) {
+        return new URL(
+          `https://tenant.example.test/authorize?state=${request.state}&nonce=${request.nonce}&code_challenge=${request.codeVerifier}`,
+        );
+      },
+      async verifyCallback(query, checks) {
+        assert.equal(query.get("code"), authorizationCode);
+        assert.equal(query.get("state"), checks.state);
+        return {
+          subject: "email|logger",
+          email: user.email,
+          method: "email",
+          authTime: 1,
+        };
+      },
+      logoutUrl: (returnTo) =>
+        new URL(
+          `https://tenant.example.test/v2/logout?returnTo=${encodeURIComponent(returnTo)}`,
+        ),
+    },
+    state: {
+      async create(input) {
+        transactions.set(input.secrets.state, input);
+      },
+      async consume(state, binding) {
+        const input = transactions.get(state);
+        transactions.delete(state);
+        return input && input.binding === binding
+          ? {
+              purpose: "sign_in",
+              returnPath: input.returnPath,
+              userId: null,
+              operationId: null,
+              pendingLinkId: null,
+              secrets: { ...input.secrets, nonce },
+            }
+          : null;
+      },
+    },
+    accounts: {
+      async signIn(_identity, _context, grant) {
+        sessionRecords.set(grant.tokenHash, user);
+        return {
+          kind: "session",
+          user: { ...user, authGeneration: "0" },
+          created: false,
+          linked: [],
+        };
+      },
+      methods: async () => [],
+    },
+  };
+}
+
+// Starts and completes a sign-in, returning the callback response and the
+// values that must never appear in logs.
+async function signInThroughCallback(app, capture, label) {
+  const login = await loggedResponse(
+    capture,
+    request(app).get("/api/auth/login?connection=email&return=%2Fdebates"),
+    `${label}-login`,
+    303,
+  );
+  const location = new URL(login.headers.location);
+  const state = location.searchParams.get("state");
+  const binding = login.headers["set-cookie"]
+    .find((cookie) => /^(?:__Host-)?sign-in=/.test(cookie))
+    .split(";")[0];
+  const callback = await loggedResponse(
+    capture,
+    request(app)
+      .get(`/api/auth/callback?code=${authorizationCode}&state=${state}`)
+      .set("Cookie", binding),
+    `${label}-callback`,
+    200,
+  );
+  return {
+    callback,
+    secrets: [
+      authorizationCode,
+      state,
+      location.searchParams.get("nonce"),
+      location.searchParams.get("code_challenge"),
+      binding,
+      binding.split("=")[1],
+    ],
+  };
+}
+
+function fixture({
+  environment = "development",
+  withAuth0 = false,
+  ...overrides
+} = {}) {
   const capture = captureLogger();
   const sessionRecords = new Map();
   const consents = new Set();
   let registered;
   let challenge;
   const app = createApp({
+    auth0: withAuth0 ? auth0Fixture(sessionRecords) : undefined,
     messages: {},
     database: { query: async () => ({ rows: [] }) },
     users: {
@@ -320,19 +424,22 @@ describe("credential-safe HTTP logs", () => {
       capture.assertAbsent(["synthetic-popup-secret", "synthetic-popup-state"]);
     }
   });
-  it("redacts registration response cookies with the real app logger", async () => {
-    const { app, capture, sessionRecords } = fixture();
-    const requestId = "logger-registration";
-    const response = await request(app)
-      .post("/api/auth/register")
-      .set("X-Request-Id", requestId)
-      .send({ email: user.email, password });
-    assert.equal(response.status, 201);
-    assert.equal(response.headers["x-request-id"], requestId);
-    const cookie = clientCookie(response, "session", "development");
+  it("redacts sign-in cookies, codes, state and provider redirects with the real app logger", async () => {
+    const { app, capture, sessionRecords } = fixture({ withAuth0: true });
+    const { callback, secrets } = await signInThroughCallback(
+      app,
+      capture,
+      "logger-sign-in",
+    );
+    const cookie = clientCookie(callback, "session", "development");
     assert.ok(sessionRecords.has(hashSessionToken(cookie.token)));
-    const record = await capture.completion(requestId, 201, 30);
-    capture.assertAbsent([cookie.cookie, cookie.token, password]);
+    const login = await capture.completion("logger-sign-in-login", 303, 30);
+    assert.equal(login.req.url, "/api/auth/login");
+    assert.equal(login.res.headers.location, "[REDACTED]");
+    const record = await capture.completion("logger-sign-in-callback", 200, 30);
+    assert.equal(record.req.url, "/api/auth/callback");
+    assert.deepEqual(record.req.query, {});
+    capture.assertAbsent([cookie.cookie, cookie.token, ...secrets]);
     assertRedactedCookies(record);
   });
 
@@ -342,97 +449,67 @@ describe("credential-safe HTTP logs", () => {
     const measurementName =
       environment === "production" ? "__Host-measurement" : "measurement";
 
-    it(`preserves registration, password/SIWE login and logout in ${environment}`, async () => {
-      const { app, capture, sessionRecords } = fixture({ environment });
-      const registered = await loggedResponse(
-        capture,
-        request(app)
-          .post("/api/auth/register")
-          .send({ email: user.email, password }),
-        "register",
-        201,
-      );
-      const registrationCookie = clientCookie(
-        registered,
+    it(`preserves Auth0 sign-in and logout in ${environment}`, async () => {
+      const { app, capture, sessionRecords } = fixture({
+        environment,
+        withAuth0: true,
+      });
+      const first = await signInThroughCallback(app, capture, "first");
+      const firstCookie = clientCookie(
+        first.callback,
         sessionName,
         environment,
       );
-      assert.ok(sessionRecords.has(hashSessionToken(registrationCookie.token)));
+      assert.ok(sessionRecords.has(hashSessionToken(firstCookie.token)));
       await loggedResponse(
         capture,
-        request(app).get("/api/auth/me").set("Cookie", registrationCookie.pair),
-        "registered-user",
+        request(app).get("/api/auth/me").set("Cookie", firstCookie.pair),
+        "first-user",
         200,
       );
-      const login = await loggedResponse(
-        capture,
-        request(app)
-          .post("/api/auth/login")
-          .send({ email: user.email, password }),
-        "password-login",
-        200,
+      const second = await signInThroughCallback(app, capture, "second");
+      const secondCookie = clientCookie(
+        second.callback,
+        sessionName,
+        environment,
       );
-      const loginCookie = clientCookie(login, sessionName, environment);
-      assert.ok(sessionRecords.has(hashSessionToken(loginCookie.token)));
       await loggedResponse(
         capture,
-        request(app).get("/api/auth/me").set("Cookie", loginCookie.pair),
-        "password-user",
-        200,
-      );
-      const issued = await loggedResponse(
-        capture,
-        request(app)
-          .post("/api/auth/wallet/login/challenge")
-          .send({ address: owner.address, chainId: 1 }),
-        "wallet-challenge",
-        201,
-      );
-      const signature = await owner.signMessage({
-        message: issued.body.message,
-      });
-      const verified = await loggedResponse(
-        capture,
-        request(app)
-          .post("/api/auth/wallet/login/verify")
-          .send({ challengeId: issued.body.id, signature }),
-        "wallet-login",
-        200,
-      );
-      const walletCookie = clientCookie(verified, sessionName, environment);
-      assert.ok(sessionRecords.has(hashSessionToken(walletCookie.token)));
-      await loggedResponse(
-        capture,
-        request(app).get("/api/auth/me").set("Cookie", walletCookie.pair),
-        "wallet-user",
+        request(app).get("/api/auth/me").set("Cookie", secondCookie.pair),
+        "second-user",
         200,
       );
       const logout = await loggedResponse(
         capture,
-        request(app).post("/api/auth/logout").set("Cookie", walletCookie.pair),
+        request(app).post("/api/auth/logout").set("Cookie", secondCookie.pair),
         "logout",
-        204,
+        200,
       );
       assert.equal(logout.headers["set-cookie"], undefined);
+      assert.match(logout.body.redirectTo, /\/v2\/logout\?returnTo=/);
       assert.equal(
-        sessionRecords.has(hashSessionToken(walletCookie.token)),
+        sessionRecords.has(hashSessionToken(secondCookie.token)),
         false,
       );
       await loggedResponse(
         capture,
-        request(app).get("/api/auth/me").set("Cookie", walletCookie.pair),
+        request(app).get("/api/auth/me").set("Cookie", secondCookie.pair),
         "revoked-user",
         401,
       );
+      await loggedResponse(
+        capture,
+        request(app).get("/api/auth/me").set("Cookie", firstCookie.pair),
+        "other-device",
+        200,
+      );
       capture.assertAbsent([
-        registrationCookie.cookie,
-        registrationCookie.token,
-        loginCookie.cookie,
-        loginCookie.token,
-        walletCookie.cookie,
-        walletCookie.token,
-        password,
-        signature,
+        firstCookie.cookie,
+        firstCookie.token,
+        secondCookie.cookie,
+        secondCookie.token,
+        ...first.secrets,
+        ...second.secrets,
       ]);
     });
 
@@ -478,7 +555,7 @@ describe("credential-safe HTTP logs", () => {
     });
 
     it(`redacts multiple session and measurement cookies together in ${environment}`, async () => {
-      const { app, capture } = fixture({ environment });
+      const { app, capture } = fixture({ environment, withAuth0: true });
       const combined = express();
       const measurementToken = createHash("sha256")
         .update("synthetic extra cookie")
@@ -494,13 +571,10 @@ describe("credential-safe HTTP logs", () => {
       });
       // The real app middleware serializes both the existing and new headers.
       combined.use(app);
-      const response = await loggedResponse(
+      const { callback: response, secrets } = await signInThroughCallback(
+        combined,
         capture,
-        request(combined)
-          .post("/api/auth/register")
-          .send({ email: user.email, password }),
         "multiple-cookies",
-        201,
       );
       assert.equal(response.headers["set-cookie"].length, 2);
       const session = clientCookie(response, sessionName, environment);
@@ -510,7 +584,7 @@ describe("credential-safe HTTP logs", () => {
         session.token,
         measurement.cookie,
         measurement.token,
-        password,
+        ...secrets,
       ]);
     });
   }

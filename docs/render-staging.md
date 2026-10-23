@@ -151,8 +151,8 @@ trial. [Cloudflare identifies 401 as missing or invalid credentials](https://dev
 ## Move background jobs to the worker
 
 While `RUN_BACKGROUND_JOBS` is true (the default), the web process runs the one-second A4/coin
-debate, media clock/recording-stop and speaker-revocation jobs, the ten-second Privy revocation and
-embedded-wallet jobs, and the hourly cleanup. `node dist/worker.js` builds the same jobs from the
+debate, media clock/recording-stop and speaker-revocation jobs and the hourly cleanup. Since
+[Decision 0009](decisions/0009-auth0.md) no Privy revocation or embedded-wallet job runs. `node dist/worker.js` builds the same jobs from the
 same factory (`src/services.ts`) and always runs them, whatever `RUN_BACKGROUND_JOBS` says. It
 serves no HTTP and starts no community stream. The worker is paid compute and needs the separate
 hosted-change/deployment authorization. Staging completed these steps on 2026-10-22; they apply to
@@ -166,15 +166,14 @@ URL, and deploys the release SHA to it after web. Its `deploy` mode accepts
 1. Create the worker from the `yaparena-staging-jobs` Blueprint entry (Starter or larger) and deploy
    the same reviewed commit as web, after its migrations. Give it the runtime `DATABASE_URL` and DB
    TLS settings used by web, never an owner/migration URL, plus web's `A4_MODE`/`A4_*`,
-   `COIN_SANDBOX_ENABLED`, all `LIVEKIT_*`/`MEDIA_*` media and replay variables and, when web uses
-   Privy, `PRIVY_*` and `REDIS_*`. The worker validates but never connects to Redis. Keep
+   `COIN_SANDBOX_ENABLED` and all `LIVEKIT_*`/`MEDIA_*` media and replay variables. Never give it
+   `AUTH0_*`: Auth0 settings belong to web only, and the worker reads no `PRIVY_*` or `REDIS_*`. Keep
    `LOG_LEVEL` at `info` or more verbose, and keep web's `RUN_BACKGROUND_JOBS=true` until step 3.
    A new environment created from `render.yaml` starts web with `false`: set it to `true` first,
-   or no process runs the Privy and media jobs until the worker has their settings.
-2. Confirm the worker ticks. Its Render logs show `background worker started` with `media` and
-   `privy` matching web, then one `background job ran` line per job: `a4-recovery` within a second,
-   `media-clock` and `speaker-revocation` with media, `provider-revocation` and `embedded-wallet`
-   with Privy, and `cleanup` after the first hour. Repeating errors block the cut-over, for example
+   or no process runs the media jobs until the worker has their settings.
+2. Confirm the worker ticks. Its Render logs show `background worker started` with `media`
+   matching web, then one `background job ran` line per job: `a4-recovery` within a second,
+   `media-clock` and `speaker-revocation` with media, and `cleanup` after the first hour. Repeating errors block the cut-over, for example
    `A4 recovery tick failed`, `media clock failed`, `recording stop queue failed`,
    `speaker access revocation failed` or `... cleanup failed`. Render's metrics for the worker
    should show steady CPU/memory and no restarts. The worker has no `/metrics` endpoint, so its

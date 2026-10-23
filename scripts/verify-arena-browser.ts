@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import axe from "axe-core";
+import { signInForTest } from "./browser-sign-in.ts";
 export async function verifyArenaBrowser({
   base,
   context,
@@ -46,17 +47,14 @@ export async function verifyArenaBrowser({
     return data;
   }
   try {
+    await signInForTest(
+      context,
+      base,
+      "neon-ui-" + randomUUID() + "@example.test",
+    );
     await page.goto(base + "/account");
     const dismiss = page.getByRole("button", { name: "Not now", exact: true });
     if (await dismiss.isVisible()) await dismiss.click();
-    await page.locator(".account-details summary").click();
-    await page
-      .locator("#email-register input[name=email]")
-      .fill("neon-ui-" + randomUUID() + "@example.test");
-    await page
-      .locator("#email-register input[name=password]")
-      .fill(randomUUID() + randomUUID());
-    await page.locator("#email-register button").click();
     await page.locator("#signed-in").waitFor({ state: "visible" });
     await api("me/profile", {
       handle: "ui-trial-" + randomUUID().slice(0, 8),

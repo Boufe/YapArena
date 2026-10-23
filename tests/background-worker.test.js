@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { loadProviderConfig } from "../dist/platform/auth/provider-config.js";
 import { loadConfig } from "../dist/platform/config.js";
 import { createMetrics } from "../dist/platform/metrics.js";
 import { createBackgroundWorker } from "../dist/services.js";
@@ -10,9 +9,13 @@ const base = {
   NODE_ENV: "test",
   DATABASE_URL: "postgresql://yaparena_runtime@localhost:5432/yaparena",
 };
-const privy = {
+// Settings the jobs worker must ignore: it never calls Privy or Auth0.
+const signIn = {
   PRIVY_APP_ID: "test-app",
   PRIVY_APP_SECRET: "test-secret",
+  AUTH0_ISSUER_BASE_URL: "https://tenant.example.test",
+  AUTH0_CLIENT_ID: "test-client-0123456789",
+  AUTH0_CLIENT_SECRET: "test-client-secret-0123456789",
   REDIS_SECURITY_URL: "redis://127.0.0.1:6379",
   REDIS_NAMESPACE: "test",
   REDIS_KEY_SECRET: "k".repeat(32),
@@ -34,7 +37,7 @@ const media = {
 };
 
 // Every query fails, so each job runs its real code and reports a failure
-// without reaching PostgreSQL, Privy, Redis or LiveKit.
+// without reaching PostgreSQL, a sign-in provider, Redis or LiveKit.
 function startWorker(environment) {
   const events = [];
   const errors = [];
@@ -47,7 +50,6 @@ function startWorker(environment) {
   const metrics = createMetrics();
   const worker = createBackgroundWorker({
     config: loadConfig(environment),
-    providerConfig: loadProviderConfig(environment),
     database: {
       query: unavailable,
       connect: unavailable,
@@ -83,7 +85,7 @@ async function authJourney(metrics) {
 }
 
 describe("background worker", () => {
-  it("starts every maintenance job without Privy or media configured", async () => {
+  it("starts every maintenance job without media configured", async () => {
     const { worker, events, errors, ran, timers, cleared, metrics } =
       startWorker(base);
     await worker.start();
@@ -103,25 +105,21 @@ describe("background worker", () => {
     assert.deepEqual(await authJourney(metrics), {});
   });
 
-  it("starts provider revocation and wallet provisioning with Privy and media configured", async () => {
+  it("runs media jobs but no Privy session or embedded-wallet jobs with every setting present", async () => {
     const { worker, events, errors, ran, timers, cleared, metrics } =
       startWorker({
         ...base,
-        ...privy,
+        ...signIn,
         ...media,
         COIN_SANDBOX_ENABLED: "true",
       });
     await worker.start();
     assert.deepEqual(
       timers.map(({ interval }) => interval).sort((a, b) => a - b),
-      [1000, 1000, 1000, 10000, 10000, 3600000],
+      [1000, 1000, 1000, 3600000],
     );
-    // Both provider jobs ran once at start and recorded their failures.
     await new Promise(setImmediate);
-    assert.deepEqual(await authJourney(metrics), {
-      provider_revocation_retry: 1,
-      embedded_wallet_worker_error: 1,
-    });
+    assert.deepEqual(await authJourney(metrics), {});
     for (const timer of timers.filter(({ interval }) => interval === 1000))
       await timer.callback();
     assert.ok(errors.includes("speaker access revocation failed"));
@@ -129,9 +127,7 @@ describe("background worker", () => {
     assert.ok(errors.includes("media clock failed"));
     assert.deepEqual(ran.sort(), [
       "a4-recovery",
-      "embedded-wallet",
       "media-clock",
-      "provider-revocation",
       "speaker-revocation",
     ]);
     await worker.stop();

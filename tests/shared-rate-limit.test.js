@@ -136,9 +136,7 @@ describe("shared API rate limits", () => {
   it("keeps sign-in limiters fail-closed and logout available", async () => {
     const { limits, logger, observe } = shared(failingAbuseStore);
     const app = instance(limits);
-    const refused = await request(app)
-      .post("/api/auth/journey")
-      .send({ event: "started" });
+    const refused = await request(app).get("/api/auth/login?connection=email");
     assert.equal(refused.status, 503);
     assert.equal(refused.headers["retry-after"], "5");
     assert.deepEqual(refused.body, {

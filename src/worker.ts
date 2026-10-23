@@ -1,4 +1,3 @@
-import { loadProviderConfig } from "./platform/auth/provider-config.ts";
 import { loadConfig } from "./platform/config.ts";
 import { createDatabase } from "./platform/database.ts";
 import { createLogger } from "./platform/logger.ts";
@@ -11,10 +10,8 @@ const metrics = createMetrics();
 const database = createDatabase(config.databaseUrl, logger, (seconds) =>
   metrics.poolWait.observe(seconds),
 );
-const providerConfig = loadProviderConfig(process.env);
 const worker = createBackgroundWorker({
   config,
-  providerConfig,
   database,
   logger,
   metrics,
@@ -25,7 +22,6 @@ logger.info(
   {
     environment: config.environment,
     media: Boolean(config.media),
-    privy: Boolean(providerConfig),
   },
   "background worker started",
 );

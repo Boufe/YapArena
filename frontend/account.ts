@@ -5,7 +5,6 @@ import type {
   WalletChangeTarget,
   WalletOperation,
   PendingWalletChange,
-  WalletChallenge,
   AccountUser,
   FollowEntry,
   ActivityEntry,
@@ -118,62 +117,31 @@ function walletMessageHex(message: string) {
   );
 }
 
-async function walletAction() {
-  const provider = window.ethereum;
-  if (!provider?.request) {
-    say(
-      "No EVM wallet was found. Install or open a wallet browser extension, then try again.",
-    );
-    return;
-  }
-  try {
-    say("Requesting your wallet address…");
-    const accounts = await provider.request({ method: "eth_requestAccounts" });
-    const address = accounts?.[0];
-    const chainHex = await provider.request({ method: "eth_chainId" });
-    const chainId = Number.parseInt(chainHex, 16);
-    if (!address || !Number.isSafeInteger(chainId) || chainId < 1)
-      throw new Error(
-        "Your wallet did not provide a valid account and network.",
-      );
-    const base = "/api/auth/wallet/login";
-    const challenge = await api<WalletChallenge>(`${base}/challenge`, "POST", {
-      address,
-      chainId,
-    });
-    say(
-      "Review the sign-in message in your wallet. It does not approve a transaction.",
-    );
-    const signature = await provider.request({
-      method: "personal_sign",
-      params: [walletMessageHex(challenge.message), address],
-    });
-    await api(`${base}/verify`, "POST", {
-      challengeId: challenge.id,
-      signature,
-    });
-    say("Signed in.");
-    if (returnToRequestedPage()) return;
-    await loadAccount();
-  } catch (error) {
-    say(
-      (error as AccountError | null)?.message ||
-        "Wallet sign-in failed. Please try again.",
-    );
-  }
-}
-
-function returnToRequestedPage() {
+// Sign-in is a full-page redirect through the provider. Return to the page
+// that sent the reader here, or to this account page.
+function signInReturn() {
   const next = new URLSearchParams(window.location.search).get("next");
-  if (!next?.startsWith("/") || next.startsWith("//") || next.includes("\\"))
-    return false;
-  const destination = new URL(next, window.location.origin);
-  if (destination.origin !== window.location.origin) return false;
-  window.location.assign(
-    destination.pathname + destination.search + destination.hash,
-  );
-  return true;
+  if (
+    next?.startsWith("/") &&
+    !next.startsWith("//") &&
+    !next.includes("\\") &&
+    !next.startsWith("/api/")
+  ) {
+    const destination = new URL(next, window.location.origin);
+    if (destination.origin === window.location.origin)
+      return destination.pathname + destination.search + destination.hash;
+  }
+  return "/account";
 }
+for (const link of document.querySelectorAll<HTMLAnchorElement>(
+  "#account-sign-in a[data-sign-in]",
+)) {
+  const target = new URL(link.href, window.location.origin);
+  target.searchParams.set("return", signInReturn());
+  link.href = target.pathname + target.search;
+}
+const back = document.querySelector<HTMLAnchorElement>("[data-auth-return]");
+if (back && signInReturn() !== "/account") back.href = signInReturn();
 
 async function loadProfile(version = accountVersion) {
   let profile: Profile | null = null;
@@ -296,28 +264,34 @@ async function loadAccount() {
     signedIn.hidden = false;
     document.querySelector<HTMLElement>("#account-name")!.textContent =
       user.email || "Wallet account";
-    if (document.querySelector("#email-auth")) {
-      const methods = await api<{
-        provider: { email: string | null } | null;
-        legacyPassword: boolean;
-      }>("/api/auth/methods");
-      if (version !== accountVersion) return;
-      passwordAvailable = methods.legacyPassword;
-      document.querySelector<HTMLElement>("#account-name")!.textContent =
-        methods.provider?.email || user.email || "Your account";
-      const balance = await api<{
-        available: string;
-        reserved: string;
-        pending: string;
-        promotional: string;
-      }>("/api/account-wallet");
-      if (version !== accountVersion) return;
-      for (const [kind, amount] of Object.entries(balance)) {
-        const target = document.querySelector<HTMLElement>(
-          `[data-funds="${kind}"]`,
-        );
-        if (target) target.textContent = `${amount} YC`;
-      }
+    const methods = await api<{
+      methods: { method: "email" | "google"; email: string }[];
+      legacyPassword: boolean;
+    }>("/api/auth/methods");
+    if (version !== accountVersion) return;
+    passwordAvailable = methods.legacyPassword;
+    document.querySelector<HTMLElement>("#account-name")!.textContent =
+      methods.methods[0]?.email || user.email || "Your account";
+    const methodList = document.querySelector<HTMLElement>("#sign-in-methods");
+    methodList?.replaceChildren(
+      ...methods.methods.map((entry) =>
+        item(
+          `${entry.method === "google" ? "Google" : "Email code"} · ${entry.email}`,
+        ),
+      ),
+    );
+    const balance = await api<{
+      available: string;
+      reserved: string;
+      pending: string;
+      promotional: string;
+    }>("/api/account-wallet");
+    if (version !== accountVersion) return;
+    for (const [kind, amount] of Object.entries(balance)) {
+      const target = document.querySelector<HTMLElement>(
+        `[data-funds="${kind}"]`,
+      );
+      if (target) target.textContent = `${amount} YC`;
     }
     await Promise.all([
       loadProfile(),
@@ -360,9 +334,6 @@ async function loadAccount() {
   }
 }
 
-document
-  .querySelector<HTMLElement>("#wallet-login")!
-  .addEventListener("click", () => walletAction());
 const signOutButtons = [
   document.querySelector<HTMLButtonElement>("#sign-out")!,
   checkingSignOut,
@@ -376,19 +347,26 @@ for (const button of signOutButtons)
     const expectedAccount = window.yapCurrentSessionAccount?.();
     for (const control of signOutButtons) control.disabled = true;
     say("Signing out…");
-    let expired = false;
     try {
-      try {
-        await api(
-          "/api/auth/logout",
-          "POST",
-          undefined,
-          AbortSignal.timeout(45000),
+      if (!window.yapSessionFetch)
+        throw new Error(
+          "Secure account controls are unavailable. Reload and try again.",
         );
-      } catch (error) {
-        if ((error as AccountError).status !== 401) throw error;
-        expired = true;
-      }
+      const response = await window.yapSessionFetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+        signal: AbortSignal.timeout(45000),
+      });
+      const body: { error?: string; redirectTo?: unknown } = response.headers
+        .get("Content-Type")
+        ?.includes("application/json")
+        ? await response.json()
+        : {};
+      if (!response.ok && response.status !== 401)
+        throw new Error(
+          body.error || "Sign out could not complete. Try again.",
+        );
+      const expired = response.status === 401;
       if (version !== accountVersion) {
         if (
           expectedAccount &&
@@ -406,7 +384,18 @@ for (const button of signOutButtons)
         channel.postMessage("changed");
         channel.close();
       }
-      document.querySelector<HTMLButtonElement>("#wallet-login")?.focus();
+      // Signing out also ends this browser's provider session; the provider
+      // then returns to the home page.
+      if (typeof body.redirectTo === "string") {
+        const target = new URL(body.redirectTo);
+        if (target.protocol === "https:" || target.protocol === "http:") {
+          window.location.assign(target.href);
+          return;
+        }
+      }
+      document
+        .querySelector<HTMLAnchorElement>("#account-sign-in a[data-sign-in]")
+        ?.focus();
     } catch (error) {
       if (version === accountVersion) say((error as AccountError).message);
     } finally {
@@ -414,28 +403,6 @@ for (const button of signOutButtons)
       for (const control of signOutButtons) control.disabled = false;
     }
   });
-
-for (const [formId, path] of [
-  ["email-login", "login"],
-  ["email-register", "register"],
-]) {
-  document
-    .querySelector<HTMLElement>(`#${formId}`)!
-    .addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const data = new FormData(event.currentTarget as HTMLFormElement);
-      try {
-        await api(`/api/auth/${path}`, "POST", {
-          email: data.get("email"),
-          password: data.get("password"),
-        });
-        if (returnToRequestedPage()) return;
-        await loadAccount();
-      } catch (error) {
-        say((error as AccountError).message);
-      }
-    });
-}
 
 profileForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -498,6 +465,7 @@ function clearAccountState(checking = false) {
   document.querySelector<HTMLElement>("#profile-state")!.textContent = "";
   for (const selector of [
     "#wallet-list",
+    "#sign-in-methods",
     "#follow-list",
     "#activity-list",
     "#account-notifications",

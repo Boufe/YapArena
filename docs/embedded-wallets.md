@@ -1,5 +1,7 @@
 # Embedded wallet provisioning
 
+Superseded in part by [Decision 0009](decisions/0009-auth0.md).
+
 Current scope: the founder approved automatically provisioning one user-controlled
 Privy Ethereum/EVM wallet with Privy's default recovery. This supersedes the earlier
 decision to leave all embedded-wallet provisioning off. New external-wallet linking

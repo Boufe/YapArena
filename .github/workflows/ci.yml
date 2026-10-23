@@ -92,6 +92,9 @@ jobs:
           DATABASE_URL: postgresql://yaparena_runtime:placeholder@database.example/yaparena
           DATABASE_MIGRATION_URL: postgresql://yaparena_owner:placeholder@database.example/yaparena
           APP_ORIGIN: https://service.example.com
+          AUTH0_ISSUER_BASE_URL: https://login.service.example.com
+          AUTH0_CLIENT_ID: placeholder-client-id
+          AUTH0_CLIENT_SECRET: placeholder-client-secret
         run: docker compose --file compose.production.yaml --profile release config --quiet
 
   integration:
@@ -195,8 +198,10 @@ jobs:
       - name: Apply database migrations with the migration identity
         run: docker compose --profile release run --rm migrate
 
-      - name: Start application
-        run: docker compose up --detach --build --wait app
+      - name: Start application with the test identity entry
+        run: >-
+          docker compose -f compose.yaml -f compose.test-identity.yaml
+          up --detach --build --wait app
 
       - name: Verify public discovery against PostgreSQL
         run: |
@@ -262,10 +267,10 @@ jobs:
       - name: Verify persisted API request
         run: |
           curl --fail --silent --show-error \
-            --request POST http://localhost:3000/api/auth/register \
+            --request POST http://localhost:3000/api/test-identity/sign-in \
             --header "Content-Type: application/json" \
             --cookie-jar /tmp/yaparena-ci.cookies \
-            --data '{"email":"ci@example.com","password":"a secure CI passphrase"}'
+            --data '{"email":"ci@example.com"}'
 
           curl --fail --silent --show-error \
             --request POST http://localhost:3000/api/messages \

@@ -120,9 +120,16 @@ app.get("/api/me/profile", (_r, s) =>
     ? s.json({ profile: { displayName: "Local Tester" } })
     : s.sendStatus(401),
 );
-app.get("/api/a4/wallet", (_r, s) =>
+// Every account is email-first since Decision 0009, so the header reads the
+// account wallet rather than the historical play wallet.
+app.get("/api/account-wallet", (_r, s) =>
   signedIn
-    ? s.json({ balances: [{ kind: "available", amount: "1234000000" }] })
+    ? s.json({
+        enabled: true,
+        withdrawalsEnabled: false,
+        available: "1234.00",
+        reserved: "0.00",
+      })
     : s.sendStatus(401),
 );
 app

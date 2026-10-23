@@ -6038,9 +6038,6 @@ exports[`renders the about and account pages 2`] = `
 </div>
 <div>
 <button class="button-secondary" id="sign-out" type="button">Sign out →</button>
-<button class="button-secondary" id="sign-out-others" type="button">Sign out other sessions</button>
-<button class="button-secondary" id="sign-out-all" type="button">Sign out all sessions</button>
-<p class="form-note">Use all sessions to end account access on every device.</p>
 </div>
 </div>
 <div class="account-columns">
@@ -6116,8 +6113,6 @@ exports[`renders the about and account pages 2`] = `
 <button id="cancel-wallet-change" type="button" class="button-secondary">Cancel</button>
 </dialog>
 <script defer src="/assets/account.js?v=0123456789ab">
-</script>
-<script defer src="/assets/account-sessions.js?v=0123456789ab">
 </script>
 </main>
 <footer class="site-footer">
@@ -6364,12 +6359,8 @@ exports[`renders the about and account pages 3`] = `
 <section id="account-security-passkeys" class="account-section">
 </section>
 <div class="account-session-controls">
-<h3>Session access</h3>
-<p>Keep this device signed in, or end access across every device.</p>
-<div>
-<button class="button-secondary" id="sign-out-others" type="button">Sign out other sessions</button>
-<button class="button-secondary account-danger-action" id="sign-out-all" type="button">Sign out all sessions</button>
-</div>
+<h3>Active sessions</h3>
+<p>Signing out only ends the session on that device. Sign out any session you don’t recognize.</p>
 </div>
 </section>\\n          <section id="account-embedded-wallet" class="information-card account-card">
 <div class="account-card-heading">
@@ -6499,8 +6490,6 @@ exports[`renders the about and account pages 3`] = `
 </div>
 <button id="cancel-wallet-change" type="button" class="button-secondary">Cancel</button>
 </dialog>\\n  <script defer src="/assets/account.js?v=0123456789ab">
-</script>
-<script defer src="/assets/account-sessions.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/account-session-list.js?v=0123456789ab">
 </script>

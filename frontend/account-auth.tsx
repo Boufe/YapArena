@@ -138,6 +138,22 @@ function hasLinkIntent() {
 
 class RecoveryStateError extends Error {}
 const recoveryStorageKey = "yaparena-provider-recovery";
+// Set by session-coordination.ts whenever this browser signs out.
+const providerLogoutKey = "yaparena-provider-logout";
+function providerLogoutPending() {
+  try {
+    return localStorage.getItem(providerLogoutKey) === "pending";
+  } catch {
+    return false;
+  }
+}
+function clearProviderLogout() {
+  try {
+    localStorage.removeItem(providerLogoutKey);
+  } catch {
+    // Nothing to clear without storage.
+  }
+}
 type RecoveryIntent = {
   id: string;
   accountId: string;
@@ -405,11 +421,32 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
     const end = () => {
       setReconciliationToken(null);
       WebAuthnAbortService.cancelCeremony();
-      void logout().catch(() => {});
+      void logout().then(clearProviderLogout, () => {});
     };
     window.addEventListener("yap:provider-logout", end);
     return () => window.removeEventListener("yap:provider-logout", end);
   }, [logout]);
+  const providerLogoutChecked = useRef(false);
+  useEffect(() => {
+    // Finish a Privy logout that an earlier page started but could not run.
+    // Check once per page; a sign-in started meanwhile clears the marker.
+    // Only the app cookie proves a newer sign-in; keep that provider session.
+    if (!ready || providerLogoutChecked.current) return;
+    providerLogoutChecked.current = true;
+    if (!providerLogoutPending()) return;
+    void fetch("/api/auth/me", {
+      cache: "no-store",
+      credentials: "same-origin",
+    })
+      .then(async (current) => {
+        if (current.ok) return clearProviderLogout();
+        if (current.status === 401 && providerLogoutPending()) {
+          await logout();
+          clearProviderLogout();
+        }
+      })
+      .catch(() => {});
+  }, [ready, logout]);
   useEffect(() => {
     const link = () => {
       linkIntent.current = true;
@@ -505,6 +542,8 @@ function Auth({ google, passkeys }: { google: boolean; passkeys: boolean }) {
     detail = false,
   ) {
     if (pending.current || completing.current) return;
+    // Each sign-in flow ends any stale Privy session itself before starting.
+    clearProviderLogout();
     if (journeyStart.current === null) {
       journeyStart.current = performance.now();
       measure("started");

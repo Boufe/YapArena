@@ -149,10 +149,13 @@ is separate from hosted acceptance.
 ## Account credential and session incidents
 
 Use the [account session revocation procedure](security/account-session-revocation.md) for
-owner logout-all/logout-others, wallet compromise and operator password credential updates.
-It defines account-first transaction locks, audit and generation checks. Normal
-**Sign out** retires all YapArena sessions. Explicit individual-session and
-other-session controls remain available. These operations allow a fresh sign-in
+owner session sign-out, wallet compromise and operator password credential updates.
+It defines account-first transaction locks, audit and generation checks. By founder
+decision on 2026-10-22, **Sign out** ends only this device's session, without a
+generation change or Privy call; the browser ends its own Privy session. Sign out
+all sessions and Sign out other sessions were removed. The account page's Active
+sessions list signs out one chosen device. To end every session for an incident,
+use a credential update or suspension. These operations allow a fresh sign-in
 with a retained credential; they are not account suspension. The integrated media
 revocation queue disconnects tracked speakers separately and retries provider failures.
 Cloud token rejection, legacy-grant drainage and hosted acceptance retain the
@@ -183,13 +186,13 @@ acknowledged freeze/unfreeze response enables GET-only confirmation across web
 instances and restarts. Each phase permits at most eight reads or 120 seconds,
 scheduled ten seconds apart. Unknown mutation outcomes, independent freezes and
 exhausted budgets remain fenced for review; do not reset their state to pending.
-An acknowledged reset superseded by an authenticated logout drains its own
-bounded confirmation before the newer logout runs a separate reset. Every
-intervening generation requires the exact successful application logout audit
-and an untouched same-identity job. The older job cannot advance the mapping's
-generation/token cutoff or wake wallet provisioning. Unacknowledged intents,
-changed credentials, suspension and unaudited generation changes remain fenced.
-Read-only propagation checks release database connections. The bounded mutation
+Sign out no longer queues these jobs; incidents, key triggers, wallet removal,
+password changes and suspension still do. A job overtaken by a newer generation
+stops for manual review once it has requested a freeze, and a newer job behind
+an unfinished older one stops as `inherited_manual`. The older job cannot advance
+the mapping's generation/token cutoff or wake wallet provisioning. The `92f11b4`
+drain for resets superseded by sign-out-all/others was removed with those actions
+on 2026-10-22. Read-only propagation checks release database connections. The bounded mutation
 window retains account ordering. These authentication jobs run every ten seconds with
 the other background jobs: on the web service while `RUN_BACKGROUND_JOBS` is true,
 and in the maintenance worker (`npm run start:worker`), which always runs them when it
@@ -207,19 +210,13 @@ Never repeat an unfreeze merely because its immediate read lagged. The
 documents the concrete evidence and limitations. The operator inspection and
 repair processes must not run in the web or worker process.
 
-The separate owner repository methods `prepareAcknowledgedLogoutReset` and
-`resumeAcknowledgedLogoutReset` cover the reviewed stopped pair produced by the
-first-key/logout overlap. Preparation is read-only. Resume requires an explicit
-own-freeze review digest, exact snapshot fingerprint/generation/attempt, two
-expired job leases, unchanged provider identity/accepted public keys and a
-current freeze inside the acknowledged request window. It atomically audits
-and rearms only that acknowledged confirmation and its untouched inherited
-logout. It performs no freeze/unfreeze, changes no credentials or sessions and
-does not clear the token cutoff. A request UUID and durable control marker
-prevent a second budget allocation. Deploy the corrected normal engine before
-using a separately reviewed owner command. This is not an ordinary login or
-general account-unfreeze API; uncertain or independently imposed freezes still
-require separate investigation.
+The owner repository methods `prepareAcknowledgedLogoutReset` and
+`resumeAcknowledgedLogoutReset`, which rearmed the stopped first-key/logout
+overlap pair, were removed on 2026-10-22 together with sign-out-all/others; no
+owner rearm procedure exists. Uncertain or independently imposed freezes use the
+modes above or separate investigation. Before deploying that change, confirm
+read-only that no `provider_revocation_jobs` row is unfinished and no linked
+Privy user is frozen ([Decision 0008](decisions/0008-auth-simplification.md#rollout-prompts-912)).
 
 The separate `repair-first-passkey` / `finalize-first-passkey` modes cover only
 the reviewed unfinished first-key case: an unchanged valid accepted baseline,

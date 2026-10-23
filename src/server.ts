@@ -57,7 +57,6 @@ const {
   authProvider,
   sessions,
   providerRecheck,
-  providerRevocation,
   accountSecurity,
   coinDebates,
 } = services;
@@ -111,9 +110,6 @@ const app = createApp({
   siweRpcUrls: config.siweRpcUrls,
   authProvider,
   accountSecurity,
-  synchronizeProvider: providerRevocation
-    ? (userId) => providerRevocation.synchronize(userId)
-    : undefined,
   accountWallet: createAccountWallet(database),
   sharedAccountLimiter:
     providerConfig && abuseStore

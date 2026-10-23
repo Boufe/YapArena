@@ -49,7 +49,7 @@ if (sessionControls) {
     const notice = document.querySelector<HTMLElement>("#account-notice");
     if (notice)
       notice.textContent = unconfirmed
-        ? "This session has ended. Sign in again to sign out other devices."
+        ? "This session had already ended. Sign in again to continue."
         : "This session is signed out. Sign in again to continue.";
   }
   async function removeSession(session: ManagedAccountSession) {
@@ -67,7 +67,7 @@ if (sessionControls) {
     const removalVersion = version;
     const expectedAccount = window.yapCurrentSessionAccount?.();
     refreshButton.disabled = true;
-    sessionNotice.textContent = "Finishing account changes and signing out…";
+    sessionNotice.textContent = "Signing out…";
     for (const button of list.querySelectorAll("button"))
       button.disabled = true;
     try {
@@ -163,12 +163,12 @@ if (sessionControls) {
         list.append(item);
       }
       sessionNotice.textContent = data.hasMore
-        ? "Showing the latest 100 active sessions. Use Sign out other sessions to end all other access."
+        ? "Showing the latest 100 active sessions."
         : `${data.sessions.length} active ${data.sessions.length === 1 ? "session" : "sessions"}. Devices and locations are not collected.`;
     } catch {
       if (requestVersion === version)
         sessionNotice.textContent =
-          "Active sessions are unavailable. Refresh to try again. Sign out all sessions remains available above.";
+          "Active sessions are unavailable. Refresh to try again.";
     } finally {
       if (requestVersion === version) refreshButton.disabled = false;
     }

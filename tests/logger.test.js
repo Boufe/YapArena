@@ -177,7 +177,9 @@ function fixture({ environment = "development", ...overrides } = {}) {
       findByEmail: async () => registered ?? null,
     },
     sessions: {
-      revoke: async () => sessionRecords.clear(),
+      revokeSession: async (_userId, hash) => ({
+        current: sessionRecords.delete(hash),
+      }),
       create: async (_userId, hash) => sessionRecords.set(hash, user),
       findUserByTokenHash: async (hash) => sessionRecords.get(hash) ?? null,
       deleteByTokenHash: async (hash) => sessionRecords.delete(hash),

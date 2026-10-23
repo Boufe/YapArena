@@ -57,34 +57,33 @@ try {
   await b.locator('#email-login input[name="password"]').fill(password);
   await b.locator('#email-login button[type="submit"]').click();
   await b.locator("#signed-in:not([hidden])").waitFor();
-  await a.locator("#sign-out-others").scrollIntoViewIfNeeded();
+  // A second tab on device A shares its cookie and must follow its sign-out.
+  const sibling = await first.newPage();
+  await sibling.goto(`${origin}/account`);
+  await sibling.locator("#signed-in:not([hidden])").waitFor();
+  assert.equal(await a.locator("#sign-out-all").count(), 0);
+  assert.equal(await a.locator("#sign-out-others").count(), 0);
   await a.screenshot({ path: `${output}/signed-in-controls.png` });
-  a.once("dialog", (dialog) => dialog.accept());
-  await a.locator("#sign-out-others").click();
-  await a
+  await a.locator("#sign-out").click();
+  await a.locator("#signed-out:not([hidden])").waitFor();
+  // No reload or focus: the yaparena-account broadcast updates the sibling.
+  await sibling.locator("#signed-out:not([hidden])").waitFor();
+  await a.screenshot({ path: `${output}/this-device-signed-out.png` });
+  await a.reload();
+  await a.locator("#signed-out:not([hidden])").waitFor();
+  // Device B keeps its own session.
+  await b.reload();
+  await b.locator("#signed-in:not([hidden])").waitFor();
+  await b
     .locator("#account-notice")
-    .filter({
-      hasText: "Other sessions signed out. This device is still signed in.",
-    })
+    .filter({ hasText: "Account ready." })
     .waitFor();
-  assert.equal(await a.locator("#signed-in").isVisible(), true);
+  await b.locator("#sign-out").click();
+  await b.locator("#signed-out:not([hidden])").waitFor();
   await b.reload();
   await b.locator("#signed-out:not([hidden])").waitFor();
-  await a.screenshot({ path: `${output}/other-sessions-signed-out.png` });
-  await a.reload();
-  await a.locator("#signed-in:not([hidden])").waitFor();
-  a.once("dialog", (dialog) => dialog.accept());
-  await a.locator("#sign-out-all").click();
-  await a
-    .locator("#account-notice")
-    .filter({ hasText: "All sessions signed out, including this device." })
-    .waitFor();
-  await a.locator("#signed-out:not([hidden])").waitFor();
-  await a.screenshot({ path: `${output}/all-sessions-signed-out.png` });
-  await a.reload();
-  await a.locator("#signed-out:not([hidden])").waitFor();
   console.log(
-    "Two-context browser controls PASS: other sessions denied, current retained, logout-all current denied; screenshots saved.",
+    "Two-context browser controls PASS: sign out ended only device A, its second tab followed without reload, device B stayed signed in until it signed out; screenshots saved.",
   );
 } finally {
   await browser?.close();

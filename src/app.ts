@@ -160,7 +160,6 @@ export function createApp({
   sharedAccountLimiter,
   sharedRateLimits,
   accountWallet,
-  synchronizeProvider,
 }: {
   messages: ReturnType<typeof createMessageRepository>;
   // Readiness pings this pool. Without it the service reports not ready.
@@ -217,7 +216,6 @@ export function createApp({
     "sandbox" | "debates" | "operations" | "reports"
   >;
   coinWebhook?: RequestHandler;
-  synchronizeProvider?: (userId: string) => Promise<void>;
 }) {
   const app = express();
   const mediaUrl = mediaProvider ? new URL(mediaProvider.publicUrl) : undefined;
@@ -337,12 +335,7 @@ export function createApp({
   if (sharedAuthLimiter)
     app.use("/api/auth", (request, response, next) => {
       // An abuse-store outage must never prevent logout or session inspection.
-      if (
-        request.method !== "POST" ||
-        ["/logout", "/logout-all", "/logout-other-sessions"].includes(
-          request.path,
-        )
-      )
+      if (request.method !== "POST" || request.path === "/logout")
         return next();
       return sharedAuthLimiter(request, response, next);
     });
@@ -419,7 +412,6 @@ export function createApp({
       authRateLimit,
       rateLimitWindowMs,
       provider: authProvider,
-      synchronizeProvider,
       sharedAccountLimiter,
       sharedRateLimits,
       recordAuth: (event, seconds, phase = "journey") => {

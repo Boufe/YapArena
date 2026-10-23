@@ -12,6 +12,7 @@ import {
 import { hashPassword } from "../dist/platform/auth/passwords.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
+import { endAllAccountSessions } from "./helpers/account-sessions.js";
 
 const terms = {
   environment: "sandbox",
@@ -235,10 +236,14 @@ describe(
         0,
       );
       const prepared = await prepare(f, operation);
-      await createSessionRepository(b).revoke(
+      // The same device keeps its session at the new generation; the proof
+      // prepared at the old generation is still rejected.
+      const generation = await endAllAccountSessions(b, f.user.id);
+      await createSessionRepository(b).create(
         f.user.id,
         f.token.tokenHash,
-        true,
+        new Date(Date.now() + 600000),
+        { authGeneration: generation },
       );
       await assert.rejects(consume(prepared), /expired or invalid/);
       const current = await issue(f);

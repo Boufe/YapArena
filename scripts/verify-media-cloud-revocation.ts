@@ -364,9 +364,12 @@ async function applicationFixture(
       original: issued.token,
       cleanup,
       async logoutAndDrain() {
-        const response = await request("/logout", 0, "POST");
-        assert.equal(response.status, 204);
-        assert.equal(response.headers.get("set-cookie"), null);
+        // Sign out ends one device, so sign out every session in turn.
+        for (let i = 0; i < cookies.length; i++) {
+          const response = await request("/logout", i, "POST");
+          assert.equal(response.status, 204);
+          assert.equal(response.headers.get("set-cookie"), null);
+        }
         for (let i = 0; i < cookies.length; i++)
           assert.equal((await request("/me", i)).status, 401);
         const queued = (

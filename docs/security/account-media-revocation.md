@@ -1,9 +1,10 @@
 # Account-bound speaker grants and revocation
 
 This extends application-session containment to assigned speakers. Public
-discovery and anonymous watching remain available. Normal **Sign out** retires
-every application session, as approved during this implementation. The explicit
-advanced current-session and other-session APIs retain their narrower scope.
+discovery and anonymous watching remain available. Since the 2026-10-22 founder
+decision, **Sign out** deletes only this device's session, which retires the
+speaker grants bound to it; other devices keep theirs. The other-session and
+all-session APIs were removed; the Active sessions list ends one chosen session.
 
 ## Provider capability verified from official documentation
 
@@ -60,8 +61,9 @@ runs after the database transaction and reads the current media state.
 
 Deferred database triggers inspect the final transaction state after account
 generation/status changes or session deletion/update. They retire invalid SIDs,
-including suspension and credential changes. Logout-others advances the retained
-session's generation before the deferred check, so the surviving SID stays valid.
+including suspension and credential changes. The deferral let the since-removed
+logout-others action keep its surviving SID valid; deleting one session row
+retires only grants bound to that session.
 A background scan also detects naturally expired rows without depending on an
 hourly deletion job. Grant generation records issuance history; the actual
 current session and account are checked in PostgreSQL for authority.
@@ -103,10 +105,10 @@ Required hosted evidence must identify the revision/project and include:
 
 - An actually assigned speaker receives camera-only initial permission, with
   microphone permission still controlled by the existing turn mechanism.
-- Normal all-session logout, suspension, credential changes and explicit
+- Single-device Sign out, suspension, credential changes and explicit
   per-session revocation disconnect the intended speakers across instances.
-- The preserved SID survives logout-others, while a removed SID cannot obtain a
-  replacement speaker grant.
+- A SID on another device survives this device's Sign out, while a removed SID
+  cannot obtain a replacement speaker grant.
 - Old initial and freshly refreshed tokens cannot rejoin after Cloud removal;
   already-left identities are also revoked without an endless error loop.
 - Device replacement waits for old revocation. An offline old tab cannot

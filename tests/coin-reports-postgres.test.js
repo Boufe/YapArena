@@ -17,6 +17,7 @@ import {
 import { createAccountOperationRepository } from "../dist/platform/auth/account-operations.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
+import { endAllAccountSessions } from "./helpers/account-sessions.js";
 import { hashPassword } from "../dist/platform/auth/passwords.js";
 import { postCoinJournal } from "../dist/features/account-wallet/ledger.js";
 import { runCoinSandboxOperator } from "../scripts/coin-sandbox-operator.ts";
@@ -562,12 +563,7 @@ describe(
           authorized = await proof(context, "recovery.cost.consent", terms);
         if (failure === "expired") await owner.query("SELECT pg_sleep(1.55)");
         else if (failure === "superseded") await review(r.id, "no_error");
-        else
-          await createSessionRepository(b).revoke(
-            context.userId,
-            context.sessionTokenHash,
-            false,
-          );
+        else await endAllAccountSessions(b, context.userId);
         await assert.rejects(
           reports.consent(context, {
             reportId: r.id,

@@ -66,15 +66,12 @@ export async function insertSession(
 
 // Caller owns the account lock and the transaction. The generation advance is
 // the ordering point; commit makes it visible on every application instance.
+// Only security incidents end every session; signing out ends one session.
 export async function revokeAccountSessions(
   client: PoolClient,
   userId: string,
   options: {
-    retainTokenHash?: string;
-    action:
-      "sessions.logout_all" | "sessions.logout_others" | "sessions.incident";
-    actorSessionId?: string;
-    requestId?: string;
+    action: "sessions.incident";
     // Why an incident revocation happened, for example "provider_change".
     reason?: "provider_change";
   },
@@ -90,16 +87,7 @@ export async function revokeAccountSessions(
   if (!result.rows[0])
     throw new SessionUnavailableError("account is unavailable");
   const authGeneration = result.rows[0].authGeneration;
-  await client.query(
-    "DELETE FROM sessions WHERE user_id = $1 AND ($2::text IS NULL OR token_hash <> $2)",
-    [userId, options.retainTokenHash ?? null],
-  );
-  if (options.retainTokenHash) {
-    await client.query(
-      "UPDATE sessions SET auth_generation = $3 WHERE user_id = $1 AND token_hash = $2",
-      [userId, options.retainTokenHash, authGeneration],
-    );
-  }
+  await client.query("DELETE FROM sessions WHERE user_id = $1", [userId]);
   await client.query(
     `INSERT INTO identity_audit_events (user_id, event_type, subject_id, metadata)
      VALUES ($1::bigint, $2, $1::bigint::text, $3::jsonb)`,
@@ -107,11 +95,7 @@ export async function revokeAccountSessions(
       userId,
       options.action,
       JSON.stringify({
-        actorUserId:
-          options.action === "sessions.incident" ? undefined : userId,
         actorDatabaseRole: result.rows[0].actorDatabaseRole,
-        actorSessionId: options.actorSessionId,
-        requestId: options.requestId,
         reason: options.reason,
         outcome: "success",
         authGeneration,
@@ -245,10 +229,12 @@ export function createSessionRepository(
       }
     },
 
+    // Ends one session row. The account generation is unchanged, so every
+    // other device stays signed in and no provider reset is queued.
     async revokeSession(
       userId: string,
       currentTokenHash: string,
-      targetId: string,
+      targetId?: string,
       requestId?: string,
     ) {
       const client = await database.connect();
@@ -261,9 +247,10 @@ export function createSessionRepository(
           userId,
           currentTokenHash,
         );
+        const target = targetId ?? current.id;
         const removed = await client.query<{ id: string }>(
           "DELETE FROM sessions WHERE id=$1 AND user_id=$2 RETURNING id",
-          [targetId, userId],
+          [target, userId],
         );
         if (!removed.rows[0]) {
           await client.query("COMMIT");
@@ -274,7 +261,7 @@ export function createSessionRepository(
           VALUES($1,'sessions.logout_one',$2,$3::jsonb)`,
           [
             userId,
-            targetId,
+            target,
             JSON.stringify({
               actorUserId: userId,
               actorSessionId: current.id,
@@ -284,40 +271,7 @@ export function createSessionRepository(
           ],
         );
         await client.query("COMMIT");
-        return { current: current.id === targetId };
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
-      } finally {
-        client.release();
-      }
-    },
-
-    async revoke(
-      userId: string,
-      currentTokenHash: string,
-      retainCurrent: boolean,
-      requestId?: string,
-    ) {
-      const client = await database.connect();
-      try {
-        await client.query("BEGIN");
-        if (!(await lockAccount(client, userId)))
-          throw new SessionUnavailableError("account is unavailable");
-        const session = await assertActiveSession(
-          client,
-          userId,
-          currentTokenHash,
-        );
-        await revokeAccountSessions(client, userId, {
-          retainTokenHash: retainCurrent ? currentTokenHash : undefined,
-          action: retainCurrent
-            ? "sessions.logout_others"
-            : "sessions.logout_all",
-          actorSessionId: session.id,
-          requestId,
-        });
-        await client.query("COMMIT");
+        return { current: current.id === target };
       } catch (error) {
         await client.query("ROLLBACK");
         throw error;

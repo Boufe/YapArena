@@ -10,6 +10,7 @@ import { createApp } from "../dist/app.js";
 import { hashPassword } from "../dist/platform/auth/passwords.js";
 import { createLogger } from "../dist/platform/logger.js";
 import { SessionUnavailableError } from "../dist/platform/auth/sessions.js";
+import { hashSessionToken } from "../dist/platform/auth/session-tokens.js";
 
 const logger = createLogger({ enabled: false });
 const messages = { isReady: async () => {} };
@@ -253,26 +254,54 @@ describe("authentication API", () => {
     }
   });
 
-  it("normal sign out revokes all account sessions without deleting a potentially newer cookie", async () => {
+  it("sign out ends only this session, never calls the provider and leaves a potentially newer cookie alone", async () => {
     const sessions = {
       create: async () => ({}),
       findUserByTokenHash: mock.fn(async () => publicUser),
       deleteByTokenHash: mock.fn(async () => true),
-      revoke: mock.fn(async () => {}),
+      revokeSession: mock.fn(async () => ({ current: true })),
     };
-    const { app } = createAuthenticationApp({ sessions });
+    const fail = () => {
+      throw new Error("sign out must not call the sign-in provider");
+    };
+    const verifier = {
+      verify: mock.fn(fail),
+      inspect: mock.fn(fail),
+      configuration: mock.fn(fail),
+    };
+    const accounts = { exchange: mock.fn(fail), details: mock.fn(fail) };
+    const app = createApp({
+      messages,
+      users: {},
+      sessions,
+      logger,
+      environment: "development",
+      authProvider: { appId: "synthetic-app", verifier, accounts },
+    });
     const response = await request(app)
       .post("/api/auth/logout")
       .set("Cookie", "session=raw-session-token");
 
     assert.equal(response.status, 204);
     assert.equal(sessions.deleteByTokenHash.mock.callCount(), 0);
-    assert.equal(sessions.revoke.mock.callCount(), 1);
-    assert.equal(sessions.revoke.mock.calls[0].arguments[0], publicUser.id);
-    assert.equal(sessions.revoke.mock.calls[0].arguments[2], false);
+    assert.equal(sessions.revokeSession.mock.callCount(), 1);
+    const [userId, tokenHash, target, requestId] =
+      sessions.revokeSession.mock.calls[0].arguments;
+    assert.equal(userId, publicUser.id);
+    assert.equal(tokenHash, hashSessionToken("raw-session-token"));
+    assert.equal(target, undefined);
+    assert.ok(requestId);
     assert.deepEqual(sessions.findUserByTokenHash.mock.calls[0].arguments[1], {
       localRevocation: true,
     });
+    for (const call of [
+      verifier.verify,
+      verifier.inspect,
+      verifier.configuration,
+      accounts.exchange,
+      accounts.details,
+    ])
+      assert.equal(call.mock.callCount(), 0);
     assert.equal(response.headers["set-cookie"], undefined);
   });
 
@@ -281,69 +310,80 @@ describe("authentication API", () => {
     const response = await request(app).post("/api/auth/logout");
 
     assert.equal(response.status, 401);
-    assert.match(
-      response.body.error,
-      /sign in again to sign out other devices/,
-    );
+    assert.deepEqual(response.body, {
+      error: "this session has already ended",
+    });
     assert.equal(response.headers["set-cookie"], undefined);
     assert.equal(sessions.deleteByTokenHash.mock.callCount(), 0);
+  });
+  it("offers no sign-out-everywhere or sign-out-others routes", async () => {
+    const sessions = {
+      findUserByTokenHash: mock.fn(async () => publicUser),
+      revokeSession: mock.fn(async () => ({ current: true })),
+    };
+    const { app } = createAuthenticationApp({ sessions });
+    for (const path of ["logout-all", "logout-other-sessions"])
+      await request(app)
+        .post(`/api/auth/${path}`)
+        .set("Cookie", "session=valid")
+        .expect(404);
+    assert.equal(sessions.revokeSession.mock.callCount(), 0);
   });
   it("compares the observed account without using it to select or authorize a revocation", async () => {
     const sessions = {
       create: async () => ({}),
       findUserByTokenHash: mock.fn(async () => publicUser),
-      revoke: mock.fn(async () => {}),
+      revokeSession: mock.fn(async () => ({ current: true })),
     };
     const { app } = createAuthenticationApp({ sessions });
-    for (const path of ["logout", "logout-all", "logout-other-sessions"]) {
-      await request(app)
-        .post(`/api/auth/${path}`)
-        .set("Cookie", "session=valid")
-        .set("X-YapArena-Expected-Account", "different-account")
-        .expect(409);
-      assert.equal(sessions.revoke.mock.callCount(), 0);
-      await request(app)
-        .post(`/api/auth/${path}`)
-        .set("X-YapArena-Expected-Account", publicUser.id)
-        .expect(401);
-    }
-    for (const path of ["logout", "logout-all", "logout-other-sessions"])
-      await request(app)
-        .post(`/api/auth/${path}`)
-        .set("Cookie", "session=valid")
-        .set("X-YapArena-Expected-Account", publicUser.id)
-        .expect(204);
+    await request(app)
+      .post("/api/auth/logout")
+      .set("Cookie", "session=valid")
+      .set("X-YapArena-Expected-Account", "different-account")
+      .expect(409);
+    assert.equal(sessions.revokeSession.mock.callCount(), 0);
+    await request(app)
+      .post("/api/auth/logout")
+      .set("X-YapArena-Expected-Account", publicUser.id)
+      .expect(401);
+    await request(app)
+      .post("/api/auth/logout")
+      .set("Cookie", "session=valid")
+      .set("X-YapArena-Expected-Account", publicUser.id)
+      .expect(204);
     // The hint is optional for direct API/initial-outage compatibility; cookie
     // ownership is authoritative in either case.
     await request(app)
       .post("/api/auth/logout")
       .set("Cookie", "session=valid")
       .expect(204);
-    assert.equal(sessions.revoke.mock.callCount(), 4);
+    assert.equal(sessions.revokeSession.mock.callCount(), 2);
   });
-  it("does not claim other devices ended when the sign-out cookie is expired or loses authorization while waiting", async () => {
-    for (const expiredAtLookup of [true, false]) {
+  it("reports an already-ended session when the cookie expired or ended while sign-out waited", async () => {
+    for (const outcome of ["expired", "ended", "removed"]) {
       const { app } = createAuthenticationApp({
         sessions: {
           findUserByTokenHash: async () =>
-            expiredAtLookup ? null : publicUser,
-          revoke: async () => {
-            throw new SessionUnavailableError();
+            outcome === "expired" ? null : publicUser,
+          revokeSession: async () => {
+            if (outcome === "ended") throw new SessionUnavailableError();
+            return null;
           },
         },
       });
       const response = await request(app)
         .post("/api/auth/logout")
         .set("Cookie", "session=synthetic-ended-session");
-      assert.equal(response.status, 401);
-      assert.match(response.body.error, /sign in again/);
+      assert.equal(response.status, 401, outcome);
+      assert.deepEqual(response.body, {
+        error: "this session has already ended",
+      });
       assert.equal(response.headers["set-cookie"], undefined);
     }
   });
   it("preserves a replacement HTTP cookie jar when older successful or rejected revocation responses arrive", async () => {
     for (const scenario of [
       "logout",
-      "logout-all",
       "current-session",
       "expired",
       "absent",
@@ -361,14 +401,9 @@ describe("authentication API", () => {
           live.set(tokenHash, { ...publicUser, id: userId });
         },
         findUserByTokenHash: async (tokenHash) => live.get(tokenHash) ?? null,
-        revoke: async (userId) => {
+        revokeSession: async (userId) => {
           if (scenario === "authorization-ended")
             throw new SessionUnavailableError();
-          revocations++;
-          for (const [hash, user] of live)
-            if (user.id === userId) live.delete(hash);
-        },
-        revokeSession: async (userId) => {
           revocations++;
           for (const [hash, user] of live)
             if (user.id === userId) live.delete(hash);
@@ -390,9 +425,7 @@ describe("authentication API", () => {
         path =
           scenario === "current-session"
             ? "/api/auth/sessions/1"
-            : scenario === "logout-all"
-              ? "/api/auth/logout-all"
-              : "/api/auth/logout";
+            : "/api/auth/logout";
       outer.use(async (r, _s, next) => {
         if (r.path === path && r.method !== "GET") {
           arrived();
@@ -459,7 +492,7 @@ describe("authentication API", () => {
       }
     }
   });
-  it("rejects browser account selectors on normal account-wide sign out", async () => {
+  it("rejects browser account selectors on sign out", async () => {
     const { app } = createAuthenticationApp();
     const response = await request(app)
       .post("/api/auth/logout")
@@ -467,11 +500,10 @@ describe("authentication API", () => {
     assert.equal(response.status, 400);
   });
   it(
-    "finishes local sign-out-all while provider reset is unavailable and bypasses the Redis sign-in limiter",
+    "finishes sign out without the sign-in provider and bypasses the Redis sign-in limiter",
     { timeout: 2000 },
     async () => {
-      let complete,
-        revoked = 0,
+      let revoked = 0,
         throttled = 0;
       const app = createApp({
         messages,
@@ -483,37 +515,30 @@ describe("authentication API", () => {
             assert.equal(options.localRevocation, true);
             return publicUser;
           },
-          revoke: async (_id, _hash, retainCurrent) => {
-            assert.equal(retainCurrent, false);
+          revokeSession: async (_id, _hash, target) => {
+            assert.equal(target, undefined);
             revoked++;
+            return { current: true };
           },
         },
         sharedAuthLimiter: (_r, s) => {
           throttled++;
           s.sendStatus(503);
         },
-        synchronizeProvider: () =>
-          new Promise((resolve) => {
-            complete = resolve;
-          }),
       });
-      try {
-        const response = await request(app)
-          .post("/api/auth/logout")
-          .set("Cookie", "session=synthetic-live-session");
-        assert.equal(response.status, 204);
-        assert.equal(revoked, 1);
-        assert.equal(throttled, 0);
-      } finally {
-        complete?.();
-      }
+      const response = await request(app)
+        .post("/api/auth/logout")
+        .set("Cookie", "session=synthetic-live-session");
+      assert.equal(response.status, 204);
+      assert.equal(revoked, 1);
+      assert.equal(throttled, 0);
     },
   );
-  it("does not report successful global sign out when the authoritative database rejects revocation", async () => {
+  it("does not report successful sign out when the authoritative database rejects revocation", async () => {
     const { app } = createAuthenticationApp({
       sessions: {
         findUserByTokenHash: async () => publicUser,
-        revoke: async () => {
+        revokeSession: async () => {
           throw new Error("synthetic database unavailable");
         },
       },

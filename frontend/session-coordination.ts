@@ -11,6 +11,14 @@ import type {} from "./auth-events.js";
   window.yapCurrentSessionAccount = () => verifiedAccountId;
   window.addEventListener("yap:provider-logout", () => {
     verifiedAccountId = null;
+    // Signing out ends only this device's app session, so this browser must
+    // also end its Privy session. The sign-in island clears this marker after
+    // Privy logout, including on a later page if this page closes first.
+    try {
+      localStorage.setItem("yaparena-provider-logout", "pending");
+    } catch {
+      // Without storage the island still logs out while it is loaded.
+    }
   });
   const identifier = "[a-f0-9-]+";
   const postIssuers = [
@@ -34,8 +42,7 @@ import type {} from "./auth-events.js";
         postIssuers.some((pattern) => pattern.test(url.pathname))) ||
       (method === "DELETE" && deleteIssuer.test(url.pathname));
     const revokesSession =
-      (method === "POST" &&
-        /^\/api\/auth\/logout(?:-all|-other-sessions)?$/.test(url.pathname)) ||
+      (method === "POST" && url.pathname === "/api/auth/logout") ||
       (method === "DELETE" &&
         /^\/api\/auth\/sessions\/[1-9][0-9]*$/.test(url.pathname));
     if (url.origin !== location.origin)

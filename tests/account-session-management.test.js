@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { before, after, describe, it } from "node:test";
 import pg from "pg";
 import { createApp } from "../dist/app.js";
@@ -176,14 +176,42 @@ describe(
       );
       return { user, repo, token, other, first, second };
     }
-    it("normal sign out revokes every device across application instances", async () => {
+    it("sign out ends only this device across instances and never queues a provider reset", async () => {
       const value = await fixture();
+      // A Privy-linked account: any generation change would queue a reset.
+      await owner.query(
+        `INSERT INTO provider_identities(provider,subject,user_id,methods,auth_generation,credentials_digest,credentials_snapshot)
+         VALUES('privy',$1,$2,'["email"]',$3,$4,'[]'::jsonb)`,
+        [
+          `did:privy:${randomUUID()}`,
+          value.user.id,
+          value.user.generation,
+          createHash("sha256").update(randomUUID()).digest("hex"),
+        ],
+      );
+      const providerCalls = [];
+      const refuse = (name) => async () => {
+        providerCalls.push(name);
+        throw new Error("sign out must not call the sign-in provider");
+      };
       const app = createApp({
         messages: { isReady: async () => {} },
         users: {},
         sessions: value.repo,
         logger: createLogger({ enabled: false }),
         environment: "test",
+        authProvider: {
+          appId: "synthetic-app",
+          verifier: {
+            verify: refuse("verify"),
+            inspect: refuse("inspect"),
+            configuration: refuse("configuration"),
+          },
+          accounts: {
+            exchange: refuse("exchange"),
+            details: refuse("details"),
+          },
+        },
       });
       const response = await request(app)
         .post("/api/auth/logout")
@@ -196,17 +224,39 @@ describe(
         null,
       );
       assert.equal(
+        (await otherRepo.findUserByTokenHash(hashSessionToken(value.other)))
+          ?.id,
+        value.user.id,
+      );
+      const state = (
+        await owner.query(
+          `SELECT (SELECT auth_generation::text FROM users WHERE id=$1) AS generation,
+             (SELECT count(*)::int FROM sessions WHERE user_id=$1) AS sessions,
+             (SELECT count(*)::int FROM provider_revocation_jobs WHERE user_id=$1) AS jobs,
+             (SELECT array_agg(event_type ORDER BY id) FROM identity_audit_events
+               WHERE user_id=$1 AND event_type IN ('sessions.logout_one','sessions.logout_all','sessions.logout_others','sessions.incident')) AS events`,
+          [value.user.id],
+        )
+      ).rows[0];
+      assert.deepEqual(state, {
+        generation: value.user.generation,
+        sessions: 1,
+        jobs: 0,
+        events: ["sessions.logout_one"],
+      });
+      assert.deepEqual(providerCalls, []);
+      // The ended cookie cannot sign out again; the other device still can.
+      await request(app)
+        .post("/api/auth/logout")
+        .set("Cookie", `session=${value.token}`)
+        .expect(401);
+      await request(app)
+        .post("/api/auth/logout")
+        .set("Cookie", `session=${value.other}`)
+        .expect(204);
+      assert.equal(
         await otherRepo.findUserByTokenHash(hashSessionToken(value.other)),
         null,
-      );
-      assert.equal(
-        (
-          await owner.query(
-            "SELECT count(*)::int n FROM sessions WHERE user_id=$1",
-            [value.user.id],
-          )
-        ).rows[0].n,
-        0,
       );
     });
     it("lists only the current owner's live sessions and revokes across instances", async () => {

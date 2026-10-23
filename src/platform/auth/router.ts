@@ -130,7 +130,6 @@ export function createAuthRouter({
   rateLimitWindowMs = 15 * 60 * 1_000,
   provider,
   recordAuth = () => {},
-  synchronizeProvider,
   sharedAccountLimiter,
   sharedRateLimits,
 }: {
@@ -162,7 +161,6 @@ export function createAuthRouter({
     seconds?: number,
     phase?: "journey" | "exchange",
   ) => void;
-  synchronizeProvider?: (userId: string) => Promise<void>;
   sharedAccountLimiter?: express.RequestHandler;
   sharedRateLimits?: SharedRateLimits;
 }) {
@@ -510,44 +508,35 @@ export function createAuthRouter({
       return response.status(400).json({
         error: "this operation accepts no account or session selectors",
       });
+    const ended = { error: "this session has already ended" };
     const token = request.cookies[cookie.name];
-    if (!token) {
-      return response.status(401).json({
-        error:
-          "this session has ended; sign in again to sign out other devices",
+    if (!token) return response.status(401).json(ended);
+    const hash = hashSessionToken(token);
+    const user = await sessions.findUserByTokenHash(hash, {
+      localRevocation: true,
+    });
+    if (!user) return response.status(401).json(ended);
+    const expectedAccount = request.get("X-YapArena-Expected-Account");
+    if (expectedAccount && expectedAccount !== user.id)
+      return response.status(409).json({
+        error: "the account changed before sign-out; refresh and try again",
       });
-    }
-    if (token) {
-      const hash = hashSessionToken(token);
-      const user = await sessions.findUserByTokenHash(hash, {
-        localRevocation: true,
-      });
-      if (!user) {
-        return response.status(401).json({
-          error:
-            "this session has ended; sign in again to sign out other devices",
-        });
-      }
-      const expectedAccount = request.get("X-YapArena-Expected-Account");
-      if (expectedAccount && expectedAccount !== user.id)
-        return response.status(409).json({
-          error: "the account changed before sign-out; refresh and try again",
-        });
-      if (user) {
-        try {
-          await sessions.revoke(user.id, hash, false, String(request.id));
-          if (synchronizeProvider)
-            void Promise.resolve()
-              .then(() => synchronizeProvider(user.id))
-              .catch(() => recordAuth("provider_revocation_retry"));
-        } catch (error) {
-          if (!(error instanceof SessionUnavailableError)) throw error;
-          return response.status(401).json({
-            error:
-              "this session ended before sign-out-all completed; sign in again to end other sessions",
-          });
-        }
-      }
+    // Sign out ends this device only (Decision 0008, point 4). Other sessions
+    // keep working and the sign-in provider is not called; the browser ends
+    // its own provider session.
+    try {
+      if (
+        !(await sessions.revokeSession(
+          user.id,
+          hash,
+          undefined,
+          String(request.id),
+        ))
+      )
+        return response.status(401).json(ended);
+    } catch (error) {
+      if (!(error instanceof SessionUnavailableError)) throw error;
+      return response.status(401).json(ended);
     }
 
     // Revocation is authoritative in PostgreSQL. Do not delete the shared cookie
@@ -609,48 +598,6 @@ export function createAuthRouter({
       }
     },
   );
-
-  for (const [path, retainCurrent] of [
-    ["/logout-all", false],
-    ["/logout-other-sessions", true],
-  ] as const) {
-    router.post(
-      path,
-      authLimiter,
-      requireLocalRevocation,
-      async (request, response) => {
-        const expectedAccount = request.get("X-YapArena-Expected-Account");
-        if (expectedAccount && expectedAccount !== request.user!.id)
-          return response.status(409).json({
-            error: "the account changed before sign-out; refresh and try again",
-          });
-        // No account/session selector is accepted. Ownership comes from the live cookie.
-        if (request.body && Object.keys(request.body).length)
-          return response.status(400).json({
-            error: "this operation accepts no account or session selectors",
-          });
-        try {
-          await sessions.revoke(
-            request.user!.id,
-            hashSessionToken(request.cookies[cookie.name]),
-            retainCurrent,
-            String(request.id),
-          );
-          if (synchronizeProvider)
-            void Promise.resolve()
-              .then(() => synchronizeProvider(request.user!.id))
-              .catch(() => recordAuth("provider_revocation_retry"));
-        } catch (error) {
-          if (error instanceof SessionUnavailableError)
-            return response
-              .status(401)
-              .json({ error: "authentication required" });
-          throw error;
-        }
-        return response.status(204).end();
-      },
-    );
-  }
 
   if (wallets) {
     const walletRepository = wallets;

@@ -15,6 +15,7 @@ import {
 import { createAccountWallet } from "../dist/features/account-wallet/repository.js";
 import { createLegacyProviderLink } from "../dist/platform/auth/legacy-provider-link.js";
 import { hashPassword } from "../dist/platform/auth/passwords.js";
+import { endAllAccountSessions } from "./helpers/account-sessions.js";
 const ownerUrl = process.env.A4_TEST_OWNER_URL;
 const runtimeUrl = process.env.A4_TEST_DATABASE_URL;
 async function boundedProviderBarrier(promise, message, milliseconds = 5000) {
@@ -77,11 +78,7 @@ describe(
         token = randomUUID(),
         repo = createProviderAccounts(a);
       const made = await exchange(repo, id, token);
-      await createSessionRepository(a).revoke(
-        made.user.id,
-        hashSessionToken(token),
-        false,
-      );
+      await endAllAccountSessions(a, made.user.id);
       // Like Privy, the fake reports the freeze time when the freeze happens.
       // The confirmation rejects a freeze earlier than its request's second.
       let frozenAt = null,
@@ -164,11 +161,7 @@ describe(
         repo = createProviderAccounts(a),
         token = randomUUID(),
         made = await exchange(repo, id, token);
-      await createSessionRepository(a).revoke(
-        made.user.id,
-        hashSessionToken(token),
-        false,
-      );
+      await endAllAccountSessions(a, made.user.id);
       const state = async () =>
         (
           await owner.query(
@@ -504,11 +497,7 @@ describe(
         token = randomUUID(),
         repo = createProviderAccounts(a);
       const made = await exchange(repo, id, token);
-      await createSessionRepository(a).revoke(
-        made.user.id,
-        hashSessionToken(token),
-        false,
-      );
+      await endAllAccountSessions(a, made.user.id);
       let fail = true,
         frozenAt = null;
       const control = {
@@ -560,11 +549,7 @@ describe(
         token = randomUUID(),
         repo = createProviderAccounts(a);
       const made = await exchange(repo, id, token);
-      await createSessionRepository(a).revoke(
-        made.user.id,
-        hashSessionToken(token),
-        false,
-      );
+      await endAllAccountSessions(a, made.user.id);
       let frozenAt = null,
         unfreezes = 0,
         freezes = 0;
@@ -611,11 +596,7 @@ describe(
       const id = identity(),
         token = randomUUID(),
         made = await exchange(createProviderAccounts(a), id, token);
-      await createSessionRepository(a).revoke(
-        made.user.id,
-        hashSessionToken(token),
-        false,
-      );
+      await endAllAccountSessions(a, made.user.id);
       await owner.query(
         `UPDATE provider_revocation_jobs SET state='manual',attempts=1,
           failure_reason='uncertain_provider_outcome',lease_until='-infinity'
@@ -1302,11 +1283,7 @@ describe(
         },
         newToken,
       );
-      await createSessionRepository(a).revoke(
-        f.made.user.id,
-        hashSessionToken(newToken),
-        false,
-      );
+      await endAllAccountSessions(a, f.made.user.id);
       await assert.rejects(
         service.retryUncertain({ userId: f.made.user.id, requestId }),
         stoppedRetry("snapshot"),
@@ -1644,11 +1621,7 @@ describe(
         token = randomUUID(),
         repo = createProviderAccounts(a);
       const made = await exchange(repo, id, token);
-      await createSessionRepository(a).revoke(
-        made.user.id,
-        hashSessionToken(token),
-        false,
-      );
+      await endAllAccountSessions(a, made.user.id);
       let commits = 0,
         freezes = 0,
         frozenAt = null;
@@ -1703,11 +1676,7 @@ describe(
         token = randomUUID(),
         repo = createProviderAccounts(a);
       const made = await exchange(repo, id, token);
-      await createSessionRepository(a).revoke(
-        made.user.id,
-        hashSessionToken(token),
-        false,
-      );
+      await endAllAccountSessions(a, made.user.id);
       const entered = Promise.withResolvers(),
         release = Promise.withResolvers();
       let frozenAt = null,
@@ -1889,7 +1858,8 @@ describe(
       );
       const next = randomUUID();
       await exchange(repo, { ...id, sessionId: randomUUID() }, next);
-      await sessions.revoke(made.user.id, hashSessionToken(next), false);
+      assert.ok(await sessions.findUserByTokenHash(hashSessionToken(next)));
+      await endAllAccountSessions(a, made.user.id);
       await assert.rejects(
         exchange(createProviderAccounts(b), { ...id, sessionId: randomUUID() }),
         rejectedExchange("provider_reset_pending", 503),

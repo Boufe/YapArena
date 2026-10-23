@@ -63,7 +63,7 @@ export async function recordProviderCredentials(
     VALUES($1,'account.signin_changed',$2)`,
     [
       input.userId,
-      `Your sign-in methods changed in Privy. Current methods: ${methods}. If you did not make this change, use Sign out all sessions and review your account security.`,
+      `Your sign-in methods changed in Privy. Current methods: ${methods}. If you did not make this change, sign out any session you do not recognize under Active sessions and review your account security.`,
     ],
   );
   // A wallet setup job parked on the previous methods may continue now.

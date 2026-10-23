@@ -171,7 +171,7 @@ if (header) {
       event instanceof CustomEvent ? event.detail : false;
     endedSessionNotice =
       expired === true
-        ? "This session has ended. Sign in again to sign out other devices."
+        ? "This session had already ended. Sign in again to continue."
         : "";
     clearAccount();
     session("guest");
@@ -386,6 +386,25 @@ if (header) {
     });
     return scriptLoad;
   }
+  function ensureAuthRoot() {
+    if (authRoot) return authRoot;
+    authRoot = document.createElement("div");
+    authRoot.id = "email-auth";
+    authRoot.className = "auth-mount";
+    const loading = document.createElement("p");
+    loading.role = "status";
+    loading.textContent = "Preparing secure sign-in…";
+    authRoot.append(loading);
+    return authRoot;
+  }
+  // Log out ends only this device, so this browser's Privy session must end
+  // too. The account page already runs the sign-in island; elsewhere, mount it
+  // inside the closed dialog so it can finish the Privy logout.
+  function endProviderSession() {
+    if (!emailFirst || accountRoot) return;
+    if (!scriptLoad) panel.append(ensureAuthRoot());
+    void loadProvider().catch(() => {});
+  }
   function openAuth(
     mode: AuthMode,
     next?: string,
@@ -393,15 +412,7 @@ if (header) {
     source?: HTMLElement,
   ) {
     if (!emailFirst) return false;
-    if (!authRoot) {
-      authRoot = document.createElement("div");
-      authRoot.id = "email-auth";
-      authRoot.className = "auth-mount";
-      const loading = document.createElement("p");
-      loading.role = "status";
-      loading.textContent = "Preparing secure sign-in…";
-      authRoot.append(loading);
-    }
+    authRoot = ensureAuthRoot();
     if (!authDialog.open) {
       cancelResume?.();
       completed = false;
@@ -596,7 +607,7 @@ if (header) {
       const logoutVersion = version;
       const expectedAccount = window.yapCurrentSessionAccount?.();
       button.disabled = true;
-      status.textContent = "Finishing account changes and signing out…";
+      status.textContent = "Signing out…";
       try {
         if (!window.yapSessionFetch)
           throw new Error("account controls unavailable");
@@ -622,6 +633,7 @@ if (header) {
             detail: response.status === 401,
           }),
         );
+        endProviderSession();
         window.dispatchEvent(new Event("yap:account-changed"));
         channel?.postMessage("changed");
         guest.querySelector<HTMLAnchorElement>("a")?.focus();

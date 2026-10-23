@@ -38,6 +38,13 @@ account authentication generation and revokes every preexisting session. A fresh
 through a retained credential is still allowed. F02 may issue a successor only after fresh
 retained-credential proof, with its cookie published after the mutation commits.
 
+Current state — 2026-10-22: single-device logout is restored. A later decision had made
+normal Sign out end every session; by founder decision on 2026-10-22, Sign out ends only this
+device, and the sign-out-every-session and sign-out-other-sessions options were removed. The
+account page's Active sessions list still signs out one chosen device. See
+[Decision 0008](0008-auth-simplification.md) point 4 and the
+[revocation contract](../security/account-session-revocation.md#owner-controls-and-semantics).
+
 The [revocation operating contract](../security/account-session-revocation.md) documents
 transaction locking, stale authentication rejection, audit, owner controls, operator password
 updates, rollout and rollback. Revoking application sessions does not terminate existing

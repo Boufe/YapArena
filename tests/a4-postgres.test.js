@@ -21,6 +21,7 @@ import { createLogger } from "../dist/platform/logger.js";
 import { createUserRepository } from "../dist/platform/auth/users.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
+import { endAllAccountSessions } from "./helpers/account-sessions.js";
 import { createApp } from "../dist/app.js";
 import { createMessageRepository } from "../dist/features/messages/repository.js";
 const enabled = !!process.env.A4_TEST_DATABASE_URL;
@@ -611,7 +612,7 @@ describe(
         }),
         /cutoff/,
       );
-      await sessions.revoke(a.userId, a.tokenHash, false);
+      await endAllAccountSessions(pool, a.userId);
       await assert.rejects(a4.refill(a, key(), v.id), /session/);
       await finish(v.id);
     });

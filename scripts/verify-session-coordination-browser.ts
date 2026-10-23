@@ -72,12 +72,8 @@ app.use("/api/auth", async (r, s) => {
     if (!current?.active) return s.sendStatus(401);
     const expected = r.get("X-YapArena-Expected-Account");
     if (expected && expected !== current.account) return s.sendStatus(409);
-    for (const [id, session] of sessions)
-      if (
-        session.account === current.account &&
-        (r.path !== "/logout-other-sessions" || id !== cookie)
-      )
-        session.active = false;
+    // Sign-out ends only the session that sent the request.
+    current.active = false;
     return s.status(200).json({ label });
   }
   s.cookie("coordination_fixture", label, {
@@ -231,8 +227,6 @@ try {
 
   const revocations = [
     ["POST", "/api/auth/logout"],
-    ["POST", "/api/auth/logout-all"],
-    ["POST", "/api/auth/logout-other-sessions"],
     ["DELETE", "/api/auth/sessions/7"],
   ] as const;
   for (const [index, [method, path]] of revocations.entries()) {
@@ -265,10 +259,10 @@ try {
       200,
     );
     assert.equal(revocationCookies.get(`rotation-logout-${index}`), label);
-    assert.equal(sessions.get(label)?.active, path.endsWith("other-sessions"));
+    assert.equal(sessions.get(label)?.active, false);
   }
   checks.push(
-    "All four revocation controls wait for a committed credential rotation's delayed headers and revoke using the replacement cookie; sign-out-other-sessions preserves only that current session.",
+    "Sign-out and session removal wait for a committed credential rotation's delayed headers and revoke using the replacement cookie.",
   );
 
   await start(a, "/api/auth/login", "before-cross-account");
@@ -338,6 +332,24 @@ try {
   assert.equal(cookie?.value, "after-timeout");
   checks.push(
     "The actual thirty-second Fetch timeout aborts old headers; a later server response cannot overwrite the replacement HttpOnly cookie.",
+  );
+
+  await b.evaluate(() => {
+    localStorage.removeItem("yaparena-provider-logout");
+    window.yapRememberSessionAccount!("synthetic-a");
+    window.dispatchEvent(
+      new CustomEvent("yap:provider-logout", { detail: false }),
+    );
+  });
+  assert.deepEqual(
+    await b.evaluate(() => [
+      localStorage.getItem("yaparena-provider-logout"),
+      window.yapCurrentSessionAccount!(),
+    ]),
+    ["pending", null],
+  );
+  checks.push(
+    "Signing out forgets the verified account and marks this browser's provider session for logout, so a later page can finish it.",
   );
 
   const unsupported = await context.newPage();

@@ -48,10 +48,10 @@ runs:
         read -ra packages <<< "$PACKAGES"
 
         if [[ "$CACHE_HIT" == "true" ]]; then
-          # No network: apt installs the saved files and checks their dependencies against
-          # the packages already on this runner image.
-          if sudo apt-get install --yes --no-download --no-install-recommends \
-            "$DIRECTORY"/*.deb; then
+          # apt installs the saved files and checks their dependencies against the packages
+          # already on this runner image, so nothing is downloaded ("Need to get 0 B").
+          # --no-download cannot be used: apt then rejects local .deb paths.
+          if sudo apt-get install --yes --no-install-recommends "$DIRECTORY"/*.deb; then
             echo "Installed ${packages[*]} from the package cache"
             exit 0
           fi

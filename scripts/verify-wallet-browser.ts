@@ -332,7 +332,7 @@ try {
     true,
   );
   checks.push(
-    "retained proof rejects wrong account, wrong chain, cancelled signature, expiry and synthetic service outage; committed mobile removal keeps private account data hidden during a held refresh, then restores the confirmed session and notification",
+    "retained proof rejects wrong account, wrong chain, cancelled signature, expiry and synthetic service outage; committed mobile removal keeps the same account on screen during a held refresh without emptying it, then shows the renewed session and notification",
   );
   phase = "retained-wallet consumed completion replay";
   assert.ok(completed);

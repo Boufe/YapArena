@@ -202,10 +202,11 @@ async function loadProfile(version = accountVersion) {
 
 async function loadWallets(version = accountVersion) {
   const list = document.querySelector<HTMLElement>("#wallet-list")!;
-  list.replaceChildren();
   const wallets = (await api<{ wallets: LinkedWallet[] }>("/api/auth/wallets"))
     .wallets;
   if (version !== accountVersion) return;
+  // Replace rows only when new ones arrive, so a refresh never flashes empty.
+  list.replaceChildren();
   linkedWallets = wallets;
   const retained = document.querySelector<HTMLElement>("#retained-wallets");
   if (retained) retained.hidden = wallets.length === 0;
@@ -237,13 +238,13 @@ async function loadCollection<T>(
   version = accountVersion,
 ) {
   const list = document.querySelector<HTMLElement>(selector)!;
-  list.replaceChildren();
   let offset = 0;
   async function nextPage() {
     const data = await api<CollectionPage<T>>(
       `${path}?limit=20&offset=${offset}`,
     );
     if (version !== accountVersion) return;
+    if (!offset) list.replaceChildren();
     if (!offset && !data.items.length) list.append(item("Nothing here yet."));
     for (const entry of data.items) list.append(render(entry));
     offset += data.items.length;
@@ -465,11 +466,11 @@ profileForm.addEventListener("submit", async (event) => {
 
 async function loadNotifications(version = accountVersion) {
   const list = document.querySelector<HTMLElement>("#account-notifications")!;
-  list.replaceChildren();
   const { notifications } = await api<{ notifications: { message: string }[] }>(
     "/api/matching/notifications",
   );
   if (version !== accountVersion) return;
+  list.replaceChildren();
   if (!notifications.length) list.append(item("No account notifications."));
   for (const notification of notifications)
     list.append(item(notification.message));

@@ -168,8 +168,8 @@ npm run dev
 `npm run dev` generates browser assets, watches frontend/shared sources, starts the TypeScript API
 directly with Node.js, loads `.env.runtime`, and automatically restarts the API when its sources
 change. `npm run build` checks strict operational and frontend types, compiles production server JavaScript into
-the ignored `dist/` directory, and generates all browser modules and the six
-bundles (`media`, `replay`, `hero-live`, `homepage`, `account-security` and `account-auth`).
+the ignored `dist/` directory, and generates all browser modules and the five
+bundles (`media`, `replay`, `hero-live`, `homepage` and `account-auth`).
 PostgreSQL must still be running in Docker. Open <http://localhost:3000/ready> to confirm the
 API can reach the database. Press `Ctrl-C` to stop the API; the database container keeps running until
 you run `docker compose down`.

@@ -22,7 +22,7 @@ The Node.js 24 service uses strict TypeScript in `src/`. Keep reusable infrastru
 - `npm ci` installs the locked dependencies from `package-lock.json`.
 - `docker compose up --detach --wait db` starts local PostgreSQL.
 - `npm run dev` builds and watches frontend assets and runs the API with reload, loading a separate runtime-only `.env.runtime` file.
-- `npm run build` checks operational and frontend sources, compiles server TypeScript, and generates all browser JavaScript and the six bundles (`media`, `replay`, `hero-live`, `homepage`, `account-security` and `account-auth`).
+- `npm run build` checks operational and frontend sources, compiles server TypeScript, and generates all browser JavaScript and the five bundles (`media`, `replay`, `hero-live`, `homepage` and `account-auth`).
 - `npm run typecheck:operations` checks the edge worker and critical database/release automation in separate strict compiler projects; see [the source inventory](docs/operational-typescript.md).
 - `npm run typecheck:frontend` checks the source inventory, strict browser types, isolated service-worker types, and the frontend build tool. `npm run typecheck` includes this gate.
 - `npm run check` runs lint, format, the tracked-file policy (`npm run check:files`), type checks, and coverage tests. Run it before opening a pull request.
@@ -52,7 +52,7 @@ Use Node's built-in test runner and `node:assert`; put tests in `tests/*.test.js
 The A4, wallet and revocation PostgreSQL suites require explicit disposable-database URLs;
 CI supplies them. Missing identities skip database coverage and can make the coverage gate fail.
 Use [the disposable quality command](docs/operations.md#local-verification) for a complete local check,
-or [the auth regression gate](docs/operations.md#wallet-credential-change-gate) for focused auth work.
+or [the auth regression gate](docs/operations.md#auth-regression-gate) for focused auth work.
 Database isolation, durable community delivery and replay pipeline verifiers are separate checks
 from `npm run check`. Record skips and distinguish local, hosted and physical-device evidence.
 

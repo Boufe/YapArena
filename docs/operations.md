@@ -519,32 +519,28 @@ This Compose flow is a single-host reference, not universal CD. A hosted product
 same contract—digest, migration, health gate, and rollback digest—into its platform's deployment
 mechanism and protect production with environment approvals or an equivalent control.
 
-## Wallet credential-change gate
+## Auth regression gate
 
-Apply F04 private-schema isolation, then F03 account revocation migrations, then F02
-`1791158600000_wallet_operation_authorization.js` with the owner identity. Stop old instances
-before migrating; deploy compatible authentication code and account assets together. Existing
-sessions are retired by F03. Keep its generation guards if rolling back application code.
-
-The [wallet authorization design](security/wallet-authorization.md) defines lock order,
-operation expiry, notifications and containment. The original auth audit is a historical local
-artifact, not a tracked repository document. Use the linked security contracts and their dated
-evidence for the merged implementation; remaining incident and hosted-isolation checks require
-their own evidence.
-A successful wallet change creates identity activity and an in-app account notification in the
-same transaction. Inspect those records by account using the supported owner process; never
-capture passwords, signatures, cookies or operation proofs in incident artifacts.
+Wallet credential changes, wallet sign-in and the F02 operation routes were removed with
+[Decision 0009](decisions/0009-auth0.md); their migrations stay applied, and the
+[wallet authorization design](security/wallet-authorization.md) is historical. Sign-in and
+sensitive-operation confirmation follow the
+[session revocation procedure](security/account-session-revocation.md). Never capture
+cookies, authorization codes, ID tokens or confirmations in incident artifacts.
 
 Run the regression gate against a **disposable local** database provisioned as owner/runtime:
 
 ```sh
+A4_TEST_DATABASE_URL="$AUTH_TEST_RUNTIME_URL" \
+A4_TEST_OWNER_URL="$AUTH_TEST_OWNER_URL" \
 WALLET_TEST_DATABASE_URL="$AUTH_TEST_RUNTIME_URL" \
 WALLET_TEST_OWNER_DATABASE_URL="$AUTH_TEST_OWNER_URL" \
 REVOCATION_TEST_DATABASE_URL="$AUTH_TEST_OWNER_URL" \
 REVOCATION_TEST_RUNTIME_URL="$AUTH_TEST_RUNTIME_URL" npm run check
 ```
 
-Use a database named `yaparena_f02...` or `revocation_test...` and loopback URLs. Keep operator
+Use a database named `revocation_test_ci` (the Auth0 sign-in and confirmation suites accept
+no other name outside the isolation harness) and loopback URLs. Keep operator
 connection values in the local shell/secret store. PostgreSQL tests create unique synthetic
 accounts; do not point them at shared development, staging or production data. Without the
 explicit URLs those integration suites are skipped; that is not race-safety evidence. CI's

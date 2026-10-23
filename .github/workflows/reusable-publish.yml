@@ -89,6 +89,9 @@ jobs:
           image="ghcr.io/$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')${suffix}"
           {
             echo "name=${image}"
+            # Shared with the CI container job, which builds the same image first on main.
+            # A new scope each UTC day reruns the base image's apt-get upgrade at least daily.
+            echo "cache-scope=image-${VARIANT}-$(date -u +%Y%m%d)"
             echo "media-worker-tools=${media_worker_tools}"
             echo "first-tag=${tag_list[0]}"
             echo "tags<<EOF"
@@ -144,8 +147,8 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           # No tag yet: the digest is tagged only after its scan passes.
           outputs: type=image,name=${{ steps.metadata.outputs.name }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=publish-${{ inputs.variant }}
-          cache-to: type=gha,scope=publish-${{ inputs.variant }},mode=max
+          cache-from: type=gha,scope=${{ steps.metadata.outputs.cache-scope }}
+          cache-to: type=gha,scope=${{ steps.metadata.outputs.cache-scope }},mode=max
           provenance: mode=max
           sbom: true
 

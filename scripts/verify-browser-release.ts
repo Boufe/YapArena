@@ -52,7 +52,7 @@ async function preflight() {
   );
   assert.ok(
     !integrationOnly || process.env.CI === "true",
-    "--integration-only is reserved for CI after its required quality job; run npm run verify:browser locally",
+    "--integration-only is reserved for CI, where the parallel quality / check job runs the full quality gate and account-security suites; run npm run verify:browser locally",
   );
   assert.ok(
     ["host", "docker"].includes(mode),
@@ -169,7 +169,9 @@ try {
     ["scripts/verify-database-isolation.ts"],
     {
       A4_VERIFY: "true",
-      ACCOUNT_SECURITY_VERIFY: "true",
+      // In CI, quality / check already runs the account-security suites and
+      // treasury scenarios on fresh and upgrade databases; skip them here.
+      ACCOUNT_SECURITY_VERIFY: integrationOnly ? "false" : "true",
       A4_BROWSER: "true",
       A4_QUALITY: integrationOnly ? "false" : "true",
       BROWSER_ARTIFACT_DIR: join(directory, "a4"),
@@ -202,7 +204,7 @@ try {
         status: process.exitCode ? "failed" : "passed",
         postgres: ["host", "docker"].includes(mode) ? mode : "invalid",
         quality: integrationOnly
-          ? "required upstream quality / check job"
+          ? "full quality gate and account-security suites in the parallel quality / check job"
           : "full runtime-backed npm run check",
         steps,
         scope:

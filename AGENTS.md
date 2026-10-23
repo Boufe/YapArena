@@ -25,7 +25,8 @@ The Node.js 24 service uses strict TypeScript in `src/`. Keep reusable infrastru
 - `npm run build` checks operational and frontend sources, compiles server TypeScript, and generates all browser JavaScript and the five bundles (`media`, `replay`, `hero-live`, `homepage` and `account-auth`).
 - `npm run typecheck:operations` checks the edge worker and critical database/release automation in separate strict compiler projects; see [the source inventory](docs/operational-typescript.md).
 - `npm run typecheck:frontend` checks the source inventory, strict browser types, isolated service-worker types, and the frontend build tool. `npm run typecheck` includes this gate.
-- `npm run check` runs lint, format, the tracked-file policy (`npm run check:files`), type checks, and coverage tests. Run it before opening a pull request.
+- `npm run check:fast` runs lint, format, the tracked-file policy (`npm run check:files`), type checks and the unit tests, without PostgreSQL or coverage thresholds (about 30 seconds). Run it before pushing.
+- `npm run check` runs the same checks with coverage thresholds. Its PostgreSQL suites need the disposable identities described under Testing Guidelines.
 
 See `README.md` for the migration and media container commands.
 Provision and migrate in separate owner/admin processes before starting runtime. Never load the
@@ -56,10 +57,17 @@ or [the auth regression gate](docs/operations.md#auth-regression-gate) for focus
 Database isolation, durable community delivery and replay pipeline verifiers are separate checks
 from `npm run check`. Record skips and distinguish local, hosted and physical-device evidence.
 
+Default loop: run `npm run check:fast` plus the tests for the code you changed that it skips
+(for example a PostgreSQL suite or a focused verifier), push, watch CI with
+`gh pr checks <number> --watch`, and fix failures. CI is the full gate; it runs the
+database-backed quality gate, container scans and every integration check. Run the full local
+gate (`A4_QUALITY=true npm run verify:database-isolation`, `npm run verify:browser`) only to debug
+a CI failure, for migration work, or when a prompt asks for it.
+
 ## Evidence and Status Records
 
 Put evidence (test output, timings, screenshots) in the PR description or CI artifacts; the
-`integration` job already uploads `core-browser-evidence`. Do not commit screenshots, videos, raw
+integration core browser job already uploads `core-browser-evidence`. Do not commit screenshots, videos, raw
 logs or evidence folders. Add a short Markdown record in `docs/` only for a decision, or for a
 hosted or manual result that CI cannot reproduce. Update the
 [status table](docs/nonfinancial-implementation-plan.md#current-implementation-and-evidence) in place

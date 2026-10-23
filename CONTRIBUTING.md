@@ -59,23 +59,27 @@ implementing it. Do not treat a passing backend quality gate as permission to ac
 3. Make server/shared changes in strict TypeScript under `src/` and handwritten frontend changes under `frontend/`, following the frontend workflow below. Add or update tests for changed behavior. Tests belong under `tests/`; database
    structure changes also require a new migration rather than an edit to migration history.
 
-4. Run the local quality gate:
+4. Run the fast local checks:
 
    ```sh
-   npm run check
+   npm run check:fast
    ```
 
    This checks lint rules, formatting, the [tracked-file policy](#evidence-and-status-records) and
-   types, then runs tests with coverage thresholds. If the change affects containers or Compose
-   configuration, also render and start the relevant stack as described
-   in the [operations runbook](docs/operations.md).
+   types, then runs every unit test. It takes about 30 seconds on a recent laptop. It does not
+   start PostgreSQL or enforce coverage thresholds, so the PostgreSQL suites skip. Also run the
+   tests for the code you changed that `check:fast` skips, such as a PostgreSQL suite through the
+   [auth regression gate](docs/operations.md#auth-regression-gate) or a focused verifier.
 
-   For the complete database-backed gate, run `A4_QUALITY=true npm run verify:database-isolation`
-   with Docker, or set `DATABASE_TEST_MODE=host` with PostgreSQL
-   17/18 tools on PATH. That harness creates disposable owner/runtime identities and runs
-   `npm run check` with A4, wallet and revocation suites enabled. A plain check without those
-   identities omits PostgreSQL coverage and can fail the unchanged coverage threshold.
-   See [local verification](docs/operations.md#local-verification).
+   CI is the full gate. Every pull request runs the database-backed quality gate with coverage,
+   the container builds and scans, and every integration check. Run the full local gate only to
+   debug a CI failure, for migration work, or when a prompt asks for it:
+   `A4_QUALITY=true npm run verify:database-isolation` (Docker, or `DATABASE_TEST_MODE=host` with
+   PostgreSQL 17/18 tools on PATH) runs `npm run check` with disposable A4, wallet and revocation
+   identities, and `npm run verify:browser` adds the core browser journeys. A plain `npm run check`
+   without those identities omits PostgreSQL coverage and can fail the unchanged coverage
+   threshold. See [local verification](docs/operations.md#local-verification) and, for containers
+   and Compose, the [operations runbook](docs/operations.md).
 
 5. Review and commit only the intended files:
 
@@ -88,12 +92,18 @@ implementing it. Do not treat a passing backend quality gate as permission to ac
    ```
 
    Replace `PATHS-TO-CHANGED-FILES` with the actual files; it is not a literal path. The first push
-   connects the local branch to the branch on GitHub. Then open a pull request and complete the
-   repository's pull-request template.
+   connects the local branch to the branch on GitHub. Then open a pull request, complete the
+   repository's pull-request template, and watch CI:
 
-Focused branches make review and rollback smaller. Locked installs and the local quality gate keep
-developer results aligned with CI, while migration and deployment checks catch changes that unit tests
-cannot exercise.
+   ```sh
+   gh pr checks PR-NUMBER --watch
+   ```
+
+   Fix any failure and push again. A new push cancels the pull request's older CI run.
+
+Focused branches make review and rollback smaller. Locked installs keep developer results aligned
+with CI. The fast local checks catch most mistakes before a push, and CI runs the database,
+migration, container and browser checks that unit tests cannot exercise.
 
 Keep platform behavior under `src/platform` and product behavior under `src/features`. Database
 changes require an additive migration; never rewrite a migration that may have been applied.
@@ -169,11 +179,12 @@ Report local versus hosted/device evidence and skipped checks in the PR.
 
 ## Core browser release verification
 
-Run `npm run verify:browser` before submitting changes that affect core browser
-journeys. It prepares disposable PostgreSQL owner/runtime identities, builds the app,
-runs the full database-backed quality gate, and verifies account/A4, debate workspace,
-shared-data discovery, homepage and Live/replay preview workflows. CI runs the same
-browser gate in the existing required `integration` job after `quality / check`.
+`npm run verify:browser` prepares disposable PostgreSQL owner/runtime identities, builds
+the app, runs the full database-backed quality gate, and verifies account/A4, debate
+workspace, shared-data discovery, homepage and Live/replay preview workflows. CI runs the
+browser part on every pull request in the `integration: core browser and database isolation`
+job, in parallel with `quality / check`, which runs the quality gate. Run it locally to debug
+a CI failure or when a prompt asks for it.
 See [prerequisites, native PostgreSQL mode, deterministic fixtures and evidence
 limits](docs/browser-release-checks.md). Missing prerequisites and assertions fail the
 gate; real hosted/device media acceptance remains separate.
@@ -192,7 +203,7 @@ intact. Do not rewrite applied JavaScript migrations or convert unrelated script
 ## Evidence and status records
 
 Evidence belongs in the pull request description and CI artifacts. Paste test output, timings and
-screenshots into the PR; the required `integration` job uploads browser results as the
+screenshots into the PR; the integration core browser job uploads browser results as the
 `core-browser-evidence` artifact. Do not commit screenshots, videos, raw logs or evidence folders.
 A short Markdown record in `docs/` is allowed only for a decision, or for a hosted or manual result
 that CI cannot reproduce. Update the
@@ -215,10 +226,13 @@ authoritative runbook and implementation status together when behavior changes.
 Preserve dated reports and decisions; add a current-state note or superseding link when a finding,
 handoff, command or acceptance status is obsolete. Keep implemented, locally tested, hosted-tested
 and planned behavior distinct. Check relative links, anchors, referenced paths and formatting, and
-run `npm run check` before opening a documentation PR. List integration suites skipped locally;
-the five required CI checks are `quality / check`, `container`, `integration`, `monitoring` and
-`deployment` (active ruleset rechecked 2026-10-19). The `deployment` job validates configuration;
-it does not deploy the app. Recheck GitHub rules if they change.
+run `npm run check:fast` before opening a documentation PR. When every changed file is Markdown
+or under `docs/`, CI takes a fast path: `quality / check` runs only the format check, the
+tracked-file policy and the repository-file tests, and `container` and the integration jobs are
+skipped. The five required CI checks are `quality / check`, `container`, `integration`,
+`monitoring` and `deployment` (active ruleset rechecked 2026-10-19); all five report on the fast
+path too. The `deployment` job validates configuration; it does not deploy the app. Recheck
+GitHub rules if they change.
 
 When using a separate worktree, report its branch and PR and the state of the original checkout.
 Reconcile Markdown only where local edits can be preserved, and identify conflicts explicitly.

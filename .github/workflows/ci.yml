@@ -5,35 +5,143 @@ on:
     branches:
       - main
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
 
+# A new push to a pull request cancels that pull request's older run. Pushes to main and
+# merge-queue runs each get their own group, so they never cancel or wait for another run.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Decides whether a pull request or merge group changes only documentation: every changed
+  # file is Markdown or under docs/. Pushes to main always run everything. If this job fails,
+  # the jobs below run in full and the integration gate fails.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      docs-only: ${{ steps.classify.outputs.docs-only }}
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v7
+        with:
+          # A pull request checks out its merge commit; its first parent is the base.
+          fetch-depth: 2
+
+      - name: Classify changed files
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_GROUP_BASE: ${{ github.event.merge_group.base_sha }}
+          MERGE_GROUP_HEAD: ${{ github.event.merge_group.head_sha }}
+        run: |
+          case "$EVENT_NAME" in
+            pull_request)
+              base="$(git rev-parse HEAD^1)"
+              head="$(git rev-parse HEAD)"
+              ;;
+            merge_group)
+              base="$MERGE_GROUP_BASE"
+              head="$MERGE_GROUP_HEAD"
+              git fetch --no-tags --depth=1 origin "$base" "$head"
+              ;;
+            *)
+              echo "docs-only=false" >> "$GITHUB_OUTPUT"
+              echo "Event ${EVENT_NAME} always runs every check." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+              ;;
+          esac
+
+          docs_only=true
+          count=0
+          other=()
+          # --no-renames lists both paths of a move, so moving code into docs/ runs everything.
+          while IFS= read -r -d '' file; do
+            count=$((count + 1))
+            case "$file" in
+              docs/* | *.md) ;;
+              *)
+                docs_only=false
+                other+=("$file")
+                ;;
+            esac
+          done < <(git diff --name-only --no-renames -z "$base" "$head")
+          # An empty or unreadable diff runs everything.
+          if (( count == 0 )); then
+            docs_only=false
+          fi
+
+          echo "docs-only=${docs_only}" >> "$GITHUB_OUTPUT"
+          {
+            echo "Changed files between ${base} and ${head}: ${count}."
+            if [[ "$docs_only" == "true" ]]; then
+              echo "Documentation only: quality runs the format check, file policy and repository-file tests; container and integration are skipped."
+            else
+              echo "Full checks. Changed files outside docs/ that are not Markdown (up to 20):"
+              printf -- '- %s\n' "${other[@]:0:20}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   quality:
+    needs: changes
+    if: ${{ !cancelled() }}
     uses: ./.github/workflows/reusable-quality.yml
+    with:
+      docs-only: ${{ needs.changes.outputs.docs-only == 'true' }}
 
   container:
     runs-on: ubuntu-latest
-    needs: quality
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs-only != 'true' }}
 
     steps:
       - name: Download repository
         uses: actions/checkout@v7
 
+      - name: Choose image cache scope
+        id: cache
+        # A new scope each UTC day reruns the base image's apt-get upgrade at least daily,
+        # so a cached layer cannot hide a Debian security fix from the scans for long.
+        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure image builder
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
       - name: Build production image
-        run: docker build --target production --tag service:ci .
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          target: production
+          tags: service:ci
+          # Trivy scans this archive directly; loading it into Docker would add about a minute.
+          outputs: type=docker,dest=${{ runner.temp }}/service.tar
+          cache-from: type=gha,scope=image-web-${{ steps.cache.outputs.day }}
+          cache-to: type=gha,scope=image-web-${{ steps.cache.outputs.day }},mode=max
 
       - name: Scan production image
         run: >-
           docker run --rm
-          --volume /var/run/docker.sock:/var/run/docker.sock
+          --volume "${{ runner.temp }}/service.tar:/service.tar:ro"
           aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c
           image --scanners vuln --severity HIGH,CRITICAL
-          --ignore-unfixed --exit-code 1 service:ci
+          --ignore-unfixed --exit-code 1 --input /service.tar
 
       - name: Build dedicated encoder image
-        run: docker build --target production --build-arg MEDIA_WORKER_TOOLS=true --tag encoder:ci .
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          target: production
+          build-args: MEDIA_WORKER_TOOLS=true
+          load: true
+          tags: encoder:ci
+          cache-from: |
+            type=gha,scope=image-encoder-${{ steps.cache.outputs.day }}
+            type=gha,scope=image-web-${{ steps.cache.outputs.day }}
+          cache-to: type=gha,scope=image-encoder-${{ steps.cache.outputs.day }},mode=max
 
       - name: Verify encoder tools and scan image
         run: |
@@ -97,80 +205,43 @@ jobs:
           AUTH0_CLIENT_SECRET: placeholder-client-secret
         run: docker compose --file compose.production.yaml --profile release config --quiet
 
-  integration:
+  # Integration runs as four parallel jobs. The required `integration` check is the gate job
+  # at the end: it passes only when all four passed, or all were skipped for a
+  # documentation-only change.
+  integration-browser:
+    name: "integration: core browser and database isolation"
     runs-on: ubuntu-latest
-    needs: quality
-    # Normally 13-18 minutes. A hung step fails instead of holding the runner
-    # until the 6-hour default.
-    timeout-minutes: 45
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs-only != 'true' }}
+    # Normally about 8 minutes. A hung step fails instead of holding the runner.
+    timeout-minutes: 30
 
     steps:
       - name: Download repository
         uses: actions/checkout@v7
 
-      - name: Set up Node.js for browser and smoke checks
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: npm
 
-      - name: Install browser test dependencies
+      - name: Install locked dependencies
         run: npm ci
 
-      - name: Install FFmpeg and native PostgreSQL verification tools
-        # Normally under a minute. When the Azure mirror is slow, the download
-        # moves to another mirror after 5 minutes.
+      - name: Install FFmpeg for synthetic replay previews
         timeout-minutes: 15
-        run: |
-          # Retry a mirror connection that sends nothing for 20 s instead of
-          # waiting on it. A config file also covers the apt-get update that
-          # apt.postgresql.org.sh runs, which command-line options cannot reach.
-          printf '%s\n' 'Acquire::Retries "5";' 'Acquire::http::Timeout "20";' \
-            | sudo tee /etc/apt/apt.conf.d/80-ci-network-retries > /dev/null
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends postgresql-common
-          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          packages=(ffmpeg postgresql-17)
-          # azure.archive.ubuntu.com sometimes sends at 30-45 kB/s, which apt
-          # does not treat as a failure. Download first, so a slow download can
-          # be stopped without interrupting dpkg. If it is not done in 5
-          # minutes, drop that mirror from the runner's list and finish from
-          # archive.ubuntu.com; packages already downloaded are kept.
-          if ! sudo timeout 5m apt-get install --yes --no-install-recommends \
-            --download-only "${packages[@]}"; then
-            echo "::warning::Ubuntu mirror too slow; downloading from archive.ubuntu.com"
-            sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
-            sudo apt-get update
-            sudo apt-get install --yes --no-install-recommends \
-              --download-only "${packages[@]}"
-          fi
-          sudo apt-get install --yes --no-install-recommends "${packages[@]}"
-
-      - name: Verify native PostgreSQL Unicode setup under the C locale
-        run: |
-          export PATH="/usr/lib/postgresql/17/bin:$PATH"
-          npm run verify:community-native-setup
-
-      - name: Verify adaptive replay packaging and decoding
-        run: npm run verify:media-packaging
-
-      - name: Verify durable automatic replay publication and failure recovery
-        env:
-          REPLAY_POSTGRES_MODE: docker
-        run: npm run verify:replay-pipeline
-
-      - name: Create local test configuration
-        run: cp .env.example .env
-
-      - name: Start PostgreSQL
-        run: docker compose up --detach --wait db
+        uses: ./.github/actions/apt-packages
+        with:
+          packages: ffmpeg
 
       - name: Verify core browser workflows and fresh/upgrade database isolation
         env:
           BROWSER_CHROME_PATH: /usr/bin/google-chrome
           BROWSER_ARTIFACT_DIR: ${{ runner.temp }}/yaparena-browser-release
           DATABASE_TEST_MODE: docker
-        # quality / check already ran the full runtime-backed quality gate.
+        # Builds once. quality / check runs the full runtime-backed quality gate and the
+        # account-security suites, so this mode runs the A4 and browser checks.
         run: npm run verify:browser -- --integration-only
 
       - name: Preserve synthetic browser evidence
@@ -186,14 +257,52 @@ jobs:
             ${{ runner.temp }}/yaparena-browser-release/**/browser-evidence.json
             ${{ runner.temp }}/yaparena-browser-release/**/*.png
 
-      - name: Verify durable community transactions, fanout, recovery and browsers
-        env:
-          BROWSER_CHROME_PATH: /usr/bin/google-chrome
-          COMMUNITY_SOAK_SECONDS: "30"
-        run: npm run verify:community-delivery
+  integration-stack:
+    name: "integration: Compose stack, backup and smoke"
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs-only != 'true' }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js for browser and smoke checks
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install browser test dependencies
+        run: npm ci
+
+      - name: Choose image cache scope
+        id: cache
+        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure image builder
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      # Reads the layer cache that the container job writes for the same image. Compose
+      # then runs the loaded yaparena:local image instead of building it again.
+      - name: Build production image for Compose
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          target: production
+          load: true
+          tags: yaparena:local
+          cache-from: type=gha,scope=image-web-${{ steps.cache.outputs.day }}
+
+      - name: Create local test configuration
+        run: cp .env.example .env
+
+      - name: Start PostgreSQL
+        run: docker compose up --detach --wait db
 
       - name: Provision separate database identities
-        run: docker compose --profile release run --rm --build provision
+        run: docker compose --profile release run --rm provision
 
       - name: Apply database migrations with the migration identity
         run: docker compose --profile release run --rm migrate
@@ -201,7 +310,7 @@ jobs:
       - name: Start application with the test identity entry
         run: >-
           docker compose -f compose.yaml -f compose.test-identity.yaml
-          up --detach --build --wait app
+          up --detach --no-build --wait app
 
       - name: Verify public discovery against PostgreSQL
         run: |
@@ -291,3 +400,126 @@ jobs:
       - name: Clean up containers and volumes
         if: always()
         run: docker compose down --volumes --remove-orphans
+
+  integration-community:
+    name: "integration: community delivery and native Unicode setup"
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs-only != 'true' }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install native PostgreSQL 17
+        timeout-minutes: 15
+        uses: ./.github/actions/apt-packages
+        with:
+          packages: postgresql-17
+          postgresql-repository: "true"
+
+      # One build for both checks. Each step below runs the command that its npm script
+      # (verify:community-native-setup, verify:community-delivery) runs after its own build.
+      - name: Build
+        run: npm run build
+
+      - name: Verify native PostgreSQL Unicode setup under the C locale
+        env:
+          LC_ALL: C
+          LANG: C
+          COMMUNITY_POSTGRES_MODE: host
+        run: |
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          node scripts/verify-community-local.ts --setup-only
+
+      - name: Verify durable community transactions, fanout, recovery and browsers
+        env:
+          BROWSER_CHROME_PATH: /usr/bin/google-chrome
+          COMMUNITY_SOAK_SECONDS: "30"
+          COMMUNITY_DURABLE_TRIAL: "1"
+        run: node scripts/verify-community-local.ts
+
+  integration-media:
+    name: "integration: media packaging and replay pipeline"
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs-only != 'true' }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install FFmpeg
+        timeout-minutes: 15
+        uses: ./.github/actions/apt-packages
+        with:
+          packages: ffmpeg
+
+      - name: Verify adaptive replay packaging and decoding
+        run: npm run verify:media-packaging
+
+      - name: Verify durable automatic replay publication and failure recovery
+        env:
+          REPLAY_POSTGRES_MODE: docker
+        # The only build in this job.
+        run: npm run verify:replay-pipeline
+
+  integration:
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - integration-browser
+      - integration-stack
+      - integration-community
+      - integration-media
+    if: always()
+
+    steps:
+      - name: Require every integration job
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          changes="$(jq --raw-output '.changes.result' <<< "$NEEDS")"
+          docs_only="$(jq --raw-output '.changes.outputs["docs-only"] // ""' <<< "$NEEDS")"
+          if [[ "$changes" != "success" ]]; then
+            echo "Change classification ended with ${changes}; see the changes job." >&2
+            exit 1
+          fi
+          failed=0
+          checked=0
+          while IFS=$'\t' read -r job result; do
+            checked=$((checked + 1))
+            if [[ "$result" == "success" ]]; then
+              echo "${job}: passed"
+            elif [[ "$result" == "skipped" && "$docs_only" == "true" ]]; then
+              echo "${job}: skipped for a documentation-only change"
+            else
+              echo "${job}: ${result}" >&2
+              failed=1
+            fi
+          done < <(jq --raw-output 'del(.changes) | to_entries[] | [.key, .value.result] | @tsv' <<< "$NEEDS")
+          if (( checked != 4 )); then
+            echo "Expected 4 integration jobs, found ${checked}" >&2
+            exit 1
+          fi
+          exit "$failed"

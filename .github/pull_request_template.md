@@ -4,13 +4,10 @@
 
 ## Verification
 
-<!-- Check what was actually verified; explain any unchecked item below. -->
+<!-- CI is the full gate. Link the passing run and list only what CI does not cover. -->
 
-- [ ] `npm run check`
-- [ ] Database migration behavior verified, or no schema change
-- [ ] Production image and deployment behavior verified, or not applicable
-- [ ] Security, operations, and rollback impact considered
-- [ ] Documentation links, commands and implementation status checked, or not applicable
+- CI run: <!-- link to the passing run -->
+- Not covered by CI: <!-- hosted, device or manual checks and their results, or "none" -->
 
 ## Deployment notes
 

@@ -116,18 +116,19 @@ jobs:
         with:
           context: .
           target: production
-          load: true
           tags: service:ci
+          # Trivy scans this archive directly; loading it into Docker would add about a minute.
+          outputs: type=docker,dest=${{ runner.temp }}/service.tar
           cache-from: type=gha,scope=image-web-${{ steps.cache.outputs.day }}
           cache-to: type=gha,scope=image-web-${{ steps.cache.outputs.day }},mode=max
 
       - name: Scan production image
         run: >-
           docker run --rm
-          --volume /var/run/docker.sock:/var/run/docker.sock
+          --volume "${{ runner.temp }}/service.tar:/service.tar:ro"
           aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c
           image --scanners vuln --severity HIGH,CRITICAL
-          --ignore-unfixed --exit-code 1 service:ci
+          --ignore-unfixed --exit-code 1 --input /service.tar
 
       - name: Build dedicated encoder image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7

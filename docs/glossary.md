@@ -54,3 +54,5 @@ template uses them.
   communicates a category of compatibility or change.
 - **Volume:** Docker-managed persistent storage. Removing a container does not remove its named volume;
   `docker compose down --volumes` does.
+
+<!-- Throwaway docs-only CI probe for PR 68; never merged. -->

@@ -70,6 +70,7 @@ export function EmbeddedWallet() {
   const [wallet, setWallet] = useState<Projection | null>(null);
   const [message, setMessage] = useState("Checking your wallet…");
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [version, setVersion] = useState(0);
   const actor = useRef<AbortController | null>(null);
   const live = useRef({ ready, authenticated, subject: user?.id ?? null });
@@ -242,24 +243,74 @@ export function EmbeddedWallet() {
             : visible?.state === "unavailable"
               ? "Wallet setup is temporarily unavailable. Your account is still available."
               : message;
+  const tone =
+    visible?.state === "ready"
+      ? "ready"
+      : visible?.state === "pending" || visible?.state === "provisioning"
+        ? "working"
+        : visible?.state === "review_required" ||
+            visible?.state === "retry_wait"
+          ? "attention"
+          : visible?.state === "unavailable" ||
+              (!visible && message !== "Checking your wallet…")
+            ? "unavailable"
+            : "checking";
+  const title = {
+    ready: "Wallet ready",
+    working: "Creating your wallet",
+    attention:
+      visible?.state === "review_required"
+        ? "Needs review"
+        : "Waiting to finish",
+    unavailable: "Temporarily unavailable",
+    checking: "Checking wallet",
+  }[tone];
+  async function copyAddress(address: string) {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
   const mount = document.querySelector<HTMLElement>("#embedded-wallet");
   return mount
     ? createPortal(
         <>
-          <p role="status" aria-live="polite" aria-atomic="true">
-            {message && visible ? `${status} ${message}` : status}
-          </p>
-          {visible?.state === "ready" && (
-            <dl className="account-balances">
+          <div className="wallet-status" data-state={tone}>
+            <span className="wallet-status-indicator" aria-hidden="true" />
+            <div>
+              <strong className="wallet-status-title">{title}</strong>
+              <p role="status" aria-live="polite" aria-atomic="true">
+                {message && visible ? `${status} ${message}` : status}
+              </p>
+            </div>
+          </div>
+          {tone === "working" && (
+            <div className="wallet-progress" aria-hidden="true">
+              <span />
+            </div>
+          )}
+          {visible?.state === "ready" && visible.address && (
+            <div className="wallet-address">
               <div>
-                <dt>Ethereum-compatible address</dt>
-                <dd>
-                  <code style={{ overflowWrap: "anywhere" }}>
-                    {visible.address}
-                  </code>
-                </dd>
+                <span className="wallet-address-label">
+                  Ethereum-compatible address
+                </span>
+                <code title={visible.address}>
+                  {`${visible.address.slice(0, 6)}…${visible.address.slice(-4)}`}
+                </code>
+                <span className="sr-only">{visible.address}</span>
               </div>
-            </dl>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => void copyAddress(visible.address!)}
+              >
+                {copied ? "Copied" : "Copy address"}
+              </button>
+            </div>
           )}
           {visible?.retryAt && (
             <p className="form-note">
@@ -267,24 +318,26 @@ export function EmbeddedWallet() {
               {new Date(visible.retryAt).toLocaleString()}.
             </p>
           )}
-          {visible?.canRetry && (
+          <div className="wallet-actions">
+            {visible?.canRetry && (
+              <button
+                type="button"
+                className="button"
+                disabled={busy}
+                onClick={() => void retry(visible)}
+              >
+                Retry wallet setup
+              </button>
+            )}
             <button
               type="button"
               className="button-secondary"
-              disabled={busy}
-              onClick={() => void retry(visible)}
+              disabled={busy || !ready}
+              onClick={() => setVersion((current) => current + 1)}
             >
-              Retry wallet setup
+              Check wallet status
             </button>
-          )}
-          <button
-            type="button"
-            className="button-secondary"
-            disabled={busy || !ready}
-            onClick={() => setVersion((current) => current + 1)}
-          >
-            Check wallet status
-          </button>
+          </div>
           <p className="form-note">
             Crypto deposits and withdrawals are not available yet. Do not send
             funds to this address.

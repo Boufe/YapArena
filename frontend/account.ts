@@ -268,12 +268,25 @@ async function loadCollection<T>(
 }
 
 async function loadAccount() {
-  clearAccountState(true);
-  say("Checking your account…");
-  const version = accountVersion;
+  // Refreshing the account already on screen updates it in place, so the page
+  // does not collapse and lose the reader's place. Another account, or none,
+  // still clears everything first.
+  const shown = signedIn.hidden
+    ? null
+    : (window.yapCurrentSessionAccount?.() ?? null);
+  if (shown) ++accountVersion;
+  else {
+    clearAccountState(true);
+    say("Checking your account…");
+  }
+  let version = accountVersion;
   try {
     const { user } = await api<{ user: AccountUser }>("/api/auth/me");
     if (version !== accountVersion) return;
+    if (shown && user.id !== shown) {
+      clearAccountState(true);
+      version = accountVersion;
+    }
     window.yapRememberSessionAccount?.(user.id);
     endedSessionNotice = "";
     passwordAvailable = Boolean(user.email);
@@ -339,6 +352,9 @@ async function loadAccount() {
       );
       return;
     }
+    // An in-place refresh that cannot confirm the account must not leave the
+    // previous details on screen.
+    if (shown) clearAccountState(true);
     say((error as AccountError).message);
   }
 }

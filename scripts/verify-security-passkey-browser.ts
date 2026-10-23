@@ -345,7 +345,7 @@ try {
   );
   app.get("/provider-sdk", (_request, response) =>
     response.send(
-      `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Privy single-key local backend acceptance</title><link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/arena.css"><link rel="stylesheet" href="/assets/account-auth.css"><script defer src="/assets/session-coordination.js"></script></head><body><main class="container"><h1>Account settings</h1><p>LOCAL REAL BACKEND · Synthetic Privy responses · Installed SDK · Chrome virtual authenticator · No genuine provider acceptance</p><p id="account-notice" role="status"></p><div id="email-auth"></div><section id="provider-settings" class="information-card account-card"></section><section id="account-security-passkeys" class="information-card account-card"></section></main><script type="module" src="/assets/account-security.bundle.js"></script><script type="module" src="/assets/account-auth.bundle.js"></script></body></html>`,
+      `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Privy single-key local backend acceptance</title><link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/arena.css"><link rel="stylesheet" href="/assets/account-auth.css"><script defer src="/assets/session-coordination.js"></script></head><body><main class="container"><h1>Account settings</h1><p>LOCAL REAL BACKEND · Synthetic Privy responses · Installed SDK · Chrome virtual authenticator · No genuine provider acceptance</p><p id="account-notice" role="status"></p><div id="email-auth"></div><div id="signed-in"><section id="provider-settings" class="information-card account-card"></section><section id="account-security-passkeys" class="information-card account-card"></section></div></main><script type="module" src="/assets/account-security.bundle.js"></script><script type="module" src="/assets/account-auth.bundle.js"></script></body></html>`,
     ),
   );
   let usingProviderBridge = false;
@@ -804,7 +804,11 @@ try {
     } else {
       phase = `${name}: existing provider-key native activation`;
       await page
-        .getByRole("button", { name: "Finish passkey setup", exact: true })
+        .locator("#provider-settings li.auth-credential")
+        .getByText("Needs confirmation", { exact: true })
+        .waitFor();
+      await page
+        .getByRole("button", { name: "Confirm passkey", exact: true })
         .click();
     }
     await activationFinished;
@@ -818,14 +822,35 @@ try {
       window.dispatchEvent(new Event("yap:account-changed")),
     );
     phase = `${name}: real provider-key bridge completion notice`;
-    await page
+    // The setup panel stays inline in Sign-in methods beside Add a passkey.
+    const setupPanel = page.locator("#provider-settings section.passkey-setup");
+    await setupPanel
       .getByText(
-        "Passkey ready for sign-in and account approvals. Other sessions were signed out.",
+        "Your passkey is ready for sign-in and account approvals. For your security, your other devices were signed out.",
         { exact: true },
       )
       .waitFor();
-    await page
-      .getByText("Passkey · Ready for sign-in and account approvals", {
+    await setupPanel
+      .getByRole("heading", { name: "Passkey setup complete", exact: true })
+      .waitFor();
+    assert.deepEqual(
+      await setupPanel
+        .locator("ol.passkey-setup-steps > li")
+        .evaluateAll((items) =>
+          items.map((item) => item.getAttribute("data-state")),
+        ),
+      ["done", "done", "done"],
+    );
+    const passkeyRow = page
+      .locator("#provider-settings li.auth-credential")
+      .filter({ has: page.locator("strong", { hasText: /^Passkey$/ }) });
+    await passkeyRow
+      .locator('.auth-credential-badge[data-state="ready"]', {
+        hasText: /^Ready$/,
+      })
+      .waitFor();
+    await passkeyRow
+      .getByText("Signs you in and approves account changes.", {
         exact: true,
       })
       .waitFor();

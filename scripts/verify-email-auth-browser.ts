@@ -384,6 +384,74 @@ async function capture(page: Page, name: string, fullPage: boolean) {
     await badge.evaluate((element) => element.remove());
   }
 }
+// Passkey setup appears inline beside "Add a passkey" while the account area
+// is visible, and moves above the page only when that area is hidden.
+async function assertPasskeySetupPlacement(page: Page) {
+  const placement = await page.evaluate(() => {
+    const panels = Array.from(
+      document.querySelectorAll<HTMLElement>("section.passkey-setup"),
+    );
+    const panel = panels[0];
+    return {
+      count: panels.length,
+      signedInVisible:
+        document.querySelector<HTMLElement>("#signed-in")?.hidden === false,
+      inline: Boolean(panel?.closest("#provider-settings")),
+      resumed: Boolean(panel?.closest("#passkey-setup-resume")),
+      afterAddActions: Boolean(
+        panel?.previousElementSibling?.classList.contains(
+          "auth-method-actions",
+        ),
+      ),
+    };
+  });
+  assert.equal(placement.count, 1, "exactly one passkey setup panel renders");
+  if (placement.signedInVisible) {
+    assert.equal(placement.inline, true, "setup stays beside Add a passkey");
+    assert.equal(placement.afterAddActions, true);
+    assert.equal(placement.resumed, false);
+  } else {
+    assert.equal(
+      placement.resumed,
+      true,
+      "setup moves above the page only while the account area is hidden",
+    );
+    assert.equal(placement.inline, false);
+  }
+  return placement.signedInVisible ? "inline" : "resume";
+}
+async function assertPasskeySetupSteps(
+  page: Page,
+  states: [string, string, string],
+  count: string | null,
+) {
+  const panel = page.locator("section.passkey-setup");
+  assert.deepEqual(
+    await panel.locator("ol.passkey-setup-steps > li").evaluateAll((items) =>
+      items.map((item) => ({
+        label: item.lastElementChild?.textContent ?? "",
+        state: item.getAttribute("data-state"),
+        current: item.getAttribute("aria-current"),
+      })),
+    ),
+    ["Create passkey", "Confirm for YapArena", "Ready to use"].map(
+      (label, index) => ({
+        label,
+        state: states[index],
+        current:
+          states[index] === "current" || states[index] === "action"
+            ? "step"
+            : null,
+      }),
+    ),
+  );
+  assert.equal(
+    (await panel.locator(".passkey-setup-count").count())
+      ? await panel.locator(".passkey-setup-count").textContent()
+      : null,
+    count,
+  );
+}
 async function verifyExchangeFailureClassification(
   name: string,
   viewport: { width: number; height: number },
@@ -1905,7 +1973,7 @@ async function verifyPrivyPasskeySetup(
           return route.fulfill({
             status: 503,
             json: {
-              error: "Synthetic interruption. Choose Finish passkey setup.",
+              error: "Synthetic interruption. Choose Confirm passkey.",
             },
           });
         }
@@ -2177,11 +2245,40 @@ async function verifyPrivyPasskeySetup(
         .click();
     }
     await page
-      .locator("#passkey-setup-resume")
-      .getByText("Synthetic interruption. Choose Finish passkey setup.", {
-        exact: true,
+      .locator("section.passkey-setup .passkey-setup-status", {
+        hasText: /^Synthetic interruption\. Choose Confirm passkey\.$/,
       })
       .waitFor();
+    assert.equal(
+      await assertPasskeySetupPlacement(page),
+      "inline",
+      "an interrupted confirmation stays beside Add a passkey while signed in",
+    );
+    // The passkey exists; only the YapArena confirmation step needs action.
+    await assertPasskeySetupSteps(
+      page,
+      ["done", "action", "todo"],
+      "Step 2 of 3",
+    );
+    await page
+      .locator("section.passkey-setup")
+      .getByRole("button", { name: "Confirm passkey", exact: true })
+      .waitFor();
+    assert.equal(
+      await page
+        .locator("section.passkey-setup")
+        .getByRole("button", {
+          name: "Sign in again to restart setup",
+          exact: true,
+        })
+        .count(),
+      0,
+      "restart sign-in is offered only after the account area is hidden",
+    );
+    await capture(page, `passkey-setup-interrupted-inline-${name}.png`, true);
+    checks.push(
+      `${name}: an interrupted confirmation renders inline under Add a passkey with step 2 of 3 needing action and a Confirm passkey control`,
+    );
     assert.equal(operationCalls, expiredRestart ? 0 : 1);
     assert.equal(
       completeCalls,
@@ -2274,7 +2371,7 @@ async function verifyPrivyPasskeySetup(
     await page.reload();
     const resume = page
       .locator("#passkey-setup-resume")
-      .getByRole("button", { name: "Finish passkey setup", exact: true });
+      .getByRole("button", { name: "Confirm passkey", exact: true });
     await resume.waitFor();
     await page.waitForFunction(
       () =>
@@ -2283,6 +2380,34 @@ async function verifyPrivyPasskeySetup(
         )?.disabled === false,
     );
     assert.equal(await page.locator("#signed-in").isVisible(), false);
+    assert.equal(
+      await assertPasskeySetupPlacement(page),
+      "resume",
+      "with the account area hidden, setup is shown above the page",
+    );
+    await page
+      .locator("#passkey-setup-resume section.passkey-setup")
+      .getByText(
+        "You started adding a passkey. Select Confirm passkey to finish; your device will ask once more.",
+        { exact: true },
+      )
+      .waitFor();
+    await assertPasskeySetupSteps(
+      page,
+      ["done", "action", "todo"],
+      "Step 2 of 3",
+    );
+    await page
+      .locator("#passkey-setup-resume")
+      .getByRole("button", {
+        name: "Sign in again to restart setup",
+        exact: true,
+      })
+      .waitFor();
+    await capture(page, `passkey-setup-resume-${name}.png`, true);
+    checks.push(
+      `${name}: after a refresh hides the account area, the pending setup moves above the page with Confirm passkey and Sign in again to restart setup`,
+    );
     assert.equal(
       await page.evaluate(async () => (await fetch("/api/auth/me")).status),
       503,
@@ -2379,7 +2504,7 @@ async function verifyPrivyPasskeySetup(
     assert.equal(providerInitCalls, 1);
     assert.equal(providerLinkCalls, 1);
     assert.equal(await page.locator("#signed-in").isVisible(), false);
-    const setupCard = page.locator("#passkey-setup-resume");
+    const setupCard = page.locator("section.passkey-setup");
     async function checkSetupAccessibility(
       state: "checking" | "waiting" | "ready",
     ) {
@@ -2388,7 +2513,7 @@ async function verifyPrivyPasskeySetup(
       await page.waitForFunction(() => Boolean(window.axe));
       const violations = await page.evaluate(async () =>
         (
-          await window.axe.run("#passkey-setup-resume", {
+          await window.axe.run("section.passkey-setup", {
             runOnly: {
               type: "tag",
               values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"],
@@ -2425,18 +2550,28 @@ async function verifyPrivyPasskeySetup(
       "setup confirmation survives protected refresh",
     );
     await setupCard
-      .getByText("Passkey verified. Finishing secure account access…", {
+      .getByText("Passkey confirmed. Finishing setup…", {
         exact: true,
       })
       .waitFor();
     assert.equal(
       await page
         .getByText(
-          "Passkey ready for sign-in and account approvals. Other sessions were signed out.",
+          "Your passkey is ready for sign-in and account approvals. For your security, your other devices were signed out.",
           { exact: true },
         )
         .count(),
       0,
+    );
+    assert.equal(
+      await assertPasskeySetupPlacement(page),
+      "resume",
+      "while the held refresh hides the account area, setup stays above the page",
+    );
+    await assertPasskeySetupSteps(
+      page,
+      ["done", "done", "current"],
+      "Step 3 of 3",
     );
     const heading = setupCard.getByRole("heading", {
       name: "Passkey setup",
@@ -2461,11 +2596,22 @@ async function verifyPrivyPasskeySetup(
     }
     await setupCard
       .getByText(
-        "Your passkey was verified, but secure account access is still being checked.",
-        { exact: false },
+        "Your passkey is confirmed. We’re still finishing setup; check again in a moment before you sign out.",
+        { exact: true },
       )
       .waitFor();
     assert.equal(setupCheckCalls, 3);
+    assert.equal(
+      await assertPasskeySetupPlacement(page),
+      initialReadUnavailable ? "resume" : "inline",
+      "once the account area returns, setup moves back beside Add a passkey",
+    );
+    await assertPasskeySetupSteps(
+      page,
+      ["done", "done", "action"],
+      "Step 3 of 3",
+    );
+    await capture(page, `passkey-setup-waiting-${name}.png`, true);
     if (initialReadUnavailable) {
       assert.equal(await page.locator("#signed-in").isVisible(), false);
       assert.equal(
@@ -2560,7 +2706,7 @@ async function verifyPrivyPasskeySetup(
       );
       await page.locator("#signed-in").waitFor({ state: "visible" });
       await profileHandle.focus();
-      assert.equal(await setupCard.locator("section").count(), 0);
+      assert.equal(await setupCard.count(), 0);
       setupConfirmationGate.release();
       await waitSetupGate(setupConfirmationFinished.promise);
       await page.evaluate(
@@ -2569,7 +2715,7 @@ async function verifyPrivyPasskeySetup(
             requestAnimationFrame(() => requestAnimationFrame(() => done())),
           ),
       );
-      assert.equal(await setupCard.locator("section").count(), 0);
+      assert.equal(await setupCard.count(), 0);
       assert.equal(
         await profileHandle.evaluate(
           (field) => document.activeElement === field,
@@ -2585,27 +2731,37 @@ async function verifyPrivyPasskeySetup(
       );
       return;
     }
-    await page
+    await setupCard
       .getByText(
-        "Passkey ready for sign-in and account approvals. Other sessions were signed out.",
+        "Your passkey is ready for sign-in and account approvals. For your security, your other devices were signed out.",
         { exact: true },
       )
       .waitFor();
     await page.waitForFunction(
       () => document.activeElement?.id === "passkey-setup-heading",
     );
+    await assertPasskeySetupPlacement(page);
+    await assertPasskeySetupSteps(page, ["done", "done", "done"], null);
     assert.equal(
       setupCheckCalls,
       4,
       "a new read requires the explicit check action",
     );
-    const confirmedBox = await setupCard
-      .getByRole("heading", { name: "Passkey setup complete", exact: true })
-      .boundingBox();
-    assert.ok(
-      confirmedBox &&
-        confirmedBox.y >= 0 &&
-        confirmedBox.y + confirmedBox.height <= viewport.height,
+    // Account content may still be loading above the panel; the page keeps the
+    // focused confirmation in view without the reader scrolling.
+    await page.waitForFunction(
+      () => {
+        const heading = document.querySelector("#passkey-setup-heading");
+        const box = heading?.getBoundingClientRect();
+        return Boolean(
+          box &&
+          heading?.textContent === "Passkey setup complete" &&
+          box.top >= 0 &&
+          box.bottom <= innerHeight,
+        );
+      },
+      undefined,
+      { timeout: 3000 },
     );
     await checkSetupAccessibility("ready");
     await capture(page, `passkey-confirmation-complete-${name}.png`, true);
@@ -2682,7 +2838,7 @@ async function verifyPrivyPasskeySetup(
     stage =
       "passkey confirmation Done restores focus without resetting a profile draft";
     await setupCard.getByRole("button", { name: "Done", exact: true }).click();
-    await setupCard.locator("section").waitFor({ state: "detached" });
+    await setupCard.waitFor({ state: "detached" });
     await page.evaluate(
       () =>
         new Promise<void>((done) =>
@@ -2740,6 +2896,28 @@ async function verifyPrivyPasskeySetup(
         arrived = deferred(),
         finished = deferred();
       const settings = page.locator("#provider-settings");
+      // The email form sits in a collapsed "Change sign-in email" disclosure.
+      async function openEmailChange() {
+        const disclosure = settings.locator("details.auth-email-change");
+        const field = settings.getByLabel("New sign-in email", { exact: true });
+        await disclosure.locator("summary").waitFor();
+        // A settling account change can collapse it again; reopen until shown.
+        for (
+          let attempt = 0;
+          attempt < 20 && !(await field.isVisible());
+          attempt++
+        ) {
+          if (
+            !(await disclosure.evaluate((element) =>
+              element.hasAttribute("open"),
+            ))
+          )
+            await disclosure.locator("summary").click();
+          await page.waitForTimeout(100);
+        }
+        await field.waitFor();
+        return field;
+      }
       const providerDialog = page.getByRole("dialog", {
         name: "Change sign-in methods",
         exact: true,
@@ -2891,9 +3069,7 @@ async function verifyPrivyPasskeySetup(
           (account) => window.yapCurrentSessionAccount?.() === account,
           fixtureAccount,
         );
-        await settings
-          .getByLabel("New sign-in email", { exact: true })
-          .waitFor();
+        await openEmailChange();
         assert.equal(
           await settings
             .getByRole("button", { name: "Verify new email", exact: true })
@@ -2968,9 +3144,7 @@ async function verifyPrivyPasskeySetup(
             .getByRole("button", { name: "Add Google sign-in", exact: true })
             .click();
         else {
-          await settings
-            .getByLabel("New sign-in email", { exact: true })
-            .fill(targetEmail);
+          await (await openEmailChange()).fill(targetEmail);
           await settings
             .getByRole("button", { name: "Change email", exact: true })
             .click();
@@ -2993,9 +3167,7 @@ async function verifyPrivyPasskeySetup(
       finished = deferred();
       targetEmail = "held-send-original@example.invalid";
       holdSend = true;
-      await settings
-        .getByLabel("New sign-in email", { exact: true })
-        .fill(targetEmail);
+      await (await openEmailChange()).fill(targetEmail);
       await settings
         .getByRole("button", { name: "Change email", exact: true })
         .click();
@@ -3019,9 +3191,7 @@ async function verifyPrivyPasskeySetup(
       stage =
         "held email-verification failure cannot reconcile a replacement actor";
       targetEmail = "held-verify-original@example.invalid";
-      await settings
-        .getByLabel("New sign-in email", { exact: true })
-        .fill(targetEmail);
+      await (await openEmailChange()).fill(targetEmail);
       await settings
         .getByRole("button", { name: "Change email", exact: true })
         .click();
@@ -3197,6 +3367,10 @@ async function verifyEmbeddedWalletStatus(
   viewport: { width: number; height: number },
 ) {
   const context = await browser.newContext({ viewport });
+  // "Copy address" is checked by reading back the local fixture clipboard.
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: new URL(base).origin,
+  });
   let stage = "initialize";
   const providerWalletRequests: string[] = [];
   let retryCalls = 0;
@@ -3418,6 +3592,31 @@ async function verifyEmbeddedWalletStatus(
         name: "Check wallet status",
         exact: true,
       });
+    // A ready wallet shows a shortened address; its title and screen-reader
+    // text carry the full server-confirmed value.
+    async function waitWalletAddress(address: string) {
+      await wallet.getByText(address, { exact: true }).waitFor();
+      const code = wallet.locator(".wallet-address code");
+      assert.equal(await code.count(), 1);
+      assert.equal(await code.getAttribute("title"), address);
+      assert.equal(
+        await code.textContent(),
+        `${address.slice(0, 6)}…${address.slice(-4)}`,
+      );
+      assert.equal(
+        await wallet.locator(".wallet-address-label").textContent(),
+        "Ethereum-compatible address",
+      );
+      await assertWalletStatus("ready", "Wallet ready");
+    }
+    async function assertWalletStatus(state: string, title: string) {
+      const status = wallet.locator(".wallet-status");
+      assert.equal(await status.getAttribute("data-state"), state);
+      assert.equal(
+        await status.locator(".wallet-status-title").textContent(),
+        title,
+      );
+    }
     async function login(next?: "B" | "C") {
       const emailField = auth.getByLabel("Email address", { exact: true });
       if (next) {
@@ -3491,6 +3690,15 @@ async function verifyEmbeddedWalletStatus(
       })
       .waitFor();
     assert.equal(retryCalls, 0, "a status read cannot create a retry request");
+    await assertWalletStatus("working", "Creating your wallet");
+    assert.equal(await wallet.locator(".wallet-progress").count(), 1);
+    assert.equal(
+      await wallet
+        .getByRole("button", { name: "Retry wallet setup", exact: true })
+        .getAttribute("class"),
+      "button",
+      "retrying wallet setup is the primary action",
+    );
     assert.equal(await page.locator("#sign-out").isEnabled(), true);
     assert.equal(await page.locator("#link-wallet").count(), 0);
     await capture(page, `embedded-wallet-pending-${name}.png`, true);
@@ -3552,7 +3760,7 @@ async function verifyEmbeddedWalletStatus(
     status = "ready";
     address = addressA;
     await check.click();
-    await wallet.getByText(addressA, { exact: true }).waitFor();
+    await waitWalletAddress(addressA);
     await wallet.getByText("Your wallet is ready.", { exact: true }).waitFor();
     assert.equal(await wallet.locator('[role="status"]:visible').count(), 1);
     assert.equal(
@@ -3566,7 +3774,20 @@ async function verifyEmbeddedWalletStatus(
       await wallet.getByRole("button", { name: /Retry/ }).count(),
       0,
     );
+    assert.equal(await wallet.locator(".wallet-progress").count(), 0);
     await capture(page, `embedded-wallet-ready-${name}.png`, true);
+    const copy = wallet.getByRole("button", {
+      name: "Copy address",
+      exact: true,
+    });
+    await copy.click();
+    await wallet.getByRole("button", { name: "Copied", exact: true }).waitFor();
+    assert.equal(
+      await page.evaluate(() => navigator.clipboard.readText()),
+      addressA,
+      "Copy address copies the full server-confirmed address",
+    );
+    await copy.waitFor({ timeout: 5000 });
     checks.push(
       `${name}: explicit wallet retry sends exactly one account-compared POST with an empty body, blocks duplicate controls while pending, and displays only the server-confirmed ready address without a provider wallet/signing call`,
     );
@@ -3591,6 +3812,7 @@ async function verifyEmbeddedWalletStatus(
         { exact: true },
       )
       .waitFor();
+    await assertWalletStatus("attention", "Needs review");
     assert.equal(await wallet.locator("code").count(), 0);
     assert.equal(
       await wallet.getByRole("button", { name: /Retry/ }).count(),
@@ -3615,6 +3837,7 @@ async function verifyEmbeddedWalletStatus(
         { exact: true },
       )
       .waitFor();
+    await assertWalletStatus("attention", "Waiting to finish");
     const parkedReads = getCalls;
     await page.waitForTimeout(2500);
     assert.equal(getCalls, parkedReads);
@@ -3635,7 +3858,7 @@ async function verifyEmbeddedWalletStatus(
     status = "ready";
     retryAt = null;
     address = addressA;
-    await wallet.getByText(addressA, { exact: true }).waitFor();
+    await waitWalletAddress(addressA);
     assert.equal(getCalls, dueReads + 1);
     assert.equal(retryCalls, 1);
     checks.push(
@@ -3661,7 +3884,7 @@ async function verifyEmbeddedWalletStatus(
     assert.equal(retryCalls, 1);
     failStatus = false;
     await check.click();
-    await wallet.getByText(addressA, { exact: true }).waitFor();
+    await waitWalletAddress(addressA);
     assert.equal(getCalls, failedReads + 3);
     checks.push(
       `${name}: transient wallet status failures stop after three total GETs, hide the address throughout, and require an explicit check for recovery without another provisioning retry`,
@@ -3679,12 +3902,12 @@ async function verifyEmbeddedWalletStatus(
     holdGet = false;
     address = addressB;
     await login("B");
-    await wallet.getByText(addressB, { exact: true }).waitFor();
+    await waitWalletAddress(addressB);
     gate.release();
     await waitGate(finished.promise);
     await settleWalletResponse();
     assert.equal(await wallet.getByText(addressA, { exact: true }).count(), 0);
-    await wallet.getByText(addressB, { exact: true }).waitFor();
+    await waitWalletAddress(addressB);
     checks.push(
       `${name}: a held original-account wallet GET cannot repaint its address after a replacement installed-SDK login; the new address remains paired with its own verified account/provider response`,
     );
@@ -3706,12 +3929,12 @@ async function verifyEmbeddedWalletStatus(
     holdPost = false;
     address = addressC;
     await login("C");
-    await wallet.getByText(addressC, { exact: true }).waitFor();
+    await waitWalletAddress(addressC);
     gate.release();
     await waitGate(finished.promise);
     await settleWalletResponse();
     assert.equal(await wallet.getByText(addressB, { exact: true }).count(), 0);
-    await wallet.getByText(addressC, { exact: true }).waitFor();
+    await waitWalletAddress(addressC);
     assert.equal(await check.isEnabled(), true);
     assert.equal(retryCalls, 2);
     assert.deepEqual(providerWalletRequests, []);
@@ -4734,29 +4957,35 @@ try {
         }
       };
       await page.route("**/api/auth/me", unavailableAccount);
+      const shownAccountName = await page
+        .locator("#account-name")
+        .textContent();
+      const shownDisplayName = await page
+        .locator('#profile-form input[name="displayName"]')
+        .inputValue();
+      assert.ok(shownAccountName);
       fixtureAccountId = "unavailable-replacement-fixture";
       await page.evaluate(() =>
         window.dispatchEvent(new Event("yap:account-changed")),
       );
       await unavailableReadsArrived.promise;
-      assert.equal(await page.locator("#signed-in").isVisible(), false);
+      // Refreshing the account already shown updates it in place: while the
+      // lookup is held, the page neither collapses nor shows guest controls.
+      assert.equal(await page.locator("#signed-in").isVisible(), true);
       assert.equal(await page.locator("#signed-out").isVisible(), false);
-      assert.equal(await page.locator("#account-name").textContent(), "");
+      assert.equal(
+        await page.locator("#account-name").textContent(),
+        shownAccountName,
+      );
       assert.equal(
         await page
           .locator('#profile-form input[name="displayName"]')
           .inputValue(),
-        "",
+        shownDisplayName,
       );
-      assert.equal(await page.locator("#wallet-list li").count(), 0);
       const checkingSignOut = page.locator("#account-checking-sign-out");
-      assert.equal(await checkingSignOut.isVisible(), true);
-      assert.equal(await checkingSignOut.isEnabled(), true);
-      assert.equal(
-        await checkingSignOut.getAttribute("aria-label"),
-        null,
-        "the checking-state control is named by its visible Sign out text",
-      );
+      assert.equal(await checkingSignOut.isVisible(), false);
+      assert.equal(await page.locator("#sign-out").isEnabled(), true);
       unavailableReads.release();
       await Promise.all(unavailableReplies);
       await page
@@ -4776,6 +5005,14 @@ try {
         .waitFor();
       assert.equal(await checkingSignOut.isVisible(), true);
       assert.equal(await checkingSignOut.isEnabled(), true);
+      assert.equal(
+        await checkingSignOut.getAttribute("aria-label"),
+        null,
+        "the checking-state control is named by its visible Sign out text",
+      );
+      assert.equal(await page.locator("#signed-in").isVisible(), false);
+      assert.equal(await page.locator("#account-name").textContent(), "");
+      assert.equal(await page.locator("#wallet-list li").count(), 0);
       assert.equal(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth,
@@ -5023,9 +5260,14 @@ try {
         json: { error: "this session has already ended" },
       });
     });
-    await page
-      .locator(phase === "after" ? "#account-checking-sign-out" : "#sign-out")
-      .click();
+    // A same-account refresh updates in place, so the held lookup keeps the
+    // account area and its ordinary Sign out control on screen.
+    assert.equal(await page.locator("#signed-in").isVisible(), true);
+    assert.equal(
+      await page.locator("#account-checking-sign-out").isVisible(),
+      false,
+    );
+    await page.locator("#sign-out").click();
     await page.locator("#signed-out").waitFor({ state: "visible" });
     assert.equal(await page.locator("#signed-in").isVisible(), false);
     await page

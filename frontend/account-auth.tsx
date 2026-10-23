@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Captcha,
@@ -256,6 +256,34 @@ function passkeySignInFailure(error: unknown) {
   )
     return "Secure sign-in is not ready. Reload and try again.";
   return "Passkey sign-in could not be completed. Try again, or use email.";
+}
+
+// Passkey setup asks the device twice: once to create the passkey with
+// Privy, then once to confirm it for YapArena. Browsers report a dismissed or
+// blocked prompt as NotAllowedError or AbortError; say what to do next instead.
+function passkeySetupFailure(error: unknown, stage: "create" | "confirm") {
+  if (error instanceof SecurityRequestError) return error.message;
+  const details = error !== null && typeof error === "object" ? error : null;
+  const code =
+    details && "privyErrorCode" in details ? details.privyErrorCode : undefined;
+  const name = error instanceof Error ? error.name : "";
+  // YapArena's own checks throw plain errors whose message is the guidance.
+  if (error instanceof Error && name === "Error" && code === undefined)
+    return error.message;
+  const dismissed =
+    name === "NotAllowedError" ||
+    name === "AbortError" ||
+    code === "passkey_not_allowed" ||
+    code === "exited_auth_flow";
+  if (stage === "confirm")
+    return dismissed
+      ? "Your passkey is created. Select Confirm passkey to finish; your device will ask once more."
+      : "Your passkey is created but not confirmed yet. Select Confirm passkey to try again.";
+  if (dismissed)
+    return "Passkey creation was cancelled. Select Add a passkey when you’re ready.";
+  if (code === "not_supported")
+    return "This browser can’t create passkeys. Try another browser or device.";
+  return "Passkey setup could not start. Try again.";
 }
 
 function emailCodeSendFailure(error: unknown) {
@@ -1129,6 +1157,22 @@ if (passkeyResumeMount) {
     ?.closest(".account-status-row")
     ?.after(passkeyResumeMount);
 }
+// Whether the signed-in account area is on screen; account.ts toggles it.
+function useSignedInVisible() {
+  const [visible, setVisible] = useState(
+    () => document.querySelector<HTMLElement>("#signed-in")?.hidden === false,
+  );
+  useEffect(() => {
+    const area = document.querySelector<HTMLElement>("#signed-in");
+    if (!area) return;
+    const update = () => setVisible(!area.hidden);
+    const observer = new MutationObserver(update);
+    observer.observe(area, { attributes: true, attributeFilter: ["hidden"] });
+    update();
+    return () => observer.disconnect();
+  }, []);
+  return visible;
+}
 function rememberPasskeySetup(id: string | null) {
   try {
     if (id) {
@@ -1722,6 +1766,8 @@ function Settings({
     accountId: string | null;
     subject: string;
     phase: "working" | "checking" | "waiting" | "ready" | "error";
+    // Create the passkey with Privy, then confirm it for YapArena.
+    stage: "create" | "confirm";
     text: string;
     credentialId: string | null;
   };
@@ -1732,6 +1778,16 @@ function Settings({
   const setupSequence = useRef(0);
   const setupCheck = useRef<AbortController | null>(null);
   const setupHeading = useRef<HTMLHeadingElement | null>(null);
+  const setupCardRef = useRef<HTMLElement | null>(null);
+  // Counts panel mounts. Moving between placements, or a settings refresh
+  // that briefly hides it, replaces the element and drops its focus.
+  const [setupMounts, setSetupMounts] = useState(0);
+  const attachSetupCard = useCallback((node: HTMLElement | null) => {
+    if (node && node !== setupCardRef.current)
+      setSetupMounts((count) => count + 1);
+    setupCardRef.current = node;
+  }, []);
+  const signedInVisible = useSignedInVisible();
   const setupOpener = useRef<HTMLElement | undefined>(undefined);
   const settingsEpoch = useRef(0);
   const activeSettingsActor = useRef<PasskeyActor | null>(null);
@@ -1809,14 +1865,44 @@ function Settings({
       if (
         active === document.body ||
         active === setupOpener.current ||
-        (active && passkeyResumeMount?.contains(active))
+        (active && setupCardRef.current?.contains(active))
       ) {
-        setupHeading.current?.scrollIntoView({ block: "nearest" });
-        setupHeading.current?.focus({ preventScroll: true });
+        const heading = setupHeading.current;
+        // Show the whole panel, so its status and next action are visible.
+        const panel = setupCardRef.current ?? heading;
+        panel?.scrollIntoView({ block: "nearest" });
+        heading?.focus({ preventScroll: true });
+        // Account content can still be loading above the panel; keep the
+        // focused heading in view while the layout settles.
+        if (heading && typeof ResizeObserver === "function") {
+          const keep = new ResizeObserver(() => {
+            const box = heading.getBoundingClientRect();
+            if (
+              document.activeElement === heading &&
+              (box.top < 0 || box.bottom > innerHeight)
+            )
+              (setupCardRef.current ?? heading).scrollIntoView({
+                block: "nearest",
+              });
+          });
+          for (const area of [
+            document.documentElement,
+            document.querySelector("#signed-in"),
+          ])
+            if (area) keep.observe(area);
+          settle = window.setTimeout(() => keep.disconnect(), 2000);
+          stopKeeping = () => keep.disconnect();
+        }
       }
     });
-    return () => cancelAnimationFrame(frame);
-  }, [setupFeedback]);
+    let settle: number | undefined;
+    let stopKeeping: (() => void) | undefined;
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(settle);
+      stopKeeping?.();
+    };
+  }, [setupFeedback, setupMounts]);
   async function checkSetup(value: SetupFeedback) {
     setupCheck.current?.abort();
     const current = new AbortController();
@@ -1833,7 +1919,7 @@ function Settings({
     updateSetup({
       ...value,
       phase: "checking",
-      text: "Passkey verified. Finishing secure account access…",
+      text: "Passkey confirmed. Finishing setup…",
     });
     for (let attempt = 0; attempt < 3 && active(); attempt++) {
       let retry = true;
@@ -1923,7 +2009,7 @@ function Settings({
               ...value,
               accountId,
               phase: "ready",
-              text: "Passkey ready for sign-in and account approvals. Other sessions were signed out.",
+              text: "Your passkey is ready for sign-in and account approvals. For your security, your other devices were signed out.",
             });
             setupCheck.current = null;
             // A usable account may contain an unsaved profile draft. Recheck
@@ -1961,7 +2047,7 @@ function Settings({
       updateSetup({
         ...value,
         phase: "waiting",
-        text: "Your passkey was verified, but secure account access is still being checked. Check setup status before signing out.",
+        text: "Your passkey is confirmed. We’re still finishing setup; check again in a moment before you sign out.",
       });
       setupCheck.current = null;
     }
@@ -2166,21 +2252,13 @@ function Settings({
   const links = useLinkWithOAuth();
   function showPasskeyError(error: unknown) {
     completedPasskeySubject.current = null;
-    setMessage(
-      error instanceof Error
-        ? error.message
-        : "Passkey setup could not be confirmed. Choose Finish passkey setup to check its state.",
-    );
     const value = setupFeedbackRef.current;
-    if (value)
-      updateSetup({
-        ...value,
-        phase: "error",
-        text:
-          error instanceof Error
-            ? error.message
-            : "Passkey setup could not be confirmed. Choose Finish passkey setup to check its state.",
-      });
+    const text = passkeySetupFailure(
+      error,
+      value?.stage ?? (passkeyIntent.current ? "confirm" : "create"),
+    );
+    setMessage(text);
+    if (value) updateSetup({ ...value, phase: "error", text });
   }
   async function finishPasskey(
     id: string,
@@ -2211,7 +2289,15 @@ function Settings({
       assertPasskeyActor(actor);
       passkeyApproval.current = approval;
     }
-    setMessage("Verify this passkey to finish setup.");
+    setMessage("");
+    const confirming = setupFeedbackRef.current;
+    if (confirming)
+      updateSetup({
+        ...confirming,
+        phase: "working",
+        stage: "confirm",
+        text: "Confirm your new passkey. Your device asks once more so YapArena can link it to your account.",
+      });
     const authentication = await startAuthentication({
       optionsJSON: activation.authenticationOptions,
     });
@@ -2221,7 +2307,7 @@ function Settings({
     if (feedback)
       updateSetup({
         ...feedback,
-        text: "Checking your passkey with YapArena…",
+        text: "Linking your passkey to your account…",
       });
     await securityRequest(
       `provider/passkeys/${encodeURIComponent(id)}/complete`,
@@ -2244,7 +2330,7 @@ function Settings({
         ...verified,
         phase: "checking",
         credentialId: authentication.id,
-        text: "Passkey verified. Finishing secure account access…",
+        text: "Passkey confirmed. Finishing setup…",
       });
     announceSession();
     setMessage("");
@@ -2275,6 +2361,7 @@ function Settings({
         accountId: actor.accountId,
         subject: actor.subject,
         phase: "working",
+        stage: resumeId || credentialId ? "confirm" : "create",
         credentialId: null,
         text: "Preparing your passkey setup…",
       });
@@ -2313,14 +2400,33 @@ function Settings({
       }
       if (credentialId) await finishPasskey(intent.id, actor, opener);
       else {
-        setMessage("Follow Privy’s prompt to add your passkey.");
+        setMessage("Follow your device’s prompt to create a passkey.");
         assertPasskeyActor(actor);
         await linkWithPasskey();
         assertPasskeyActor(actor);
+        const created = setupFeedbackRef.current;
+        if (created) updateSetup({ ...created, stage: "confirm" });
         await finishPasskey(intent.id, actor, opener);
       }
     } catch (error) {
-      if (!actor || samePasskeyActor(actor)) showPasskeyError(error);
+      if (!actor || samePasskeyActor(actor)) {
+        // Nothing was created yet, so "Add a passkey" simply starts again;
+        // the server reuses the same unexpired setup.
+        if (
+          !resumeId &&
+          !credentialId &&
+          setupFeedbackRef.current?.stage === "create"
+        ) {
+          try {
+            rememberPasskeySetup(null);
+          } catch {
+            // The stale marker only offers to confirm; that safely fails.
+          }
+          passkeyIntent.current = null;
+          setPendingPasskey(null);
+        }
+        showPasskeyError(error);
+      }
     } finally {
       if (!actor || samePasskeyActor(actor)) {
         activePasskeyActor.current = null;
@@ -2535,92 +2641,166 @@ function Settings({
   }, [ready, authenticated, user?.id]);
   const settingsRoot =
     document.querySelector<HTMLElement>("#provider-settings");
-  // The settings are rendered into the signed-in account area by a separate
-  // portal, preserving all existing profile and wallet controllers.
-  return settingsRoot ? (
-    <>
-      {(pendingPasskey || (setupFeedback && setupVisible(setupFeedback))) &&
-        passkeyResumeMount &&
-        createSettingsPortal(
-          <section
-            className="information-card account-card"
-            aria-labelledby="passkey-setup-heading"
-          >
-            <h3 id="passkey-setup-heading" ref={setupHeading} tabIndex={-1}>
-              {setupFeedback?.phase === "ready"
-                ? "Passkey setup complete"
-                : "Passkey setup"}
-            </h3>
-            <p role="status" aria-live="polite" aria-atomic="true">
-              {setupFeedback && setupVisible(setupFeedback)
-                ? setupFeedback.phase === "working"
-                  ? message || setupFeedback.text
-                  : setupFeedback.text
-                : "Finish verifying the passkey you added before continuing to your account."}
-            </p>
-            {pendingPasskey && (
-              <>
-                <button
-                  className="button-secondary"
-                  type="button"
-                  disabled={busy || !ready || !authenticated}
-                  onClick={(event) =>
-                    void addPasskey(
-                      undefined,
-                      pendingPasskey,
-                      event.currentTarget,
-                    )
-                  }
-                >
-                  Finish passkey setup
-                </button>
-                <button
-                  className="button-secondary"
-                  type="button"
-                  disabled={busy}
-                  onClick={(event) =>
-                    window.dispatchEvent(
-                      new CustomEvent("yap:request-auth", {
-                        detail: {
-                          mode: "login",
-                          source: event.currentTarget,
-                          returnTo: "/account#account-security",
-                        },
-                      }),
-                    )
-                  }
-                >
-                  Sign in again to restart setup
-                </button>
-              </>
-            )}
-            {setupFeedback?.phase === "waiting" && (
-              <button
-                className="button-secondary"
-                type="button"
-                disabled={!setupVisible(setupFeedback)}
-                onClick={(event) => {
-                  setupOpener.current = event.currentTarget;
-                  void checkSetup(setupFeedback);
-                }}
-              >
-                Check setup status
-              </button>
-            )}
-            {setupFeedback?.phase === "ready" && (
-              <button
-                className="button-secondary"
-                type="button"
-                onClick={(event) =>
-                  dismissSetup(setupFeedback, event.currentTarget)
+  const setupShown = Boolean(
+    pendingPasskey || (setupFeedback && setupVisible(setupFeedback)),
+  );
+  const visibleSetup =
+    setupFeedback && setupVisible(setupFeedback) ? setupFeedback : null;
+  const setupPhase = visibleSetup?.phase ?? "error";
+  const setupStage = visibleSetup?.stage ?? "confirm";
+  // 0 create, 1 confirm, 2 finishing, 3 done.
+  const setupStep =
+    setupPhase === "ready"
+      ? 3
+      : setupPhase === "checking" || setupPhase === "waiting"
+        ? 2
+        : setupStage === "confirm"
+          ? 1
+          : 0;
+  const setupNeedsConfirm =
+    Boolean(pendingPasskey) &&
+    setupPhase !== "working" &&
+    setupPhase !== "checking";
+  const setupText = visibleSetup
+    ? visibleSetup.phase === "working"
+      ? message || visibleSetup.text
+      : visibleSetup.text
+    : "You started adding a passkey. Select Confirm passkey to finish; your device will ask once more.";
+  const setupCard = setupShown ? (
+    <section
+      ref={attachSetupCard}
+      className="passkey-setup"
+      data-phase={setupPhase}
+      aria-labelledby="passkey-setup-heading"
+    >
+      <div className="passkey-setup-heading">
+        <h3 id="passkey-setup-heading" ref={setupHeading} tabIndex={-1}>
+          {setupPhase === "ready" ? "Passkey setup complete" : "Passkey setup"}
+        </h3>
+        {setupStep < 3 && (
+          <span className="passkey-setup-count">
+            Step {Math.min(setupStep + 1, 3)} of 3
+          </span>
+        )}
+      </div>
+      <ol className="passkey-setup-steps">
+        {["Create passkey", "Confirm for YapArena", "Ready to use"].map(
+          (label, index) => {
+            const done = index < setupStep || setupStep === 3;
+            const state = done
+              ? "done"
+              : index === Math.min(setupStep, 2)
+                ? setupPhase === "error" || setupPhase === "waiting"
+                  ? "action"
+                  : "current"
+                : "todo";
+            return (
+              <li
+                key={label}
+                data-state={state}
+                aria-current={
+                  state === "current" || state === "action" ? "step" : undefined
                 }
               >
-                Done
-              </button>
-            )}
-          </section>,
-          passkeyResumeMount,
+                <span className="passkey-setup-marker" aria-hidden="true">
+                  {done ? "✓" : index + 1}
+                </span>
+                <span>{label}</span>
+              </li>
+            );
+          },
         )}
+      </ol>
+      <p
+        className="passkey-setup-status"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {setupText}
+      </p>
+      <div className="passkey-setup-actions">
+        {setupNeedsConfirm && (
+          <button
+            className="button"
+            type="button"
+            disabled={busy || !ready || !authenticated}
+            onClick={(event) =>
+              void addPasskey(undefined, pendingPasskey!, event.currentTarget)
+            }
+          >
+            Confirm passkey
+          </button>
+        )}
+        {pendingPasskey && !signedInVisible && (
+          <button
+            className="button-secondary"
+            type="button"
+            disabled={busy}
+            onClick={(event) =>
+              window.dispatchEvent(
+                new CustomEvent("yap:request-auth", {
+                  detail: {
+                    mode: "login",
+                    source: event.currentTarget,
+                    returnTo: "/account#account-security",
+                  },
+                }),
+              )
+            }
+          >
+            Sign in again to restart setup
+          </button>
+        )}
+        {!pendingPasskey && setupPhase === "error" && (
+          <button
+            className="button"
+            type="button"
+            disabled={busy || !ready || !authenticated}
+            onClick={(event) =>
+              void addPasskey(undefined, undefined, event.currentTarget)
+            }
+          >
+            Try again
+          </button>
+        )}
+        {setupFeedback?.phase === "waiting" && (
+          <button
+            className="button-secondary"
+            type="button"
+            disabled={!setupVisible(setupFeedback)}
+            onClick={(event) => {
+              setupOpener.current = event.currentTarget;
+              void checkSetup(setupFeedback);
+            }}
+          >
+            Check setup status
+          </button>
+        )}
+        {setupFeedback?.phase === "ready" && (
+          <button
+            className="button-secondary"
+            type="button"
+            onClick={(event) =>
+              dismissSetup(setupFeedback, event.currentTarget)
+            }
+          >
+            Done
+          </button>
+        )}
+      </div>
+    </section>
+  ) : null;
+  // The settings are rendered into the signed-in account area by a separate
+  // portal, preserving all existing profile and wallet controllers. Passkey
+  // setup appears next to "Add a passkey"; if this session ended mid-setup
+  // and the account area is hidden, it moves above the page instead.
+  return settingsRoot ? (
+    <>
+      {setupCard &&
+        !signedInVisible &&
+        passkeyResumeMount &&
+        createSettingsPortal(setupCard, passkeyResumeMount)}
       {createSettingsPortal(
         <>
           <h3>Sign-in methods</h3>
@@ -2638,7 +2818,7 @@ function Settings({
           <p>
             {securityKeys.some((key) => key.provenance === "privy")
               ? "Use your verified passkey for sign-in and secure account approvals. Keep another sign-in method available in case you lose access to a device."
-              : "Add a passkey to sign in and approve sensitive account changes. Keep another sign-in method available in case you lose access to a device."}
+              : "Add a passkey to sign in and approve sensitive account changes. Your device asks twice: once to create the passkey, then once to confirm it for YapArena. Keep another sign-in method in case you lose a device."}
           </p>
           {provider ? (
             <>
@@ -2648,107 +2828,236 @@ function Settings({
                   sign-in methods.
                 </p>
               )}
-              <form
-                className="stack-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void change(async (actor) => {
-                    const address = newEmail.trim(),
-                      update = provider.methods.includes("email");
-                    await approve(
-                      {
-                        action: update ? "update" : "link",
-                        method: "email",
-                        target: address,
-                      },
-                      actor,
+              <ul className="account-list auth-credential-list">
+                {(provider.credentials ?? []).map((entry) => {
+                  const confirmed =
+                    entry.type !== "passkey" ||
+                    securityKeys.some(
+                      (key) =>
+                        key.provenance === "privy" &&
+                        key.credentialId === entry.id,
                     );
-                    if (update)
-                      await updateEmail.sendCode({ newEmailAddress: address });
-                    else await linkEmail.sendCode({ email: address });
-                    assertSettingsActor(actor);
-                    setPendingEmail({ address, update, owner: actor });
-                    setEmailCode("");
-                    setMessage(
-                      "Privy sent a code to the new email. Enter its newest code below.",
-                    );
-                  });
-                }}
+                  return (
+                    <li
+                      key={`${entry.type}:${entry.id}`}
+                      className="auth-credential"
+                    >
+                      <div className="auth-credential-summary">
+                        <strong>{methodNames[entry.type]}</strong>
+                        {entry.type === "passkey" ? (
+                          <span
+                            className="auth-credential-badge"
+                            data-state={confirmed ? "ready" : "pending"}
+                          >
+                            {confirmed ? "Ready" : "Needs confirmation"}
+                          </span>
+                        ) : (
+                          <span className="auth-credential-detail">
+                            {entry.id}
+                          </span>
+                        )}
+                      </div>
+                      {entry.type === "passkey" && (
+                        <p className="auth-credential-note">
+                          {confirmed
+                            ? "Signs you in and approves account changes."
+                            : "Confirm it once to use it for account approvals."}
+                        </p>
+                      )}
+                      <div className="auth-credential-actions">
+                        {!confirmed && !pendingPasskey && (
+                          <button
+                            className="button"
+                            type="button"
+                            disabled={
+                              busy ||
+                              !authenticated ||
+                              user?.id !== provider.subject
+                            }
+                            onClick={(event) =>
+                              void addPasskey(
+                                entry.id,
+                                undefined,
+                                event.currentTarget,
+                              )
+                            }
+                          >
+                            Confirm passkey
+                          </button>
+                        )}
+                        <button
+                          className="button-secondary"
+                          type="button"
+                          disabled={
+                            busy ||
+                            !authenticated ||
+                            user?.id !== provider.subject ||
+                            (provider.credentials?.length ?? 0) <= 1
+                          }
+                          onClick={() =>
+                            void change(async (actor) => {
+                              await approve(
+                                {
+                                  action: "remove",
+                                  method: entry.type,
+                                  target: entry.id,
+                                },
+                                actor,
+                              );
+                              if (entry.type === "email")
+                                await unlinkEmail.unlink({ address: entry.id });
+                              else if (entry.type === "google_oauth")
+                                await unlinkOAuth.unlink({
+                                  provider: "google",
+                                  subject: entry.id,
+                                });
+                              else
+                                await unlinkPasskey.unlink({
+                                  credentialId: entry.id,
+                                });
+                              assertSettingsActor(actor);
+                              await reconcile(actor);
+                            })
+                          }
+                        >
+                          Remove {methodNames[entry.type]}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="auth-method-actions">
+                {google && !provider.methods.includes("google_oauth") && (
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    disabled={
+                      busy || !authenticated || user?.id !== provider.subject
+                    }
+                    onClick={() =>
+                      void change(async (actor) => {
+                        await approve(
+                          {
+                            action: "link",
+                            method: "google_oauth",
+                            target: "provider-verified-google-account",
+                          },
+                          actor,
+                        );
+                        if (!actor.accountId)
+                          throw new DOMException(
+                            "Provider account changed",
+                            "AbortError",
+                          );
+                        try {
+                          sessionStorage.setItem(
+                            "yaparena-provider-change",
+                            JSON.stringify({
+                              id: crypto.randomUUID(),
+                              kind: "google_oauth",
+                              accountId: actor.accountId,
+                              subject: actor.subject,
+                              expiresAt: Date.now() + 10 * 60_000,
+                            } satisfies GoogleIntent),
+                          );
+                        } catch {
+                          /* Intent only. */
+                        }
+                        assertSettingsActor(actor);
+                        await links.initOAuth({ provider: "google" });
+                        assertSettingsActor(actor);
+                      })
+                    }
+                  >
+                    Add Google sign-in
+                  </button>
+                )}
+                {passkeys && (
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    disabled={
+                      busy || !authenticated || user?.id !== provider.subject
+                    }
+                    onClick={(event) =>
+                      void addPasskey(undefined, undefined, event.currentTarget)
+                    }
+                  >
+                    Add a passkey
+                  </button>
+                )}
+              </div>
+              {signedInVisible && setupCard}
+              <details
+                className="auth-email-change"
+                open={pendingEmail ? true : undefined}
               >
-                <label>
-                  New sign-in email
-                  <input
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={newEmail}
-                    disabled={busy || Boolean(pendingEmail)}
-                    onChange={(event) => setNewEmail(event.target.value)}
-                  />
-                </label>
-                <button
-                  className="button-secondary"
-                  type="submit"
-                  disabled={
-                    busy ||
-                    Boolean(pendingEmail) ||
-                    !authenticated ||
-                    user?.id !== provider.subject
-                  }
-                >
+                <summary>
                   {provider.methods.includes("email")
-                    ? "Change email"
-                    : "Add email"}
-                </button>
-              </form>
-              {pendingEmail && (
+                    ? "Change sign-in email"
+                    : "Add a sign-in email"}
+                </summary>
                 <form
                   className="stack-form"
                   onSubmit={(event) => {
                     event.preventDefault();
                     void change(async (actor) => {
-                      if (!sameSettingsOwner(pendingEmail.owner))
-                        throw new DOMException(
-                          "Provider account changed",
-                          "AbortError",
-                        );
-                      if (pendingEmail.update)
-                        await updateEmail.verifyCode({ code: emailCode });
-                      else await linkEmail.linkWithCode({ code: emailCode });
+                      const address = newEmail.trim(),
+                        update = provider.methods.includes("email");
+                      await approve(
+                        {
+                          action: update ? "update" : "link",
+                          method: "email",
+                          target: address,
+                        },
+                        actor,
+                      );
+                      if (update)
+                        await updateEmail.sendCode({
+                          newEmailAddress: address,
+                        });
+                      else await linkEmail.sendCode({ email: address });
                       assertSettingsActor(actor);
-                      await reconcile(actor);
+                      setPendingEmail({ address, update, owner: actor });
+                      setEmailCode("");
+                      setMessage(
+                        "Privy sent a code to the new email. Enter its newest code below.",
+                      );
                     });
                   }}
                 >
                   <label>
-                    Code for {pendingEmail.address}
+                    New sign-in email
                     <input
-                      autoComplete="one-time-code"
-                      inputMode="numeric"
-                      pattern="[0-9]{6}"
-                      maxLength={6}
+                      type="email"
+                      autoComplete="email"
                       required
-                      value={emailCode}
-                      disabled={busy}
-                      onChange={(event) =>
-                        setEmailCode(
-                          event.target.value.replace(/\D/g, "").slice(0, 6),
-                        )
-                      }
+                      value={newEmail}
+                      disabled={busy || Boolean(pendingEmail)}
+                      onChange={(event) => setNewEmail(event.target.value)}
                     />
                   </label>
                   <button
-                    className="button"
-                    type="submit"
-                    disabled={busy || emailCode.length !== 6}
-                  >
-                    Verify new email
-                  </button>
-                  <button
                     className="button-secondary"
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
+                    type="submit"
+                    disabled={
+                      busy ||
+                      Boolean(pendingEmail) ||
+                      !authenticated ||
+                      user?.id !== provider.subject
+                    }
+                  >
+                    {provider.methods.includes("email")
+                      ? "Change email"
+                      : "Add email"}
+                  </button>
+                </form>
+                {pendingEmail && (
+                  <form
+                    className="stack-form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
                       void change(async (actor) => {
                         if (!sameSettingsOwner(pendingEmail.owner))
                           throw new DOMException(
@@ -2756,175 +3065,80 @@ function Settings({
                             "AbortError",
                           );
                         if (pendingEmail.update)
-                          await updateEmail.sendCode({
-                            newEmailAddress: pendingEmail.address,
-                          });
-                        else
-                          await linkEmail.sendCode({
-                            email: pendingEmail.address,
-                          });
+                          await updateEmail.verifyCode({ code: emailCode });
+                        else await linkEmail.linkWithCode({ code: emailCode });
                         assertSettingsActor(actor);
-                        setEmailCode("");
-                        setMessage(
-                          "Privy resent the code. Use the newest one.",
-                        );
-                      })
-                    }
-                  >
-                    Resend new email code
-                  </button>
-                  <button
-                    className="button-secondary"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      setPendingEmail(null);
-                      setEmailCode("");
+                        await reconcile(actor);
+                      });
                     }}
                   >
-                    Cancel email change
-                  </button>
-                </form>
-              )}
-              {google && !provider.methods.includes("google_oauth") && (
-                <button
-                  className="button-secondary"
-                  type="button"
-                  disabled={
-                    busy || !authenticated || user?.id !== provider.subject
-                  }
-                  onClick={() =>
-                    void change(async (actor) => {
-                      await approve(
-                        {
-                          action: "link",
-                          method: "google_oauth",
-                          target: "provider-verified-google-account",
-                        },
-                        actor,
-                      );
-                      if (!actor.accountId)
-                        throw new DOMException(
-                          "Provider account changed",
-                          "AbortError",
-                        );
-                      try {
-                        sessionStorage.setItem(
-                          "yaparena-provider-change",
-                          JSON.stringify({
-                            id: crypto.randomUUID(),
-                            kind: "google_oauth",
-                            accountId: actor.accountId,
-                            subject: actor.subject,
-                            expiresAt: Date.now() + 10 * 60_000,
-                          } satisfies GoogleIntent),
-                        );
-                      } catch {
-                        /* Intent only. */
-                      }
-                      assertSettingsActor(actor);
-                      await links.initOAuth({ provider: "google" });
-                      assertSettingsActor(actor);
-                    })
-                  }
-                >
-                  Add Google sign-in
-                </button>
-              )}
-              {passkeys && (
-                <button
-                  className="button-secondary"
-                  type="button"
-                  disabled={
-                    busy || !authenticated || user?.id !== provider.subject
-                  }
-                  onClick={(event) =>
-                    void addPasskey(undefined, undefined, event.currentTarget)
-                  }
-                >
-                  Add a passkey
-                </button>
-              )}
-              <ul className="account-list">
-                {(provider.credentials ?? []).map((entry) => (
-                  <li key={`${entry.type}:${entry.id}`}>
-                    <p>
-                      {entry.type === "passkey"
-                        ? securityKeys.some(
-                            (key) =>
-                              key.provenance === "privy" &&
-                              key.credentialId === entry.id,
+                    <label>
+                      Code for {pendingEmail.address}
+                      <input
+                        autoComplete="one-time-code"
+                        inputMode="numeric"
+                        pattern="[0-9]{6}"
+                        maxLength={6}
+                        required
+                        value={emailCode}
+                        disabled={busy}
+                        onChange={(event) =>
+                          setEmailCode(
+                            event.target.value.replace(/\D/g, "").slice(0, 6),
                           )
-                          ? "Passkey · Ready for sign-in and account approvals"
-                          : "Passkey · Finish setup for account approvals"
-                        : `${methodNames[entry.type]}: ${entry.id}`}
-                    </p>
-                    {entry.type === "passkey" &&
-                      !securityKeys.some(
-                        (key) =>
-                          key.provenance === "privy" &&
-                          key.credentialId === entry.id,
-                      ) &&
-                      !pendingPasskey && (
-                        <button
-                          className="button-secondary"
-                          type="button"
-                          disabled={
-                            busy ||
-                            !authenticated ||
-                            user?.id !== provider.subject
-                          }
-                          onClick={(event) =>
-                            void addPasskey(
-                              entry.id,
-                              undefined,
-                              event.currentTarget,
-                            )
-                          }
-                        >
-                          Finish passkey setup
-                        </button>
-                      )}
+                        }
+                      />
+                    </label>
+                    <button
+                      className="button"
+                      type="submit"
+                      disabled={busy || emailCode.length !== 6}
+                    >
+                      Verify new email
+                    </button>
                     <button
                       className="button-secondary"
                       type="button"
-                      disabled={
-                        busy ||
-                        !authenticated ||
-                        user?.id !== provider.subject ||
-                        (provider.credentials?.length ?? 0) <= 1
-                      }
+                      disabled={busy}
                       onClick={() =>
                         void change(async (actor) => {
-                          await approve(
-                            {
-                              action: "remove",
-                              method: entry.type,
-                              target: entry.id,
-                            },
-                            actor,
-                          );
-                          if (entry.type === "email")
-                            await unlinkEmail.unlink({ address: entry.id });
-                          else if (entry.type === "google_oauth")
-                            await unlinkOAuth.unlink({
-                              provider: "google",
-                              subject: entry.id,
+                          if (!sameSettingsOwner(pendingEmail.owner))
+                            throw new DOMException(
+                              "Provider account changed",
+                              "AbortError",
+                            );
+                          if (pendingEmail.update)
+                            await updateEmail.sendCode({
+                              newEmailAddress: pendingEmail.address,
                             });
                           else
-                            await unlinkPasskey.unlink({
-                              credentialId: entry.id,
+                            await linkEmail.sendCode({
+                              email: pendingEmail.address,
                             });
                           assertSettingsActor(actor);
-                          await reconcile(actor);
+                          setEmailCode("");
+                          setMessage(
+                            "Privy resent the code. Use the newest one.",
+                          );
                         })
                       }
                     >
-                      Remove {methodNames[entry.type]}
+                      Resend new email code
                     </button>
-                  </li>
-                ))}
-              </ul>
+                    <button
+                      className="button-secondary"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        setPendingEmail(null);
+                        setEmailCode("");
+                      }}
+                    >
+                      Cancel email change
+                    </button>
+                  </form>
+                )}
+              </details>
               <button
                 className="button-secondary"
                 type="button"

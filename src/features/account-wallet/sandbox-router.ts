@@ -1,14 +1,16 @@
 import { Router, type Request, type RequestHandler } from "express";
-import type { createCoinSandboxRepository } from "./sandbox-repository.ts";
+import {
+  sandboxOpeningTerms,
+  type createCoinSandboxRepository,
+} from "./sandbox-repository.ts";
 import type { createCoinDebateSandbox } from "./debate-sandbox.ts";
 import type { createSandboxErrorReports } from "./sandbox-reports.ts";
 import { CoinOperationError } from "./external-operations.ts";
-import type { createAccountOperationRepository } from "../../platform/auth/account-operations.ts";
-import { AccountOperationError } from "../../platform/auth/account-operations.ts";
 import {
-  parseAccountOperationApproval,
-  parseAccountOperationCredential,
-} from "../../platform/auth/security-router.ts";
+  AccountOperationError,
+  parseConfirmation,
+  type AccountOperations,
+} from "../../platform/auth/account-operations.ts";
 import { hashSessionToken } from "../../platform/auth/session-tokens.ts";
 import { createApiRateLimiter } from "../../platform/security.ts";
 import type { SharedRateLimits } from "../../platform/shared-abuse.ts";
@@ -46,11 +48,10 @@ function id(value: unknown) {
 export function createCoinSandboxRouter(options: {
   sandbox: ReturnType<typeof createCoinSandboxRepository>;
   debates: ReturnType<typeof createCoinDebateSandbox>;
-  operations: ReturnType<typeof createAccountOperationRepository>;
+  operations: Pick<AccountOperations, "create" | "prepare">;
   reports?: ReturnType<typeof createSandboxErrorReports>;
   environment: string;
   applicationOrigin: string;
-  rpcUrls?: Readonly<Record<string, string>>;
   sharedWriteLimiter?: RequestHandler;
   sharedRateLimits?: SharedRateLimits;
 }) {
@@ -105,6 +106,34 @@ export function createCoinSandboxRouter(options: {
   router.get("/summary", async (r, s) =>
     s.json(await sandbox.summary(context(r))),
   );
+  // Decision 0009, point 8: opening the financial sandbox is confirmed once
+  // by a fresh sign-in. The browser follows confirmPath, then returns.
+  router.post("/opening/operations", async (r, s) => {
+    body(r.body, []);
+    const actor = context(r);
+    const operation = await operations.create({
+      userId: actor.userId,
+      sessionTokenHash: actor.sessionTokenHash,
+      purpose: "sandbox.open",
+      terms: sandboxOpeningTerms(actor.userId),
+    });
+    s.status(201).json(operation);
+  });
+  router.post("/opening", async (r, s) => {
+    const b = body(r.body, ["approval"]),
+      actor = context(r),
+      confirmation = parseConfirmation(b.approval);
+    const approval = await operations.prepare({
+      ...actor,
+      id: confirmation.id,
+      purpose: "sandbox.open",
+      terms: sandboxOpeningTerms(actor.userId),
+      requestId: String(r.id),
+    });
+    s.json(
+      await sandbox.open(actor, { operationId: confirmation.id, approval }),
+    );
+  });
   router.post("/initialize", async (r, s) => {
     body(r.body, []);
     s.json(await sandbox.initialize(context(r)));
@@ -141,40 +170,32 @@ export function createCoinSandboxRouter(options: {
     );
   });
   router.post("/withdrawals/:id/operations", async (r, s) => {
-    const b = body(r.body, ["credential"]),
-      actor = context(r);
+    body(r.body, []);
+    const actor = context(r);
     const request = await sandbox.getRequest(actor, id(r.params.id));
     if (request.kind !== "withdrawal")
       throw new CoinOperationError("withdrawal request required", 400);
     const operation = await operations.create({
-      ...actor,
+      userId: actor.userId,
+      sessionTokenHash: actor.sessionTokenHash,
       purpose: "withdrawal.request",
       terms: request.terms,
-      credential: parseAccountOperationCredential(b.credential),
-      origin: options.applicationOrigin,
     });
-    s.status(201).json({
-      id: operation.id,
-      expiresAt: operation.expiresAt,
-      authorizationMessage: operation.authorizationMessage,
-      authenticationOptions: operation.authenticationOptions,
-      terms: request.terms,
-    });
+    s.status(201).json({ ...operation, terms: request.terms });
   });
   router.post("/withdrawals/:id", async (r, s) => {
     const b = body(r.body, ["approval"]),
       actor = context(r),
-      proof = parseAccountOperationApproval(b.approval);
+      confirmation = parseConfirmation(b.approval);
     const request = await sandbox.getRequest(actor, id(r.params.id));
     if (request.kind !== "withdrawal")
       throw new CoinOperationError("withdrawal request required", 400);
     const approval = await operations.prepare({
       ...actor,
-      ...proof,
+      id: confirmation.id,
       purpose: "withdrawal.request",
       terms: request.terms,
-      origin: options.applicationOrigin,
-      rpcUrls: options.rpcUrls ?? {},
+      requestId: String(r.id),
     });
     s.json(
       await sandbox.requestWithdrawal(actor, {
@@ -239,26 +260,19 @@ export function createCoinSandboxRouter(options: {
     router.post(
       "/reports/:id/recovery-consents/authorization",
       async (r, s) => {
-        const b = body(r.body, ["quoteId", "credential"]),
+        const b = body(r.body, ["quoteId"]),
           actor = context(r),
           quoted = await reports.getConsentTerms(actor, {
             reportId: id(r.params.id),
             quoteId: id(b.quoteId),
           }),
           operation = await operations.create({
-            ...actor,
+            userId: actor.userId,
+            sessionTokenHash: actor.sessionTokenHash,
             purpose: "recovery.cost.consent",
             terms: quoted.terms,
-            credential: parseAccountOperationCredential(b.credential),
-            origin: options.applicationOrigin,
           });
-        s.status(201).json({
-          id: operation.id,
-          expiresAt: operation.expiresAt,
-          authorizationMessage: operation.authorizationMessage,
-          authenticationOptions: operation.authenticationOptions,
-          terms: quoted.terms,
-        });
+        s.status(201).json({ ...operation, terms: quoted.terms });
       },
     );
     router.post("/reports/:id/recovery-consents", async (r, s) => {
@@ -266,15 +280,14 @@ export function createCoinSandboxRouter(options: {
         actor = context(r),
         reportId = id(r.params.id),
         quoteId = id(b.quoteId),
-        proof = parseAccountOperationApproval(b.approval),
+        confirmation = parseConfirmation(b.approval),
         quoted = await reports.getConsentTerms(actor, { reportId, quoteId }),
         approval = await operations.prepare({
           ...actor,
-          ...proof,
+          id: confirmation.id,
           purpose: "recovery.cost.consent",
           terms: quoted.terms,
-          origin: options.applicationOrigin,
-          rpcUrls: options.rpcUrls ?? {},
+          requestId: String(r.id),
         });
       s.json(
         await reports.consent(actor, {

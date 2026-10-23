@@ -123,9 +123,9 @@ browser-safe shared implementations in `src/features/`. Never edit or commit gen
   `tsconfig.frontend-build.json` (the isolated Node build tool). `npm run typecheck` and the normal
   `npm run check` CI gate include it.
 - `npm run build:frontend` emits every executable `frontend/**/*.ts` module to the corresponding
-  `public/**/*.js` path and builds the six bundles `media.bundle.js`, `replay.bundle.js`,
-  `hero-live.bundle.js`, `homepage.bundle.js`, `account-security.bundle.js` and
-  `account-auth.bundle.js`. Type-only modules produce no asset. Run the type check before this
+  `public/**/*.js` path and builds the five bundles `media.bundle.js`, `replay.bundle.js`,
+  `hero-live.bundle.js`, `homepage.bundle.js` and `account-auth.bundle.js` (the retired Privy
+  island, deleted in prompt 12). Type-only modules produce no asset. Run the type check before this
   focused build; `npm run build` runs both and also compiles the server.
 - `npm run dev` generates assets before starting the API, then watches frontend and shared discovery
   sources. Sign-in is a full-page redirect through Auth0

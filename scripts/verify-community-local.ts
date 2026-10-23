@@ -140,7 +140,7 @@ try {
   // Verify an actual older-server row survives the new migration unchanged.
   const legacyUser = (
     await owner.query<{ id: string }>(
-      "INSERT INTO users(email, password_hash) VALUES ('chat-upgrade@example.test', 'synthetic') RETURNING id",
+      "INSERT INTO users DEFAULT VALUES RETURNING id",
     )
   ).rows[0]!.id;
   const legacyTopic = (

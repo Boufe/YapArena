@@ -18,7 +18,6 @@ import {
 } from "../dist/platform/auth/router.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
-import { createUserRepository } from "../dist/platform/auth/users.js";
 import { endAllAccountSessions } from "./helpers/account-sessions.js";
 
 const ownerUrl = process.env.A4_TEST_OWNER_URL;
@@ -117,22 +116,12 @@ describe(
         },
       };
     }
-    function appFor(sessions, verifier) {
+    // Privy sign-in is unmounted (Decision 0009); the router still serves
+    // these sessions, and the re-check runs from the session repository.
+    function appFor(sessions) {
       const app = express();
       app.use(cookieParser());
-      app.use(
-        "/api/auth",
-        createAuthRouter({
-          users: createUserRepository(a),
-          sessions,
-          environment: "test",
-          provider: {
-            appId: "synthetic-app",
-            verifier,
-            accounts: createProviderAccounts(a),
-          },
-        }),
-      );
+      app.use("/api/auth", createAuthRouter({ sessions, environment: "test" }));
       app.get(
         "/api/feature",
         createRequireAuthentication({ sessions, environment: "test" }),
@@ -162,7 +151,7 @@ describe(
       const sessions = createSessionRepository(counting, {
         providerCheck: createProviderRecheck(a, verifier),
       });
-      const app = appFor(sessions, verifier);
+      const app = appFor(sessions);
       for (const path of ["/api/auth/me", "/api/feature"]) {
         counting.counted.queries = 0;
         const response = await request(app)
@@ -191,7 +180,6 @@ describe(
       });
       const app = appFor(
         createSessionRepository(a, { providerCheck: recheck }),
-        verifier,
       );
       for (let n = 0; n < 3; n++) {
         const response = await request(app)
@@ -226,7 +214,6 @@ describe(
       const recheck = createProviderRecheck(a, verifier);
       const app = appFor(
         createSessionRepository(a, { providerCheck: recheck }),
-        verifier,
       );
       try {
         const response = await bounded(
@@ -533,7 +520,7 @@ describe(
         }),
       );
       assert.deepEqual(scheduled, []);
-      // Signing out ends this device only: no re-check, no Privy call, no
+      // Signing out ends this device only: no re-check (so no Privy call), no
       // generation change and no provider reset.
       const accountState = async () =>
         (
@@ -545,19 +532,11 @@ describe(
           )
         ).rows[0];
       const before = await accountState();
-      const verifier = verifierFor(() => {
-        throw new Error("sign-out must not read Privy");
-      });
-      const response = await request(appFor(sessions, verifier))
+      const response = await request(appFor(sessions))
         .post("/api/auth/logout")
         .set("Cookie", `session=${signedIn.token}`);
       assert.equal(response.status, 204);
       assert.deepEqual(scheduled, []);
-      assert.deepEqual(verifier.calls, {
-        inspect: 0,
-        verify: 0,
-        configuration: 0,
-      });
       assert.deepEqual(await accountState(), before);
       assert.equal(await liveSessions(signedIn.userId), 1);
       assert.equal(

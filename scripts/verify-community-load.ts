@@ -156,8 +156,7 @@ export async function verifyCommunityLoad({
   for (let i = 0; i < 200; i++) {
     const user = (
       await owner.query<{ id: string }>(
-        "INSERT INTO users(email,password_hash) VALUES($1,'synthetic') RETURNING id",
-        [`load-${tag}-${i}@example.test`],
+        "INSERT INTO users DEFAULT VALUES RETURNING id",
       )
     ).rows[0]!.id;
     users.push(user);

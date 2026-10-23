@@ -9,6 +9,7 @@ interface CoinSummary {
   sessionId: string;
   simulation: boolean;
   rail: string;
+  opened: boolean;
   initialized: boolean;
   financialReviewRequired: boolean;
   projection: {
@@ -67,6 +68,92 @@ interface CoinErrorReport {
     amount?: string;
   }[];
 }
+// Decision 0009, point 8: a sensitive operation is confirmed by signing in
+// again. The page records what it was doing, follows the confirmation link
+// through the provider and finishes the action when it returns.
+interface Confirmation {
+  id: string;
+  expiresAt: string;
+  confirmPath: string;
+}
+type PendingConfirmation = { operationId: string; expiresAt: number } & (
+  | { kind: "open" }
+  | { kind: "withdrawal"; requestId: string }
+  | { kind: "recovery"; reportId: string; quoteId: string }
+);
+const confirmationKey = "yaparena-coin-confirmation";
+const identifier =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+function takeConfirmation(): PendingConfirmation | null {
+  let raw: string | null;
+  try {
+    raw = sessionStorage.getItem(confirmationKey);
+    sessionStorage.removeItem(confirmationKey);
+  } catch {
+    return null;
+  }
+  try {
+    const value: unknown = raw ? JSON.parse(raw) : null;
+    if (!value || typeof value !== "object") return null;
+    const entry = value as Record<string, unknown>;
+    const ids = [
+      entry.operationId,
+      entry.requestId,
+      entry.reportId,
+      entry.quoteId,
+    ];
+    if (
+      typeof entry.operationId !== "string" ||
+      typeof entry.expiresAt !== "number" ||
+      ids.some(
+        (id) =>
+          id !== undefined && (typeof id !== "string" || !identifier.test(id)),
+      )
+    )
+      return null;
+    const base = { operationId: entry.operationId, expiresAt: entry.expiresAt };
+    if (entry.kind === "open") return { ...base, kind: "open" };
+    if (entry.kind === "withdrawal" && typeof entry.requestId === "string")
+      return { ...base, kind: "withdrawal", requestId: entry.requestId };
+    if (
+      entry.kind === "recovery" &&
+      typeof entry.reportId === "string" &&
+      typeof entry.quoteId === "string"
+    )
+      return {
+        ...base,
+        kind: "recovery",
+        reportId: entry.reportId,
+        quoteId: entry.quoteId,
+      };
+    return null;
+  } catch {
+    return null;
+  }
+}
+function confirmBySignIn(
+  confirmation: Confirmation,
+  pending:
+    | { kind: "open" }
+    | { kind: "withdrawal"; requestId: string }
+    | { kind: "recovery"; reportId: string; quoteId: string },
+) {
+  const value: PendingConfirmation = {
+    ...pending,
+    operationId: confirmation.id,
+    expiresAt: Date.parse(confirmation.expiresAt),
+  };
+  try {
+    sessionStorage.setItem(confirmationKey, JSON.stringify(value));
+  } catch {
+    throw new Error(
+      "This browser cannot keep the action while you confirm. Allow site storage and try again.",
+    );
+  }
+  const target = new URL(confirmation.confirmPath, location.origin);
+  target.searchParams.set("return", "/account#coin-sandbox");
+  location.assign(target.pathname + target.search);
+}
 const container = document.querySelector<HTMLElement>("#account-wallet");
 const usdc = (value: string) => {
   const n = BigInt(value),
@@ -98,7 +185,7 @@ if (container) {
   root.id = "coin-sandbox";
   root.hidden = true;
   root.innerHTML = `<h3>Coin sandbox</h3><p class="form-note">Simulated funds. No cash value. These balances are separate from historical play coins and live funds.</p>
-    <p data-coin-notice role="status" aria-live="polite" aria-atomic="true"></p><dl class="account-balances" data-coin-balances></dl>
+    <p data-coin-notice role="status" aria-live="polite" aria-atomic="true"></p><div data-coin-opening hidden><p>Confirm it's you to open the financial sandbox. You'll sign in again once; withdrawals and recovery consents ask each time.</p><button type="button" class="button" data-coin-confirm-open>Confirm by signing in again</button></div><dl class="account-balances" data-coin-balances></dl>
     <button type="button" class="button-secondary" data-coin-refresh>Refresh sandbox</button>
     <button type="button" class="button-secondary" data-coin-initialize>Enter sandbox / claim welcome grant</button>
     <button type="button" class="button-secondary" data-coin-daily>Claim daily 500 YC</button><ul class="account-list" data-coin-grants></ul>
@@ -260,8 +347,13 @@ if (container) {
       }
       receipts.append(item);
     }
+    select<HTMLElement>("[data-coin-opening]").hidden = summary.opened;
     select<HTMLButtonElement>("[data-coin-initialize]").hidden =
-      summary.initialized;
+      summary.initialized || !summary.opened;
+    // Money-moving controls appear once the sandbox is opened.
+    select<HTMLButtonElement>("[data-coin-daily]").hidden = !summary.opened;
+    for (const form of [funding, withdraw, participation])
+      form.closest("details")!.hidden = !summary.opened;
     notice.textContent = summary.financialReviewRequired
       ? "Financial activity is paused for correction review. Ordinary account access remains available."
       : "Sandbox balances refreshed. Simulated withdrawals require manual operator review.";
@@ -303,35 +395,31 @@ if (container) {
             consent.disabled = busy;
             consent.onclick = () =>
               void action(async (g) => {
-                if (!window.yapApproveRecoveryCost || !sessionId)
-                  throw new Error(
-                    "Security approval is still loading. Try again shortly.",
-                  );
+                if (!sessionId)
+                  throw new Error("Refresh the account before confirming.");
                 const current = await api<{ terms: Record<string, string> }>(
                   `/reports/${report.id}/recovery-quotes/${quoteId}`,
                 );
                 if (g !== version) return;
-                const approval = await window.yapApproveRecoveryCost(
-                  report.id,
-                  quoteId,
-                  current.terms,
-                  sessionId,
-                );
-                if (g !== version) return;
-                await api(
-                  `/reports/${report.id}/recovery-consents`,
+                if (
+                  !window.confirm(
+                    `${current.terms.description ?? "Recovery cost"}: ${usdc(event.quote!.amount)} on ${event.quote!.network}. Consent records your agreement only. Continue to confirm by signing in again?`,
+                  )
+                ) {
+                  notice.textContent = "Consent cancelled. Nothing recorded.";
+                  return;
+                }
+                const confirmation = await api<Confirmation>(
+                  `/reports/${report.id}/recovery-consents/authorization`,
                   "POST",
-                  { quoteId, approval },
-                  key(`recovery-consent:${report.id}:${quoteId}`),
+                  { quoteId },
                 );
                 if (g !== version) return;
-                await loadReports(g);
-                if (g !== version) return;
-                reportNotice.textContent =
-                  "Recovery cost consent recorded. No charge or recovery started.";
-                reportNotice.focus();
-                notice.textContent =
-                  "Recovery cost consent recorded. No charge or recovery started.";
+                confirmBySignIn(confirmation, {
+                  kind: "recovery",
+                  reportId: report.id,
+                  quoteId,
+                });
               });
             item.append(cost, consent);
           }
@@ -396,6 +484,62 @@ if (container) {
       await loadRounds(g);
       if (g === version && settlementError) throw settlementError;
     });
+  select<HTMLButtonElement>("[data-coin-confirm-open]").onclick = () =>
+    void action(async (g) => {
+      const confirmation = await api<Confirmation>(
+        "/opening/operations",
+        "POST",
+        {},
+      );
+      if (g !== version) return;
+      confirmBySignIn(confirmation, { kind: "open" });
+    });
+  // Finishes the action a confirmation was started for, once, when the
+  // provider returns here with ?confirmed=<operation>.
+  async function finishConfirmation(generation: number) {
+    const parameters = new URLSearchParams(location.search);
+    const confirmed = parameters.get("confirmed");
+    if (!confirmed) return;
+    parameters.delete("confirmed");
+    const query = parameters.toString();
+    history.replaceState(
+      history.state,
+      "",
+      `${location.pathname}${query ? `?${query}` : ""}${location.hash}`,
+    );
+    const pending = takeConfirmation();
+    if (!pending || pending.operationId !== confirmed) return;
+    if (pending.expiresAt <= Date.now()) {
+      notice.textContent = "That confirmation expired. Start the action again.";
+      return;
+    }
+    const approval = { id: pending.operationId };
+    if (pending.kind === "open") {
+      await api("/opening", "POST", { approval });
+      if (generation !== version) return;
+      await load(generation);
+      notice.textContent =
+        "Sandbox opened. You can now claim grants and use simulated funds.";
+    } else if (pending.kind === "withdrawal") {
+      await api(`/withdrawals/${pending.requestId}`, "POST", { approval });
+      if (generation !== version) return;
+      await load(generation);
+      notice.textContent =
+        "Withdrawal request confirmed. It now waits for manual review.";
+    } else {
+      await api(
+        `/reports/${pending.reportId}/recovery-consents`,
+        "POST",
+        { quoteId: pending.quoteId, approval },
+        key(`recovery-consent:${pending.reportId}:${pending.quoteId}`),
+      );
+      if (generation !== version) return;
+      await loadReports(generation);
+      notice.textContent =
+        "Recovery cost consent recorded. No charge or recovery started.";
+    }
+    root.scrollIntoView({ block: "start" });
+  }
   select<HTMLButtonElement>("[data-coin-initialize]").onclick = () =>
     void action(async (g) => {
       await api("/initialize", "POST", {});
@@ -450,28 +594,24 @@ if (container) {
       if (g !== version) return;
       if (
         !window.confirm(
-          `SIMULATION ONLY\nDeduct: ${usdc(quote.terms.gross!)}\nNetwork fee included: ${usdc(quote.terms.fee!)}\nWallet receives: ${usdc(quote.terms.net!)}\nDestination: ${quote.terms.destination}\nManual review; no real payment. Continue to security approval?`,
+          `SIMULATION ONLY\nDeduct: ${usdc(quote.terms.gross!)}\nNetwork fee included: ${usdc(quote.terms.fee!)}\nWallet receives: ${usdc(quote.terms.net!)}\nDestination: ${quote.terms.destination}\nManual review; no real payment. Continue to confirm by signing in again?`,
         )
       ) {
         notice.textContent = "Withdrawal cancelled. Nothing reserved.";
         return;
       }
-      if (!window.yapApproveCoinWithdrawal)
-        throw new Error(
-          "Security approval is still loading. Try again shortly.",
-        );
-      if (!sessionId)
-        throw new Error("Refresh the account before authorizing.");
-      const approval = await window.yapApproveCoinWithdrawal(
-        quote.id,
-        quote.terms,
-        sessionId,
+      if (!sessionId) throw new Error("Refresh the account before confirming.");
+      const confirmation = await api<Confirmation>(
+        `/withdrawals/${quote.id}/operations`,
+        "POST",
+        {},
       );
       if (g !== version) return;
-      await api(`/withdrawals/${quote.id}`, "POST", { approval });
-      if (g !== version) return;
       keys.delete(scope);
-      await load(g);
+      confirmBySignIn(confirmation, {
+        kind: "withdrawal",
+        requestId: quote.id,
+      });
     });
   };
   select<HTMLButtonElement>("[data-coin-open]").onclick = () =>
@@ -551,6 +691,14 @@ if (container) {
     try {
       await load(generation);
       if (generation !== version || root.hidden) return;
+      await finishConfirmation(generation).catch((error: unknown) => {
+        if (generation === version)
+          notice.textContent =
+            error instanceof Error
+              ? error.message
+              : "The confirmed action could not finish. Refresh and try again.";
+      });
+      if (generation !== version) return;
       const response = await fetch("/api/public/debates?limit=100", {
         cache: "no-store",
         signal: AbortSignal.timeout(10_000),

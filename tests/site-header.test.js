@@ -21,7 +21,7 @@ it("uses one navigation and session-aware account header across normal pages", (
     renderHome(origin),
     renderLive(origin, [], { items: [] }),
     renderAbout(origin),
-    renderAccount(origin, true),
+    renderAccount(origin),
     renderCoins(origin),
     renderMatchmaking(origin),
     renderMyModeration(true),
@@ -74,8 +74,7 @@ it("versions every server-rendered asset reference with the process revision", (
   const origin = "https://arena.example";
   const pages = [
     renderHome(origin),
-    renderAccount(origin, true),
-    renderAccount(origin, false),
+    renderAccount(origin),
     renderCoins(origin),
     renderMatchmaking(origin),
     renderMyModeration(false),

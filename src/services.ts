@@ -11,15 +11,10 @@ import { createReplayJobs } from "./features/media/replay-jobs.ts";
 import { createCommunityRepository } from "./features/community/repository.ts";
 import { createMeasurementRepository } from "./features/measurement/repository.ts";
 import { createSessionRepository } from "./platform/auth/sessions.ts";
-import { createWalletRepository } from "./platform/auth/wallets.ts";
-import { createUserRepository } from "./platform/auth/users.ts";
 import type { AbuseControlConfig } from "./platform/abuse-config.ts";
 import { createAuth0Accounts } from "./platform/auth/auth0-accounts.ts";
 import { createSignInState } from "./platform/auth/sign-in-state.ts";
 import { createAccountOperationRepository } from "./platform/auth/account-operations.ts";
-import { createSecurityPasskeyRepository } from "./platform/auth/security-passkeys.ts";
-import { createProviderWalletOperations } from "./platform/auth/provider-wallet-operations.ts";
-import { deleteExpiredAccessChallenges } from "./platform/auth/account-access.ts";
 import { createRedisAbuseStore } from "./platform/shared-abuse.ts";
 import type { loadConfig } from "./platform/config.ts";
 import type { createLogger } from "./platform/logger.ts";
@@ -30,9 +25,6 @@ import { createRuntime } from "./platform/runtime.ts";
 type ServiceOptions = {
   config: ReturnType<typeof loadConfig>;
   abuseConfig?: AbuseControlConfig;
-  // While the legacy wallet sign-in remains mounted it must not create
-  // accounts beside Auth0 sign-in.
-  legacyWalletSignup?: boolean;
   database: Pool;
   logger: ReturnType<typeof createLogger>;
   metrics: ReturnType<typeof createMetrics>;
@@ -43,7 +35,6 @@ type ServiceOptions = {
 export function createServices({
   config,
   abuseConfig,
-  legacyWalletSignup = false,
   database,
   logger,
   metrics,
@@ -95,10 +86,6 @@ export function createServices({
         },
       })
     : undefined;
-  const users = createUserRepository(database);
-  const wallets = createWalletRepository(database, {
-    allowNewAccounts: legacyWalletSignup,
-  });
   const abuseStore = abuseConfig
     ? createRedisAbuseStore({
         url: abuseConfig.redisUrl,
@@ -115,8 +102,6 @@ export function createServices({
   const sessions = createSessionRepository(database);
   const accountSecurity = {
     operations: createAccountOperationRepository(database),
-    passkeys: createSecurityPasskeyRepository(database),
-    walletOperations: createProviderWalletOperations(database),
   };
   const coinDebates = config.coinSandboxEnabled
     ? createCoinDebateSandbox(database, "simulation")
@@ -131,8 +116,6 @@ export function createServices({
     media,
     mediaProvider,
     mediaAccountRevocation,
-    users,
-    wallets,
     abuseStore,
     auth0Accounts,
     signInState,
@@ -149,8 +132,6 @@ export function createServices({
       accountSecurityCleanup: async () => {
         await Promise.all([
           accountSecurity.operations.deleteExpired(),
-          accountSecurity.passkeys.deleteExpiredChallenges(),
-          deleteExpiredAccessChallenges(database),
           signInState.deleteExpired(),
         ]);
       },
@@ -162,7 +143,6 @@ export function createServices({
       media,
       mediaProvider,
       mediaOperations,
-      wallets,
       metrics,
       logger,
       config,

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 import express from "express";
@@ -55,7 +56,6 @@ function instance(sharedRateLimits, overrides = {}) {
   return createApp({
     messages: {},
     database: { query: async () => ({ rows: [] }) },
-    users: {},
     sessions: {
       findUserByTokenHash: async () => ({ id: "1" }),
       deleteByTokenHash: async () => false,
@@ -157,31 +157,21 @@ describe("shared API rate limits", () => {
     assert.notEqual(logout.status, 503);
   });
 
-  it("keeps account-security limiters fail-closed in the shared store", async () => {
+  it("keeps the confirmation route on the fail-closed shared sign-in limit", async () => {
     const store = memoryAbuseStore();
     const { limits } = shared(store);
-    const app = instance(limits, {
-      accountSecurity: { operations: {}, passkeys: {} },
-    });
-    await request(app)
-      .post("/api/auth/security/operations")
-      .set("Cookie", "session=synthetic-cookie")
-      .set("Origin", "http://localhost:3000")
-      .send({});
+    await request(instance(limits))
+      .get(`/api/auth/confirm?operation=${randomUUID()}`)
+      .set("Cookie", "session=synthetic-cookie");
     assert.ok(
       store.calls.some(({ key }) =>
-        key.startsWith("test-ns:security:limit:api:security-mutations:"),
+        key.startsWith("test-ns:security:limit:api:auth:"),
       ),
     );
-
     const { limits: failing, observe } = shared(failingAbuseStore);
-    const refused = await request(
-      instance(failing, { accountSecurity: { operations: {}, passkeys: {} } }),
-    )
-      .post("/api/auth/security/operations")
-      .set("Cookie", "session=synthetic-cookie")
-      .set("Origin", "http://localhost:3000")
-      .send({});
+    const refused = await request(instance(failing))
+      .get(`/api/auth/confirm?operation=${randomUUID()}`)
+      .set("Cookie", "session=synthetic-cookie");
     assert.equal(refused.status, 503);
     assert.equal(refused.headers["retry-after"], "5");
     assert.ok(

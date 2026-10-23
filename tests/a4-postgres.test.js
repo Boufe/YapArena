@@ -18,7 +18,6 @@ import {
 } from "../dist/features/a4/ledger.js";
 import { createDatabase } from "../dist/platform/database.js";
 import { createLogger } from "../dist/platform/logger.js";
-import { createUserRepository } from "../dist/platform/auth/users.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
 import { endAllAccountSessions } from "./helpers/account-sessions.js";
@@ -44,13 +43,15 @@ if (enabled) {
   assert.equal(owner.username, "yaparena_owner");
 }
 const logger = createLogger({ enabled: false });
-let pool, owner, a4, users, sessions, debateId, topicId;
+let pool, owner, a4, sessions, debateId, topicId;
 const key = () => randomUUID();
 async function actor() {
-  const u = await users.create(
-    `a4-${key()}@example.test`,
-    "test-only-password-hash",
-  );
+  const u = (
+    await pool.query(
+      `INSERT INTO users DEFAULT VALUES
+       RETURNING id,auth_generation AS "authGeneration"`,
+    )
+  ).rows[0];
   const token = createSessionToken();
   await sessions.create(u.id, token.tokenHash, new Date(Date.now() + 3600000), {
     authGeneration: u.authGeneration,
@@ -98,7 +99,6 @@ async function terminal(a, id) {
 function app(repo = a4) {
   return createApp({
     a4: repo,
-    users,
     sessions,
     messages: createMessageRepository(pool),
     logger,
@@ -122,7 +122,6 @@ describe(
         connectionString: process.env.A4_TEST_OWNER_URL,
         options: "-c search_path=pg_catalog,yaparena,pg_temp",
       });
-      users = createUserRepository(pool);
       sessions = createSessionRepository(pool);
       a4 = createA4Repository(pool, "bots");
       await owner.query(
@@ -891,7 +890,6 @@ describe(
         connectionString: process.env.A4_TEST_OWNER_URL,
         options: "-c search_path=pg_catalog,yaparena,pg_temp",
       });
-      users = createUserRepository(pool);
       sessions = createSessionRepository(pool);
       a4 = createA4Repository(pool, "bots");
       await owner.query(

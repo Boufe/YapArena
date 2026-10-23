@@ -54,6 +54,10 @@ export interface SandboxConfiguration {
   // Server configuration, never a browser-chosen fee. Deducted FROM gross.
   withdrawalFee?: string;
 }
+// The terms a sandbox-opening confirmation is bound to.
+export function sandboxOpeningTerms(userId: string) {
+  return { account: userId, action: "open coin sandbox" };
+}
 export type PreparedCoinApproval = Awaited<
   ReturnType<ReturnType<typeof createAccountOperationRepository>["prepare"]>
 >;
@@ -178,23 +182,17 @@ export async function assertSandboxRail(client: PoolClient, rail: SandboxRail) {
   if (row?.rail !== rail)
     error("sandbox rail does not match this isolated database", 503);
 }
-export async function assertSandboxStrongMethod(
-  client: PoolClient,
-  userId: string,
-) {
-  const row = (
-    await client.query<{ strong: boolean }>(
-      `SELECT password_hash IS NOT NULL
-    OR EXISTS(SELECT 1 FROM wallet_identities WHERE user_id=$1)
-    OR EXISTS(SELECT 1 FROM account_security_keys WHERE user_id=$1 AND revoked_at IS NULL) AS strong FROM users WHERE id=$1`,
-      [userId],
-    )
-  ).rows[0];
-  if (!row?.strong)
-    error(
-      "set up a security passkey before entering the financial sandbox",
-      403,
-    );
+// Decision 0009, point 8: the account confirmed opening the financial
+// sandbox with a fresh sign-in (founder, 2026-10-23). Every point that once
+// required a standing "strong method" requires this record.
+export async function assertSandboxOpened(client: PoolClient, userId: string) {
+  const opened = (
+    await client.query("SELECT 1 FROM coin_sandbox_openings WHERE user_id=$1", [
+      userId,
+    ])
+  ).rowCount;
+  if (!opened)
+    error("confirm by signing in again to open the financial sandbox", 403);
 }
 export async function assertSandboxFinancialOpen(
   client: PoolClient,
@@ -219,7 +217,7 @@ export async function assertSandboxNewPayoutAuthorization(
 ) {
   if (!(await lockAccount(client, userId)))
     error("account unavailable for new payout authorization", 403);
-  await assertSandboxStrongMethod(client, userId);
+  await assertSandboxOpened(client, userId);
   await assertSandboxFinancialOpen(client, userId);
 }
 export async function lockSandboxBook(
@@ -596,7 +594,7 @@ export function createCoinSandboxRepository(
         error("account session changed; refresh this page", 409);
       await assertSandboxRail(client, config.rail);
       if (strong) {
-        await assertSandboxStrongMethod(client, context.userId);
+        await assertSandboxOpened(client, context.userId);
         await assertSandboxFinancialOpen(client, context.userId);
       }
       const result = await mutation(client);
@@ -922,6 +920,14 @@ export function createCoinSandboxRepository(
               pending: amount("USDC", "pending"),
               promotionalPrincipal: amount("YC_PROMO", "promotional"),
             },
+            opened: Boolean(
+              (
+                await client.query(
+                  "SELECT 1 FROM coin_sandbox_openings WHERE user_id=$1",
+                  [context.userId],
+                )
+              ).rowCount,
+            ),
             financialReviewRequired: Boolean(
               (
                 await client.query(
@@ -933,6 +939,32 @@ export function createCoinSandboxRepository(
             requests,
           };
         },
+        false,
+      );
+    },
+    // Records the confirmed opening; the confirmation is consumed with it.
+    async open(
+      context: SandboxContext,
+      input: { operationId: string; approval: PreparedCoinApproval },
+    ) {
+      input.approval.assertContext(context.userId, context.sessionTokenHash);
+      if (
+        input.approval.purpose !== "sandbox.open" ||
+        input.approval.termsDigest !==
+          accountOperationTermsDigest(sandboxOpeningTerms(context.userId))
+      )
+        error("confirmation does not open this sandbox", 403);
+      return tx(
+        context,
+        (client) =>
+          input.approval.consume(client, async () => {
+            await client.query(
+              `INSERT INTO coin_sandbox_openings(user_id,operation_id) VALUES($1,$2)
+               ON CONFLICT(user_id) DO NOTHING`,
+              [context.userId, input.operationId],
+            );
+            return { opened: true };
+          }),
         false,
       );
     },
@@ -1072,7 +1104,7 @@ export function createCoinSandboxRepository(
       if (config.rail !== "simulation")
         error("simulated funding requires an isolated simulation ledger", 403);
       return ownerTx(database, config.rail, input.userId, async (client) => {
-        await assertSandboxStrongMethod(client, input.userId);
+        await assertSandboxOpened(client, input.userId);
         await assertSandboxFinancialOpen(client, input.userId);
         const request = await requestForUpdate(
           client,
@@ -1105,7 +1137,7 @@ export function createCoinSandboxRepository(
       if (config.rail !== "base-sepolia")
         error("testnet funding cannot enter a simulation ledger", 403);
       return ownerTx(database, config.rail, input.userId, async (client) => {
-        await assertSandboxStrongMethod(client, input.userId);
+        await assertSandboxOpened(client, input.userId);
         await assertSandboxFinancialOpen(client, input.userId);
         const request = await requestForUpdate(
           client,

@@ -31,7 +31,6 @@ import { createMediaAccountRevocation } from "../dist/features/media/account-rev
 import { createAuthRouter } from "../dist/platform/auth/router.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
-import { createUserRepository } from "../dist/platform/auth/users.js";
 import { provisionDatabase } from "./provision-database.ts";
 
 type ClientSdk = typeof import("livekit-client");
@@ -344,7 +343,6 @@ async function applicationFixture(
     app.use(
       "/api/auth",
       createAuthRouter({
-        users: createUserRepository(runtime),
         sessions,
         environment: "development",
         applicationOrigin: origin,

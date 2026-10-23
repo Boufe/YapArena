@@ -9,7 +9,6 @@ import {
   accountOperationTermsDigest,
   createAccountOperationRepository,
 } from "../dist/platform/auth/account-operations.js";
-import { hashPassword } from "../dist/platform/auth/passwords.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
 import { createRequireAuthentication } from "../dist/platform/auth/router.js";
@@ -32,13 +31,20 @@ import {
   ensureSandboxBuckets,
   lockSandboxBook,
   assertSandboxNewPayoutAuthorization,
+  sandboxOpeningTerms,
 } from "../dist/features/account-wallet/sandbox-repository.js";
 import { postCoinJournal } from "../dist/features/account-wallet/ledger.js";
+import {
+  attachSubject,
+  confirmedApproval,
+  openSandbox,
+} from "./helpers/confirmations.js";
 
 const ownerUrl = process.env.A4_TEST_OWNER_URL;
 const runtimeUrl = process.env.A4_TEST_DATABASE_URL;
-const password = "synthetic sandbox authorization passphrase";
 const origin = "http://localhost:53024";
+const unopened = /confirm by signing in again to open the financial sandbox/;
+const expiredConfirmation = /confirmation expired or invalid/;
 const digest = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const config = { rail: "simulation", withdrawalFee: "100000" };
@@ -100,7 +106,7 @@ describe(
   "persistent financial sandbox in disposable PostgreSQL",
   { skip: !ownerUrl || !runtimeUrl },
   () => {
-    let owner, a, b, repo, other, operator, passwordHash;
+    let owner, a, b, repo, other, operator;
     before(async () => {
       for (const value of [ownerUrl, runtimeUrl]) {
         const url = new URL(value);
@@ -117,7 +123,6 @@ describe(
       repo = createCoinSandboxRepository(a, config);
       other = createCoinSandboxRepository(b, config);
       operator = createCoinSandboxOperatorRepository(owner, config);
-      passwordHash = await hashPassword(password);
       assert.equal(
         (
           await owner.query(
@@ -130,14 +135,12 @@ describe(
     after(async () => {
       await Promise.all([owner?.end(), a?.end(), b?.end()]);
     });
-    async function fixture(strong = true) {
+    // Every account signs in with an Auth0 subject; an opened account has
+    // also confirmed entering the financial sandbox once (Decision 0009).
+    async function fixture(opened = true) {
       const user = (
         await owner.query(
-          "INSERT INTO users(email,password_hash) VALUES($1,$2) RETURNING id,auth_generation AS generation",
-          [
-            strong ? `${randomUUID()}@example.test` : null,
-            strong ? passwordHash : null,
-          ],
+          "INSERT INTO users DEFAULT VALUES RETURNING id,auth_generation AS generation",
         )
       ).rows[0];
       const token = createSessionToken();
@@ -147,11 +150,55 @@ describe(
         new Date(Date.now() + 600000),
         { authGeneration: user.generation },
       );
+      const subject = await attachSubject(owner, user.id);
+      if (opened) await openSandbox(owner, user.id);
       return {
         userId: user.id,
         sessionTokenHash: token.tokenHash,
         sessionToken: token.token,
+        subject,
       };
+    }
+    function sandboxApp() {
+      const server = express();
+      server.use(express.json(), cookieParser());
+      server.use(
+        "/coins",
+        createRequireAuthentication({
+          sessions: createSessionRepository(a),
+          environment: "test",
+        }),
+        createCoinSandboxRouter({
+          sandbox: repo,
+          debates: createCoinDebateSandbox(a, "simulation"),
+          operations: createAccountOperationRepository(a),
+          environment: "test",
+          applicationOrigin: origin,
+        }),
+      );
+      return server;
+    }
+    // Stands in for the provider callback after a fresh sign-in.
+    function signIn(operations, context, id, authTime) {
+      return operations.confirm({
+        id,
+        userId: context.userId,
+        identity: {
+          subject: context.subject,
+          authTime: authTime ?? Math.ceil(Date.now() / 1000),
+        },
+      });
+    }
+    // The second at which an operation was created, from its five-minute expiry.
+    const createdSecond = (operation) =>
+      Math.floor(new Date(operation.expiresAt).getTime() / 1000) - 300;
+    async function consumed(ids) {
+      return (
+        await owner.query(
+          "SELECT consumed_at IS NOT NULL AS consumed FROM account_operations WHERE id=ANY($1::uuid[]) ORDER BY array_position($1::uuid[],id)",
+          [ids],
+        )
+      ).rows.map((row) => row.consumed);
     }
     async function fund(context, amount = "10000000") {
       const quote = await repo.quoteFunding(context, {
@@ -163,25 +210,20 @@ describe(
       });
       return { quote, result };
     }
-    async function proof(context, quote, overrides = {}) {
-      const operations = createAccountOperationRepository(a);
-      const input = {
-        ...context,
-        purpose: "withdrawal.request",
-        terms: withdrawalApprovalTerms(quote),
-        origin,
-      };
-      const operation = await operations.create({
-        ...input,
-        credential: { type: "password" },
-      });
-      return operations.prepare({
-        ...input,
-        ...overrides,
-        id: operation.id,
-        password,
-        rpcUrls: {},
-      });
+    async function proof(
+      context,
+      quote,
+      terms = withdrawalApprovalTerms(quote),
+    ) {
+      return (
+        await confirmedApproval(a, {
+          userId: context.userId,
+          sessionTokenHash: context.sessionTokenHash,
+          subject: context.subject,
+          purpose: "withdrawal.request",
+          terms,
+        })
+      ).approval;
     }
     async function reserve(context, gross = "5000000") {
       const quote = await repo.quoteWithdrawal(context, {
@@ -348,8 +390,8 @@ describe(
         1,
       );
     });
-    it("refuses new payout approval after suspension or loss of stronger credentials while permitting safe rejection", async () => {
-      for (const state of ["suspended", "no-strong-method"]) {
+    it("refuses new payout approval after suspension or without a sandbox opening while permitting safe rejection", async () => {
+      for (const state of ["suspended", "unopened"]) {
         const actor = await fixture();
         await fund(actor);
         const { quote } = await reserve(actor);
@@ -358,9 +400,11 @@ describe(
             "UPDATE users SET account_status='suspended' WHERE id=$1",
             [actor.userId],
           );
+        // Openings are permanent in the product. Removing the record checks
+        // that owner approval re-verifies it rather than trusting the request.
         else
           await owner.query(
-            "UPDATE users SET email=NULL,password_hash=NULL WHERE id=$1",
+            "DELETE FROM coin_sandbox_openings WHERE user_id=$1",
             [actor.userId],
           );
         const before = await counts(actor);
@@ -368,7 +412,7 @@ describe(
           approve(actor, quote),
           state === "suspended"
             ? /account unavailable for new payout authorization/
-            : /set up a security passkey/,
+            : unopened,
         );
         assert.deepEqual(await counts(actor), before);
         assert.equal(
@@ -452,9 +496,12 @@ describe(
         reason: "incorrect_funding",
       });
       await owner.query(
-        "UPDATE users SET account_status='suspended',email=NULL,password_hash=NULL WHERE id=$1",
+        "UPDATE users SET account_status='suspended' WHERE id=$1",
         [submitted.userId],
       );
+      await owner.query("DELETE FROM coin_sandbox_openings WHERE user_id=$1", [
+        submitted.userId,
+      ]);
       const reconciled = await operator.observe({
         userId: submitted.userId,
         requestId: reserved.quote.id,
@@ -476,25 +523,136 @@ describe(
         "10000000",
       );
     });
-    it("runs the authenticated HTTP quote, fresh proof and reservation against the real ledger", async () => {
+    it("opens the financial sandbox once through a confirmed fresh sign-in over HTTP", async () => {
+      const actor = await fixture(false),
+        intruder = await fixture(false),
+        server = sandboxApp(),
+        operations = createAccountOperationRepository(a),
+        as = async (context) => ({
+          cookie: `session=${context.sessionToken}`,
+          sessionId: (await repo.summary(context)).sessionId,
+        }),
+        self = await as(actor),
+        stranger = await as(intruder),
+        post = (path, body = {}, caller = self) =>
+          request(server)
+            .post(`/coins${path}`)
+            .set("Cookie", caller.cookie)
+            .set("X-YapArena-Session", caller.sessionId)
+            .set("Origin", origin)
+            .send(body),
+        openings = async () =>
+          (
+            await owner.query(
+              "SELECT operation_id::text AS id FROM coin_sandbox_openings WHERE user_id=$1",
+              [actor.userId],
+            )
+          ).rows;
+      assert.equal((await repo.summary(actor)).opened, false);
+      assert.match(
+        (await post("/initialize").expect(403)).body.error,
+        unopened,
+      );
+      await post("/opening/operations", {
+        credential: { type: "password" },
+      }).expect(400);
+      const first = (await post("/opening/operations").expect(201)).body;
+      assert.equal(
+        first.confirmPath,
+        `/api/auth/confirm?operation=${first.id}`,
+      );
+      // Missing or unconfirmed confirmations open nothing.
+      await post("/opening").expect(400);
+      await post("/opening", { approval: { id: randomUUID() } }).expect(410);
+      assert.match(
+        (await post("/opening", { approval: { id: first.id } }).expect(410))
+          .body.error,
+        expiredConfirmation,
+      );
+      assert.deepEqual(await openings(), []);
+      // Only a sign-in at or after its creation by this account confirms it.
+      await assert.rejects(
+        signIn(
+          operations,
+          { ...actor, subject: intruder.subject },
+          first.id,
+          createdSecond(first),
+        ),
+        { code: "other_account" },
+      );
+      await assert.rejects(
+        signIn(operations, actor, first.id, createdSecond(first) - 1),
+        { code: "stale_sign_in" },
+      );
+      await signIn(operations, actor, first.id, createdSecond(first));
+      await post("/opening", { approval: { id: first.id } }, stranger).expect(
+        410,
+      );
+      assert.deepEqual(
+        (await post("/opening", { approval: { id: first.id } }).expect(200))
+          .body,
+        { opened: true },
+      );
+      assert.deepEqual(await openings(), [{ id: first.id }]);
+      assert.equal((await repo.summary(actor)).opened, true);
+      assert.equal((await repo.summary(intruder)).opened, false);
+      // The confirmation was consumed with the opening and cannot be replayed.
+      await post("/opening", { approval: { id: first.id } }).expect(410);
+      // Opening again is idempotent: one record, the new confirmation consumed.
+      const second = (await post("/opening/operations").expect(201)).body;
+      await signIn(operations, actor, second.id);
+      assert.deepEqual(
+        (await post("/opening", { approval: { id: second.id } }).expect(200))
+          .body,
+        { opened: true },
+      );
+      assert.deepEqual(await openings(), [{ id: first.id }]);
+      assert.deepEqual(await consumed([first.id, second.id]), [true, true]);
+      await post("/opening", { approval: { id: second.id } }).expect(410);
+      // A confirmation of another account's opening terms, or from another
+      // session, does not open this sandbox and stays unconsumed.
+      const foreign = await confirmedApproval(a, {
+        userId: intruder.userId,
+        sessionTokenHash: intruder.sessionTokenHash,
+        subject: intruder.subject,
+        purpose: "sandbox.open",
+        terms: sandboxOpeningTerms(actor.userId),
+      });
+      // open() validates synchronously before its transaction.
+      await assert.rejects(
+        async () =>
+          repo.open(intruder, {
+            operationId: foreign.id,
+            approval: foreign.approval,
+          }),
+        /confirmation does not open this sandbox/,
+      );
+      await assert.rejects(
+        async () =>
+          repo.open(actor, {
+            operationId: foreign.id,
+            approval: foreign.approval,
+          }),
+        /confirmation belongs to another session/,
+      );
+      assert.deepEqual(await consumed([foreign.id]), [false]);
+      assert.equal((await repo.summary(intruder)).opened, false);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM identity_audit_events WHERE user_id=$1 AND event_type='account.operation_authorized' AND metadata->>'purpose'='sandbox.open'",
+            [actor.userId],
+          )
+        ).rows[0].n,
+        2,
+      );
+      assert.equal((await post("/initialize").expect(200)).body.created, true);
+    });
+    it("runs the authenticated HTTP quote, sign-in confirmation and reservation against the real ledger", async () => {
       const actor = await fixture();
       const intruder = await fixture();
-      const app = express();
-      app.use(express.json(), cookieParser());
-      app.use(
-        "/coins",
-        createRequireAuthentication({
-          sessions: createSessionRepository(a),
-          environment: "test",
-        }),
-        createCoinSandboxRouter({
-          sandbox: repo,
-          debates: createCoinDebateSandbox(a, "simulation"),
-          operations: createAccountOperationRepository(a),
-          environment: "test",
-          applicationOrigin: origin,
-        }),
-      );
+      const app = sandboxApp();
+      const operations = createAccountOperationRepository(a);
       const cookie = `session=${actor.sessionToken}`;
       const sessionId = (await repo.summary(actor)).sessionId;
       const intruderSessionId = (await repo.summary(intruder)).sessionId;
@@ -539,63 +697,139 @@ describe(
         .send({ gross: "5000000", destination: "synthetic-route-wallet" })
         .expect(201);
       assert.equal(quote.body.terms.net, "4900000");
+      const post = (path, body = {}) =>
+        request(app)
+          .post(`/coins${path}`)
+          .set("Cookie", cookie)
+          .set("X-YapArena-Session", sessionId)
+          .set("Origin", origin)
+          .send(body);
       await request(app)
         .post(`/coins/withdrawals/${quote.body.id}/operations`)
         .set("Cookie", `session=${intruder.sessionToken}`)
         .set("X-YapArena-Session", intruderSessionId)
         .set("Origin", origin)
-        .send({ credential: { type: "password" } })
+        .send({})
         .expect(404);
-      const operation = await request(app)
-        .post(`/coins/withdrawals/${quote.body.id}/operations`)
-        .set("Cookie", cookie)
-        .set("X-YapArena-Session", sessionId)
-        .set("Origin", origin)
-        .send({ credential: { type: "password" } })
+      await post(`/withdrawals/${quote.body.id}/operations`, {
+        credential: { type: "password" },
+      }).expect(400);
+      const operation = (
+        await post(`/withdrawals/${quote.body.id}/operations`).expect(201)
+      ).body;
+      assert.deepEqual(operation.terms, quote.body.terms);
+      assert.equal(
+        operation.confirmPath,
+        `/api/auth/confirm?operation=${operation.id}`,
+      );
+      // Missing, unknown and not yet confirmed confirmations reserve nothing.
+      await post(`/withdrawals/${quote.body.id}`).expect(400);
+      await post(`/withdrawals/${quote.body.id}`, {
+        approval: { id: randomUUID() },
+      }).expect(410);
+      assert.match(
+        (
+          await post(`/withdrawals/${quote.body.id}`, {
+            approval: { id: operation.id },
+          }).expect(410)
+        ).body.error,
+        expiredConfirmation,
+      );
+      await assert.rejects(
+        signIn(
+          operations,
+          { ...actor, subject: intruder.subject },
+          operation.id,
+        ),
+        { code: "other_account" },
+      );
+      await signIn(operations, actor, operation.id);
+      // A confirmed operation for other withdrawal terms does not transfer.
+      const spare = await post("/withdrawals/quotes", {
+        gross: "6000000",
+        destination: "synthetic-other-route-wallet",
+      })
+        .set("Idempotency-Key", randomUUID())
         .expect(201);
-      await request(app)
-        .post(`/coins/withdrawals/${quote.body.id}`)
-        .set("Cookie", cookie)
-        .set("X-YapArena-Session", sessionId)
-        .set("Origin", origin)
-        .send({ approval: { id: operation.body.id, password } })
-        .expect(200);
+      const spareOperation = (
+        await post(`/withdrawals/${spare.body.id}/operations`).expect(201)
+      ).body;
+      await signIn(operations, actor, spareOperation.id);
+      await post(`/withdrawals/${quote.body.id}`, {
+        approval: { id: spareOperation.id },
+      }).expect(410);
+      assert.equal(
+        (await repo.summary(actor)).balances.reserved,
+        "0",
+        "no unconfirmed or mismatched confirmation may reserve",
+      );
+      assert.equal(
+        (
+          await post(`/withdrawals/${quote.body.id}`, {
+            approval: { id: operation.id },
+          }).expect(200)
+        ).body.status,
+        "review",
+      );
+      // One use: the consumed confirmation cannot be presented again.
+      await post(`/withdrawals/${quote.body.id}`, {
+        approval: { id: operation.id },
+      }).expect(410);
+      assert.deepEqual(await consumed([operation.id, spareOperation.id]), [
+        true,
+        false,
+      ]);
       const summary = await request(app)
         .get("/coins/summary")
         .set("Cookie", cookie)
         .set("X-YapArena-Session", sessionId)
         .expect(200);
       assert.equal(summary.headers["cache-control"], "private, no-store");
+      assert.equal(summary.body.opened, true);
       assert.equal(summary.body.balances.cashAvailable, "5000000");
       assert.equal(summary.body.balances.reserved, "5000000");
       assert.equal((await repo.summary(intruder)).balances.cashAvailable, "0");
     });
-    it("keeps read-only summary empty until strong setup, and separates rails and owner review authority", async () => {
-      const weak = await fixture(false);
-      const before = await repo.summary(weak);
+    it("keeps read-only summary empty until the sandbox is opened, and separates rails and owner review and funding authority", async () => {
+      const newcomer = await fixture(false);
+      const before = await repo.summary(newcomer);
       assert.equal(before.initialized, false);
       assert.equal(before.balances.cashAvailable, "0");
       assert.equal(
         (
           await owner.query(
             "SELECT count(*)::int n FROM coin_sandbox_books WHERE user_id=$1",
-            [weak.userId],
+            [newcomer.userId],
           )
         ).rows[0].n,
         0,
       );
-      await assert.rejects(repo.initialize(weak), /security passkey/);
+      assert.equal(before.opened, false);
+      await assert.rejects(repo.initialize(newcomer), unopened);
+      await assert.rejects(repo.claimGrant(newcomer, "daily"), unopened);
       await assert.rejects(
-        repo.quoteFunding(weak, { amount: "1", idempotencyKey: randomUUID() }),
-        /security passkey/,
+        repo.quoteFunding(newcomer, {
+          amount: "1",
+          idempotencyKey: randomUUID(),
+        }),
+        unopened,
+      );
+      await assert.rejects(
+        repo.quoteWithdrawal(newcomer, {
+          gross: "5000000",
+          destination: "synthetic-unopened-wallet",
+          idempotencyKey: randomUUID(),
+        }),
+        unopened,
       );
       const base = createCoinSandboxRepository(a, {
         rail: "base-sepolia",
         depositDestination: `0x${"11".repeat(20)}`,
       });
-      await assert.rejects(base.summary(weak), /isolated database/);
+      await assert.rejects(base.summary(newcomer), /isolated database/);
       assert.throws(
-        () => base.confirmSimulatedFunding(weak, { requestId: randomUUID() }),
+        () =>
+          base.confirmSimulatedFunding(newcomer, { requestId: randomUUID() }),
         /prohibited/,
       );
       await assert.rejects(
@@ -604,11 +838,11 @@ describe(
         ),
         { code: "42501" },
       );
-      const strong = await fixture();
-      const { quote } = await fund(strong);
+      const member = await fixture();
+      const { quote } = await fund(member);
       await assert.rejects(
         createCoinSandboxOperatorRepository(a, config).review({
-          userId: strong.userId,
+          userId: member.userId,
           requestId: quote.id,
           decision: "approve",
           idempotencyKey: randomUUID(),
@@ -617,7 +851,7 @@ describe(
       );
       await assert.rejects(
         operator.confirmFunding({
-          userId: strong.userId,
+          userId: member.userId,
           requestId: quote.id,
           receipt: {},
         }),
@@ -629,12 +863,55 @@ describe(
       });
       await assert.rejects(
         baseOperator.seedSandboxTreasury({
-          userId: strong.userId,
+          userId: member.userId,
           purpose: "promotional",
           amount: "1",
           idempotencyKey: randomUUID(),
         }),
         /invented treasury/,
+      );
+      // Owner funding also requires the account's own opening, even for a
+      // quote the owner placed on an account that never opened the sandbox.
+      const template = await repo.quoteFunding(member, {
+          amount: "1000000",
+          idempotencyKey: randomUUID(),
+        }),
+        requestId = randomUUID(),
+        terms = { ...template.terms, requestId, quoteId: requestId };
+      await owner.query(
+        `INSERT INTO coin_sandbox_requests(id,user_id,kind,reference,terms_digest,terms,status,expires_at)
+        VALUES($1,$2,'funding',$3,$4,$5::jsonb,'quoted',$6)`,
+        [
+          requestId,
+          newcomer.userId,
+          digest(requestId),
+          accountOperationTermsDigest(terms),
+          JSON.stringify(terms),
+          new Date(terms.expiresAt),
+        ],
+      );
+      const unchanged = await counts(newcomer);
+      await assert.rejects(
+        operator.confirmSimulatedFunding({
+          userId: newcomer.userId,
+          requestId,
+        }),
+        unopened,
+      );
+      assert.deepEqual(await counts(newcomer), unchanged);
+      await openSandbox(owner, newcomer.userId);
+      assert.equal(
+        (
+          await operator.confirmSimulatedFunding({
+            userId: newcomer.userId,
+            requestId,
+          })
+        ).created,
+        true,
+      );
+      assert.equal(
+        (await repo.summary(newcomer)).balances.cashAvailable,
+        "1000000",
       );
     });
     it("queues authenticated notifications exactly once and reconciles only in the separate owner process", async () => {
@@ -1019,7 +1296,7 @@ describe(
         );
       }
     });
-    it("binds gross/fee/net/destination to fresh proof and reserves exactly the gross debit", async () => {
+    it("binds gross/fee/net/destination to a sign-in confirmation and reserves exactly the gross debit", async () => {
       const context = await fixture();
       await fund(context);
       await assert.rejects(
@@ -1038,23 +1315,9 @@ describe(
       assert.equal(quote.terms.gross, "5000000");
       assert.equal(quote.terms.fee, "100000");
       assert.equal(quote.terms.net, "4900000");
-      const operations = createAccountOperationRepository(a),
-        badTerms = { ...quote.terms, net: "5000000" };
-      const op = await operations.create({
-        ...context,
-        purpose: "withdrawal.request",
-        terms: badTerms,
-        credential: { type: "password" },
-        origin,
-      });
-      const bad = await operations.prepare({
-        ...context,
-        id: op.id,
-        purpose: op.purpose,
-        terms: badTerms,
-        password,
-        rpcUrls: {},
-        origin,
+      const bad = await proof(context, quote, {
+        ...quote.terms,
+        net: "5000000",
       });
       await assert.rejects(
         repo.requestWithdrawal(context, { requestId: quote.id, approval: bad }),

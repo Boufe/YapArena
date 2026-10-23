@@ -48,7 +48,6 @@ type HomepageFixtureOptions = Omit<ApplicationOptions, FixtureServices> & {
     "publicUrl" | "playbackOrigin" | "playbackOrigins"
   >;
   messages: Pick<ApplicationOptions["messages"], "isReady">;
-  users: Pick<ApplicationOptions["users"], never>;
   sessions: Pick<ApplicationOptions["sessions"], "findUserByTokenHash">;
 };
 type CreateHomepageFixtureApp = (
@@ -187,7 +186,6 @@ app.use(
       playbackOrigins: ["https://media.example.test"],
     },
     messages: { isReady: async () => {} },
-    users: {},
     sessions: { findUserByTokenHash: async () => null },
     logger: createLogger({ enabled: false }),
     applicationOrigin: "http://localhost",

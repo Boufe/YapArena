@@ -115,14 +115,16 @@ not implement a holiday calendar, computed review deadline or automatic payout
 approval. Missing the target never releases a reserve, retries a payment or
 changes a customer's financial eligibility; reconcile the original operation.
 
-If every retained strong credential is lost, email sign-in can still provide
-ordinary account access. Operations requiring strong proof, including withdrawals,
-remain unavailable without a retained credential; email cannot reset or replace
-those credentials. The application cannot detect that a physical credential has
-been lost and does not automatically impose an account-wide hold on that basis.
-An approved provider recovery procedure is still required. The implemented
-retained-credential and discoverable-passkey journeys do not establish a complete
-manual all-strong-methods-lost recovery service.
+Since [Decision 0009](decisions/0009-auth0.md) an account opens the financial
+sandbox once, by confirming with a fresh Auth0 sign-in (email code or Google);
+the opening is recorded in `coin_sandbox_openings`. Every sandbox action, including
+the owner's operator paths for that account, requires that opening. Each withdrawal
+and each recovery consent is confirmed by its own fresh sign-in, bound to the exact
+terms (see [the confirmation contract](security/account-session-revocation.md#confirmation-by-fresh-sign-in)).
+Retained passwords, wallets and passkeys no longer approve anything, and there is no
+separate lost-credential recovery: whoever controls the account's email or Google
+sign-in can confirm. The application does not impose an account-wide hold on its own;
+an operator suspends the account when a sign-in method is reported compromised.
 
 ## Error reports, reviewed corrections and original-source restoration
 
@@ -163,13 +165,13 @@ Completed purchases retain the USDC-withdrawal policy; reports introduce no
 original-route purchase refund product.
 
 A recovery quote states exact USDC cost, rail/network, expiry and a safe
-description. Consent requires a fresh retained-credential proof with purpose
+description. Consent requires a confirmation by fresh sign-in with purpose
 `recovery.cost.consent`, bound to the account, session/generation, report, original
 request, exact quote identity/digest/terms and expiry. It consumes once, and a
 superseded or expired quote fails closed. A recorded consent authorizes **no
 charge and no external recovery execution**; no later action may treat it as a
 general financial approval. A lost-response retry can read the existing report;
-the consumed proof itself remains invalid for reuse.
+the consumed confirmation itself remains invalid for reuse.
 
 The sandbox implements restoration of provably missing **internal sources**.
 Provider-specific recovery/network expenses outside an original application debit

@@ -546,8 +546,8 @@ describe(
         next.sessionId,
       );
     });
-    it("contains suspension, credential changes and a raw generation advance while keeping logout independent of provider calls", async () => {
-      for (const action of ["suspend", "credential", "generation"]) {
+    it("contains suspension, an all-session incident and a raw generation advance while keeping logout independent of provider calls", async () => {
+      for (const action of ["suspend", "incident", "generation"]) {
         const context = await debate(await actor()),
           f = fixture();
         await f.repo.issueSpeakerGrant(context);
@@ -556,11 +556,10 @@ describe(
             "UPDATE users SET account_status='suspended' WHERE id=$1",
             [context.userId],
           );
-        else if (action === "credential")
-          await owner.query(
-            "UPDATE users SET email=$2,password_hash='synthetic-nonpassword-hash' WHERE id=$1",
-            [context.userId, `${randomUUID()}@example.test`],
-          );
+        else if (action === "incident")
+          // Decision 0009 removed password changes; the security-incident
+          // path is the remaining credential-driven generation advance.
+          await endAllAccountSessions(b, context.userId);
         else
           await owner.query(
             "UPDATE users SET auth_generation=auth_generation+1 WHERE id=$1",

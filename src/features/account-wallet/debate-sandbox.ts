@@ -39,7 +39,7 @@ import {
   lockSandboxBook,
   assertSandboxRail,
   assertSandboxFinancialOpen,
-  assertSandboxStrongMethod,
+  assertSandboxOpened,
   type SandboxContext,
   type SandboxRail,
   type SandboxBuckets,
@@ -223,7 +223,7 @@ export function createCoinDebateSandbox(database: Pool, rail: SandboxRail) {
     if (!(await lockAccount(client, context.userId)))
       throw new SessionUnavailableError("account unavailable");
     await assertCallerSession(client, context);
-    await assertSandboxStrongMethod(client, context.userId);
+    await assertSandboxOpened(client, context.userId);
     await assertSandboxFinancialOpen(client, context.userId);
   }
   async function stored(client: PoolClient, roundId: string) {

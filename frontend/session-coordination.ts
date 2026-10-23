@@ -1,8 +1,10 @@
 import type {} from "./auth-events.js";
 
-// This classic script loads before all account consumers. Only requests that
-// can issue or revoke the shared HttpOnly app session take the origin-wide
-// browser lock. Native credential ceremonies run before these HTTP requests.
+// This classic script loads before all account consumers. Sign-in is a
+// full-page navigation through Auth0 (Decision 0009), so no fetch issues a
+// session cookie. The requests that revoke the shared HttpOnly session (sign
+// out and removing one session) take an origin-wide browser lock so two tabs
+// never revoke at once, and carry the account this page last verified.
 {
   let verifiedAccountId: string | null = null;
   window.yapRememberSessionAccount = (id) => {
@@ -12,43 +14,23 @@ import type {} from "./auth-events.js";
   window.addEventListener("yap:provider-logout", () => {
     verifiedAccountId = null;
   });
-  const identifier = "[a-f0-9-]+";
-  // Sign-in itself is a full-page navigation through the provider, so only
-  // the remaining legacy credential requests issue cookies from fetch.
-  const postIssuers = [
-    /^\/api\/auth\/(?:register|login|wallet\/login\/verify)$/,
-    new RegExp(`^/api/auth/wallet/operations/${identifier}/complete$`),
-    new RegExp(
-      `^/api/auth/security/access/(?:login|reconciliation)/${identifier}/complete$`,
-    ),
-    new RegExp(
-      `^/api/auth/security/(?:passkeys/enrollment|wallet/operations|provider/link|provider/recovery|provider/passkeys|provider/passkeys/bootstrap)/${identifier}/complete$`,
-    ),
-  ];
-  const deleteIssuer = new RegExp(
-    `^/api/auth/security/passkeys/${identifier}$`,
-  );
   window.yapSessionFetch = async (input, init = {}) => {
     const url = new URL(input, location.origin);
     const method = (init.method ?? "GET").toUpperCase();
-    const issuesCookie =
-      (method === "POST" &&
-        postIssuers.some((pattern) => pattern.test(url.pathname))) ||
-      (method === "DELETE" && deleteIssuer.test(url.pathname));
     const revokesSession =
       (method === "POST" && url.pathname === "/api/auth/logout") ||
       (method === "DELETE" &&
         /^\/api\/auth\/sessions\/[1-9][0-9]*$/.test(url.pathname));
     if (url.origin !== location.origin)
       throw new Error("Account requests must stay on YapArena.");
-    if (!issuesCookie && !revokesSession) return fetch(input, init);
+    if (!revokesSession) return fetch(input, init);
     if (!isSecureContext || typeof navigator.locks?.request !== "function")
       throw new Error(
         "This browser cannot safely coordinate account changes across tabs. Update your browser and try again.",
       );
     // This is a comparison hint, never authentication. Capture it before a
-    // queued login can change the browser cookie to a different account.
-    const expectedAccount = revokesSession ? verifiedAccountId : null;
+    // sign-in in another tab can change the browser cookie to another account.
+    const expectedAccount = verifiedAccountId;
     const queued = new AbortController(),
       network = new AbortController();
     const abortFromCaller = () => {
@@ -61,12 +43,10 @@ import type {} from "./auth-events.js";
       () =>
         queued.abort(
           new Error(
-            revokesSession
-              ? "Another account change is still finishing. Sign-out is unconfirmed; wait and try again."
-              : "Another sign-in is still finishing. Wait and try again.",
+            "Another account change is still finishing. Sign-out is unconfirmed; wait and try again.",
           ),
         ),
-      revokesSession ? 35000 : 10000,
+      35000,
     );
     try {
       return await navigator.locks.request(
@@ -78,12 +58,10 @@ import type {} from "./auth-events.js";
             () =>
               network.abort(
                 new Error(
-                  revokesSession
-                    ? "Sign-out could not be confirmed. Refresh your account and try again."
-                    : "Account request timed out. Refresh your account before trying again.",
+                  "Sign-out could not be confirmed. Refresh your account and try again.",
                 ),
               ),
-            revokesSession ? 10000 : 30000,
+            10000,
           );
           try {
             const headers = new Headers(init.headers);
@@ -95,9 +73,8 @@ import type {} from "./auth-events.js";
               credentials: "same-origin",
               signal: network.signal,
             });
-            // Cookies are processed with headers. Retain ownership through the
-            // bounded full response so no older header remains in flight when
-            // another tab is allowed to issue its replacement session.
+            // Retain the lock through the bounded full response so the next
+            // revocation starts only after this one has finished.
             await response.clone().arrayBuffer();
             return response;
           } finally {

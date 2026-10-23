@@ -478,13 +478,7 @@ try {
             await concurrent.connect();
             await concurrent.query("SET lock_timeout='250ms'");
             await assert.rejects(
-              concurrent.query(
-                "INSERT INTO yaparena.users(email,password_hash) VALUES($1,$2)",
-                [
-                  "reset-concurrent-fixture@example.invalid",
-                  "not-an-authentication-password",
-                ],
-              ),
+              concurrent.query("INSERT INTO yaparena.users DEFAULT VALUES"),
               (error: unknown) =>
                 error instanceof Error &&
                 "code" in error &&

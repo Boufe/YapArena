@@ -18,7 +18,6 @@ describe("owned-session HTTP management", () => {
     const server = createApp({
       environment: "test",
       logger: createLogger({ enabled: false }),
-      users: {},
       messages: {},
       sessions: {
         async findUserByTokenHash(token) {
@@ -196,27 +195,37 @@ describe(
       };
       const app = createApp({
         messages: { isReady: async () => {} },
-        users: {},
         sessions: value.repo,
         logger: createLogger({ enabled: false }),
         environment: "test",
-        authProvider: {
-          appId: "synthetic-app",
-          verifier: {
-            verify: refuse("verify"),
-            inspect: refuse("inspect"),
-            configuration: refuse("configuration"),
+        applicationOrigin: "http://localhost:3000",
+        auth0: {
+          client: {
+            authorizationUrl: refuse("authorizationUrl"),
+            verifyCallback: refuse("verifyCallback"),
+            // Building the provider's logout URL is local; nothing is sent.
+            logoutUrl: (returnTo) => {
+              const url = new URL("https://synthetic.auth0.test/v2/logout");
+              url.searchParams.set("returnTo", returnTo);
+              return url;
+            },
           },
-          accounts: {
-            exchange: refuse("exchange"),
-            details: refuse("details"),
+          accounts: { signIn: refuse("signIn"), methods: refuse("methods") },
+          state: {
+            create: refuse("state.create"),
+            consume: refuse("state.consume"),
+            deleteExpired: refuse("state.deleteExpired"),
           },
         },
       });
       const response = await request(app)
         .post("/api/auth/logout")
         .set("Cookie", `session=${value.token}`);
-      assert.equal(response.status, 204);
+      assert.equal(response.status, 200);
+      assert.equal(
+        response.body.redirectTo,
+        "https://synthetic.auth0.test/v2/logout?returnTo=http%3A%2F%2Flocalhost%3A3000%2F",
+      );
       assert.equal(response.headers["set-cookie"], undefined);
       const otherRepo = createSessionRepository(b);
       assert.equal(
@@ -253,7 +262,7 @@ describe(
       await request(app)
         .post("/api/auth/logout")
         .set("Cookie", `session=${value.other}`)
-        .expect(204);
+        .expect(200);
       assert.equal(
         await otherRepo.findUserByTokenHash(hashSessionToken(value.other)),
         null,

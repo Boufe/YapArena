@@ -212,12 +212,8 @@ export async function verifyHostedCommunityCapacity({
       0,
       "run capacity on an idle synthetic stage",
     );
-    user = (
-      await owner.query(
-        "INSERT INTO users(email,password_hash) VALUES($1,'unused-synthetic') RETURNING id",
-        [tag + "@example.test"],
-      )
-    ).rows[0].id;
+    user = (await owner.query("INSERT INTO users DEFAULT VALUES RETURNING id"))
+      .rows[0].id;
     topic = (
       await owner.query(
         "INSERT INTO topics(slug,title,summary,side_a_label,side_b_label,publication_state) VALUES($1,'Synthetic hosted capacity','Synthetic temporary trial','For','Against','published') RETURNING id",

@@ -20,8 +20,7 @@ const debates: string[] = [];
 
 async function person(name: string) {
   const user = await pool.query<{ id: string }>(
-    "INSERT INTO users (email, password_hash) VALUES ($1, 'verification-only') RETURNING id",
-    [`measure-${name}-${suffix}@example.test`],
+    "INSERT INTO users DEFAULT VALUES RETURNING id",
   );
   const id = user.rows[0]!.id;
   users.push(id);

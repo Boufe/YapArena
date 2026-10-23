@@ -65,7 +65,6 @@ describe("configuration", () => {
       authRateLimit: 10,
       rateLimitWindowMs: 900000,
       sessionDurationMs: 604800000,
-      siweRpcUrls: {},
       media: undefined,
       replayPackaging,
       backgroundJobs: true,
@@ -109,7 +108,6 @@ describe("configuration", () => {
         authRateLimit: 20,
         rateLimitWindowMs: 60000,
         sessionDurationMs: 3600000,
-        siweRpcUrls: {},
         media: undefined,
         replayPackaging,
         backgroundJobs: true,
@@ -272,24 +270,6 @@ describe("configuration", () => {
     assert.throws(
       () => loadConfig({ DATABASE_URL: databaseUrl, LOG_LEVEL: "verbose" }),
       /LOG_LEVEL is invalid/,
-    );
-  });
-
-  it("accepts configured HTTPS smart-wallet RPC endpoints", () => {
-    const config = loadConfig({
-      DATABASE_URL: databaseUrl,
-      SIWE_RPC_URLS: '{"1":"https://rpc.example.com"}',
-    });
-    assert.deepEqual(config.siweRpcUrls, { 1: "https://rpc.example.com" });
-    assert.throws(
-      () =>
-        loadConfig({
-          DATABASE_URL: databaseUrl,
-          NODE_ENV: "production",
-          APP_ORIGIN: "https://app.example.com",
-          SIWE_RPC_URLS: '{"1":"http://rpc.example.com"}',
-        }),
-      /SIWE_RPC_URLS has an invalid chain or URL/,
     );
   });
 

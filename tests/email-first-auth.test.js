@@ -798,7 +798,6 @@ describe("Auth0 account routes", () => {
     };
     return createApp({
       messages: {},
-      users: {},
       sessions: {
         findUserByTokenHash: async () => (active ? { id: "11" } : null),
         revokeSession: async () => ({ current: true }),
@@ -825,7 +824,6 @@ describe("Auth0 account routes", () => {
           linkedAt: new Date(0).toISOString(),
         },
       ],
-      legacyPassword: false,
     });
   });
   it("keeps sign-in, logout and session reads usable when shared abuse protection is unavailable", async () => {
@@ -859,12 +857,8 @@ describe("Auth0 account routes", () => {
       /^__Host-sign-in=.*; Max-Age=600;.*HttpOnly; Secure; SameSite=Lax/,
     );
   });
-  it("retires password registration and Privy routes, and reports configured methods", async () => {
+  it("retires password, wallet, passkey and Privy routes, and reports configured methods", async () => {
     const app = setup();
-    assert.equal(
-      (await request(app).post("/api/auth/register").send({})).status,
-      410,
-    );
     assert.deepEqual((await request(app).get("/api/auth/provider")).body, {
       enabled: true,
       methods: ["email", "google"],
@@ -883,6 +877,17 @@ describe("Auth0 account routes", () => {
       401,
     );
     for (const [method, path] of [
+      ["post", "/api/auth/register"],
+      ["post", "/api/auth/login"],
+      ["post", "/api/auth/wallet/login/challenge"],
+      ["post", "/api/auth/wallet/login/verify"],
+      ["post", "/api/auth/wallet/operations"],
+      ["get", "/api/auth/wallets"],
+      ["get", "/api/auth/security/passkeys"],
+      ["post", "/api/auth/security/operations"],
+      ["post", "/api/auth/security/access/login"],
+      ["post", "/api/auth/security/provider/link"],
+      ["post", "/api/auth/security/provider/recovery"],
       ["post", "/api/auth/privy/exchange"],
       ["post", "/api/auth/journey"],
       ["get", "/api/auth/embedded-wallet"],

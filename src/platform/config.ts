@@ -39,45 +39,6 @@ function parseMetricsToken(value: string | undefined) {
   return value;
 }
 
-function parseSiweRpcUrls(
-  value: string | undefined,
-  environment: string,
-): Readonly<Record<string, string>> {
-  if (!value) return Object.freeze({});
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(value);
-  } catch {
-    throw new Error("SIWE_RPC_URLS must be a JSON object");
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error("SIWE_RPC_URLS must be a JSON object");
-  }
-  const urls: Record<string, string> = {};
-  for (const [chainId, value] of Object.entries(parsed)) {
-    if (
-      !/^[1-9]\d*$/.test(chainId) ||
-      !Number.isSafeInteger(Number(chainId)) ||
-      typeof value !== "string"
-    ) {
-      throw new Error("SIWE_RPC_URLS has an invalid chain or URL");
-    }
-    try {
-      const url = new URL(value);
-      if (
-        url.protocol !== "https:" &&
-        (environment === "production" || url.protocol !== "http:")
-      )
-        throw new Error();
-      if (url.username || url.password) throw new Error();
-    } catch {
-      throw new Error("SIWE_RPC_URLS has an invalid chain or URL");
-    }
-    urls[chainId] = value;
-  }
-  return Object.freeze(urls);
-}
-
 function parseMedia(environment: NodeJS.ProcessEnv, nodeEnvironment: string) {
   const names = [
     "LIVEKIT_URL",
@@ -240,10 +201,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
     "SESSION_DURATION_MS",
     { minimum: 60_000, maximum: 31_536_000_000 },
   );
-  const siweRpcUrls = parseSiweRpcUrls(
-    environment.SIWE_RPC_URLS,
-    nodeEnvironment,
-  );
   const media = parseMedia(environment, nodeEnvironment);
   const packagingEnabled =
     environment.MEDIA_REPLAY_PACKAGING_ENABLED ?? "false";
@@ -396,7 +353,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
     authRateLimit,
     rateLimitWindowMs,
     sessionDurationMs,
-    siweRpcUrls,
     media,
     replayPackaging,
     backgroundJobs: backgroundJobs === "true",

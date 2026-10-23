@@ -30,20 +30,17 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 import { provisionDatabase } from "./provision-database.ts";
-import { createUserRepository } from "../dist/platform/auth/users.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
+import { createAuth0Accounts } from "../dist/platform/auth/auth0-accounts.js";
 import {
   createSessionToken,
   hashSessionToken,
 } from "../dist/platform/auth/session-tokens.js";
-import {
-  hashPassword,
-  verifyPassword,
-} from "../dist/platform/auth/passwords.js";
 import { createAccountOperationRepository } from "../dist/platform/auth/account-operations.js";
 import {
   createCoinSandboxRepository,
   createCoinSandboxOperatorRepository,
+  sandboxOpeningTerms,
   withdrawalApprovalTerms,
 } from "../dist/features/account-wallet/sandbox-repository.js";
 import {
@@ -240,7 +237,6 @@ const reader = createPublicClient({
   chain: baseSepolia,
   transport: transport(),
 });
-const origin = "http://localhost:53025";
 let owner: pg.Pool | undefined, runtime: pg.Pool | undefined;
 let phase = "private setup";
 try {
@@ -401,49 +397,76 @@ try {
     await ownerPool.query(
       "UPDATE coin_sandbox_controls SET rail='base-sepolia' WHERE singleton=true",
     );
-    const existing = await createUserRepository(runtimePool).findByEmail(
-      `${state.fixture}@example.test`,
+  }
+  // Sign-in runs the same post-callback function as the Auth0 callback, with
+  // this fixture's stable synthetic email-code identity.
+  const identity = {
+    subject: `email|testnet-${state.fixture}`,
+    email: `${state.fixture}@example.test`,
+    method: "email" as const,
+    authTime: Math.floor(Date.now() / 1000),
+  };
+  const sessions = createSessionRepository(runtimePool);
+  if (!(await sessions.findUserByTokenHash(hashSessionToken(state.token)))) {
+    const signedIn = await createAuth0Accounts(runtimePool).signIn(
+      identity,
+      { purpose: "sign_in" },
+      {
+        tokenHash: hashSessionToken(state.token),
+        expiresAt: new Date(Date.now() + 7_200_000),
+      },
     );
-    const user =
-      existing ??
-      (await createUserRepository(runtimePool).create(
-        `${state.fixture}@example.test`,
-        await hashPassword(state.password),
-      ));
-    assert.ok(user);
-    state.userId = user.id;
-    await persist(statePath, state, true);
+    assert.equal(signedIn.kind, "session");
+    if (signedIn.kind === "session") {
+      assert.ok(!state.userId || state.userId === signedIn.user.id);
+      state.userId = signedIn.user.id;
+      await persist(statePath, state, true);
+    }
   }
   const userId = state.userId;
   assert.ok(userId);
-  const users = createUserRepository(runtimePool),
-    sessions = createSessionRepository(runtimePool);
-  const user = await users.findByEmail(`${state.fixture}@example.test`);
-  assert.ok(user && user.id === userId);
-  assert.ok(
-    user.passwordHash &&
-      (await verifyPassword(user.passwordHash, state.password)),
-  );
-  assert.ok(typeof user.email === "string");
-  if (!(await sessions.findUserByTokenHash(hashSessionToken(state.token))))
-    await sessions.create(
-      userId,
-      hashSessionToken(state.token),
-      new Date(Date.now() + 7_200_000),
-      {
-        authGeneration: user.authGeneration,
-        passwordHash: user.passwordHash,
-        email: user.email,
-      },
-    );
   const context = { userId, sessionTokenHash: hashSessionToken(state.token) };
+  const proofs = createAccountOperationRepository(runtimePool);
+  // Decision 0009, point 8: each confirmation stands for a fresh sign-in by
+  // this account's subject after the challenge was created.
+  async function confirmed(purpose: string, terms: Record<string, string>) {
+    const issued = await proofs.create({ ...context, purpose, terms });
+    await proofs.confirm({
+      id: issued.id,
+      userId: context.userId,
+      identity: {
+        subject: identity.subject,
+        authTime: Math.ceil(Date.now() / 1000),
+      },
+    });
+    return {
+      id: issued.id,
+      approval: await proofs.prepare({
+        ...context,
+        id: issued.id,
+        purpose,
+        terms,
+        requestId: randomUUID(),
+      }),
+    };
+  }
   const config = {
     rail: "base-sepolia" as const,
     depositDestination: accounts.custody.address,
     withdrawalFee: "0",
   };
-  const app = createCoinSandboxRepository(runtimePool, config),
-    operator = createCoinSandboxOperatorRepository(ownerPool, config);
+  const app = createCoinSandboxRepository(runtimePool, config);
+  if (!(await app.summary(context)).opened) {
+    const opening = await confirmed(
+      "sandbox.open",
+      sandboxOpeningTerms(context.userId),
+    );
+    await app.open(context, {
+      operationId: opening.id,
+      approval: opening.approval,
+    });
+  }
+  const operator = createCoinSandboxOperatorRepository(ownerPool, config);
   const funding = await app.quoteFunding(context, {
     idempotencyKey: "actual-chain-funded-issuance-v1",
     amount: "6000000",
@@ -506,26 +529,11 @@ try {
     });
     let withdrawal = await app.getRequest(context, quoted.id);
     if (withdrawal.status === "quoted") {
-      phase = "verify fresh exact withdrawal authorization";
-      const proofs = createAccountOperationRepository(runtimePool);
-      const terms = withdrawalApprovalTerms(withdrawal);
-      const issued = await proofs.create({
-        ...context,
-        origin,
-        purpose: "withdrawal.request",
-        terms,
-        credential: { type: "password" },
-      });
-      const approval = await proofs.prepare({
-        ...context,
-        origin,
-        id: issued.id,
-        password: state.password,
-        purpose: "withdrawal.request",
-        terms,
-        rpcUrls: {},
-        requestId: randomUUID(),
-      });
+      phase = "verify fresh exact withdrawal confirmation";
+      const { approval } = await confirmed(
+        "withdrawal.request",
+        withdrawalApprovalTerms(withdrawal),
+      );
       withdrawal = await app.requestWithdrawal(context, {
         requestId: withdrawal.id,
         approval,

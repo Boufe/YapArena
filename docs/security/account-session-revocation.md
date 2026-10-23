@@ -1,5 +1,12 @@
 # Account session revocation
 
+Since [Decision 0009](../decisions/0009-auth0.md), people sign in only through
+Auth0 (email code or Google), and sensitive operations are confirmed by a fresh
+Auth0 sign-in. Password, wallet and native-passkey sign-in, legacy linking and
+identity recovery were removed. Privy is unmounted: no request, re-check or
+background job calls it, although its code remains until prompt 12 deletes it.
+The Privy sections below that describe that unmounted code are marked as such.
+
 Current email-first work adds account status, PostgreSQL provider-session replay
 fences, an asynchronous Privy re-check ([Decision 0008](../decisions/0008-auth-simplification.md)
 step 9), a durable Privy freeze/unfreeze
@@ -19,29 +26,30 @@ it does not replace the final hosted rollout and legacy-grant checks.
 
 ## Owner controls and semantics
 
-| Action                              | Result after successful commit                                                                                                                                                                       |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/auth/logout`             | Sign out deletes only the invoking session row (audited `sessions.logout_one`). The generation is unchanged, other devices stay signed in and no Privy job is queued. Creates no replacement cookie. |
-| `DELETE /api/auth/sessions/:id`     | Revokes only a session owned by the authenticated account. Session IDs are server-issued selectors, not ownership evidence.                                                                          |
-| Wallet removal                      | The credential deletion trigger advances the generation and deletes all existing account sessions in the same transaction.                                                                           |
-| Password or email credential update | The users trigger advances the generation and deletes all existing account sessions in the same transaction.                                                                                         |
+| Action                          | Result after successful commit                                                                                                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/auth/logout`         | Deletes only the invoking session row (audited `sessions.logout_one`). The generation is unchanged and other devices stay signed in. Returns the Auth0 logout URL; creates no replacement cookie. |
+| `DELETE /api/auth/sessions/:id` | Revokes only a session owned by the authenticated account. Session IDs are server-issued selectors, not ownership evidence.                                                                       |
+| Incident revocation (operator)  | `revokeAccountSessions` advances the generation and deletes all existing account sessions in the same transaction.                                                                                |
 
 By founder decision on 2026-10-22, Sign out works as in other apps: it ends this device only.
 Sign out all sessions and Sign out other sessions (`POST /api/auth/logout-all` and
 `/logout-other-sessions`, audited `sessions.logout_all`/`sessions.logout_others`) were
 removed; older audit rows keep those names. The account page's Active sessions list signs out
-one chosen device at a time. Neither control calls Privy or advances the generation. The
-browser ends its own Privy session with Privy `logout()`, and other tabs of this browser
-follow through the `yaparena-account` BroadcastChannel. A live Privy session on another
-device is not ended; a consumed Privy `sid` cannot mint a new YapArena session.
+one chosen device at a time. Neither control advances the generation. After Sign out the
+browser navigates to Auth0's logout endpoint, which ends this browser's Auth0 session and
+returns to the home page; other tabs of this browser follow through the `yaparena-account`
+BroadcastChannel. An Auth0 session on another device is not ended. A YapArena session is
+created only by a completed authorization-code callback with a one-use state, so an old
+Auth0 response cannot mint a new session.
 
 Session controls require a live authenticated session, accept no account selectors, derive
 the account from server authentication, and recheck the invoking session inside the
 transaction. The account page explains that signing out ends only that device. Cookie
 attributes and the existing Origin protection remain unchanged. The existing authentication
 limiter remains defense in depth. Logout, owned session reads and revocation bypass
-the shared abuse limiter and never schedule a Privy re-check, so they remain available
-during Redis/Privy outages. PostgreSQL must still confirm the revocation.
+the shared abuse limiter and never call Auth0, so they remain available during
+Redis/Auth0 outages. PostgreSQL must still confirm the revocation.
 An absent, expired or unknown cookie returns 401 ("this session has already ended");
 a database failure must not claim successful revocation.
 Revocation responses do not expire the browser cookie: an old delayed response
@@ -49,13 +57,13 @@ must not delete a newer account's cookie. The remaining opaque cookie has no
 authority after its database session is retired; a new sign-in overwrites it.
 The interface also discards outcomes from the previous account/view generation.
 
-Supported browser flows serialize cookie-issuing requests and session revocation
-with the same origin-wide Web Lock. Native passkey/wallet dialogs run before
-acquiring it. A revocation waits at most 35 seconds for an in-flight account
-change, then allows 10 seconds for its HTTP response; a timeout reports that
-sign-out is unconfirmed. With no pending account change, revocation proceeds
-immediately. Read-only requests do not take that lock. Browsers without the
-required secure-context lock support receive an explicit upgrade message.
+Sign-in is a full-page navigation through Auth0, so no browser request issues a
+session cookie. Session revocations (sign out and removing one session) take an
+origin-wide Web Lock so two tabs never revoke at once. A revocation waits at most
+35 seconds for another in-flight revocation, then allows 10 seconds for its HTTP
+response; a timeout reports that sign-out is unconfirmed. Read-only requests do not
+take that lock. Browsers without the required secure-context lock support receive
+an explicit upgrade message.
 
 Before waiting, the browser captures its last server-verified account as a
 comparison hint. The server compares that hint with the cookie-authenticated
@@ -66,58 +74,42 @@ These ordering protections cover cooperating application browser flows;
 arbitrary API clients do not participate in the browser lock. PostgreSQL
 authorization and revocation still apply to every client.
 
-A protected request makes one indexed `SELECT` on `sessions`, `users` and
-`provider_identities`. It never calls Privy, takes no row lock and never fails
-because Privy is unavailable. When `provider_identities.checked_at` is more than
-15 minutes old, the request schedules an asynchronous re-check and continues. The
-re-check claims `checked_at` atomically, so one process reads Privy once per
-account per interval, and holds no connection or lock during the read. Its
-result is written only if the session generation, identity mapping, stored
-methods and provider-control job are unchanged under the account lock:
+A protected request makes one indexed `SELECT` on `sessions` and `users`. It never
+calls Auth0 and takes no row lock. Auth0 is consulted only at sign-in and when an
+operation is confirmed; sessions still end after 7 days. A change made in the Auth0
+dashboard (a blocked user, for example) reaches the app at the next sign-in or
+confirmation. To end existing sessions sooner, use the incident procedure below.
 
-- a deleted, frozen or guest Privy user (or one with an unsupported or no sign-in
-  method) loses every session through `revokeAccountSessions`, audited as
-  `sessions.incident` with `reason: "provider_change"`;
-- a sign-in method change is recorded with a `provider.credentials.changed` audit
-  event and an `account.signin_changed` notice; sessions continue;
-- a change that is the passkey this account is activating, or a frozen response
-  during the app's own freeze/unfreeze reset, is left alone;
-- a Privy outage or rate limit pauses re-checks in that process for 60 seconds;
-- an inconclusive check (outage, own reset, a concurrent change or an error)
-  hands its claim back, so the account is due again about a minute later.
+The unmounted Privy re-check (a request whose last Privy read was over 15 minutes old
+scheduled an asynchronous read, which could revoke sessions as `sessions.incident` with
+`reason: "provider_change"`) and the Privy freeze/unfreeze reset queue no longer run.
+Their code and the `provider_revocation_jobs` table remain until prompt 12; their
+historical contract is in the [provider session contract](../email-first-accounts.md#ownership-sessions-and-recovery).
 
-Sign-in and passkey setup record method changes the same way, instead of
-requiring ownership reconciliation or failing setup. A change that is the passkey
-being activated stays with that activation, which records it. Step-up re-reads Privy and checks only the approving key (still
-linked, same public key). Privy-side deletions, freezes and method changes
-therefore reach the app within about 15 minutes of activity, live at sign-in and
-step-up, and sessions still end after 7 days. A refreshed or replayed provider token cannot reuse a consumed
-Privy session ID to recreate an expired/revoked YapArena session. Local revocation
-commits before external calls; Privy queue failures retain their fence and retry.
-An uncertain provider mutation requires incident reconciliation. Provider freeze/
-unfreeze is not a compare-and-swap ownership API: use a single operator for a
-provider incident rather than racing dashboard edits against the worker.
-The provider-control worker holds the account ordering lock during its bounded
-freeze/unfreeze sequence (up to 20 seconds). A concurrent local revocation may
-wait for that sequence. The provider re-check holds no such lock or
-checked-out connection while awaiting Privy.
+## Confirmation by fresh sign-in
 
-A reset job overtaken by a newer generation never adopts it: a job that has not
-requested a freeze completes without a provider call, one that has stops for
-manual review, and a newer job behind an unfinished or manual older one stops as
-`inherited_manual`. Unknown intents, changed credentials and suspension stay
-fenced. The `92f11b4` drain for resets superseded by an authenticated
-sign-out-all/others, and the owner-only rearm for that case
-(`prepareAcknowledgedLogoutReset`/`resumeAcknowledgedLogoutReset`, audit
-`provider.reset.logout_resumed`), were removed on 2026-10-22 with those actions.
+Sensitive operations (opening the financial sandbox once per account, each withdrawal and
+each recovery consent) start a pending `account_operations` row bound to the account,
+the invoking session, its generation, a purpose and exact terms. The browser then goes
+to `GET /api/auth/confirm?operation=…`, which sends the person to Auth0 with
+`prompt=login` and `max_age=0`. The callback accepts the confirmation only when:
 
-An inspection failure during the matching pending/running provider reset, or
-its uncertain manual outcome, denies protected access temporarily. It must not
-mistake the application's own freeze for another credential incident and revoke
-the deliberately rotated session again. A valid observation of changed
-credentials or changed accepted public-key material still triggers revocation.
+- the signed-in Auth0 subject is linked to the same account (otherwise `other_account`);
+- the ID token's `auth_time` is not earlier than the operation's creation second
+  (otherwise `stale_sign_in`); and
+- the operation is still pending, unexpired and its session and generation are current.
 
-## One Privy passkey
+The callback marks the row confirmed with the subject and `auth_time`, creates no
+session and returns to the starting page with `?confirmed=<id>`. The page then submits
+the operation; the server consumes the confirmation in the same account-locked
+transaction as the mutation, after rechecking session, generation and terms. A
+confirmation is single-use, expires with its operation and cannot be moved to another
+session, account, purpose or set of terms. A suspended account cannot confirm.
+
+## One Privy passkey (unmounted)
+
+This section describes code that no longer runs since Decision 0009. Privy passkey
+activation and step-up were unmounted, and native YapArena passkeys were removed.
 
 New enrollment uses Privy from Account settings, and sign-in offers one passkey
 option. YapArena obtains the credential ID and COSE public key from its trusted
@@ -183,21 +175,10 @@ generations. Lookup joins the current account generation and checks absolute exp
 `clock_timestamp()`. Revocation also physically deletes retired rows, protecting old lookups
 that do not understand the generation.
 
-The common lock order is account row → active session row → credential operation/challenge
-row → target wallet advisory lock/mutation. Wallet credential reads happen under the account
-lock. An unknown wallet has no existing account to lock: its address/chain advisory lock
-serializes new-account provisioning; discovering an existing mapping rejects the old unknown
-challenge and requires a new one. No path acquires an existing account lock while holding a
-wallet advisory lock. Password hashing and SIWE/RPC verification happen before the issuance
-transaction; their authoritative state is checked again under the account lock.
-
-Provider provisioning and replacement additionally take the relevant DID
-advisory locks before the account row. Replacement locks both old and new
-subjects in a fixed order, then rechecks account, session, credential and
-operation state. Its remote provider inspections finish before acquiring a
-database connection or these transaction locks. The database exposes a narrow
-replacement function rather than granting runtime general ownership-update
-permission on provider mappings.
+The common lock order is subject/email advisory locks (sign-in only) → account row →
+active session row → account operation row → feature mutation. Auth0 token exchange and
+ID-token validation finish before the transaction; their result is checked again under
+the account lock.
 
 The generation advance under that lock is the revocation ordering point. COMMIT makes it
 visible to every instance. An issuance which commits first is deleted by the revocation. An
@@ -220,71 +201,43 @@ in-memory revocation caches or cross-instance broadcasts to lose.
   `provider_change`. Sign out uses the repository's `revokeSession`, which deletes one
   owned session row without changing the generation.
 - `sessions.create(userId, tokenHash, expiresAt, expected)`: owns its transaction and requires
-  `expected.authGeneration`. Password sign-in also supplies the exact verified hash/email;
-  optional `walletId` checks credential ownership. It commits before returning.
+  `expected.authGeneration`. It commits before returning.
 
-Wallet login challenge issuance stores the then-current account ID, wallet UUID, and
-account generation. Completion rechecks the snapshot and wallet ownership, atomically
-consumes the challenge and inserts the session before COMMIT. Unknown legacy challenges
-are consumed during migration. F02 operations bind their proofs to the same generation,
-session, trusted credential UUID and exact action/target; generation changes invalidate
-pending approvals.
-
-The original F03 baseline had no recovery or suspension implementation. Current
-email-first security operations bind retained password/wallet/security-passkey
-proof to account, session generation, nonce, expiry and exact operation terms.
-They consume proof and mutate in one account-locked transaction. Provider login
-refresh is not that proof. Suspension is enforced at login, lookup and sensitive
-commit boundaries; revocation alone still permits a fresh sign-in. Email recovery
-must not replace a lost strong financial credential; all-strong-methods-lost
-accounts require reviewed recovery.
+Auth0 sign-in locks the account (or, for a new account, the subject and email advisory
+locks first), checks status, and inserts the session at the current generation in the
+same transaction that links or provisions the identity. Confirmed operations bind the
+same generation, session and exact terms; generation changes invalidate pending
+confirmations. Suspension is enforced at sign-in, lookup, confirmation and sensitive
+commit boundaries; revocation alone still permits a fresh sign-in.
 
 ## Compromised-account procedure
 
 1. Identify the affected account through an authenticated owner request or the existing
-   private support process. Never treat an email string or wallet connection as recovery proof.
-2. The owner signs out every unrecognized device under **Active sessions**; the credential
-   update in step 4 retires every device cookie at once. A still-compromised
-   credential can sign in again, so remove/replace it using retained trusted credential proof
-   (F02), or the verified owner/operator procedure below. A lost sole wallet has no recovery
-   bypass; the final-method guard remains in place.
+   private support process. Never treat an email string as recovery proof.
+2. The owner signs out every unrecognized device under **Active sessions**. A still-compromised
+   mailbox or Google account can sign in again; the owner secures it with their email or
+   Google provider. Until then, an operator suspends the account (step 4).
 3. Use a separately authorized operator database connection for administrative remediation.
-   Stop unknown older application instances before a mass incident action. Hash any new
-   password with the existing Argon2id function outside the database transaction. Never put
-   a plaintext password, hash, token, cookie or signature in command history, issue text or logs.
-4. With bound parameters in an owner session, run the following transaction shape. This is
-   account-scoped; `account_id`, `new_hash`, `request_id` and `reason` are reviewed parameters,
-   not text substituted into SQL. Runtime has no password/email UPDATE permission.
+   Never put a token, cookie, authorization code or confirmation in command history, issue
+   text or logs.
+4. With bound parameters in an owner session, hold the account lock, then either call
+   `revokeAccountSessions(client, accountId, { action: 'sessions.incident', requestId })`
+   for session-only containment, or set `users.account_status = 'suspended'` and revoke as
+   well to keep the account out. Commit. `account_id` and `request_id` are reviewed
+   parameters, not text substituted into SQL.
 
-```sql
-BEGIN;
-SELECT id FROM users WHERE id = $1 FOR UPDATE;
-SELECT set_config('yaparena.request_id', $2, true);
--- If replacing a verified password credential:
-UPDATE users SET password_hash = $3 WHERE id = $1 AND email IS NOT NULL;
--- The credential trigger already advances generation and deletes sessions.
-COMMIT;
-```
-
-For session-only incident containment, hold the same account lock, call
-`revokeAccountSessions(client, accountId, { action: 'sessions.incident', requestId })`, then
-commit. This provides the supported audited generation advance and row deletion. No public
-administrative revocation endpoint is introduced. Verify old cookies fail and the retained
-credential signs in freshly in a synthetic drill before applying the procedure to real users.
-
-A normal UPDATE of `users.password_hash`/`email` with the installed trigger atomically
-revokes sessions, including an owner SQL update. Do not disable triggers, use replica-mode
-writes, restore old auth rows, or drop the guards. Wallet-removal operator SQL must acquire
-the account lock before DELETE; unsupported wallet-first SQL can deadlock with application
-transactions and PostgreSQL will abort a participant. Trigger rollback preserves atomicity.
-The revocation guarantees do not establish recovery ownership or authorize arbitrary SQL.
+No public administrative revocation endpoint is introduced. Verify old cookies fail and a
+fresh sign-in behaves as intended in a synthetic drill before applying the procedure to real
+users. Do not disable triggers, use replica-mode writes, restore old auth rows, or drop the
+guards. The revocation guarantees do not establish recovery ownership or authorize arbitrary
+SQL.
 
 Audit records use the existing 90-day identity audit mechanism. Account-wide events include
 actor account/session ID for owner controls, database role, request correlation, action,
 outcome and generation. Operator incident actions record the database actor and do not
-attribute the action to the affected account owner; credential
-triggers include database actor role, credential subject, outcome/generation and optional
-`yaparena.request_id`. They contain no raw cookies, token hashes, passwords or signatures.
+attribute the action to the affected account owner. Sign-in method links record the
+method and outcome with optional `yaparena.request_id`. They contain no raw cookies,
+token hashes, authorization codes or ID tokens.
 Existing insert/delete events remain available for lifecycle correlation. Monitor unexpected
 session-generation errors, account revocation volume, credential events and transaction
 failures/deadlocks. A failed transaction must not be reported as successful containment.
@@ -367,9 +320,9 @@ database. Apply migrations as owner, optionally set `REVOCATION_TEST_RUNTIME_URL
 least-privileged runtime, then run `npm run test:revocation` and `npm run check` with those
 variables. The suite skips when no database URL is provided; that skip is not PostgreSQL
 verification. CI/integration must explicitly run it against a disposable PostgreSQL service.
-Node tests use real account/session rows, two separate app pools, synthetic EOA signatures,
-transaction barriers and observed PostgreSQL lock waits; mocked tests alone are not the
-race evidence. The handoff records actual commands/results and browser evidence.
+Node tests use real account/session rows, two separate app pools, an in-process OIDC
+issuer, transaction barriers and observed PostgreSQL lock waits; mocked tests alone are not
+the race evidence. The handoff records actual commands/results and browser evidence.
 
 This design applies server-side logout/invalidation and session lifecycle controls from the
 [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html),

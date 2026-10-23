@@ -18,19 +18,14 @@ import type { createMediaProvider } from "./features/media/provider.ts";
 import type { createCommunityRepository } from "./features/community/repository.ts";
 import type { createCommunityStreams } from "./features/community/streams.ts";
 import type { createMeasurementRepository } from "./features/measurement/repository.ts";
-import type { createUserRepository } from "./platform/auth/users.ts";
 import type { createSessionRepository } from "./platform/auth/sessions.ts";
-import type { createWalletRepository } from "./platform/auth/wallets.ts";
+import type { AccountOperations } from "./platform/auth/account-operations.ts";
 import type { RequestHandler } from "express";
 import type { createAccountWallet } from "./features/account-wallet/repository.ts";
 import type { createMediaAccountRevocation } from "./features/media/account-revocation.ts";
 import { createCoinSandboxRouter } from "./features/account-wallet/sandbox-router.ts";
 import { createEmailAuthSecurity } from "./platform/auth/browser-security.ts";
 import { SessionUnavailableError } from "./platform/auth/sessions.ts";
-import {
-  createAccountSecurityRouter,
-  type SecurityRouterOptions,
-} from "./platform/auth/security-router.ts";
 
 import { createMessageRouter } from "./features/messages/router.ts";
 import { createDiscoveryRouter } from "./features/discovery/router.ts";
@@ -121,9 +116,7 @@ export function createApp({
   community,
   communityStreams,
   measurement,
-  users,
   sessions,
-  wallets,
   logger,
   environment = "development",
   homepageReferenceEnabled = false,
@@ -137,7 +130,6 @@ export function createApp({
   authRateLimit = 10,
   rateLimitWindowMs = 15 * 60 * 1_000,
   sessionDurationMs = 7 * 24 * 60 * 60 * 1_000,
-  siweRpcUrls = {},
   auth0,
   accountSecurity,
   coinSandbox,
@@ -164,9 +156,7 @@ export function createApp({
     "subscribe"
   >;
   measurement?: ReturnType<typeof createMeasurementRepository>;
-  users: ReturnType<typeof createUserRepository>;
   sessions: ReturnType<typeof createSessionRepository>;
-  wallets?: ReturnType<typeof createWalletRepository>;
   logger: Logger;
   environment?: string;
   homepageReferenceEnabled?: boolean;
@@ -180,19 +170,12 @@ export function createApp({
   authRateLimit?: number;
   rateLimitWindowMs?: number;
   sessionDurationMs?: number;
-  siweRpcUrls?: Readonly<Record<string, string>>;
   // Auth0 sign-in (Decision 0009). Without it, sign-in is unavailable; local
   // tests sign in through the test identity entry under scripts/.
   auth0?: Auth0SignIn;
-  accountSecurity?: Pick<
-    SecurityRouterOptions,
-    | "operations"
-    | "passkeys"
-    | "walletOperations"
-    | "legacyProviderLink"
-    | "providerIdentityRecovery"
-    | "access"
-  >;
+  // Sensitive operations confirmed by a fresh sign-in (Decision 0009,
+  // point 8).
+  accountSecurity?: { operations: AccountOperations };
   sharedAuthLimiter?: RequestHandler;
   sharedAccountLimiter?: RequestHandler;
   // Backs the general, auth and account-security API limiters with the shared
@@ -390,17 +373,14 @@ export function createApp({
   app.use(
     "/api/auth",
     createAuthRouter({
-      users,
       sessions,
-      wallets,
       environment,
       applicationOrigin,
-      siweRpcUrls,
       sessionDurationMs,
       authRateLimit,
       rateLimitWindowMs,
       auth0,
-      sharedAccountLimiter,
+      operations: accountSecurity?.operations,
       sharedRateLimits,
       recordAuth: (event, seconds, phase = "journey") => {
         metrics.authJourney.inc({ event });
@@ -409,21 +389,6 @@ export function createApp({
       },
     }),
   );
-  if (accountSecurity)
-    app.use(
-      "/api/auth",
-      createAccountSecurityRouter({
-        ...accountSecurity,
-        allowExternalWalletLinks: !auth0,
-        sessions,
-        environment,
-        applicationOrigin: applicationOrigin ?? "http://localhost:3000",
-        sessionDurationMs,
-        siweRpcUrls,
-        sharedAccountLimiter,
-        sharedRateLimits,
-      }),
-    );
   if (coinSandbox)
     app.use(
       "/api/coin-sandbox",
@@ -432,7 +397,6 @@ export function createApp({
         ...coinSandbox,
         environment,
         applicationOrigin: applicationOrigin ?? "http://localhost:3000",
-        rpcUrls: siweRpcUrls,
         sharedWriteLimiter: sharedAccountLimiter,
         sharedRateLimits,
       }),

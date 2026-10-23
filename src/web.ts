@@ -61,7 +61,6 @@ export function createWebServer(
   const services = createServices({
     config,
     abuseConfig,
-    legacyWalletSignup: !auth0Config,
     database,
     logger,
     metrics,
@@ -75,8 +74,6 @@ export function createWebServer(
     media,
     mediaProvider,
     mediaAccountRevocation,
-    users,
-    wallets,
     abuseStore,
     auth0Accounts,
     signInState,
@@ -119,9 +116,7 @@ export function createWebServer(
     metrics,
     metricsToken: config.metricsToken,
     measurement,
-    users,
     sessions,
-    wallets,
     logger,
     environment: config.environment,
     homepageReferenceEnabled: config.homepageReferenceEnabled,
@@ -132,7 +127,6 @@ export function createWebServer(
     authRateLimit: config.authRateLimit,
     rateLimitWindowMs: config.rateLimitWindowMs,
     sessionDurationMs: config.sessionDurationMs,
-    siweRpcUrls: config.siweRpcUrls,
     auth0: auth0Config
       ? {
           client: createAuth0Client(auth0Config, {

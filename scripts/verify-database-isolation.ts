@@ -56,11 +56,9 @@ import {
 } from "../dist/platform/database.js";
 import { verifyDatabaseState } from "../dist/platform/migrations.js";
 import { createRuntime } from "../dist/platform/runtime.js";
-import { createUserRepository } from "../dist/platform/auth/users.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
 import { createCoinSandboxRepository } from "../dist/features/account-wallet/sandbox-repository.js";
-import { createWalletRepository } from "../dist/platform/auth/wallets.js";
 import { createMessageRepository } from "../dist/features/messages/repository.js";
 import { createDiscoveryRepository } from "../dist/features/discovery/repository.js";
 import { createAuth0Accounts } from "../dist/platform/auth/auth0-accounts.js";
@@ -107,6 +105,7 @@ const applicationTables = [
   "coin_debate_orders",
   "coin_sandbox_controls",
   "coin_sandbox_requests",
+  "coin_sandbox_openings",
   "coin_sandbox_events",
   "coin_sandbox_system_accounts",
   "coin_external_receipts",
@@ -613,9 +612,7 @@ async function runtimeChecks(
       false,
     );
 
-    const users = createUserRepository(pool);
     const sessions = createSessionRepository(pool);
-    const wallets = createWalletRepository(pool);
     const messages = createMessageRepository(pool);
     const discovery = createDiscoveryRepository(pool);
     const identity = createIdentityRepository(pool);
@@ -637,9 +634,7 @@ async function runtimeChecks(
       )
       .use(
         createApp({
-          users,
           sessions,
-          wallets,
           messages,
           database: pool,
           discovery,
@@ -897,7 +892,6 @@ async function runtimeChecks(
       database: workerPool,
       sessions: createSessionRepository(workerPool),
       identity: createIdentityRepository(workerPool),
-      wallets: createWalletRepository(workerPool),
       matching: createMatchingRepository(workerPool),
       community: createCommunityRepository(workerPool),
       measurement: createMeasurementRepository(workerPool),
@@ -931,15 +925,6 @@ async function runtimeChecks(
       { authGeneration: aliceGeneration },
     );
     assert.equal(await sessions.deleteExpired(), 1);
-    const expiredWallet = await wallets.createChallenge({
-      address: `0x${"31".repeat(20)}`,
-      chainId: 1,
-      purpose: "login",
-      message: "Synthetic expired challenge",
-      expiresAt: new Date(Date.now() - 2 * 86_400_000),
-    });
-    assert.equal(await wallets.deleteExpiredChallenges(), 1);
-    assert.equal(await wallets.getChallenge(expiredWallet.id), null);
     await owner.query(
       "UPDATE yaparena.identity_audit_events SET occurred_at = now() - INTERVAL '100 days' WHERE user_id=$1",
       [alice.id],

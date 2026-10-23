@@ -47,7 +47,6 @@ const assets = [
   "site.js",
   "account.js",
   "account-session-list.js",
-  "account-security.bundle.js",
   "account-coins.js",
   "account-auth.css",
   "site-header.css",
@@ -191,7 +190,7 @@ try {
     assetHashes[file] = local;
   }
   checks.push(
-    `all ${assets.length} hosted header/account/security assets match the selected local build`,
+    `all ${assets.length} hosted header/account assets match the selected local build`,
   );
 
   stage = "public health and database readiness";

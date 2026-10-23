@@ -218,7 +218,9 @@ it("reproduces both chart geometries/ranges and interpolates the actual pointer 
           if (m.reference) {
             assert.equal(series.length, 16);
             assert.equal(series.at(-1), metric === "price" ? m.price : m.pct);
-            assert.ok(markup.includes("data-chart-hover-guide"));
+            assert.ok(markup.includes("data-chart-clip"));
+            assert.ok(markup.includes("data-chart-hover-date"));
+            assert.ok(markup.includes("ya-endpoint-pulse"));
             assert.ok(markup.includes("ya-endpoint"));
           } else {
             assert.deepEqual(series, []);

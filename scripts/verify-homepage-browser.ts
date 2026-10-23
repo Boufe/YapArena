@@ -577,8 +577,8 @@ try {
     const state = await chart.evaluate((n) => ({
       x: Number(
         n
-          .querySelector<HTMLElement>("[data-chart-hover-guide]")!
-          .getAttribute("x1"),
+          .querySelector<HTMLElement>("[data-chart-clip]")!
+          .getAttribute("width"),
       ),
       width: n.getBoundingClientRect().width,
     }));

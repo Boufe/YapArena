@@ -137,8 +137,10 @@ export function chartGeometry(
     const path = points
       .map((v, i) => (i ? "L" : "M") + x(i) + "," + y(v))
       .join(" ");
+    const clip = detail ? "ya-detail-chart-clip" : "ya-chart-clip";
+    // The clip rectangle hides the line to the right of the pointer while scrubbing.
     markup.push(
-      html`<path d="${path} L${x(points.length - 1)},${h - bottom} L${x(0)},${h - bottom} Z" fill="var(--ya-accent)" opacity=".07"/><path class="ya-linepath" d="${path}"/>`,
+      html`<clipPath id="${clip}"><rect data-chart-clip x="0" y="0" width="${w}" height="${h}"/></clipPath><path class="ya-linepath" pathLength="1" d="${path}" clip-path="url(#${clip})"/>`,
     );
     const labels =
       range === "1D"
@@ -159,12 +161,8 @@ export function chartGeometry(
           html`<text x="${x(i)}" y="${h - 4}" text-anchor="${j === 0 ? "start" : j === 3 ? "end" : "middle"}">${labels[j]}</text>`,
         );
       });
-    if (range === "1D" && !m.activity)
-      markup.push(
-        html`<line x1="${x(9)}" x2="${x(9)}" y1="${top}" y2="${h - bottom}" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/><circle cx="${x(9)}" cy="${y(points[9]!)}" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>`,
-      );
     markup.push(
-      html`<circle class="ya-endpoint" cx="${x(points.length - 1)}" cy="${y(points.at(-1)!)}" r="3.5" fill="var(--ya-accent)"/><g class="ya-hover-group" aria-hidden="true"><line data-chart-hover-guide y1="${top}" y2="${h - bottom}" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/><circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/><circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/></g><rect data-chart-hit x="${left}" y="0" width="${w - left - right}" height="${h}" fill="transparent"/>`,
+      html`<g class="ya-endpoint" aria-hidden="true"><circle class="ya-endpoint-pulse" cx="${x(points.length - 1)}" cy="${y(points.at(-1)!)}" r="3.5" fill="var(--ya-chart)"/><circle cx="${x(points.length - 1)}" cy="${y(points.at(-1)!)}" r="3.5" fill="var(--ya-chart)"/></g><g class="ya-hover-group" aria-hidden="true"><text data-chart-hover-date y="12" text-anchor="middle"></text><circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/><circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/></g><rect data-chart-hit x="${left}" y="0" width="${w - left - right}" height="${h}" fill="transparent"/>`,
     );
   } else
     markup.push(

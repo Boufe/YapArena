@@ -301,7 +301,8 @@ npm run check
 
 This runs lint rules, verifies formatting, the [tracked-file policy](CONTRIBUTING.md#evidence-and-status-records)
 and strict types, and executes the test suite with its coverage thresholds.
-It is the same main quality gate used by CI, so run it before committing or opening a pull request.
+CI runs this gate with database identities on every pull request. Before pushing, run the faster
+`npm run check:fast`, which skips PostgreSQL suites and coverage thresholds.
 CI means **continuous integration**: GitHub automatically runs checks on pushed changes.
 
 The full check needs disposable A4, wallet and revocation database identities. To create them

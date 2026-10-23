@@ -1,0 +1,102 @@
+name: Install apt packages
+description: >-
+  Installs Ubuntu packages from cached .deb files when the runner image matches, and otherwise
+  downloads them with retries and a fallback for a slow Azure mirror.
+
+inputs:
+  packages:
+    description: Space-separated package names, for example "ffmpeg" or "postgresql-17".
+    required: true
+  postgresql-repository:
+    description: "true adds the PostgreSQL (PGDG) apt repository before downloading."
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare package cache key
+      id: key
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        PGDG: ${{ inputs.postgresql-repository }}
+      run: |
+        # The cached set is exactly what apt downloaded on this runner image, so the key
+        # includes the image version. A new image downloads again and saves a new set.
+        hash="$(printf '%s|%s|v1' "$PACKAGES" "$PGDG" | sha256sum | cut -c1-16)"
+        {
+          echo "key=apt-${ImageOS:-unknown}-${ImageVersion:-unknown}-${hash}"
+          echo "directory=${HOME}/.cache/ci-apt-packages"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Restore downloaded packages
+      id: restore
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.key.outputs.directory }}
+        key: ${{ steps.key.outputs.key }}
+
+    - name: Install packages
+      id: install
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        PGDG: ${{ inputs.postgresql-repository }}
+        CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+        DIRECTORY: ${{ steps.key.outputs.directory }}
+      run: |
+        read -ra packages <<< "$PACKAGES"
+
+        if [[ "$CACHE_HIT" == "true" ]]; then
+          # No network: apt installs the saved files and checks their dependencies against
+          # the packages already on this runner image.
+          if sudo apt-get install --yes --no-download --no-install-recommends \
+            "$DIRECTORY"/*.deb; then
+            echo "Installed ${packages[*]} from the package cache"
+            exit 0
+          fi
+          echo "::warning::Cached packages did not install; downloading them instead"
+        fi
+
+        # Retry a mirror connection that sends nothing for 20 s instead of
+        # waiting on it. A config file also covers the apt-get update that
+        # apt.postgresql.org.sh runs, which command-line options cannot reach.
+        printf '%s\n' 'Acquire::Retries "5";' 'Acquire::http::Timeout "20";' \
+          | sudo tee /etc/apt/apt.conf.d/80-ci-network-retries > /dev/null
+        sudo apt-get update
+        if [[ "$PGDG" == "true" ]]; then
+          sudo apt-get install --yes --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+        fi
+        # Start from an empty archive so the saved set holds only these packages.
+        sudo apt-get clean
+        # azure.archive.ubuntu.com sometimes sends at 30-45 kB/s, which apt
+        # does not treat as a failure. Download first, so a slow download can
+        # be stopped without interrupting dpkg. If it is not done in 5
+        # minutes, drop that mirror from the runner's list and finish from
+        # archive.ubuntu.com; packages already downloaded are kept.
+        if ! sudo timeout 5m apt-get install --yes --no-install-recommends \
+          --download-only "${packages[@]}"; then
+          echo "::warning::Ubuntu mirror too slow; downloading from archive.ubuntu.com"
+          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            --download-only "${packages[@]}"
+        fi
+
+        rm -rf "$DIRECTORY"
+        mkdir -p "$DIRECTORY"
+        shopt -s nullglob
+        downloaded=(/var/cache/apt/archives/*.deb)
+        if (( ${#downloaded[@]} > 0 )); then
+          cp "${downloaded[@]}" "$DIRECTORY"/
+          echo "save=true" >> "$GITHUB_OUTPUT"
+        fi
+        sudo apt-get install --yes --no-install-recommends "${packages[@]}"
+
+    - name: Save downloaded packages
+      if: steps.install.outputs.save == 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.key.outputs.directory }}
+        key: ${{ steps.key.outputs.key }}

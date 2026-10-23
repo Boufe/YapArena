@@ -2,6 +2,13 @@ name: Reusable quality
 
 on:
   workflow_call:
+    inputs:
+      docs-only:
+        description: >-
+          true when every changed file is Markdown or under docs/. Runs only the format check,
+          the tracked-file policy and the tests that read repository files.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -19,9 +26,22 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Check documentation formatting
+        if: inputs.docs-only
+        run: npm run format:check
+      - name: Check the tracked-file policy
+        if: inputs.docs-only
+        run: npm run check:files
+      # The initializer test rewrites README.md and docs/operations.md in a copy of the
+      # repository, so it fails if a documentation change removes either file.
+      - name: Test repository file rules
+        if: inputs.docs-only
+        run: node --test tests/repository-files.test.js tests/initialize-project.test.js
       - name: Check strict frontend types and generated-asset source policy
+        if: ${{ !inputs.docs-only }}
         run: npm run typecheck:frontend
       - name: Check formatting, types, coverage, isolated migrations and PostgreSQL races
+        if: ${{ !inputs.docs-only }}
         env:
           A4_QUALITY: "true"
           ACCOUNT_SECURITY_VERIFY: "true"

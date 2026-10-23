@@ -110,7 +110,13 @@ two linked Privy users were deleted in the Privy dashboard. Staging then had no 
 Readiness returned 200 after resume and a fresh email signup succeeded; passkey,
 wallet and other journeys were not retested after this reset.
 
-Use Node.js 24 and locked dependencies. The complete source quality gate needs explicit
+Use Node.js 24 and locked dependencies. Before pushing, run `npm run check:fast` (lint, format,
+tracked-file policy, types and unit tests; about 30 seconds) plus the tests for the code you
+changed that it skips, then push and watch CI with `gh pr checks <number> --watch`. CI is the full
+gate. Use the commands below to debug a CI failure, for migration work, or when a prompt asks
+for the full local gate.
+
+The complete source quality gate needs explicit
 disposable A4, wallet and revocation PostgreSQL identities; without them those suites skip
 and the unchanged 90% coverage thresholds can fail. The supported isolation harness creates
 the identities, applies migrations, runs runtime-role journeys, and supplies all six test URLs:
@@ -132,17 +138,24 @@ create separate Base Sepolia treasury fixture databases; these never change the
 simulation rail used by the general suites. Every run removes its disposable cluster on exit.
 No application process should load the combined operator `.env` or receive owner credentials.
 
-For browser changes, `npm run verify:browser` coordinates the full database-backed quality
-gate and account/A4, workspace, shared-data, homepage and preview journeys. Set
+To reproduce the CI browser gate, `npm run verify:browser` coordinates the full database-backed
+quality gate and account/A4, workspace, shared-data, homepage and preview journeys. Set
 `DATABASE_TEST_MODE=host` for its native alternative. See
 [browser prerequisites and fixture isolation](browser-release-checks.md).
 The native Unicode smoke (`npm run verify:community-native-setup`), full community delivery,
 replay pipeline and media packaging checks retain their separate scopes.
 
 GitHub requires `quality / check`, `container`, `integration`, `monitoring` and `deployment`
-on an up-to-date PR head. `integration` includes the native C-locale smoke, Docker database,
-browser, community, replay and backup/restore checks. `deployment` validates production
-Compose configuration; passing it does not deploy a hosted service. The active main ruleset
+on an up-to-date PR head. All five start in parallel. `integration` is a gate over four parallel
+jobs: core browser and database isolation; the Compose stack with discovery, backup/restore,
+smoke and browser journeys; community delivery with the native C-locale smoke; and media
+packaging with the replay pipeline. It passes only when all four pass. When every changed file
+is Markdown or under `docs/`, `quality / check` runs only the format check, tracked-file policy
+and repository-file tests, and `container` and the four integration jobs are skipped; pushes to
+main always run everything. The same checks run for `merge_group` events, using the merge
+group's base and head commits. A new push to a pull request cancels its older run.
+`deployment` validates production Compose configuration; passing it does not deploy a hosted
+service. The active main ruleset
 was rechecked on 2026-10-19. [Current merge/CI evidence](evidence/ci-integration/2026-10-19.md#completed-integration--2026-10-19)
 is separate from hosted acceptance.
 

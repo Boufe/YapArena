@@ -1,20 +1,39 @@
 version: 2
 
+# One weekly pull request per ecosystem for minor and patch updates. Each major update
+# opens its own pull request.
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      npm-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      # The service runs on Node.js 24 (package.json engines). Raise this with the runtime.
+      - dependency-name: "@types/node"
+        versions: [">=25"]
 
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      docker-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
 
   - package-ecosystem: github-actions
-    directory: /
+    # Workflows, and the composite actions under .github/actions.
+    directories: ["/", "/.github/actions/*"]
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      github-actions-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]

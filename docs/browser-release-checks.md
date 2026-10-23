@@ -77,8 +77,9 @@ An assertion failure stops the command immediately.
 The integrated fixes are on main through PRs #37–39. Main `78d5087` passed all five
 required checks in [run 39262775602](https://github.com/Boufe/YapArena/actions/runs/39262775602);
 this does not reclassify earlier failed runs or establish hosted/device capacity.
-The integration job also runs `npm run verify:community-native-setup` under C locale
-using actual native PostgreSQL, separately from this browser coordinator's Docker gate.
+The integration community job also runs the `npm run verify:community-native-setup` check
+under C locale using actual native PostgreSQL, separately from this browser coordinator's
+Docker gate.
 
 The A4 inline regression holds the initial workspace request against the real
 disposable runtime. While it is pending, the visible participation panel reports
@@ -116,11 +117,15 @@ remain unchanged. Failures retain the homepage screenshot and interaction state
 alongside the existing debate evidence. See the
 [CI correction evidence](evidence/ci-integration/2026-10-19.md#post-merge-browser-correction).
 
-The existing required `integration` job runs this gate on pull requests and main.
-It uses `npm run verify:browser -- --integration-only` after the required
-`quality / check` job, avoiding a duplicate full quality suite. This option requires
-`CI=true` and is not the documented local command. The five required job names
-remain `quality / check`, `container`, `integration`, `monitoring` and `deployment`.
+The `integration: core browser and database isolation` job runs this gate on pull
+requests, merge groups and main, and the required `integration` gate job requires it.
+It uses `npm run verify:browser -- --integration-only` in parallel with
+`quality / check`. That mode skips what `quality / check` already runs: the full
+quality gate, the account-security suites and the treasury scenarios. It keeps the
+fresh/upgrade isolation databases, the A4 PostgreSQL suite on both, the A4 browser
+journeys, homepage and Live/replay checks. This option requires `CI=true` and is not
+the documented local command. The five required job names remain `quality / check`,
+`container`, `integration`, `monitoring` and `deployment`.
 
 The launcher prints its synthetic artifact directory at startup. Set
 `BROWSER_ARTIFACT_DIR` to choose one explicitly. `result.json` reports the executed

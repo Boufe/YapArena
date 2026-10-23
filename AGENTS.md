@@ -7,6 +7,8 @@ and `git worktree list`, then fetch `origin` and compare `HEAD` with `origin/mai
 An old branch with uncommitted work can lack features already merged on main. Preserve those
 edits and create a separate worktree from `origin/main` when needed; do not reset or switch a
 dirty shared checkout to make it current. Report the baseline and any mismatch explicitly.
+On an older branch, this file and `CONTRIBUTING.md` can describe an outdated workflow; read the
+current versions with `git show origin/main:AGENTS.md` and `git show origin/main:CONTRIBUTING.md`.
 
 Use the [implementation status](docs/nonfinancial-implementation-plan.md#current-implementation-and-evidence)
 for completed work and remaining gates, and the [product PRD](docs/product-prd.md) for requirements.
@@ -63,6 +65,11 @@ Default loop: run `npm run check:fast` plus the tests for the code you changed t
 database-backed quality gate, container scans and every integration check. Run the full local
 gate (`A4_QUALITY=true npm run verify:database-isolation`, `npm run verify:browser`) only to debug
 a CI failure, for migration work, or when a prompt asks for it.
+
+Main uses a merge queue. When a prompt authorizes merging, add the PR to the queue with
+`gh pr merge <number>`; the queue reruns CI on the PR merged onto the latest main. Do not merge
+or rebase main into a branch just to rerun CI. CI caches are described in
+[the operations runbook](docs/operations.md#ci-caches).
 
 ## Evidence and Status Records
 

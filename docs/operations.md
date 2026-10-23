@@ -145,9 +145,8 @@ quality gate and account/A4, workspace, shared-data, homepage and preview journe
 The native Unicode smoke (`npm run verify:community-native-setup`), full community delivery,
 replay pipeline and media packaging checks retain their separate scopes.
 
-GitHub requires `quality / check`, `container`, `integration`, `monitoring` and `deployment`
-on an up-to-date PR head. All five start in parallel. `integration` is a gate over four parallel
-jobs: core browser and database isolation; the Compose stack with discovery, backup/restore,
+GitHub requires `quality / check`, `container`, `integration`, `monitoring` and `deployment`.
+All five start in parallel. `integration` is a gate over four parallel jobs: core browser and database isolation; the Compose stack with discovery, backup/restore,
 smoke and browser journeys; community delivery with the native C-locale smoke; and media
 packaging with the replay pipeline. It passes only when all four pass. When every changed file
 is Markdown or under `docs/`, `quality / check` runs only the format check, tracked-file policy
@@ -155,9 +154,34 @@ and repository-file tests, and `container` and the four integration jobs are ski
 main always run everything. The same checks run for `merge_group` events, using the merge
 group's base and head commits. A new push to a pull request cancels its older run.
 `deployment` validates production Compose configuration; passing it does not deploy a hosted
-service. The active main ruleset
-was rechecked on 2026-10-19. [Current merge/CI evidence](evidence/ci-integration/2026-10-19.md#completed-integration--2026-10-19)
+service. The active `Protect main` ruleset (rechecked 2026-10-23) requires those five checks and
+a merge queue: merge commits, groups of up to five pull requests, a 5-minute wait, a 60-minute
+check timeout, and a merge only when every check in the group passes. Branches need not be up
+to date with main, because the queue tests each pull request merged onto the latest main.
+[Current merge/CI evidence](evidence/ci-integration/2026-10-19.md#completed-integration--2026-10-19)
 is separate from hosted acceptance.
+
+### CI caches
+
+CI keeps two caches. Both are speed-ups only: a miss is slower, never less tested.
+
+- **Docker layers.** The `container` job builds the web and encoder images with the GitHub
+  Actions cache, scopes `image-web-YYYYMMDD` and `image-encoder-YYYYMMDD` (UTC day). The
+  Compose-stack integration job reads the web scope, and the main-only `publish` job reads and
+  writes the same scopes. A new scope each day reruns the base image's `apt-get upgrade` at
+  least daily, so the Trivy scans see current Debian fixes. The first run of a day therefore
+  builds cold and takes several minutes longer.
+- **apt packages.** `.github/actions/apt-packages` saves the `.deb` files for FFmpeg and
+  PostgreSQL 17 under a key made of the runner image version and the package list, and
+  installs them from that cache when they match. Otherwise it downloads them with retries, and
+  moves to archive.ubuntu.com when the Azure mirror is still downloading after 5 minutes.
+
+GitHub scopes caches by branch: a pull request reads its own caches and main's, and caches
+written by a pull request never reach main or another pull request. If a failure might come from
+a cache, rerun the job first. To discard one, list it with
+`gh cache list --repo YapArena/YapArena --key apt-` (apt packages) or `--key index-image-` (one
+entry per Docker scope; the `buildkit-blob-` entries are shared layer data), then remove it with
+`gh cache delete <id>`. The next run rebuilds it.
 
 ## Account credential and session incidents
 

@@ -101,6 +101,13 @@ implementing it. Do not treat a passing backend quality gate as permission to ac
 
    Fix any failure and push again. A new push cancels the pull request's older CI run.
 
+6. Merge through the merge queue once checks and review pass, and only when you are authorized
+   to merge: click **Merge when ready** on the pull request, or run `gh pr merge PR-NUMBER`.
+   The queue tests the pull request merged onto the latest main, together with any pull requests
+   queued ahead of it, and merges only if every required check passes. The branch does not need
+   to be up to date with main, so do not merge main into it just to rerun CI. If the queue
+   removes the pull request after a failure, fix it, push, and add it again.
+
 Focused branches make review and rollback smaller. Locked installs keep developer results aligned
 with CI. The fast local checks catch most mistakes before a push, and CI runs the database,
 migration, container and browser checks that unit tests cannot exercise.
@@ -230,9 +237,9 @@ run `npm run check:fast` before opening a documentation PR. When every changed f
 or under `docs/`, CI takes a fast path: `quality / check` runs only the format check, the
 tracked-file policy and the repository-file tests, and `container` and the integration jobs are
 skipped. The five required CI checks are `quality / check`, `container`, `integration`,
-`monitoring` and `deployment` (active ruleset rechecked 2026-10-19); all five report on the fast
-path too. The `deployment` job validates configuration; it does not deploy the app. Recheck
-GitHub rules if they change.
+`monitoring` and `deployment` (active ruleset rechecked 2026-10-23); all five report on the fast
+path and in the merge queue too. The `deployment` job validates configuration; it does not
+deploy the app. Recheck GitHub rules if they change.
 
 When using a separate worktree, report its branch and PR and the state of the original checkout.
 Reconcile Markdown only where local edits can be preserved, and identify conflicts explicitly.

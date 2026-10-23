@@ -72,9 +72,13 @@ import { createMeasurementRepository } from "../dist/features/measurement/reposi
 // This harness creates its own isolated Docker cluster. It accepts no external URL,
 // never reads .env, mounts no data volume, and uses only synthetic random credentials.
 const exec = promisify(execFile);
+// The applied isolation migration still names the wallet tables that the
+// legacy sign-in removal (Decision 0009) dropped.
+const droppedLegacyTables = new Set(["wallet_identities", "wallet_challenges"]);
 const applicationTables = [
-  ...Object.keys(runtimeGrants),
-  "wallet_operations",
+  ...Object.keys(runtimeGrants).filter(
+    (table) => !droppedLegacyTables.has(table),
+  ),
   "account_operations",
   "account_security_users",
   "account_security_keys",
@@ -83,7 +87,6 @@ const applicationTables = [
   "media_account_grants",
   "media_account_revocations",
   "provider_identities",
-  "provider_identity_recoveries",
   "provider_passkey_intents",
   "provider_passkey_bootstraps",
   "provider_session_exchanges",
@@ -1148,17 +1151,24 @@ async function scenario(database: string, upgrade: boolean) {
     await owner.query(
       "CREATE POLICY unsafe_legacy_policy ON yaparena.account_roles TO PUBLIC USING (true) WITH CHECK (true)",
     );
-    await migrate(owner);
-    if (upgrade)
-      assert.equal(
-        (
-          await owner.query<{ n: number }>(
-            "SELECT count(*)::int AS n FROM yaparena.users WHERE email='legacy@isolation.test'",
-          )
-        ).rows[0]!.n,
-        1,
-      );
     if (upgrade) {
+      // Stop before the legacy sign-in removal. It must refuse while the
+      // seeded password account remains and name it, as on staging before
+      // the account reset.
+      const beforeRemoval = (
+        await readdir(new URL("../migrations", import.meta.url))
+      ).filter(
+        (name) =>
+          /^\d+_.+\.js$/.test(name) &&
+          BigInt(name.split("_")[0]!) < 1792426019000n,
+      ).length;
+      await migrate(owner, { count: beforeRemoval - legacyCount });
+      const legacy = (
+        await owner.query<{ id: string }>(
+          "SELECT id FROM yaparena.users WHERE email='legacy@isolation.test'",
+        )
+      ).rows;
+      assert.equal(legacy.length, 1);
       assert.equal(
         (
           await owner.query<{ n: number }>(
@@ -1177,7 +1187,36 @@ async function scenario(database: string, upgrade: boolean) {
         0,
         "legacy unbound challenges must be retired on upgrade",
       );
+      await assert.rejects(
+        migrate(owner),
+        (error: unknown) =>
+          error instanceof Error &&
+          /legacy sign-in credentials remain/.test(error.message) &&
+          "detail" in error &&
+          typeof error.detail === "string" &&
+          error.detail.includes(`with a password: ${legacy[0]!.id};`),
+      );
+      // The runner leaves a supplied client inside the failed migration's
+      // transaction; a deployment exits instead.
+      await owner.query("ROLLBACK");
+      // The staging reset deletes every such account before this release.
+      await owner.query("DELETE FROM yaparena.users WHERE id=$1", [
+        legacy[0]!.id,
+      ]);
     }
+    await migrate(owner);
+    assert.deepEqual(
+      (
+        await owner.query<{ name: string }>(
+          `SELECT c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+          WHERE n.nspname='yaparena' AND c.relname IN ('wallet_identities','wallet_challenges','wallet_operations','provider_identity_recoveries')
+          UNION ALL SELECT column_name FROM information_schema.columns
+          WHERE table_schema='yaparena' AND table_name='users' AND column_name='password_hash'`,
+        )
+      ).rows,
+      [],
+      "legacy sign-in tables and the password column are removed",
+    );
     await membershipChecks(database, admin, owner);
     const inventory = Object.fromEntries(
       (

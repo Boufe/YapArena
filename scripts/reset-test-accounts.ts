@@ -102,8 +102,7 @@ const db = new pg.Client({
 type AccountCounts = {
   users: number;
   sessions: number;
-  wallets: number;
-  challenges: number;
+  identities: number;
 };
 async function accountCounts(
   client: pg.Client,
@@ -114,8 +113,7 @@ async function accountCounts(
       `SELECT
     (SELECT count(*)::int FROM yaparena.users WHERE $1::bigint[] IS NULL OR id=ANY($1)) AS users,
     (SELECT count(*)::int FROM yaparena.sessions WHERE $1::bigint[] IS NULL OR user_id=ANY($1)) AS sessions,
-    (SELECT count(*)::int FROM yaparena.wallet_identities WHERE $1::bigint[] IS NULL OR user_id=ANY($1)) AS wallets,
-    (SELECT count(*)::int FROM yaparena.wallet_challenges WHERE $1::bigint[] IS NULL OR user_id=ANY($1)) AS challenges`,
+    (SELECT count(*)::int FROM yaparena.provider_identities WHERE user_id IS NOT NULL AND ($1::bigint[] IS NULL OR user_id=ANY($1))) AS identities`,
       [selected],
     )
   ).rows[0]!;
@@ -126,8 +124,7 @@ async function untouchedAccounts(client: pg.Client) {
   for (const [table, column] of [
     ["users", "id"],
     ["sessions", "user_id"],
-    ["wallet_identities", "user_id"],
-    ["wallet_challenges", "user_id"],
+    ["provider_identities", "user_id"],
     ["public_profiles", "user_id"],
   ] as const) {
     const rows = await client.query<{ value: string }>(
@@ -157,8 +154,7 @@ async function rehearseOrDelete(client: pg.Client) {
   assert.deepEqual(after, {
     users: before.users - selected.users,
     sessions: before.sessions - selected.sessions,
-    wallets: before.wallets - selected.wallets,
-    challenges: before.challenges - selected.challenges,
+    identities: before.identities - selected.identities,
   });
   assert.deepEqual(
     await untouchedAccounts(client),
@@ -272,7 +268,7 @@ async function inspect() {
   const grantsReady = items.some((item) => item.name === "coin_grant_lots");
   const counts = (
     await db.query(`SELECT (SELECT count(*)::int FROM users) AS users,
-    (SELECT count(*)::int FROM sessions) AS sessions,(SELECT count(*)::int FROM wallet_identities) AS wallets,
+    (SELECT count(*)::int FROM sessions) AS sessions,(SELECT count(*)::int FROM provider_identities WHERE user_id IS NOT NULL) AS identities,
     (SELECT count(*)::int FROM public_profiles WHERE user_id IS NOT NULL) AS owned_profiles,
     (SELECT count(*)::int FROM a4_sessions) AS retained_play_runs,
     (SELECT count(*)::int FROM a4_journals) AS retained_play_journals,

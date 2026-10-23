@@ -74,7 +74,7 @@
     "livekit-server-sdk": "^2.19.1",
     "node-pg-migrate": "^9.0.0",
     "openid-client": "6.8.8",
-    "pg": "^8.22.0",
+    "pg": "^8.23.1",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "prom-client": "^15.1.3",

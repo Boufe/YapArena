@@ -73,7 +73,6 @@ function fixture({
     sessions: {
       findUserByTokenHash: async () => (signedIn ? user : null),
     },
-    users: {},
     messages: { isReady: async () => {} },
     logger: createLogger({ enabled: false }),
   });

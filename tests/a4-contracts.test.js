@@ -399,7 +399,6 @@ function apiFixture(error) {
   const app = createApp({
     a4,
     messages: {},
-    users: {},
     sessions: {
       async findUserByTokenHash() {
         return { id: "1" };

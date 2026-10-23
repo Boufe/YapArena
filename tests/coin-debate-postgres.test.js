@@ -24,8 +24,11 @@ import {
 import { postCoinJournal } from "../dist/features/account-wallet/ledger.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
-import { createAccountOperationRepository } from "../dist/platform/auth/account-operations.js";
-import { hashPassword } from "../dist/platform/auth/passwords.js";
+import {
+  attachSubject,
+  confirmedApproval,
+  openSandbox,
+} from "./helpers/confirmations.js";
 const ownerUrl = process.env.A4_TEST_OWNER_URL,
   runtimeUrl = process.env.A4_TEST_DATABASE_URL;
 describe(
@@ -55,11 +58,11 @@ describe(
     after(async () => {
       await Promise.all([owner?.end(), runtime?.end()]);
     });
-    async function actor(passwordHash = "fixture-nonpassword-hash") {
+    // An Auth0 account that, unless told otherwise, has opened the sandbox.
+    async function actor({ opened = true } = {}) {
       const user = (
         await owner.query(
-          "INSERT INTO users(email,password_hash) VALUES($1,$2) RETURNING id,auth_generation",
-          [`coin-a4-${randomUUID()}@example.test`, passwordHash],
+          "INSERT INTO users DEFAULT VALUES RETURNING id,auth_generation",
         )
       ).rows[0];
       const token = createSessionToken();
@@ -69,7 +72,9 @@ describe(
         new Date(Date.now() + 600000),
         { authGeneration: user.auth_generation },
       );
-      return { userId: user.id, sessionTokenHash: token.tokenHash };
+      const subject = await attachSubject(owner, user.id);
+      if (opened) await openSandbox(owner, user.id);
+      return { userId: user.id, sessionTokenHash: token.tokenHash, subject };
     }
     async function debate() {
       const topic = (
@@ -226,34 +231,57 @@ describe(
         "concurrent operations did not reach the controlled account-lock barrier",
       );
     }
-    async function withdrawalAuthorization(context, password) {
+    async function withdrawalAuthorization(context) {
       const quote = await sandbox.quoteWithdrawal(context, {
           idempotencyKey: randomUUID(),
           gross: "5000000",
           destination: "synthetic-external-wallet",
         }),
-        operations = createAccountOperationRepository(runtime),
-        authorization = {
-          ...context,
+        { id, approval } = await confirmedApproval(runtime, {
+          userId: context.userId,
+          sessionTokenHash: context.sessionTokenHash,
+          subject: context.subject,
           purpose: "withdrawal.request",
           terms: withdrawalApprovalTerms(quote),
-          origin: "http://localhost:53024",
-        },
-        operation = await operations.create({
-          ...authorization,
-          credential: { type: "password" },
-        }),
-        approval = await operations.prepare({
-          ...authorization,
-          id: operation.id,
-          password,
-          rpcUrls: {},
         });
-      return { quote, operation, approval };
+      return { quote, operation: { id }, approval };
     }
+    it("refuses debate participation until the account opened the sandbox", async () => {
+      const newcomer = await actor({ opened: false }),
+        host = await actor(),
+        debateId = await debate(),
+        unopened = /confirm by signing in again to open the financial sandbox/;
+      await assert.rejects(
+        a4.create(newcomer, debateId, randomUUID()),
+        unopened,
+      );
+      const round = await a4.create(host, debateId, randomUUID());
+      await assert.rejects(
+        a4.submit(newcomer, round.id, randomUUID(), {
+          side: "YES",
+          limit: "1",
+          quantity: 1,
+        }),
+        unopened,
+      );
+      await assert.rejects(a4.advance(20, newcomer), unopened);
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT count(*)::int n FROM coin_debate_orders WHERE user_id=$1",
+            [newcomer.userId],
+          )
+        ).rows[0].n,
+        0,
+      );
+      assert.equal((await sandbox.summary(newcomer)).initialized, false);
+      await openSandbox(owner, newcomer.userId);
+      assert.equal(
+        (await a4.create(newcomer, debateId, randomUUID())).id,
+        round.id,
+      );
+    });
     it("serializes purchased A4 stakes against fresh-authorized withdrawals without partial reservations in either lock order", async () => {
-      const password = "synthetic cross-feature reservation passphrase",
-        passwordHash = await hashPassword(password);
       const financialCounts = async (userId) =>
         (
           await owner.query(
@@ -264,15 +292,13 @@ describe(
           )
         ).rows[0];
       for (const first of ["stake", "withdrawal"]) {
-        const context = await actor(passwordHash),
+        const context = await actor(),
           debateId = await debate();
         await fund(context, "5000000");
         await seed(context, "center", "1000000");
         const round = await a4.create(context, debateId, randomUUID()),
-          { quote, operation, approval } = await withdrawalAuthorization(
-            context,
-            password,
-          ),
+          { quote, operation, approval } =
+            await withdrawalAuthorization(context),
           before = await financialCounts(context.userId);
         const attempt = {
           stake: () =>
@@ -556,11 +582,9 @@ describe(
       await reconcile();
     });
     it("locks every due account before shared ledger rows so unrelated payout reconciliation remains available", async () => {
-      const password = "synthetic due-batch payout passphrase",
-        hash = await hashPassword(password),
-        one = await actor(),
+      const one = await actor(),
         two = await actor(),
-        payee = await actor(hash),
+        payee = await actor(),
         rounds = [];
       for (const context of [one, two]) {
         await fund(context);
@@ -574,10 +598,7 @@ describe(
         rounds.push(round);
       }
       await fund(payee, "5000000");
-      const { quote, approval } = await withdrawalAuthorization(
-        payee,
-        password,
-      );
+      const { quote, approval } = await withdrawalAuthorization(payee);
       await sandbox.requestWithdrawal(payee, { requestId: quote.id, approval });
       await operator.review({
         userId: payee.userId,

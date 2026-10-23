@@ -9,7 +9,6 @@ import type { createMediaRepository } from "../features/media/repository.ts";
 import type { createMediaProvider } from "../features/media/provider.ts";
 import type { createCommunityRepository } from "../features/community/repository.ts";
 import type { createMeasurementRepository } from "../features/measurement/repository.ts";
-import type { createWalletRepository } from "./auth/wallets.ts";
 import type { createProviderRevocation } from "./auth/provider-revocation.ts";
 import type { createEmbeddedWalletProvisioning } from "./auth/embedded-wallet-provisioning.ts";
 import type { loadConfig } from "./config.ts";
@@ -33,7 +32,6 @@ export function createRuntime({
   media,
   mediaProvider,
   mediaOperations,
-  wallets,
   providerRevocation,
   embeddedWallet,
   metrics,
@@ -78,10 +76,6 @@ export function createRuntime({
     "stopRecording" | "setTurn"
   >;
   mediaOperations?: { tick(): Promise<void>; stop(): Promise<void> };
-  wallets?: Pick<
-    ReturnType<typeof createWalletRepository>,
-    "deleteExpiredChallenges"
-  >;
   providerRevocation?: Pick<
     ReturnType<typeof createProviderRevocation>,
     "synchronize"
@@ -177,13 +171,6 @@ export function createRuntime({
         await accountSecurityCleanup();
       } catch (error) {
         logger.error({ error }, "expired account authorization cleanup failed");
-      }
-    }
-    if (wallets) {
-      try {
-        await wallets.deleteExpiredChallenges();
-      } catch (error) {
-        logger.error({ error }, "expired wallet challenge cleanup failed");
       }
     }
     if (identity) {

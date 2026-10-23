@@ -4,19 +4,17 @@ import { Writable } from "node:stream";
 import { describe, it } from "node:test";
 import express from "express";
 import request from "../scripts/test-http-request.ts";
-import { privateKeyToAccount } from "viem/accounts";
 
 import { createApp } from "../dist/app.js";
 import { createLogger, createHttpLogger } from "../dist/platform/logger.js";
 import { hashSessionToken } from "../dist/platform/auth/session-tokens.js";
 import { createProductActionRecorder } from "../dist/features/measurement/router.js";
 
-const password = "synthetic logging test passphrase";
+const password = "synthetic logging test secret";
 const authorization = "Bearer synthetic-authorization-credential";
 const providerSecret = "synthetic-provider-secret";
 const origin = "https://arena.example";
 const user = { id: "7", email: "logger@example.com", createdAt: new Date(0) };
-const owner = privateKeyToAccount(`0x${"11".repeat(32)}`);
 const challengeId = "11111111-1111-4111-8111-111111111111";
 
 function captureLogger(options = {}) {
@@ -166,7 +164,7 @@ const nonce = "synthetic-nonce-value-0123456789abcdefghijklmnop";
 
 // Auth0 sign-in with a fake provider client: the real login, callback and
 // logout routes run, so their cookies, codes and redirects reach the logger.
-function auth0Fixture(sessionRecords) {
+function auth0Fixture(sessionRecords, signIn) {
   const transactions = new Map();
   return {
     client: {
@@ -210,7 +208,8 @@ function auth0Fixture(sessionRecords) {
       },
     },
     accounts: {
-      async signIn(_identity, _context, grant) {
+      async signIn(identity, context, grant) {
+        if (signIn) return signIn(identity, context, grant);
         sessionRecords.set(grant.tokenHash, user);
         return {
           kind: "session",
@@ -261,25 +260,17 @@ async function signInThroughCallback(app, capture, label) {
 
 function fixture({
   environment = "development",
-  withAuth0 = false,
+  withAuth0 = true,
+  signIn,
   ...overrides
 } = {}) {
   const capture = captureLogger();
   const sessionRecords = new Map();
   const consents = new Set();
-  let registered;
-  let challenge;
   const app = createApp({
-    auth0: withAuth0 ? auth0Fixture(sessionRecords) : undefined,
+    auth0: withAuth0 ? auth0Fixture(sessionRecords, signIn) : undefined,
     messages: {},
     database: { query: async () => ({ rows: [] }) },
-    users: {
-      create: async (email, passwordHash) => {
-        registered = { ...user, email, passwordHash, authGeneration: "0" };
-        return { ...user, email, authGeneration: "0" };
-      },
-      findByEmail: async () => registered ?? null,
-    },
     sessions: {
       revokeSession: async (_userId, hash) => ({
         current: sessionRecords.delete(hash),
@@ -287,21 +278,6 @@ function fixture({
       create: async (_userId, hash) => sessionRecords.set(hash, user),
       findUserByTokenHash: async (hash) => sessionRecords.get(hash) ?? null,
       deleteByTokenHash: async (hash) => sessionRecords.delete(hash),
-    },
-    wallets: {
-      createChallenge: async (input) => {
-        challenge = {
-          ...input,
-          id: challengeId,
-          chainId: String(input.chainId),
-        };
-        return challenge;
-      },
-      getChallenge: async () => challenge,
-      completeLogin: async (_id, issuance) => {
-        sessionRecords.set(issuance.tokenHash, user);
-        return { ...user, authGeneration: "0" };
-      },
     },
     measurement: {
       grant: async (hash) => consents.add(hash),
@@ -608,121 +584,82 @@ describe("credential-safe HTTP logs", () => {
     capture.assertAbsent([incomingToken, authorization]);
   });
 
-  it("does not log passwords or signatures on validation and authentication failures", async () => {
+  it("does not log one-use sign-in values or request bodies on failed sign-in and sign-out requests", async () => {
     const { app, capture } = fixture();
+    const forgedState = "synthetic-forged-state-0123456789abcdefghijklmno";
     await loggedResponse(
       capture,
-      request(app)
-        .post("/api/auth/register")
-        .send({ email: "invalid", password }),
-      "invalid-registration",
+      request(app).get(
+        `/api/auth/callback?code=${authorizationCode}&state=${forgedState}`,
+      ),
+      "forged-callback",
+      400,
+    );
+    await loggedResponse(
+      capture,
+      request(app).get("/api/auth/login?connection=unknown&return=%2Fsecret"),
+      "unknown-connection",
       400,
     );
     await loggedResponse(
       capture,
       request(app)
-        .post("/api/auth/login")
-        .send({ email: user.email, password }),
-      "invalid-login",
-      401,
-    );
-    const signature = "synthetic-invalid-signature";
-    await loggedResponse(
-      capture,
-      request(app)
-        .post("/api/auth/wallet/login/verify")
-        .send({ challengeId: "invalid", signature }),
-      "invalid-wallet-input",
-      400,
-    );
-    await loggedResponse(
-      capture,
-      request(app)
-        .post("/api/auth/wallet/login/challenge")
-        .send({ address: owner.address, chainId: 1 }),
-      "challenge",
-      201,
-    );
-    const invalidSignature = `0x${"ab".repeat(65)}`;
-    await loggedResponse(
-      capture,
-      request(app)
-        .post("/api/auth/wallet/login/verify")
-        .send({ challengeId, signature: invalidSignature }),
-      "invalid-wallet-proof",
-      401,
-    );
-    await loggedResponse(
-      capture,
-      request(app)
-        .post("/api/auth/login")
+        .post("/api/auth/logout")
         .set("Content-Type", "application/json")
-        .send(`{"password":"${password}",`),
+        .send(`{"secret":"${password}",`),
       "invalid-json",
       400,
     );
-    capture.assertAbsent([password, signature, invalidSignature]);
+    capture.assertAbsent([
+      authorizationCode,
+      forgedState,
+      password,
+      "%2Fsecret",
+    ]);
     assert.ok(capture.records.every((record) => record.req.body === undefined));
   });
 
-  it("keeps rate-limit responses at warning level without logging the body", async () => {
+  it("keeps rate-limit responses at warning level without logging sign-in values", async () => {
     const { app, capture } = fixture({ authRateLimit: 1 });
-    await loggedResponse(
+    const first = await loggedResponse(
       capture,
-      request(app).post("/api/auth/login").send({ email: "invalid", password }),
+      request(app).get("/api/auth/login?connection=email"),
       "first-login",
-      401,
+      303,
     );
     await loggedResponse(
       capture,
-      request(app)
-        .post("/api/auth/login")
-        .send({ email: user.email, password }),
-      "limited-login",
+      request(app).get(
+        `/api/auth/callback?code=${authorizationCode}&state=limited-state`,
+      ),
+      "limited-callback",
       429,
     );
-    capture.assertAbsent([password]);
+    capture.assertAbsent([
+      authorizationCode,
+      "limited-state",
+      new URL(first.headers.location).searchParams.get("state"),
+    ]);
   });
 
-  it("sanitizes explicit application error logs across authentication and consent routes", async () => {
-    const signature = "synthetic-error-wallet-signature";
+  it("sanitizes explicit application error logs across sign-in and consent routes", async () => {
+    const signature = "synthetic-error-signature";
     const error = credentialError(signature);
     const fail = async () => {
       throw error;
     };
-    const cases = [
-      {
-        options: { users: { create: fail } },
-        path: "/api/auth/register",
-        body: { email: user.email, password },
-      },
-      {
-        options: { users: { findByEmail: fail } },
-        path: "/api/auth/login",
-        body: { email: user.email, password },
-      },
-      {
-        options: { wallets: { getChallenge: fail } },
-        path: "/api/auth/wallet/login/verify",
-        body: { challengeId, signature },
-      },
-      {
-        options: { measurement: { grant: fail } },
-        path: "/api/measurement/consent",
-        body: { consent: true },
-      },
-    ];
-    for (const [index, scenario] of cases.entries()) {
-      const { app, capture } = fixture(scenario.options);
-      const requestId = `unexpected-error-${index}`;
+    {
+      const { app, capture } = fixture({ signIn: fail });
+      const login = await request(app).get("/api/auth/login?connection=email");
+      const state = new URL(login.headers.location).searchParams.get("state");
+      const binding = login.headers["set-cookie"][0].split(";")[0];
       const response = await loggedResponse(
         capture,
         request(app)
-          .post(scenario.path)
+          .get(`/api/auth/callback?code=${authorizationCode}&state=${state}`)
           .set("Authorization", authorization)
-          .set("Cookie", "session=synthetic-error-cookie")
-          .send(scenario.body),
-        requestId,
+          .set("Cookie", `${binding}; session=synthetic-error-cookie`),
+        "unexpected-sign-in-error",
         500,
       );
       assert.ok(response.body.error === "internal server error");
@@ -730,10 +667,42 @@ describe("credential-safe HTTP logs", () => {
         (record) => record.msg === "unhandled request error",
       );
       assert.ok(explicit);
-      assert.equal(explicit.reqId, requestId);
+      assert.equal(explicit.reqId, "unexpected-sign-in-error");
       assert.equal(explicit.level, 50);
       assertRedactedError(explicit.error);
-      assertRedactedError(capture.records.find((record) => record.res).err);
+      assertRedactedError(
+        capture.records.find(
+          (record) => record.res && record.reqId === "unexpected-sign-in-error",
+        ).err,
+      );
+      capture.assertAbsent([
+        password,
+        signature,
+        providerSecret,
+        authorization,
+        authorizationCode,
+        state,
+        "synthetic-error-cookie",
+      ]);
+    }
+    {
+      const { app, capture } = fixture({ measurement: { grant: fail } });
+      const response = await loggedResponse(
+        capture,
+        request(app)
+          .post("/api/measurement/consent")
+          .set("Authorization", authorization)
+          .set("Cookie", "session=synthetic-error-cookie")
+          .send({ consent: true }),
+        "unexpected-consent-error",
+        500,
+      );
+      assert.ok(response.body.error === "internal server error");
+      const explicit = capture.records.find(
+        (record) => record.msg === "unhandled request error",
+      );
+      assert.ok(explicit);
+      assertRedactedError(explicit.error);
       capture.assertAbsent([
         password,
         signature,

@@ -13,7 +13,6 @@ import { createDiscoveryRepository } from "../dist/features/discovery/repository
 import { createIdentityRepository } from "../dist/features/identity/repository.js";
 import { createMatchingRepository } from "../dist/features/matching/repository.js";
 import { createCommunityRepository } from "../dist/features/community/repository.js";
-import { createUserRepository } from "../dist/platform/auth/users.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { runExclusiveDatabaseJob } from "../dist/platform/database-jobs.js";
 import { createMediaOperations } from "../dist/features/media/operations.js";
@@ -361,7 +360,6 @@ export async function verifyMediaOperations({
       identity: createIdentityRepository(pool),
       matching: createMatchingRepository(pool),
       community: createCommunityRepository(pool),
-      users: createUserRepository(pool),
       sessions: createSessionRepository(pool),
       media,
       mediaProvider: createMediaProvider({

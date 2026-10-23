@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from "pg";
-import type { PublicUser, StoredUser } from "./users.ts";
+import type { AuthenticationUser, PublicUser } from "./users.ts";
 
 export interface StoredSession {
   id: string;
@@ -10,18 +10,14 @@ export interface StoredSession {
 
 export interface AuthenticationSnapshot {
   authGeneration: string;
-  passwordHash?: string;
-  email?: string;
-  walletId?: string;
 }
 
 export class SessionUnavailableError extends Error {}
 
-// All callers lock the account before sessions, approvals, or credentials. Hashing
-// and RPC verification happen outside this transaction; their snapshot is rechecked.
+// All callers lock the account before sessions, approvals or sign-in subjects.
 export async function lockAccount(client: PoolClient, userId: string) {
-  const result = await client.query<StoredUser>(
-    `SELECT id, email, password_hash AS "passwordHash", created_at AS "createdAt",
+  const result = await client.query<AuthenticationUser>(
+    `SELECT id, email, created_at AS "createdAt",
        auth_generation AS "authGeneration" FROM users WHERE id = $1 AND account_status = 'active' FOR UPDATE`,
     [userId],
   );
@@ -128,24 +124,10 @@ export function createSessionRepository(
       try {
         await client.query("BEGIN");
         const account = await lockAccount(client, userId);
-        if (
-          !account ||
-          account.authGeneration !== expected.authGeneration ||
-          (expected.passwordHash !== undefined &&
-            (account.passwordHash !== expected.passwordHash ||
-              account.email !== expected.email))
-        )
+        if (!account || account.authGeneration !== expected.authGeneration)
           throw new SessionUnavailableError(
             "authentication state changed; sign in again",
           );
-        if (expected.walletId) {
-          const wallet = await client.query(
-            "SELECT id FROM wallet_identities WHERE id = $1 AND user_id = $2",
-            [expected.walletId, userId],
-          );
-          if (!wallet.rows[0])
-            throw new SessionUnavailableError("wallet is unavailable");
-        }
         const session = await insertSession(
           client,
           userId,

@@ -7,7 +7,7 @@ critical verifiers. File lists and executed JavaScript commands below remain his
 Current-state note — 2026-10-15: Archived handoff: [PR #22](https://github.com/Boufe/YapArena/pull/22) merged F02 after the
 F04/F03 prerequisites. [PR #24](https://github.com/Boufe/YapArena/pull/24) subsequently corrected
 browser signing-byte encoding. Use [wallet authorization](wallet-authorization.md), the
-[operations gate](../operations.md#wallet-credential-change-gate) and current main; do not replay
+[operations gate](../operations.md#auth-regression-gate) and current main; do not replay
 these dependency commits or treat the PR-template handoff as pending integration. Later staging
 records show the combined application deployed, while live contract-wallet, physical-device,
 external-grant and remaining F04 acceptance still require their stated evidence.

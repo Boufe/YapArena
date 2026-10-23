@@ -239,7 +239,7 @@ describe("service runtime", () => {
     assert.deepEqual(errors, ["temporary cleanup failure"]);
   });
 
-  it("expires wallet challenges and audit records independently", async () => {
+  it("expires account confirmation state and audit records independently", async () => {
     const events = [];
     let cleanup;
     const runtime = createRuntime({
@@ -251,11 +251,9 @@ describe("service runtime", () => {
       },
       database: { end: async () => {} },
       sessions: { deleteExpired: async () => 0 },
-      wallets: {
-        deleteExpiredChallenges: async () => {
-          events.push("wallets");
-          throw new Error("wallet cleanup failed");
-        },
+      accountSecurityCleanup: async () => {
+        events.push("confirmations");
+        throw new Error("confirmation cleanup failed");
       },
       identity: {
         deleteExpiredAudit: async () => {
@@ -278,7 +276,11 @@ describe("service runtime", () => {
     await runtime.start();
     await cleanup();
     await runtime.stop();
-    assert.deepEqual(events, ["wallets", "wallet cleanup failed", "audit"]);
+    assert.deepEqual(events, [
+      "confirmations",
+      "confirmation cleanup failed",
+      "audit",
+    ]);
   });
 
   it("expires debate requests without affecting other maintenance", async () => {

@@ -11,6 +11,8 @@ import type {} from "../frontend/auth-events.js";
 
 // Actual Chromium Fetch/Web Locks and HTTP cookie behavior, synthetic server
 // fixtures only. No provider, application identity, database or funds are used.
+// Sign-in is a full-page navigation through Auth0 (Decision 0009); the
+// fixture's /fixture/sign-in stands in for that navigation's new cookie.
 function deferred() {
   let release!: () => void;
   const promise = new Promise<void>((resolve) => (release = resolve));
@@ -18,7 +20,7 @@ function deferred() {
 }
 const directory = resolve(
   process.env.SESSION_COORDINATION_ARTIFACT_DIR ??
-    "docs/evidence/account-completion-baseline/session-coordination-browser",
+    "/tmp/yaparena-session-coordination-browser",
 );
 const asset = await readFile("public/session-coordination.js");
 const app = express();
@@ -35,16 +37,28 @@ const arrivals = new Map<string, ReturnType<typeof deferred>>();
 const entered = new Set<string>();
 const sessions = new Map<string, { account: string; active: boolean }>();
 const revocationCookies = new Map<string, string | undefined>();
+const cookieOf = (header: string | undefined) =>
+  header?.match(/(?:^|;\s*)coordination_fixture=([^;]+)/)?.[1];
+app.post("/fixture/sign-in", (r, s) => {
+  const { label, account } = r.body as { label: string; account: string };
+  sessions.set(label, { account, active: true });
+  s.cookie("coordination_fixture", label, {
+    httpOnly: true,
+    sameSite: "strict",
+    path: "/",
+  });
+  s.sendStatus(204);
+});
+app.get("/api/auth/me", (r, s) => {
+  const current = sessions.get(cookieOf(r.headers.cookie) ?? "");
+  return current?.active
+    ? s.json({ account: current.account })
+    : s.sendStatus(401);
+});
 app.use("/api/auth", async (r, s) => {
   const body: unknown = r.body;
-  const cookie = r.headers.cookie?.match(
-    /(?:^|;\s*)coordination_fixture=([^;]+)/,
-  )?.[1];
+  const cookie = cookieOf(r.headers.cookie);
   const current = cookie ? sessions.get(cookie) : undefined;
-  if (r.method === "GET")
-    return current?.active
-      ? s.json({ account: current.account })
-      : s.sendStatus(401);
   if (
     !body ||
     typeof body !== "object" ||
@@ -53,34 +67,15 @@ app.use("/api/auth", async (r, s) => {
   )
     return s.sendStatus(400);
   const label = body.label;
-  const revocation =
-    r.path.startsWith("/logout") || r.path.startsWith("/sessions/");
-  if (!revocation) {
-    // Model the DB commit preceding delayed HTTP headers. A credential rotation
-    // invalidates the old cookie before its replacement reaches the browser.
-    if (label.startsWith("rotation-") && current) current.active = false;
-    sessions.set(label, {
-      account: label.startsWith("account-b-") ? "synthetic-b" : "synthetic-a",
-      active: true,
-    });
-  }
   entered.add(label);
   arrivals.get(label)?.release();
   await gates.get(label)?.promise;
-  if (revocation) {
-    revocationCookies.set(label, cookie);
-    if (!current?.active) return s.sendStatus(401);
-    const expected = r.get("X-YapArena-Expected-Account");
-    if (expected && expected !== current.account) return s.sendStatus(409);
-    // Sign-out ends only the session that sent the request.
-    current.active = false;
-    return s.status(200).json({ label });
-  }
-  s.cookie("coordination_fixture", label, {
-    httpOnly: true,
-    sameSite: "strict",
-    path: "/",
-  });
+  revocationCookies.set(label, cookie);
+  if (!current?.active) return s.sendStatus(401);
+  const expected = r.get("X-YapArena-Expected-Account");
+  if (expected && expected !== current.account) return s.sendStatus(409);
+  // Sign-out ends only the session that sent the request.
+  current.active = false;
   const bodyGate = bodyGates.get(label);
   if (bodyGate) {
     s.type("json").write('{"label":');
@@ -138,12 +133,34 @@ async function result(page: Page, label: string) {
   assert.equal(typeof value, "string");
   return value;
 }
+async function status(page: Page, label: string) {
+  return page.evaluate((label) => Reflect.get(window, `${label}Status`), label);
+}
+async function signIn(page: Page, label: string, account = "synthetic-a") {
+  await page.evaluate(
+    async ({ label, account }) => {
+      await fetch("/fixture/sign-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label, account }),
+      });
+    },
+    { label, account },
+  );
+}
 function hold(label: string, body = false) {
   const gate = deferred(),
     arrived = deferred();
   (body ? bodyGates : gates).set(label, gate);
   arrivals.set(label, arrived);
   return { ...gate, arrived: arrived.promise };
+}
+async function waitingForLock(page: Page) {
+  await page.waitForFunction(async () =>
+    (await navigator.locks.query()).pending?.some(
+      (lock) => lock.name === "yaparena-application-session",
+    ),
+  );
 }
 try {
   const context = await browser.newContext();
@@ -154,202 +171,90 @@ try {
     await page.waitForFunction(
       () => typeof window.yapSessionFetch === "function",
     );
-  const id = "00000000-0000-4000-8000-000000000001";
-  const routes = [
-    ["POST", "/api/auth/register"],
-    ["POST", "/api/auth/login"],
-    ["POST", "/api/auth/wallet/login/verify"],
-    ["POST", `/api/auth/wallet/operations/${id}/complete`],
-    ["POST", `/api/auth/security/access/login/${id}/complete`],
-    ["POST", `/api/auth/security/access/reconciliation/${id}/complete`],
-    ["POST", `/api/auth/security/passkeys/enrollment/${id}/complete`],
-    ["DELETE", `/api/auth/security/passkeys/${id}`],
-    ["POST", `/api/auth/security/wallet/operations/${id}/complete`],
-    ["POST", `/api/auth/security/provider/link/${id}/complete`],
-    ["POST", `/api/auth/security/provider/recovery/${id}/complete`],
-    ["POST", `/api/auth/security/provider/passkeys/${id}/complete`],
-    ["POST", `/api/auth/security/provider/passkeys/bootstrap/${id}/complete`],
-  ] as const;
-  for (const [index, [method, path]] of routes.entries()) {
-    const first = `held-${index}`,
-      second = `replacement-${index}`,
-      gate = hold(first);
-    await start(a, "/api/auth/login", first);
-    await gate.arrived;
-    await start(b, path, second, method);
-    await b.waitForFunction(async () =>
-      (await navigator.locks.query()).pending?.some(
-        (lock) => lock.name === "yaparena-application-session",
-      ),
-    );
-    assert.equal(entered.has(second), false, path);
-    gate.release();
-    assert.equal(await result(a, first), "complete");
-    assert.equal(await result(b, second), "complete");
-    const cookie = (await context.cookies(base)).find(
-      (cookie) => cookie.name === "coordination_fixture",
-    );
-    assert.ok(cookie);
-    assert.equal(cookie.value, second);
-    assert.equal(cookie.httpOnly, true);
-  }
-  checks.push(
-    "Every application session-issuing route serializes actual HTTP cookie headers across two browser tabs.",
-  );
-
-  const body = hold("held-body", true);
-  await start(a, "/api/auth/login", "held-body");
-  await body.arrived;
-  await start(b, "/api/auth/register", "after-body");
-  await b.waitForFunction(async () =>
-    (await navigator.locks.query()).pending?.some(
-      (lock) => lock.name === "yaparena-application-session",
-    ),
-  );
-  assert.equal(entered.has("after-body"), false);
-  assert.equal(
-    await b.evaluate(
-      async () => (await window.yapSessionFetch!("/api/auth/me")).status,
-    ),
-    200,
-  );
-  await start(b, "/api/auth/logout", "after-body-logout");
-  assert.equal(entered.has("after-body-logout"), false);
-  body.release();
-  assert.equal(await result(a, "held-body"), "complete");
-  assert.equal(await result(b, "after-body"), "complete");
-  assert.equal(await result(b, "after-body-logout"), "complete");
-  assert.equal(revocationCookies.get("after-body-logout"), "after-body");
-  checks.push(
-    "A delayed response body retains the session lock; reads remain unlocked and sign-out waits for the final replacement cookie.",
-  );
 
   const revocations = [
     ["POST", "/api/auth/logout"],
     ["DELETE", "/api/auth/sessions/7"],
   ] as const;
   for (const [index, [method, path]] of revocations.entries()) {
-    await start(a, "/api/auth/login", `before-rotation-${index}`);
-    assert.equal(await result(a, `before-rotation-${index}`), "complete");
-    await b.evaluate(() => window.yapRememberSessionAccount!("synthetic-a"));
-    const label = `rotation-${index}`,
-      gate = hold(label);
-    await start(
-      a,
-      "/api/auth/security/passkeys/enrollment/" + id + "/complete",
-      label,
-    );
+    await signIn(a, `serial-${index}`);
+    const first = `held-${index}`,
+      second = `queued-${index}`,
+      gate = hold(first);
+    await start(a, path, first, method);
     await gate.arrived;
-    await start(b, path, `rotation-logout-${index}`, method);
-    await b.waitForFunction(async () =>
-      (await navigator.locks.query()).pending?.some(
-        (lock) => lock.name === "yaparena-application-session",
-      ),
-    );
-    assert.equal(entered.has(`rotation-logout-${index}`), false);
+    await start(b, path, second, method);
+    await waitingForLock(b);
+    assert.equal(entered.has(second), false, path);
     gate.release();
-    assert.equal(await result(a, label), "complete");
-    assert.equal(await result(b, `rotation-logout-${index}`), "complete");
-    assert.equal(
-      await b.evaluate(
-        (label) => Reflect.get(window, label + "Status"),
-        `rotation-logout-${index}`,
-      ),
-      200,
-    );
-    assert.equal(revocationCookies.get(`rotation-logout-${index}`), label);
-    assert.equal(sessions.get(label)?.active, false);
+    assert.equal(await result(a, first), "complete");
+    assert.equal(await result(b, second), "complete");
+    assert.equal(await status(a, first), 200);
+    // The queued request ran after the first ended the shared session.
+    assert.equal(await status(b, second), 401);
   }
   checks.push(
-    "Sign-out and session removal wait for a committed credential rotation's delayed headers and revoke using the replacement cookie.",
+    "Sign-out and session removal serialize across two browser tabs; the queued request runs only after the first finished.",
   );
 
-  await start(a, "/api/auth/login", "before-cross-account");
-  assert.equal(await result(a, "before-cross-account"), "complete");
-  await a.evaluate(() => window.yapRememberSessionAccount!("synthetic-a"));
-  const cross = hold("rotation-cross-account");
-  await start(a, "/api/auth/login", "rotation-cross-account");
-  await cross.arrived;
-  await start(b, "/api/auth/login", "account-b-replacement");
-  await b.waitForFunction(
-    async () => (await navigator.locks.query()).pending?.length === 1,
-  );
-  await start(a, "/api/auth/logout", "old-a-logout");
-  await a.waitForFunction(
-    async () => (await navigator.locks.query()).pending?.length === 2,
-  );
-  cross.release();
-  assert.equal(await result(a, "rotation-cross-account"), "complete");
-  assert.equal(await result(b, "account-b-replacement"), "complete");
-  assert.equal(await result(a, "old-a-logout"), "complete");
-  assert.equal(
-    await a.evaluate(() => Reflect.get(window, "old-a-logoutStatus")),
-    409,
-  );
-  assert.equal(sessions.get("account-b-replacement")?.active, true);
+  await signIn(a, "held-body");
+  const body = hold("held-body", true);
+  await start(a, "/api/auth/logout", "held-body");
+  await body.arrived;
+  await start(b, "/api/auth/logout", "after-body");
+  await waitingForLock(b);
+  assert.equal(entered.has("after-body"), false);
   assert.equal(
     await b.evaluate(
-      async () => (await (await fetch("/api/auth/me")).json()).account,
+      async () => (await window.yapSessionFetch!("/api/auth/me")).status,
     ),
-    "synthetic-b",
+    401,
+    "reads pass without the lock",
   );
+  body.release();
+  assert.equal(await result(a, "held-body"), "complete");
+  assert.equal(await result(b, "after-body"), "complete");
   checks.push(
-    "A different account's login queued before old-account logout keeps its cookie and active session; the captured account comparison rejects the stale logout with409.",
+    "A delayed response body retains the session lock; reads pass without it.",
   );
 
-  const queued = hold("queue-holder");
-  await start(a, "/api/auth/login", "queue-holder");
-  await queued.arrived;
-  await start(b, "/api/auth/register", "queue-timeout");
-  assert.match(
-    String(await result(b, "queue-timeout")),
-    /Another sign-in is still finishing/,
-  );
-  assert.equal(entered.has("queue-timeout"), false);
-  queued.release();
-  assert.equal(await result(a, "queue-holder"), "complete");
+  await signIn(a, "account-a");
+  await a.evaluate(() => window.yapRememberSessionAccount!("synthetic-a"));
+  // Another tab completes a sign-in to a different account.
+  await signIn(b, "account-b", "synthetic-b");
+  await start(a, "/api/auth/logout", "stale-a-logout");
+  assert.equal(await result(a, "stale-a-logout"), "complete");
+  assert.equal(await status(a, "stale-a-logout"), 409);
+  assert.equal(revocationCookies.get("stale-a-logout"), "account-b");
+  assert.equal(sessions.get("account-b")?.active, true);
   checks.push(
-    "The ten-second lock-wait timeout cancels a queued mutation before any HTTP submission.",
+    "A page's sign-out carries the account it verified; after another tab signs in to a different account it is refused with 409 and the new session stays.",
   );
 
   const timeout = hold("network-timeout");
-  await start(a, "/api/auth/login", "network-timeout");
+  await signIn(a, "timeout-session");
+  await start(a, "/api/auth/logout", "network-timeout");
   await timeout.arrived;
   assert.match(
     String(await result(a, "network-timeout")),
-    /Account request timed out/,
+    /Sign-out could not be confirmed/,
   );
-  await start(b, "/api/auth/register", "after-timeout");
-  assert.equal(await result(b, "after-timeout"), "complete");
   timeout.release();
-  // A read round trip follows the attempted late server response. Cookies are
-  // inspected by Chromium itself, never inferred from a mocked fetch result.
-  await b.evaluate(() => fetch("/api/auth/me"));
-  const cookie = (await context.cookies(base)).find(
-    (cookie) => cookie.name === "coordination_fixture",
-  );
-  assert.equal(cookie?.value, "after-timeout");
   checks.push(
-    "The actual thirty-second Fetch timeout aborts old headers; a later server response cannot overwrite the replacement HttpOnly cookie.",
+    "The ten-second sign-out timeout reports an unconfirmed sign-out instead of waiting indefinitely.",
   );
 
   await b.evaluate(() => {
-    localStorage.removeItem("yaparena-provider-logout");
     window.yapRememberSessionAccount!("synthetic-a");
     window.dispatchEvent(
       new CustomEvent("yap:provider-logout", { detail: false }),
     );
   });
-  assert.deepEqual(
-    await b.evaluate(() => [
-      localStorage.getItem("yaparena-provider-logout"),
-      window.yapCurrentSessionAccount!(),
-    ]),
-    ["pending", null],
+  assert.equal(
+    await b.evaluate(() => window.yapCurrentSessionAccount!()),
+    null,
   );
-  checks.push(
-    "Signing out forgets the verified account and marks this browser's provider session for logout, so a later page can finish it.",
-  );
+  checks.push("Signing out forgets the verified account.");
 
   const unsupported = await context.newPage();
   await unsupported.addInitScript(() =>
@@ -359,14 +264,14 @@ try {
     }),
   );
   await unsupported.goto(base);
-  await start(unsupported, "/api/auth/login", "unsupported");
+  await start(unsupported, "/api/auth/logout", "unsupported");
   assert.match(
     String(await result(unsupported, "unsupported")),
     /browser cannot safely coordinate/,
   );
   assert.equal(entered.has("unsupported"), false);
   checks.push(
-    "A browser without Web Locks receives a clear failure and never submits a weaker session mutation.",
+    "A browser without Web Locks receives a clear failure and never submits an uncoordinated sign-out.",
   );
   await context.close();
   await mkdir(directory, { recursive: true });
@@ -389,11 +294,6 @@ try {
           "Local synthetic HTTP server and Chromium only; no provider or database acceptance.",
           "Coordination applies to supported application browser flows; arbitrary API clients do not participate in browser locks.",
           "No physical-device or other-browser acceptance is inferred.",
-        ],
-        documentation: [
-          "https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API",
-          "https://w3c.github.io/web-locks/",
-          "https://fetch.spec.whatwg.org/",
         ],
       },
       null,

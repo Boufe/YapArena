@@ -152,7 +152,6 @@ it("renders a profile", (t) => {
 it("renders the about and account pages", (t) => {
   snapshot(t, web.renderAbout(origin));
   snapshot(t, web.renderAccount(origin));
-  snapshot(t, web.renderAccount(origin, true));
 });
 
 it("renders community moderation and the broadcast overlay", (t) => {

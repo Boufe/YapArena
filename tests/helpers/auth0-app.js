@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import { createApp } from "../../dist/app.js";
 import { createLogger } from "../../dist/platform/logger.js";
 import { createSessionRepository } from "../../dist/platform/auth/sessions.js";
-import { createUserRepository } from "../../dist/platform/auth/users.js";
 import { createAuth0Client } from "../../dist/platform/auth/auth0.js";
 import { createAuth0Accounts } from "../../dist/platform/auth/auth0-accounts.js";
 import { createSignInState } from "../../dist/platform/auth/sign-in-state.js";
@@ -24,7 +23,6 @@ export async function createAuth0TestApp(pool, options = {}) {
   const operations = createAccountOperationRepository(pool);
   const app = createApp({
     messages: {},
-    users: createUserRepository(pool),
     sessions,
     logger: createLogger({ enabled: false }),
     environment: "test",
@@ -38,6 +36,7 @@ export async function createAuth0TestApp(pool, options = {}) {
       accounts,
       state,
     },
+    accountSecurity: { operations },
     ...options,
   });
   return { app, issuer, accounts, state, sessions, operations };

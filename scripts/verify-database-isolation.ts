@@ -56,11 +56,7 @@ import {
 } from "../dist/platform/database.js";
 import { verifyDatabaseState } from "../dist/platform/migrations.js";
 import { createRuntime } from "../dist/platform/runtime.js";
-import { createUserRepository } from "../dist/platform/auth/users.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
-import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
-import { createCoinSandboxRepository } from "../dist/features/account-wallet/sandbox-repository.js";
-import { createWalletRepository } from "../dist/platform/auth/wallets.js";
 import { createMessageRepository } from "../dist/features/messages/repository.js";
 import { createDiscoveryRepository } from "../dist/features/discovery/repository.js";
 import { createAuth0Accounts } from "../dist/platform/auth/auth0-accounts.js";
@@ -107,6 +103,7 @@ const applicationTables = [
   "coin_debate_orders",
   "coin_sandbox_controls",
   "coin_sandbox_requests",
+  "coin_sandbox_openings",
   "coin_sandbox_events",
   "coin_sandbox_system_accounts",
   "coin_external_receipts",
@@ -179,10 +176,6 @@ async function migrate(
 async function treasuryScenario(database: string, upgrade: boolean) {
   const admin = await connect(database);
   let owner: pg.Client | undefined;
-  const pool = new pg.Pool({
-    connectionString: url(database, "yaparena_runtime"),
-    options: "-c search_path=pg_catalog,yaparena,pg_temp",
-  });
   try {
     await provisionDatabase(admin, passwords);
     owner = await connect(database, "yaparena_owner");
@@ -199,26 +192,19 @@ async function treasuryScenario(database: string, upgrade: boolean) {
       await owner.query(
         "UPDATE yaparena.coin_sandbox_controls SET rail='base-sepolia' WHERE singleton",
       );
+      // Seed the funding request with owner SQL: today's sandbox code needs
+      // tables that later migrations add.
       const account = (
-        await owner.query<{ id: string; generation: string }>(
-          "INSERT INTO yaparena.users(email,password_hash) VALUES('treasury-upgrade@isolation.test','synthetic-preserved-credential') RETURNING id,auth_generation AS generation",
+        await owner.query<{ id: string }>(
+          "INSERT INTO yaparena.users DEFAULT VALUES RETURNING id",
         )
       ).rows[0]!;
-      const token = createSessionToken();
-      await createSessionRepository(pool).create(
-        account.id,
-        token.tokenHash,
-        new Date(Date.now() + 600_000),
-        { authGeneration: account.generation },
+      preservedRequest = randomUUID();
+      await owner.query(
+        `INSERT INTO yaparena.coin_sandbox_requests(id,user_id,kind,reference,terms_digest,terms,status,expires_at)
+        VALUES($1,$2,'funding',repeat('a',64),repeat('b',64),'{"amount":"1"}'::jsonb,'quoted',clock_timestamp()+interval '10 minutes')`,
+        [preservedRequest, account.id],
       );
-      const quote = await createCoinSandboxRepository(pool, {
-        rail: "base-sepolia",
-        depositDestination: `0x${"11".repeat(20)}`,
-      }).quoteFunding(
-        { userId: account.id, sessionTokenHash: token.tokenHash },
-        { amount: "1", idempotencyKey: "pre-treasury-migration" },
-      );
-      preservedRequest = quote.id;
     }
     await migrate(owner);
     if (preservedRequest)
@@ -257,7 +243,6 @@ async function treasuryScenario(database: string, upgrade: boolean) {
     );
     console.log(result.stdout);
   } finally {
-    await pool.end();
     await owner?.end();
     await admin.end();
   }
@@ -613,9 +598,7 @@ async function runtimeChecks(
       false,
     );
 
-    const users = createUserRepository(pool);
     const sessions = createSessionRepository(pool);
-    const wallets = createWalletRepository(pool);
     const messages = createMessageRepository(pool);
     const discovery = createDiscoveryRepository(pool);
     const identity = createIdentityRepository(pool);
@@ -637,9 +620,7 @@ async function runtimeChecks(
       )
       .use(
         createApp({
-          users,
           sessions,
-          wallets,
           messages,
           database: pool,
           discovery,
@@ -897,7 +878,6 @@ async function runtimeChecks(
       database: workerPool,
       sessions: createSessionRepository(workerPool),
       identity: createIdentityRepository(workerPool),
-      wallets: createWalletRepository(workerPool),
       matching: createMatchingRepository(workerPool),
       community: createCommunityRepository(workerPool),
       measurement: createMeasurementRepository(workerPool),
@@ -931,15 +911,6 @@ async function runtimeChecks(
       { authGeneration: aliceGeneration },
     );
     assert.equal(await sessions.deleteExpired(), 1);
-    const expiredWallet = await wallets.createChallenge({
-      address: `0x${"31".repeat(20)}`,
-      chainId: 1,
-      purpose: "login",
-      message: "Synthetic expired challenge",
-      expiresAt: new Date(Date.now() - 2 * 86_400_000),
-    });
-    assert.equal(await wallets.deleteExpiredChallenges(), 1);
-    assert.equal(await wallets.getChallenge(expiredWallet.id), null);
     await owner.query(
       "UPDATE yaparena.identity_audit_events SET occurred_at = now() - INTERVAL '100 days' WHERE user_id=$1",
       [alice.id],
@@ -1279,16 +1250,14 @@ async function scenario(database: string, upgrade: boolean) {
         [
           "--test",
           "tests/account-operation-auth.test.js",
-          "tests/account-security-passkeys-postgres.test.js",
+          "tests/auth0-sign-in-postgres.test.js",
           "tests/provider-passkeys-postgres.test.js",
           "tests/provider-passkey-bootstrap-postgres.test.js",
           "tests/provider-control-phases-postgres.test.js",
           "tests/embedded-wallet-provisioning-postgres.test.js",
           "tests/provider-passkey-reset-repair-postgres.test.js",
-          "tests/account-security-router-auth.test.js",
           "tests/account-session-management.test.js",
           "tests/provider-accounts-postgres.test.js",
-          "tests/wallet-operations-postgres.test.js",
           "tests/coin-ledger-postgres.test.js",
           "tests/coin-external-operations.test.js",
           "tests/coin-sandbox-postgres.test.js",

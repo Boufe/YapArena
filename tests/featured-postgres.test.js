@@ -30,10 +30,7 @@ it(
     let topicId, userId;
     try {
       userId = (
-        await owner.query(
-          "INSERT INTO users(email,password_hash) VALUES ($1,'synthetic-test-only') RETURNING id",
-          [`hero-${tag}@example.test`],
-        )
+        await owner.query("INSERT INTO users DEFAULT VALUES RETURNING id")
       ).rows[0].id;
       topicId = (
         await owner.query(

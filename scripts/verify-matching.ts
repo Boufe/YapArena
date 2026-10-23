@@ -27,8 +27,7 @@ let topicId: string | undefined;
 
 async function person(name: string) {
   const created = await pool.query<{ id: string }>(
-    "INSERT INTO users (email, password_hash) VALUES ($1, 'verification-only') RETURNING id",
-    [`match-${name}-${suffix}@example.test`],
+    "INSERT INTO users DEFAULT VALUES RETURNING id",
   );
   const id = created.rows[0]!.id;
   users.push(id);

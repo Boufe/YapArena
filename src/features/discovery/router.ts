@@ -319,7 +319,7 @@ export function createDiscoveryRouter({
     html(response, renderAbout(origin)),
   );
   router.get("/account", (_request, response) =>
-    html(response, renderAccount(origin, emailFirst)),
+    html(response, renderAccount(origin)),
   );
   return router;
 }

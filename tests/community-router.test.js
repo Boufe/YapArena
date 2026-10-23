@@ -131,7 +131,6 @@ function fixture({
       findUserByTokenHash: async () =>
         signedIn ? { id: "7", email: null, createdAt: new Date() } : null,
     },
-    users: {},
     messages: { isReady: async () => {} },
     logger: createLogger({ enabled: false }),
     applicationOrigin: "https://arena.example",

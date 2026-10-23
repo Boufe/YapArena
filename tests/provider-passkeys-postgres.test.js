@@ -8,9 +8,6 @@ import {
 } from "../dist/platform/auth/provider-passkeys.js";
 import { createProviderAccounts } from "../dist/platform/auth/provider-accounts.js";
 import { providerCredentialsDigest } from "../dist/platform/auth/provider-credentials.js";
-import { createAccountOperationRepository } from "../dist/platform/auth/account-operations.js";
-import { createAccountAccessRepository } from "../dist/platform/auth/account-access.js";
-import { createProviderIdentityRecovery } from "../dist/platform/auth/provider-identity-recovery.js";
 import { createProviderRecheck } from "../dist/platform/auth/provider-recheck.js";
 import { ProviderCredentialChangedError } from "../dist/platform/auth/privy.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
@@ -19,6 +16,7 @@ import {
   hashSessionToken,
 } from "../dist/platform/auth/session-tokens.js";
 import { providerPasskeyFixture } from "./provider-passkey-fixture.js";
+import { attachSubject, confirmedApproval } from "./helpers/confirmations.js";
 
 const runtimeUrl = process.env.WALLET_TEST_DATABASE_URL;
 const ownerUrl = process.env.WALLET_TEST_OWNER_DATABASE_URL;
@@ -600,120 +598,7 @@ describe(
       );
     });
 
-    it("uses the same provider credential for operation-bound proof but rejects independent local login and new-DID replacement", async () => {
-      const f = await fixture(),
-        key = providerPasskeyFixture(),
-        begin = await f.repo.begin(f.f),
-        challenge = await options(f, begin, key);
-      const result = await f.repo.complete(completion(f, challenge, key));
-      const context = {
-        ...f.f,
-        sessionTokenHash: hashSessionToken(result.token),
-      };
-      const operations = createAccountOperationRepository(a, f.verifier),
-        terms = {
-          amount: "5000000",
-          asset: "USDC",
-          destination: "fixture-destination",
-        };
-      const proof = await operations.create({
-        ...context,
-        purpose: "withdraw.request",
-        terms,
-        credential: { type: "passkey", keyId: result.keyId },
-      });
-      const approval = await operations.prepare({
-        ...context,
-        id: proof.id,
-        purpose: "withdraw.request",
-        terms,
-        authentication: key.authentication(proof.authenticationOptions, {
-          counter: 2,
-          userHandle: "different-provider-owned-handle",
-        }),
-        rpcUrls: {},
-      });
-      const c = await a.connect();
-      try {
-        await c.query("BEGIN");
-        await approval.consume(c, async () => {});
-        await c.query("COMMIT");
-      } finally {
-        c.release();
-      }
-      const access = createAccountAccessRepository(a, f.verifier);
-      const login = await access.loginOptions({ origin });
-      await assert.rejects(
-        access.login({
-          id: login.id,
-          origin,
-          sessionDurationMs: 600000,
-          authentication: key.authentication(login.authenticationOptions, {
-            counter: 3,
-          }),
-        }),
-        { status: 401 },
-      );
-      await assert.rejects(
-        createProviderIdentityRecovery(a, f.verifier).create({
-          ...context,
-          token: "fixture-provider-token",
-          credential: { type: "passkey", keyId: result.keyId },
-        }),
-        { status: 403 },
-      );
-      const recoveryTerms = {
-        provider: "privy",
-        accountId: context.userId,
-        oldSubject: f.identity.subject,
-        oldMethod: "email",
-        oldIdentifier: f.identity.email,
-        oldCredentialsDigest: f.identity.credentialsDigest,
-        newSubject: `did:privy:${randomUUID()}`,
-        newCredentialsDigest: "a".repeat(64),
-        newSessionDigest: "b".repeat(64),
-        newEmail: "replacement@example.invalid",
-      };
-      const recoveryProof = await operations.create({
-        ...context,
-        purpose: "provider.identity.recover",
-        terms: recoveryTerms,
-        credential: { type: "passkey", keyId: result.keyId },
-      });
-      await assert.rejects(
-        a.query("SELECT apply_provider_identity_recovery($1::uuid)", [
-          recoveryProof.id,
-        ]),
-        { code: "23514" },
-      );
-      assert.equal(
-        (
-          await owner.query(
-            "SELECT user_id FROM provider_identities WHERE subject=$1",
-            [f.identity.subject],
-          )
-        ).rows[0].user_id,
-        context.userId,
-      );
-      assert.equal(
-        (
-          await owner.query(
-            "SELECT count(*)::int count FROM provider_identity_recoveries WHERE user_id=$1",
-            [context.userId],
-          )
-        ).rows[0].count,
-        0,
-      );
-      await assert.rejects(
-        owner.query(
-          "UPDATE account_security_keys SET provenance='yaparena',provider_subject=NULL,provider_public_key_digest=NULL,rp_id=NULL WHERE id=$1",
-          [result.keyId],
-        ),
-        { code: "23514" },
-      );
-    });
-
-    it("requires an existing operation-bound proof for later addition and atomically consumes both signatures", async () => {
+    it("requires a confirmed operation for later addition and consumes it atomically with activation", async () => {
       const f = await fixture(),
         first = providerPasskeyFixture(),
         initial = await f.repo.begin(f.f),
@@ -723,28 +608,38 @@ describe(
       await settleFixtureReset(f.f);
       const begin = await f.repo.begin(f.f);
       assert.equal(begin.bootstrapAllowed, false);
-      const operations = createAccountOperationRepository(a, f.verifier);
-      const proof = await operations.create({
-        ...f.f,
-        purpose: "provider.passkey.link",
-        terms: begin.terms,
-        credential: { type: "passkey", keyId: activated.keyId },
-      });
+      // Decision 0009: a fresh sign-in of one of the account's subjects
+      // confirms the operation that approves the later addition.
+      const subject = await attachSubject(owner, f.f.userId);
+      const confirmed = (purpose, terms) =>
+        confirmedApproval(a, {
+          userId: f.f.userId,
+          sessionTokenHash: f.f.sessionTokenHash,
+          purpose,
+          terms,
+          subject,
+        });
       const second = providerPasskeyFixture(),
         next = await options(f, begin, second);
-      const approval = await operations.prepare({
-        ...f.f,
-        id: proof.id,
-        purpose: "provider.passkey.link",
-        terms: begin.terms,
-        authentication: first.authentication(proof.authenticationOptions, {
-          counter: 2,
-        }),
-        rpcUrls: {},
+      const { approval: unrelated } = await confirmed("withdraw.request", {
+        amount: "1",
+        asset: "USDC",
+        destination: "fixture",
       });
+      const { id: proofId, approval } = await confirmed(
+        "provider.passkey.link",
+        begin.terms,
+      );
       await assert.rejects(f.repo.complete(completion(f, next, second)), {
         status: 403,
       });
+      await assert.rejects(
+        f.repo.complete(completion(f, next, second, { approval: unrelated })),
+        {
+          status: 403,
+          message: "approval does not authorize this passkey link",
+        },
+      );
       await assert.rejects(
         f.repo.complete(
           completion(f, next, second, {
@@ -760,7 +655,7 @@ describe(
         (
           await owner.query(
             "SELECT consumed_at FROM account_operations WHERE id=$1",
-            [proof.id],
+            [proofId],
           )
         ).rows[0].consumed_at,
         null,
@@ -773,7 +668,7 @@ describe(
         (
           await owner.query(
             "SELECT consumed_at FROM account_operations WHERE id=$1",
-            [proof.id],
+            [proofId],
           )
         ).rows[0].consumed_at,
         null,
@@ -957,9 +852,9 @@ describe(
       }
     });
 
-    it("checks a changed accepted key at step-up, not on requests", async () => {
+    it("defers a changed accepted key without touching sessions or keys", async () => {
       const f = await fixture(),
-        { key, result } = await activate(f);
+        { key } = await activate(f);
       await f.repo.begin(f.f);
       f.add(providerPasskeyFixture());
       f.replace({
@@ -976,15 +871,6 @@ describe(
       const before = await securitySnapshot(f);
       assert.equal(await recheck(a, f.verifier).run(f.f.userId), "deferred");
       assert.deepEqual(await securitySnapshot(f), before);
-      await assert.rejects(
-        createAccountOperationRepository(a, f.verifier).create({
-          ...f.f,
-          purpose: "withdraw.request",
-          terms: { amount: "1", asset: "USDC", destination: "fixture" },
-          credential: { type: "passkey", keyId: result.keyId },
-        }),
-        { status: 410 },
-      );
     });
 
     it("does not defer a provider delta after its original intent is consumed or expired", async () => {
@@ -1006,65 +892,6 @@ describe(
       );
       assert.equal(await recheck(a, f.verifier).run(f.f.userId), "recorded");
       assert.equal((await securitySnapshot(f)).sessions, 1);
-    });
-
-    it("rejects self-authorized provider passkey removal and changed exported keys for fresh operation proof", async () => {
-      const f = await fixture(),
-        { key, result } = await activate(f),
-        operations = createAccountOperationRepository(a, f.verifier);
-      const credential = { type: "passkey", keyId: result.keyId };
-      for (const [purpose, terms] of [
-        ["security.passkey.remove", { keyId: result.keyId }],
-        [
-          "provider.credentials.change",
-          { action: "remove", method: "passkey", target: key.credentialId },
-        ],
-      ])
-        await assert.rejects(
-          operations.create({ ...f.f, purpose, terms, credential }),
-          { status: 403, message: "use a retained credential" },
-        );
-      const terms = {
-        amount: "5000000",
-        asset: "USDC",
-        destination: "fixture-destination",
-      };
-      const proof = await operations.create({
-        ...f.f,
-        purpose: "withdraw.request",
-        terms,
-        credential,
-      });
-      f.replace({
-        ...f.identity,
-        passkeys: [
-          {
-            ...key.evidence,
-            publicKey: providerPasskeyFixture().evidence.publicKey,
-          },
-        ],
-      });
-      await assert.rejects(
-        operations.prepare({
-          ...f.f,
-          id: proof.id,
-          purpose: "withdraw.request",
-          terms,
-          authentication: key.authentication(proof.authenticationOptions, {
-            counter: 2,
-          }),
-          rpcUrls: {},
-        }),
-      );
-      assert.equal(
-        (
-          await owner.query(
-            "SELECT consumed_at FROM account_operations WHERE id=$1",
-            [proof.id],
-          )
-        ).rows[0].consumed_at,
-        null,
-      );
     });
 
     it("records a method change that the stored methods have not caught up with, then sets up the passkey", async () => {
@@ -1097,31 +924,6 @@ describe(
       const key = providerPasskeyFixture();
       const challenge = await options(f, begin, key);
       assert.ok((await f.repo.complete(completion(f, challenge, key))).keyId);
-    });
-
-    it("approves step-up with the same key after another sign-in method changes", async () => {
-      const f = await fixture(),
-        { result } = await activate(f);
-      const credentials = [
-        ...f.identity.credentials,
-        { type: "google_oauth", id: `google-${randomUUID()}` },
-      ];
-      f.replace({
-        ...f.identity,
-        credentials,
-        credentialsDigest: providerCredentialsDigest(credentials),
-        methods: [...new Set(credentials.map((entry) => entry.type))].sort(),
-      });
-      const proof = await createAccountOperationRepository(
-        a,
-        f.verifier,
-      ).create({
-        ...f.f,
-        purpose: "withdraw.request",
-        terms: { amount: "1", asset: "USDC", destination: "fixture" },
-        credential: { type: "passkey", keyId: result.keyId },
-      });
-      assert.ok(proof.id);
     });
 
     it("takes no action on a frozen response during the matching active provider reset", async () => {

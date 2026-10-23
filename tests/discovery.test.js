@@ -337,9 +337,16 @@ describe("public discovery", () => {
     ])
       assert.doesNotMatch(account.text, retired);
     assert.match(account.text, /id="profile-form"/);
-    assert.doesNotMatch(account.text, /id="wallet-link"|Link another wallet/);
-    assert.match(account.text, /id="retained-wallets"[^>]*hidden/);
-    assert.match(account.text, /id="wallet-list"/);
+    for (const retired of [
+      /id="wallet-link"|Link another wallet/,
+      /id="retained-wallets"/,
+      /id="wallet-list"/,
+      /id="wallet-change"/,
+      /id="account-security-passkeys"/,
+      /account-security\.bundle/,
+    ])
+      assert.doesNotMatch(account.text, retired);
+    assert.match(account.text, /id="sign-in-methods"/);
     assert.match(
       (await request(app).get("/topics/public-topic")).text,
       /data-follow-type="topics"/,

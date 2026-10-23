@@ -30,6 +30,8 @@ await runWebServer(
           applicationOrigin:
             parts.config.applicationOrigin ?? "http://localhost:3000",
           sessionDurationMs: parts.config.sessionDurationMs,
+          sessions: parts.sessions,
+          operations: parts.accountSecurity.operations,
         }),
       );
       outer.use(app);

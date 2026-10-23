@@ -168,8 +168,8 @@ npm run dev
 `npm run dev` generates browser assets, watches frontend/shared sources, starts the TypeScript API
 directly with Node.js, loads `.env.runtime`, and automatically restarts the API when its sources
 change. `npm run build` checks strict operational and frontend types, compiles production server JavaScript into
-the ignored `dist/` directory, and generates all browser modules and the six
-bundles (`media`, `replay`, `hero-live`, `homepage`, `account-security` and `account-auth`).
+the ignored `dist/` directory, and generates all browser modules and the five
+bundles (`media`, `replay`, `hero-live`, `homepage` and `account-auth`).
 PostgreSQL must still be running in Docker. Open <http://localhost:3000/ready> to confirm the
 API can reach the database. Press `Ctrl-C` to stop the API; the database container keeps running until
 you run `docker compose down`.
@@ -231,26 +231,22 @@ not cache debate records; reconnect to see current content.
 
 ### Identity and social preview
 
-Open <http://localhost:3000/account> to sign in with an EVM wallet and a one-time
-Sign-In with Ethereum message. You can also use an existing email account, then link a wallet.
-Sign out ends only this device's session. The account page's Active sessions list can sign
-out any one session you do not recognize. Credential removal signs out preexisting account
-sessions.
-See the [revocation contract](docs/security/account-session-revocation.md) for proof-authorized
-replacement, incident response and deployment requirements.
+Sign in with "Continue with Google" or "Continue with email" in the header or on
+<http://localhost:3000/account>. Both go through Auth0 ([Decision 0009](docs/decisions/0009-auth0.md));
+a Google sign-in for an address that already has an account links only after a verified email
+code. Locally without Auth0 settings, run `npm run start:test-identity` and sign in at
+<http://localhost:3000/api/test-identity>. Sign out ends only this device's session. The account
+page's Active sessions list can sign out any one session you do not recognize.
+See the [revocation contract](docs/security/account-session-revocation.md) for incident response
+and deployment requirements.
 Creating a profile starts a private draft; choose Public and save to publish it. Public people
-and topic pages have follow controls. The account page shows linked wallets, follows, and
-recent identity activity and account notifications. Linking or unlinking requires your current
-password or a fresh signature from an existing wallet that remains linked. Linking also requires
-a separate signature from the new wallet. Approval expires after five minutes, and a successful
-change renews the current session. Signing never authorizes a transaction. See the
-[wallet authorization design](docs/security/wallet-authorization.md) for API and rollout details.
+and topic pages have follow controls. The account page shows your sign-in methods, follows,
+recent identity activity and account notifications. Sensitive operations, such as a sandbox
+withdrawal, are confirmed by signing in again; the confirmation expires after five minutes and
+never authorizes anything beyond that one operation.
 
-`APP_ORIGIN` must exactly match the browser origin, including the port, for SIWE challenges and
-cookie-authenticated writes. EOA wallets work without RPC configuration. To verify contract
-wallets, set `SIWE_RPC_URLS` to a JSON object mapping supported chain IDs to trusted RPC URLs,
-for example `{"1":"https://rpc.example"}`. Production accepts only HTTPS RPC URLs.
-Accounts with one wallet and no email cannot unlink their last sign-in method. Review the
+`APP_ORIGIN` must exactly match the browser origin, including the port, for the Auth0 callback
+and cookie-authenticated writes. Review the
 [identity decision](docs/decisions/0002-identity-and-social.md) before collecting user data:
 automated export and deletion are not yet available.
 
@@ -337,7 +333,6 @@ source code, and a running process or container must be restarted before it sees
 | `HOST_PORT`                          | `3000`                             | Selects the host port used to reach the API when it runs through Docker Compose.                                                         |
 | `LOG_LEVEL`                          | `debug`                            | Controls how much structured log detail the application emits.                                                                           |
 | `APP_ORIGIN`                         | `http://localhost:3000`            | Identifies the browser origin allowed to make cookie-authenticated write requests.                                                       |
-| `SIWE_RPC_URLS`                      | `{}`                               | Maps EVM chain IDs to trusted RPC URLs for contract-wallet signature verification.                                                       |
 | `TRUST_PROXY`                        | `false`                            | Trusts no reverse proxy locally; production must use the exact trusted proxy-hop count.                                                  |
 | `REQUEST_BODY_LIMIT`                 | `10kb`                             | Rejects JSON request bodies larger than this amount.                                                                                     |
 | `API_RATE_LIMIT`                     | `300`                              | Limits general API requests from one client during each rate-limit window.                                                               |
@@ -431,13 +426,15 @@ Stop the stack while preserving its data:
 docker compose --profile monitoring down
 ```
 
-Register and save the session cookie:
+Sign in through the local test identity entry and save the session cookie. Start it with
+`npm run build` then `npm run start:test-identity` (it refuses production and any Auth0
+setting; real sign-in goes through Auth0 in a browser):
 
 ```sh
-curl -X POST http://localhost:3000/api/auth/register \
+curl -X POST http://localhost:3000/api/test-identity/sign-in \
   -H "Content-Type: application/json" \
   -c /tmp/yaparena.cookies \
-  -d '{"email":"user@example.com","password":"a secure passphrase"}'
+  -d '{"email":"user@example.com"}'
 ```
 
 `curl` is a command-line HTTP client. `-X POST` selects the HTTP method, `-H` declares a JSON request,
@@ -454,7 +451,7 @@ curl -X POST http://localhost:3000/api/messages \
   -d '{"name":"Example User"}'
 ```
 
-`-b` reads the saved cookie, authenticating this request as the registered user. The JSON body creates
+`-b` reads the saved cookie, authenticating this request as the signed-in user. The JSON body creates
 and persists one example message owned by that user.
 
 List messages with bounded pagination:

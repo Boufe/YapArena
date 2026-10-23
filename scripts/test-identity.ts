@@ -8,7 +8,10 @@ import express from "express";
 import type { Request, Response } from "express";
 import cookieParser from "cookie-parser";
 import { html } from "../dist/platform/html.js";
-import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
+import {
+  createSessionToken,
+  hashSessionToken,
+} from "../dist/platform/auth/session-tokens.js";
 import { getCookieSettings } from "../dist/platform/auth/router.js";
 import {
   normalizeEmail,
@@ -20,6 +23,11 @@ import {
   type Auth0Accounts,
 } from "../dist/platform/auth/auth0-accounts.js";
 import { safeReturnPath } from "../dist/platform/auth/sign-in-state.js";
+import {
+  ConfirmationError,
+  type AccountOperations,
+} from "../dist/platform/auth/account-operations.js";
+import type { createSessionRepository } from "../dist/platform/auth/sessions.js";
 
 const loopback = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const providerSettings = [
@@ -77,12 +85,21 @@ export function createTestIdentityRouter({
   applicationOrigin = "http://localhost:3000",
   sessionDurationMs = 7 * 24 * 60 * 60 * 1_000,
   now = Date.now,
+  sessions,
+  operations,
 }: {
-  accounts: Pick<Auth0Accounts, "signIn">;
+  accounts: Pick<Auth0Accounts, "signIn"> &
+    Partial<Pick<Auth0Accounts, "methods">>;
   environment: string;
   applicationOrigin?: string;
   sessionDurationMs?: number;
   now?: () => number;
+  // Confirmations stand in for the fresh Auth0 sign-in of point 8.
+  sessions?: Pick<
+    ReturnType<typeof createSessionRepository>,
+    "findUserByTokenHash"
+  >;
+  operations?: Pick<AccountOperations, "confirm">;
 }) {
   const router = express.Router();
   const cookie = getCookieSettings(environment);
@@ -186,6 +203,46 @@ export function createTestIdentityRouter({
         });
       return response
         .status(error.status)
+        .json({ error: error.message, code: error.code });
+    }
+  });
+  // Confirms a pending operation for this device's account as if its owner
+  // had just signed in again at the provider: the same confirmation function
+  // the Auth0 callback calls.
+  router.post("/confirm", async (request: Request, response) => {
+    const body: { operationId?: unknown; subject?: unknown } =
+      request.body && typeof request.body === "object" ? request.body : {};
+    const token: unknown = request.cookies[cookie.name];
+    const user =
+      sessions && typeof token === "string"
+        ? await sessions.findUserByTokenHash(hashSessionToken(token))
+        : null;
+    if (!operations || !accounts.methods)
+      return response.status(503).json({ error: "confirmation unavailable" });
+    if (!user) return response.status(401).json({ error: "sign in first" });
+    if (typeof body.operationId !== "string")
+      return response.status(400).json({ error: "operationId required" });
+    const first = (await accounts.methods(user.id))[0];
+    if (!first)
+      return response.status(409).json({ error: "no sign-in method" });
+    try {
+      await operations.confirm({
+        id: body.operationId,
+        userId: user.id,
+        identity: {
+          // The subject the test signed in with; by default the entry's own.
+          subject:
+            typeof body.subject === "string"
+              ? body.subject
+              : testSubject(first.method, first.email),
+          authTime: Math.floor(now() / 1000),
+        },
+      });
+      return response.status(204).end();
+    } catch (error) {
+      if (!(error instanceof ConfirmationError)) throw error;
+      return response
+        .status(403)
         .json({ error: error.message, code: error.code });
     }
   });

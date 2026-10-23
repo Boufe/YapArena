@@ -18,15 +18,17 @@ import { createAccountOperationRepository } from "../dist/platform/auth/account-
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
 import { endAllAccountSessions } from "./helpers/account-sessions.js";
-import { hashPassword } from "../dist/platform/auth/passwords.js";
+import {
+  attachSubject,
+  confirmedApproval,
+  openSandbox,
+} from "./helpers/confirmations.js";
 import { postCoinJournal } from "../dist/features/account-wallet/ledger.js";
 import { runCoinSandboxOperator } from "../scripts/coin-sandbox-operator.ts";
 const ownerUrl = process.env.A4_TEST_OWNER_URL,
   runtimeUrl = process.env.A4_TEST_DATABASE_URL;
 const digest = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
-const password = "synthetic report consent authorization passphrase",
-  origin = "http://localhost:53024";
 describe(
   "owned error reports and funded original-source corrections in disposable PostgreSQL",
   { skip: !ownerUrl || !runtimeUrl },
@@ -40,8 +42,7 @@ describe(
       otherReviews,
       sandbox,
       operator,
-      operations,
-      passwordHash;
+      operations;
     before(async () => {
       for (const value of [ownerUrl, runtimeUrl]) {
         const url = new URL(value);
@@ -64,16 +65,15 @@ describe(
         rail: "simulation",
       });
       operations = createAccountOperationRepository(a);
-      passwordHash = await hashPassword(password);
     });
     after(async () => {
       await Promise.all([owner?.end(), a?.end(), b?.end()]);
     });
+    // An Auth0 account that opened the sandbox; its subject confirms operations.
     async function actor() {
       const user = (
           await owner.query(
-            "INSERT INTO users(email,password_hash) VALUES($1,$2) RETURNING id,auth_generation",
-            [`${randomUUID()}@example.test`, passwordHash],
+            "INSERT INTO users DEFAULT VALUES RETURNING id,auth_generation",
           )
         ).rows[0],
         token = createSessionToken(),
@@ -83,10 +83,13 @@ describe(
           new Date(Date.now() + 600000),
           { authGeneration: user.auth_generation },
         );
+      const subject = await attachSubject(owner, user.id);
+      await openSandbox(owner, user.id);
       return {
         userId: user.id,
         sessionTokenHash: token.tokenHash,
         expectedSessionId: session.id,
+        subject,
       };
     }
     async function fund(context, amount = "10000000") {
@@ -131,23 +134,18 @@ describe(
       ).event;
     }
     async function proof(context, purpose, terms) {
-      const created = await operations.create({
-          ...context,
+      const { id, approval } = await confirmedApproval(
+        a,
+        {
+          userId: context.userId,
+          sessionTokenHash: context.sessionTokenHash,
+          subject: context.subject,
           purpose,
           terms,
-          credential: { type: "password" },
-          origin,
-        }),
-        approval = await operations.prepare({
-          ...context,
-          purpose,
-          terms,
-          id: created.id,
-          password,
-          origin,
-          rpcUrls: {},
-        });
-      return { operation: created, approval };
+        },
+        operations,
+      );
+      return { operation: { id }, approval };
     }
     async function reserve(context, gross = "5000000") {
       const quote = await sandbox.quoteWithdrawal(context, {
@@ -458,6 +456,42 @@ describe(
         reports.getConsentTerms(stranger, { reportId: r.id, quoteId: q.id }),
         /unavailable/,
       );
+      // Without a fresh sign-in the operation cannot be prepared for consent.
+      const exact = {
+          userId: context.userId,
+          sessionTokenHash: context.sessionTokenHash,
+          purpose: "recovery.cost.consent",
+          terms: current.terms,
+        },
+        unconfirmed = await operations.create(exact);
+      await assert.rejects(
+        operations.prepare({ ...exact, id: unconfirmed.id }),
+        /confirmation expired or invalid/,
+      );
+      // Another account's confirmation of the same terms belongs to its session.
+      const foreign = await proof(
+        stranger,
+        "recovery.cost.consent",
+        current.terms,
+      );
+      await assert.rejects(
+        reports.consent(context, {
+          reportId: r.id,
+          quoteId: q.id,
+          idempotencyKey: randomUUID(),
+          approval: foreign.approval,
+        }),
+        /confirmation belongs to another session/,
+      );
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT consumed_at FROM account_operations WHERE id=$1",
+            [foreign.operation.id],
+          )
+        ).rows[0].consumed_at,
+        null,
+      );
       const wrong = await proof(context, "recovery.cost.consent", {
         ...current.terms,
         amount: "100001",
@@ -502,7 +536,7 @@ describe(
           idempotencyKey: key,
           approval: authorized.approval,
         }),
-        /approval expired or invalid/,
+        /confirmation expired or invalid/,
       );
       const again = await proof(
         context,

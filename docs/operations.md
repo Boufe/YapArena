@@ -149,37 +149,30 @@ is separate from hosted acceptance.
 ## Account credential and session incidents
 
 Use the [account session revocation procedure](security/account-session-revocation.md) for
-owner session sign-out, wallet compromise and operator password credential updates.
-It defines account-first transaction locks, audit and generation checks. By founder
-decision on 2026-10-22, **Sign out** ends only this device's session, without a
-generation change or Privy call; the browser ends its own Privy session. Sign out
-all sessions and Sign out other sessions were removed. The account page's Active
-sessions list signs out one chosen device. To end every session for an incident,
-use a credential update or suspension. These operations allow a fresh sign-in
-with a retained credential; they are not account suspension. The integrated media
-revocation queue disconnects tracked speakers separately and retries provider failures.
-Cloud token rejection, legacy-grant drainage and hosted acceptance retain the
-separate gates documented in that procedure.
+owner session sign-out and incident revocation. It defines account-first transaction locks,
+audit and generation checks. By founder decision on 2026-10-22, **Sign out** ends only this
+device's session, without a generation change; the browser then visits Auth0's logout
+endpoint to end its Auth0 session. Sign out all sessions and Sign out other sessions were
+removed. The account page's Active sessions list signs out one chosen device. To end every
+session for an incident, an operator revokes the account's sessions or suspends the account.
+Revocation allows a fresh sign-in; suspension does not. The integrated media revocation
+queue disconnects tracked speakers separately and retries provider failures. Cloud token
+rejection, legacy-grant drainage and hosted acceptance retain the separate gates documented
+in that procedure.
 
-Signed-in requests no longer call Privy ([Decision 0008](decisions/0008-auth-simplification.md)
-step 9). A request whose last Privy read is over 15 minutes old schedules an asynchronous
-re-check, described in the [revocation procedure](security/account-session-revocation.md).
-`yaparena_auth_journey_total` counts its outcomes as `provider_recheck_unchanged`,
-`_recorded`, `_revoked`, `_deferred`, `_unavailable`, `_skipped` and `_error`; errors
-are also logged as `provider re-check failed`. A Privy outage now blocks only new
-sign-ins and step-up approvals, not signed-in browsing. `GET /api/auth/provider`
-serves Privy's sign-in settings from a five-minute cache (after a failed refresh it
-serves the last good answer and retries after 15 seconds), and the server refuses
-Privy apps that enable any sign-in method other than email codes, Google and passkeys.
+Sign-in uses Auth0 only ([Decision 0009](decisions/0009-auth0.md)): email code and Google.
+Signed-in requests never call Auth0, so an Auth0 outage blocks only new sign-ins and
+confirmations. `GET /api/auth/provider` reports whether Auth0 is configured and which
+methods it offers. Sensitive operations (opening the financial sandbox once, each
+withdrawal and each recovery consent) are confirmed by a fresh sign-in; see
+[the confirmation contract](security/account-session-revocation.md#confirmation-by-fresh-sign-in).
+`yaparena_auth_journey_total` counts `login_started`, `signin_completed`,
+`signup_completed`, `link_required`, `link_completed`, `confirmation_started`,
+`confirmation_completed`, `provider_error`, `signin_expired` and `signin_<code>` /
+`confirmation_<code>` refusals.
 
-New passkeys are enrolled through Privy in Account settings. Sensitive operations
-verify the same key using an application-issued, expiring, one-use WebAuthn
-challenge. Previously enrolled independent application keys remain retained
-credentials. Do not repair a failed first setup by deleting credential history,
-changing its provenance or clearing session-generation fences. The approved
-restart applies only to an account with no financial or prior strong-method
-history and requires fresh provider login plus native passkey verification.
-See [the current passkey contract](security/account-session-revocation.md#one-privy-passkey).
+The Privy sections below describe code that is unmounted since Decision 0009 and is deleted
+in prompt 12. No request, re-check or background job calls Privy.
 
 Normal provider reset jobs persist intent before the single mutation. Only an
 acknowledged freeze/unfreeze response enables GET-only confirmation across web
@@ -526,43 +519,36 @@ This Compose flow is a single-host reference, not universal CD. A hosted product
 same contract—digest, migration, health gate, and rollback digest—into its platform's deployment
 mechanism and protect production with environment approvals or an equivalent control.
 
-## Wallet credential-change gate
+## Auth regression gate
 
-Apply F04 private-schema isolation, then F03 account revocation migrations, then F02
-`1791158600000_wallet_operation_authorization.js` with the owner identity. Stop old instances
-before migrating; deploy compatible authentication code and account assets together. Existing
-sessions are retired by F03. Keep its generation guards if rolling back application code.
-
-The [wallet authorization design](security/wallet-authorization.md) defines lock order,
-operation expiry, notifications and containment. The original auth audit is a historical local
-artifact, not a tracked repository document. Use the linked security contracts and their dated
-evidence for the merged implementation; remaining incident and hosted-isolation checks require
-their own evidence.
-A successful wallet change creates identity activity and an in-app account notification in the
-same transaction. Inspect those records by account using the supported owner process; never
-capture passwords, signatures, cookies or operation proofs in incident artifacts.
+Wallet credential changes, wallet sign-in and the F02 operation routes were removed with
+[Decision 0009](decisions/0009-auth0.md); their migrations stay applied, and the
+[wallet authorization design](security/wallet-authorization.md) is historical. Sign-in and
+sensitive-operation confirmation follow the
+[session revocation procedure](security/account-session-revocation.md). Never capture
+cookies, authorization codes, ID tokens or confirmations in incident artifacts.
 
 Run the regression gate against a **disposable local** database provisioned as owner/runtime:
 
 ```sh
+A4_TEST_DATABASE_URL="$AUTH_TEST_RUNTIME_URL" \
+A4_TEST_OWNER_URL="$AUTH_TEST_OWNER_URL" \
 WALLET_TEST_DATABASE_URL="$AUTH_TEST_RUNTIME_URL" \
 WALLET_TEST_OWNER_DATABASE_URL="$AUTH_TEST_OWNER_URL" \
 REVOCATION_TEST_DATABASE_URL="$AUTH_TEST_OWNER_URL" \
 REVOCATION_TEST_RUNTIME_URL="$AUTH_TEST_RUNTIME_URL" npm run check
 ```
 
-Use a database named `yaparena_f02...` or `revocation_test...` and loopback URLs. Keep operator
+Use a database named `revocation_test_ci` (the Auth0 sign-in and confirmation suites accept
+no other name outside the isolation harness) and loopback URLs. Keep operator
 connection values in the local shell/secret store. PostgreSQL tests create unique synthetic
 accounts; do not point them at shared development, staging or production data. Without the
 explicit URLs those integration suites are skipped; that is not race-safety evidence. CI's
 quality job provisions a disposable PostgreSQL service and includes both suites under coverage.
-The retained-wallet browser trial is `node scripts/verify-wallet-browser.ts` with `BROWSER_BASE_URL` and
-`WALLET_TEST_OWNER_DATABASE_URL` for the same isolated instance. It uses synthetic wallets,
-seeds disposable retained credentials, cleans only its own fixtures and writes PNG evidence
-to `BROWSER_ARTIFACT_DIR`. It checks retained sign-in/removal, wrong proofs/account/chain,
-rejected signatures, expiry, outage, replay and last-method protection. New external-wallet
-linking is no longer a product control; existing backend link-authorization regression
-tests remain. Embedded-wallet provisioning has separate [contracts and acceptance gates](embedded-wallets.md).
+Wallet sign-in, retained wallets and their browser trial were removed with
+[Decision 0009](decisions/0009-auth0.md); `node scripts/verify-email-auth-browser.ts` (with a
+disposable `A4_TEST_DATABASE_URL`) drives Auth0 sign-in, Google linking and sign-out in Chrome
+against a local OIDC issuer instead.
 
 The [operational TypeScript guide](operational-typescript.md) lists the maintained database,
 release and security sources, direct Node 24 commands and explicit quality-gate coverage.

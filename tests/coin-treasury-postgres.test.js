@@ -8,23 +8,27 @@ import {
   createCoinSandboxOperatorRepository,
   createCoinSandboxRepository,
 } from "../dist/features/account-wallet/sandbox-repository.js";
-import { hashPassword } from "../dist/platform/auth/passwords.js";
 import { createSessionRepository } from "../dist/platform/auth/sessions.js";
 import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
-import { createAccountOperationRepository } from "../dist/platform/auth/account-operations.js";
 import { baseSepoliaAsset } from "../dist/features/account-wallet/base-sepolia.js";
 import { runCoinSandboxOperator } from "../scripts/coin-sandbox-operator.ts";
+import {
+  attachSubject,
+  confirmedApproval,
+  openSandbox,
+} from "./helpers/confirmations.js";
 
 const ownerUrl = process.env.COIN_TREASURY_TEST_OWNER_DATABASE_URL,
   runtimeUrl = process.env.COIN_TREASURY_TEST_DATABASE_URL;
 const custody = "0x1111111111111111111111111111111111111111",
   network = "base-sepolia:84532",
-  config = { rail: "base-sepolia", depositDestination: custody };
+  config = { rail: "base-sepolia", depositDestination: custody },
+  unopened = /confirm by signing in again to open the financial sandbox/;
 describe(
   "receipt-backed system treasury funding in a dedicated disposable Base Sepolia ledger",
   { skip: !ownerUrl || !runtimeUrl },
   () => {
-    let owner, a, b, runtime, operator, other, passwordHash;
+    let owner, a, b, runtime, operator, other;
     before(async () => {
       for (const value of [ownerUrl, runtimeUrl]) {
         const url = new URL(value);
@@ -50,19 +54,14 @@ describe(
         );
       operator = createCoinSandboxOperatorRepository(a, config);
       other = createCoinSandboxOperatorRepository(b, config);
-      passwordHash = await hashPassword(
-        "synthetic treasury fixture passphrase",
-      );
     });
     after(async () => {
       await Promise.all([owner?.end(), a?.end(), b?.end(), runtime?.end()]);
     });
+    // Treasury operators are plain accounts; none has opened the sandbox.
     async function actor() {
       return (
-        await owner.query(
-          "INSERT INTO users(email,password_hash) VALUES($1,$2) RETURNING id",
-          [`treasury-${randomUUID()}@isolation.test`, passwordHash],
-        )
+        await owner.query("INSERT INTO users DEFAULT VALUES RETURNING id")
       ).rows[0].id;
     }
     function evidence(amount = "1000000") {
@@ -104,21 +103,21 @@ describe(
           ])
         ).rows[0].auth_generation,
         token = createSessionToken(),
-        origin = "http://localhost:53024",
         localConfig = {
           rail: "base-sepolia",
           depositDestination: signer.address,
           withdrawalFee: "0",
         },
         repo = createCoinSandboxRepository(runtime, localConfig),
-        ownerRepo = createCoinSandboxOperatorRepository(owner, localConfig),
-        operations = createAccountOperationRepository(runtime);
+        ownerRepo = createCoinSandboxOperatorRepository(owner, localConfig);
       await createSessionRepository(runtime).create(
         userId,
         token.tokenHash,
         new Date(Date.now() + 600000),
         { authGeneration: generation },
       );
+      const subject = await attachSubject(owner, userId);
+      await openSandbox(owner, userId);
       const context = { userId, sessionTokenHash: token.tokenHash },
         incoming = await repo.quoteFunding(context, {
           amount: "10000000",
@@ -138,21 +137,11 @@ describe(
             destination,
             idempotencyKey: randomUUID(),
           }),
-          operation = await operations.create({
+          { approval } = await confirmedApproval(runtime, {
             ...context,
+            subject,
             purpose: "withdrawal.request",
             terms: quote.terms,
-            credential: { type: "password" },
-            origin,
-          }),
-          approval = await operations.prepare({
-            ...context,
-            purpose: "withdrawal.request",
-            terms: quote.terms,
-            id: operation.id,
-            password: "synthetic treasury fixture passphrase",
-            origin,
-            rpcUrls: {},
           });
         await repo.requestWithdrawal(context, {
           requestId: quote.id,
@@ -206,6 +195,31 @@ describe(
         );
         if (!index) {
           first = { quote, prepared };
+          // Signing admission re-checks the opening rather than trusting the
+          // earlier approval. Openings are permanent in the product; removing
+          // the record stands in for an account that never opened.
+          await owner.query(
+            "DELETE FROM coin_sandbox_openings WHERE user_id=$1",
+            [userId],
+          );
+          await assert.rejects(
+            ownerRepo.reserveSignedPayout({
+              userId,
+              requestId: quote.id,
+              prepared,
+            }),
+            unopened,
+          );
+          assert.equal(
+            (
+              await owner.query(
+                "SELECT count(*)::int n FROM coin_nonce_reservations WHERE request_id=$1",
+                [quote.id],
+              )
+            ).rows[0].n,
+            0,
+          );
+          await openSandbox(owner, userId);
           assert.equal(
             (
               await ownerRepo.reserveSignedPayout({
@@ -416,6 +430,16 @@ describe(
           JSON.stringify(terms),
         ],
       );
+      // Owner funding first requires the account's own sandbox opening.
+      await assert.rejects(
+        operator.confirmFunding({
+          userId: second,
+          requestId: fundingId,
+          receipt,
+        }),
+        unopened,
+      );
+      await openSandbox(owner, second);
       await assert.rejects(
         operator.confirmFunding({
           userId: second,
@@ -487,6 +511,7 @@ describe(
         0,
       );
       const result = await operator.confirmTreasuryFunding(input);
+      await openSandbox(owner, userId);
       await assert.rejects(
         operator.confirmFunding({
           userId,

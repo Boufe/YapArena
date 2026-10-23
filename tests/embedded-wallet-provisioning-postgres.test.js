@@ -251,9 +251,12 @@ describe(
         ).rows[0].count,
         1,
       );
+      // Wallet sign-in is gone (Decision 0009), but retained wallet audit
+      // history still blocks bootstrap; the embedded asset wallet's own
+      // provisioning event does not.
       await owner.query(
-        "INSERT INTO wallet_identities(user_id,address,chain_id) VALUES($1,$2,7654321)",
-        [f.userId, `0x${randomUUID().replaceAll("-", "").padEnd(40, "0")}`],
+        "INSERT INTO identity_audit_events(user_id,event_type,subject_id,metadata) VALUES($1,'wallet_identities.insert',$1::bigint::text,'{}')",
+        [f.userId],
       );
       assert.equal(
         await firstProviderPasskeyBootstrapAllowed(a, f.userId),

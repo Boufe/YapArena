@@ -23,10 +23,13 @@ ${style}
 // The provider's redirect to the callback is cross-site, so a browser would
 // withhold the SameSite=Strict session cookie on an immediate HTTP redirect.
 // This same-site hop sends it on arrival.
-export function renderSignInContinue(returnPath: string) {
+export function renderSignInContinue(
+  returnPath: string,
+  heading = "You're signed in",
+) {
   return page(
     "Signing you in",
-    html`<h1>You're signed in</h1><p><a href="${returnPath}">Continue to YAP Arena</a></p>`,
+    html`<h1>${heading}</h1><p><a href="${returnPath}">Continue to YAP Arena</a></p>`,
     returnPath,
   );
 }

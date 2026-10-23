@@ -1,18 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
-import { getAddress } from "viem";
-import { createSiweMessage } from "viem/siwe";
-import {
-  generateAuthenticationOptions,
-  verifyAuthenticationResponse,
-  type AuthenticationResponseJSON,
-  type PublicKeyCredentialRequestOptionsJSON,
-} from "@simplewebauthn/server";
-import { verifyPassword } from "./passwords.ts";
-import { verifyChallengeSignature } from "./siwe.ts";
+import type { VerifiedIdentity } from "./auth0.ts";
 import { assertActiveSession, lockAccount } from "./sessions.ts";
-import type { IdentityVerifier } from "./privy.ts";
-import { parseProviderPasskeyPublicKey } from "./provider-passkeys.ts";
 
 export class AccountOperationError extends Error {
   constructor(
@@ -24,36 +13,6 @@ export class AccountOperationError extends Error {
 }
 
 export type AccountOperationTerms = Readonly<Record<string, string>>;
-export type AccountOperationCredential =
-  | { type: "password" }
-  | { type: "wallet"; walletId: string }
-  | { type: "passkey"; keyId: string };
-
-export interface AccountOperation {
-  id: string;
-  userId: string;
-  sessionTokenHash: string;
-  authGeneration: string;
-  purpose: string;
-  terms: Record<string, string>;
-  termsDigest: string;
-  nonce: string;
-  credentialType: "password" | "wallet" | "passkey";
-  authorizingPasskeyId: string | null;
-  authorizingWalletId: string | null;
-  authorizingAddress: string | null;
-  authorizingChainId: string | null;
-  authorizationMessage: string | null;
-  expiresAt: Date;
-  authenticationOptions?: PublicKeyCredentialRequestOptionsJSON;
-}
-
-const columns = `id,user_id AS "userId",session_token_hash AS "sessionTokenHash",
-  auth_generation AS "authGeneration",purpose,terms,terms_digest AS "termsDigest",nonce,
-  credential_type AS "credentialType",authorizing_wallet_id AS "authorizingWalletId",
-  authorizing_passkey_id AS "authorizingPasskeyId",
-  authorizing_address AS "authorizingAddress",authorizing_chain_id AS "authorizingChainId",
-  authorization_message AS "authorizationMessage",expires_at AS "expiresAt"`;
 
 // Callers validate domain rules first. Exact monetary amounts must be strings,
 // never floating point numbers. Sorting makes object insertion order irrelevant.
@@ -84,109 +43,34 @@ export function accountOperationTermsDigest(terms: AccountOperationTerms) {
 function unavailable(): never {
   throw new AccountOperationError(
     410,
-    "approval expired or invalid; start again",
+    "confirmation expired or invalid; start again",
   );
 }
 
-type PasskeyRecord = {
-  credentialId: string;
-  publicKey: Buffer;
-  counter: string;
-  deviceType: "singleDevice" | "multiDevice";
-  userHandle: string;
-  provenance: "yaparena" | "privy";
-  providerSubject: string | null;
-  publicKeyDigest: string | null;
-  rpId: string | null;
-  mappedSubject: string | null;
-};
-const passkeyColumns = `k.credential_id AS "credentialId",k.public_key AS "publicKey",
-  k.counter,k.device_type AS "deviceType",u.user_handle AS "userHandle",
-  k.provenance,k.provider_subject AS "providerSubject",
-  k.provider_public_key_digest AS "publicKeyDigest",k.rp_id AS "rpId",
-  p.subject AS "mappedSubject"`;
-function samePasskey(left: PasskeyRecord, right: PasskeyRecord) {
-  return (
-    left.credentialId === right.credentialId &&
-    left.publicKey.equals(right.publicKey) &&
-    left.provenance === right.provenance &&
-    left.providerSubject === right.providerSubject &&
-    left.publicKeyDigest === right.publicKeyDigest &&
-    left.rpId === right.rpId &&
-    left.mappedSubject === right.mappedSubject
-  );
-}
-
-// This is retained-credential authorization, not a general recent-auth flag.
-// No access-token issuance time or browser/provider MFA callback is accepted.
-export function createAccountOperationRepository(
-  database: Pool,
-  inspector?: Pick<IdentityVerifier, "inspect">,
-) {
-  async function inspectPasskey(userId: string, keyId: string) {
-    const key = (
-      await database.query<PasskeyRecord>(
-        `SELECT ${passkeyColumns} FROM account_security_keys k
-         JOIN account_security_users u ON u.user_id=k.user_id
-         LEFT JOIN provider_identities p ON p.user_id=k.user_id AND p.provider='privy'
-         WHERE k.id=$1 AND k.user_id=$2 AND k.revoked_at IS NULL`,
-        [keyId, userId],
-      )
-    ).rows[0];
-    if (!key) unavailable();
-    if (key.provenance === "privy") {
-      if (
-        !inspector ||
-        !key.providerSubject ||
-        key.providerSubject !== key.mappedSubject
-      )
-        unavailable();
-      // Release the pool before provider I/O; the accepted key and mapping are
-      // compared again under the account lock before issuing/consuming proof.
-      const current = await inspector.inspect(key.providerSubject);
-      const linked = current.passkeys?.find(
-        (entry) => entry.credentialId === key.credentialId,
-      );
-      if (
-        current.subject !== key.providerSubject ||
-        !current.credentials?.some(
-          (entry) => entry.type === "passkey" && entry.id === key.credentialId,
-        ) ||
-        !linked
-      )
-        unavailable();
-      if (!linked.publicKey)
-        throw new AccountOperationError(
-          503,
-          "Passkey verification is temporarily unavailable.",
-        );
-      const parsed = parseProviderPasskeyPublicKey(linked.publicKey);
-      // Decision 0008: step-up checks only this key (still linked, same
-      // public key). Other sign-in method changes are recorded, not fenced.
-      if (
-        parsed.publicKeyDigest !== key.publicKeyDigest ||
-        !parsed.publicKey.equals(key.publicKey)
-      )
-        unavailable();
-    }
-    return key;
+export type ConfirmationFailure = "expired" | "other_account" | "stale_sign_in";
+export class ConfirmationError extends Error {
+  constructor(readonly code: ConfirmationFailure) {
+    super(`confirmation refused: ${code}`);
   }
+}
+
+// Decision 0009, point 8: a sensitive operation creates a one-use,
+// five-minute challenge bound to the account, the session and the exact
+// terms. The browser confirms it by signing in again (prompt=login,
+// max_age=0); the callback requires a subject of the same account and an
+// auth_time at or after the challenge's creation. Only then can the
+// operation be consumed, once, with its feature mutation.
+export function createAccountOperationRepository(database: Pool) {
   const repository = {
     async create(input: {
       userId: string;
       sessionTokenHash: string;
       purpose: string;
       terms: AccountOperationTerms;
-      credential: AccountOperationCredential;
-      origin: string;
-    }): Promise<AccountOperation> {
+    }) {
       if (!/^[a-z][a-z0-9_.]{0,79}$/.test(input.purpose))
         throw new AccountOperationError(400, "invalid operation purpose");
       const termsDigest = accountOperationTermsDigest(input.terms);
-      const inspectedKey =
-        input.credential.type === "passkey"
-          ? await inspectPasskey(input.userId, input.credential.keyId)
-          : undefined;
       const client = await database.connect();
       try {
         await client.query("BEGIN");
@@ -194,77 +78,13 @@ export function createAccountOperationRepository(
         if (!account)
           throw new AccountOperationError(401, "authentication required");
         await assertActiveSession(client, input.userId, input.sessionTokenHash);
-        let wallet: { address: string; chainId: string } | undefined;
-        let passkey: PasskeyRecord | undefined;
-        if (input.credential.type === "wallet") {
-          wallet = (
-            await client.query<{ address: string; chainId: string }>(
-              `SELECT address,chain_id AS "chainId" FROM wallet_identities
-               WHERE id=$1 AND user_id=$2`,
-              [input.credential.walletId, input.userId],
-            )
-          ).rows[0];
-          if (!wallet)
-            throw new AccountOperationError(403, "linked wallet required");
-        } else if (input.credential.type === "passkey") {
-          passkey = (
-            await client.query<PasskeyRecord>(
-              `SELECT ${passkeyColumns} FROM account_security_keys k
-               JOIN account_security_users u ON u.user_id=k.user_id
-               LEFT JOIN provider_identities p ON p.user_id=k.user_id AND p.provider='privy'
-               WHERE k.id=$1 AND k.user_id=$2 AND k.revoked_at IS NULL`,
-              [input.credential.keyId, input.userId],
-            )
-          ).rows[0];
-          if (!passkey || !inspectedKey || !samePasskey(passkey, inspectedKey))
-            throw new AccountOperationError(403, "security passkey required");
-          if (
-            input.purpose === "security.passkey.remove" &&
-            input.terms.keyId === input.credential.keyId
-          )
-            throw new AccountOperationError(403, "use a retained credential");
-          if (
-            input.purpose === "provider.credentials.change" &&
-            input.terms.action === "remove" &&
-            input.terms.method === "passkey" &&
-            passkey.provenance === "privy" &&
-            input.terms.target === passkey.credentialId
-          )
-            throw new AccountOperationError(403, "use a retained credential");
-        } else if (!account.passwordHash) {
-          throw new AccountOperationError(403, "retained credential required");
-        }
         const id = randomUUID();
-        const nonce = randomBytes(32).toString("hex");
-        const issuedAt = (
-          await client.query<{ issuedAt: Date }>(
-            `SELECT date_trunc('milliseconds',clock_timestamp()) AS "issuedAt"`,
-          )
-        ).rows[0]!.issuedAt;
-        const expiresAt = new Date(issuedAt.getTime() + 300_000);
-        const site = new URL(input.origin);
-        const message = wallet
-          ? createSiweMessage({
-              address: getAddress(wallet.address),
-              chainId: Number(wallet.chainId),
-              domain: site.host,
-              uri: site.origin,
-              scheme: site.protocol.slice(0, -1),
-              version: "1",
-              nonce,
-              issuedAt,
-              expirationTime: expiresAt,
-              requestId: id,
-              statement: `Authorize ${input.purpose} for YAP Arena account ${input.userId}. Terms: ${JSON.stringify(input.terms)}. This approves this account operation and does not sign a blockchain transaction.`,
-              resources: [`urn:yaparena:operation-terms:${termsDigest}`],
-            })
-          : null;
-        const result = await client.query<AccountOperation>(
-          `INSERT INTO account_operations(id,user_id,session_token_hash,auth_generation,
-            purpose,terms,terms_digest,nonce,credential_type,authorizing_wallet_id,
-            authorizing_address,authorizing_chain_id,authorization_message,expires_at,created_at,authorizing_passkey_id)
-           VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-           RETURNING ${columns}`,
+        const result = await client.query<{ expiresAt: Date }>(
+          `WITH now AS (SELECT date_trunc('milliseconds',clock_timestamp()) AS at)
+           INSERT INTO account_operations(id,user_id,session_token_hash,auth_generation,
+             purpose,terms,terms_digest,nonce,credential_type,created_at,expires_at)
+           SELECT $1,$2,$3,$4,$5,$6::jsonb,$7,$8,'sign_in',at,at+interval '5 minutes' FROM now
+           RETURNING expires_at AS "expiresAt"`,
           [
             id,
             input.userId,
@@ -273,32 +93,86 @@ export function createAccountOperationRepository(
             input.purpose,
             JSON.stringify(input.terms),
             termsDigest,
-            nonce,
-            input.credential.type,
-            input.credential.type === "wallet"
-              ? input.credential.walletId
-              : null,
-            wallet?.address ?? null,
-            wallet?.chainId ?? null,
-            message,
-            expiresAt,
-            issuedAt,
-            input.credential.type === "passkey" ? input.credential.keyId : null,
+            randomBytes(32).toString("hex"),
           ],
         );
         await client.query("COMMIT");
-        const operation = result.rows[0]!;
-        if (passkey)
-          operation.authenticationOptions = await generateAuthenticationOptions(
-            {
-              rpID: passkey.rpId ?? site.hostname,
-              challenge: Buffer.from(nonce, "hex"),
-              allowCredentials: [{ id: passkey.credentialId }],
-              userVerification: "required",
-              timeout: 300_000,
-            },
-          );
-        return operation;
+        return Object.freeze({
+          id,
+          expiresAt: result.rows[0]!.expiresAt,
+          // The browser adds &return=<path> and navigates here.
+          confirmPath: `/api/auth/confirm?operation=${id}`,
+        });
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+
+    // Before sending the browser to the provider: the operation must belong
+    // to this signed-in device and still await its confirmation.
+    async pending(input: {
+      id: string;
+      userId: string;
+      sessionTokenHash: string;
+    }) {
+      const row = (
+        await database.query<{ id: string }>(
+          `SELECT o.id FROM account_operations o
+           JOIN sessions s ON s.user_id=o.user_id AND s.token_hash=o.session_token_hash
+           JOIN users u ON u.id=o.user_id
+           WHERE o.id=$1 AND o.user_id=$2 AND o.session_token_hash=$3
+             AND o.credential_type='sign_in' AND o.confirmed_at IS NULL
+             AND o.consumed_at IS NULL AND o.expires_at>clock_timestamp()
+             AND u.account_status='active' AND s.auth_generation=u.auth_generation
+             AND s.expires_at>clock_timestamp()`,
+          [input.id, input.userId, input.sessionTokenHash],
+        )
+      ).rows[0];
+      return Boolean(row);
+    },
+
+    // Called by the provider callback with a verified fresh sign-in.
+    async confirm(input: {
+      id: string;
+      userId: string;
+      identity: Pick<VerifiedIdentity, "subject" | "authTime">;
+    }) {
+      if (input.identity.authTime === null)
+        throw new ConfirmationError("stale_sign_in");
+      const client = await database.connect();
+      try {
+        await client.query("BEGIN");
+        const operation = (
+          await client.query<{ createdSecond: string }>(
+            `SELECT extract(epoch FROM date_trunc('second',created_at))::bigint::text AS "createdSecond"
+             FROM account_operations WHERE id=$1 AND user_id=$2
+               AND credential_type='sign_in' AND confirmed_at IS NULL
+               AND consumed_at IS NULL AND expires_at>clock_timestamp() FOR UPDATE`,
+            [input.id, input.userId],
+          )
+        ).rows[0];
+        if (!operation) throw new ConfirmationError("expired");
+        const owner = (
+          await client.query<{ userId: string | null }>(
+            `SELECT user_id::text AS "userId" FROM provider_identities
+             WHERE provider='auth0' AND subject=$1`,
+            [input.identity.subject],
+          )
+        ).rows[0];
+        if (owner?.userId !== input.userId)
+          throw new ConfirmationError("other_account");
+        if (input.identity.authTime < Number(operation.createdSecond))
+          throw new ConfirmationError("stale_sign_in");
+        await client.query(
+          `UPDATE account_operations SET confirmed_at=clock_timestamp(),
+             confirmed_subject=$2,confirmed_auth_time=to_timestamp($3)
+           WHERE id=$1`,
+          [input.id, input.identity.subject, input.identity.authTime],
+        );
+        await client.query("COMMIT");
       } catch (error) {
         await client.query("ROLLBACK");
         throw error;
@@ -313,18 +187,19 @@ export function createAccountOperationRepository(
       sessionTokenHash: string;
       purpose: string;
       terms: AccountOperationTerms;
-      password?: string;
-      signature?: string;
-      authentication?: AuthenticationResponseJSON;
-      origin: string;
-      rpcUrls: Readonly<Record<string, string>>;
       requestId?: string;
     }) {
       const digest = accountOperationTermsDigest(input.terms);
       const operation = (
-        await database.query<AccountOperation>(
-          `SELECT ${columns} FROM account_operations WHERE id=$1 AND user_id=$2
+        await database.query<{
+          id: string;
+          authGeneration: string;
+          confirmedSubject: string;
+        }>(
+          `SELECT id,auth_generation AS "authGeneration",confirmed_subject AS "confirmedSubject"
+           FROM account_operations WHERE id=$1 AND user_id=$2
              AND session_token_hash=$3 AND purpose=$4 AND terms_digest=$5
+             AND credential_type='sign_in' AND confirmed_at IS NOT NULL
              AND consumed_at IS NULL AND expires_at>clock_timestamp()`,
           [
             input.id,
@@ -336,31 +211,10 @@ export function createAccountOperationRepository(
         )
       ).rows[0];
       if (!operation) unavailable();
-      const inspectedKey =
-        operation.credentialType === "passkey" && operation.authorizingPasskeyId
-          ? await inspectPasskey(input.userId, operation.authorizingPasskeyId)
-          : undefined;
-      // Verify potentially slow wallet RPC outside the mutation transaction.
-      if (
-        operation.credentialType === "wallet" &&
-        (!input.signature ||
-          !(await verifyChallengeSignature({
-            challenge: {
-              address: operation.authorizingAddress!,
-              chainId: operation.authorizingChainId!,
-              message: operation.authorizationMessage!,
-              expiresAt: operation.expiresAt,
-            },
-            signature: input.signature,
-            origin: input.origin,
-            rpcUrls: input.rpcUrls,
-          })))
-      )
-        throw new AccountOperationError(401, "wallet approval is invalid");
 
       return Object.freeze({
-        purpose: operation.purpose,
-        termsDigest: operation.termsDigest,
+        purpose: input.purpose,
+        termsDigest: digest,
         assertContext(userId: string, sessionTokenHash: string) {
           if (
             userId !== input.userId ||
@@ -368,7 +222,7 @@ export function createAccountOperationRepository(
           )
             throw new AccountOperationError(
               403,
-              "approval belongs to another session",
+              "confirmation belongs to another session",
             );
         },
         // The caller owns BEGIN/COMMIT. Invoke this before taking feature locks;
@@ -383,10 +237,13 @@ export function createAccountOperationRepository(
             input.sessionTokenHash,
           );
           const locked = await client.query(
-            `SELECT id FROM account_operations WHERE id=$1 AND user_id=$2
-             AND session_token_hash=$3 AND auth_generation=$4 AND purpose=$5
-             AND terms_digest=$6 AND nonce=$7 AND consumed_at IS NULL
-             AND expires_at>clock_timestamp() FOR UPDATE`,
+            `SELECT o.id FROM account_operations o
+             JOIN provider_identities p ON p.provider='auth0'
+               AND p.subject=o.confirmed_subject AND p.user_id=o.user_id
+             WHERE o.id=$1 AND o.user_id=$2 AND o.session_token_hash=$3
+               AND o.auth_generation=$4 AND o.purpose=$5 AND o.terms_digest=$6
+               AND o.confirmed_at IS NOT NULL AND o.consumed_at IS NULL
+               AND o.expires_at>clock_timestamp() FOR UPDATE OF o`,
             [
               operation.id,
               input.userId,
@@ -394,91 +251,9 @@ export function createAccountOperationRepository(
               account.authGeneration,
               input.purpose,
               digest,
-              operation.nonce,
             ],
           );
           if (!locked.rows[0]) unavailable();
-          if (operation.credentialType === "password") {
-            if (
-              !account.passwordHash ||
-              !input.password ||
-              !(await verifyPassword(account.passwordHash, input.password))
-            )
-              throw new AccountOperationError(
-                401,
-                "current password is incorrect",
-              );
-          } else if (operation.credentialType === "wallet") {
-            const credential = await client.query(
-              `SELECT id FROM wallet_identities WHERE id=$1 AND user_id=$2
-               AND address=$3 AND chain_id=$4`,
-              [
-                operation.authorizingWalletId,
-                input.userId,
-                operation.authorizingAddress,
-                operation.authorizingChainId,
-              ],
-            );
-            if (!credential.rows[0]) unavailable();
-          } else {
-            const key = (
-              await client.query<PasskeyRecord>(
-                `SELECT ${passkeyColumns}
-                 FROM account_security_keys k JOIN account_security_users u ON u.user_id=k.user_id
-                 LEFT JOIN provider_identities p ON p.user_id=k.user_id AND p.provider='privy'
-                 WHERE k.id=$1 AND k.user_id=$2 AND k.revoked_at IS NULL FOR UPDATE OF k`,
-                [operation.authorizingPasskeyId, input.userId],
-              )
-            ).rows[0];
-            if (
-              !key ||
-              !inspectedKey ||
-              !samePasskey(key, inspectedKey) ||
-              !input.authentication
-            )
-              unavailable();
-            try {
-              if (
-                key.provenance === "yaparena" &&
-                input.authentication.response.userHandle &&
-                input.authentication.response.userHandle !== key.userHandle
-              )
-                throw new Error("incorrect user handle");
-              const verification = await verifyAuthenticationResponse({
-                response: input.authentication,
-                expectedChallenge: Buffer.from(operation.nonce, "hex").toString(
-                  "base64url",
-                ),
-                expectedOrigin: new URL(input.origin).origin,
-                expectedRPID: key.rpId ?? new URL(input.origin).hostname,
-                requireUserVerification: true,
-                credential: {
-                  id: key.credentialId,
-                  publicKey: new Uint8Array(key.publicKey),
-                  counter: Number(key.counter),
-                },
-              });
-              if (
-                !verification.verified ||
-                verification.authenticationInfo.credentialDeviceType !==
-                  key.deviceType
-              )
-                throw new Error("security passkey verification failed");
-              await client.query(
-                "UPDATE account_security_keys SET counter=$2,backed_up=$3 WHERE id=$1",
-                [
-                  operation.authorizingPasskeyId,
-                  verification.authenticationInfo.newCounter,
-                  verification.authenticationInfo.credentialBackedUp,
-                ],
-              );
-            } catch {
-              throw new AccountOperationError(
-                401,
-                "security passkey approval is invalid",
-              );
-            }
-          }
           const result = await mutation();
           const consumed = await client.query(
             `UPDATE account_operations SET consumed_at=clock_timestamp()
@@ -494,10 +269,11 @@ export function createAccountOperationRepository(
               input.userId,
               operation.id,
               JSON.stringify({
-                purpose: operation.purpose,
+                purpose: input.purpose,
                 termsDigest: digest,
                 actorSessionId: session.id,
-                credentialType: operation.credentialType,
+                credentialType: "sign_in",
+                confirmedSubject: operation.confirmedSubject,
                 requestId: input.requestId,
                 outcome: "success",
               }),
@@ -532,4 +308,25 @@ export function createAccountOperationRepository(
       }
     },
   });
+}
+
+export type AccountOperations = ReturnType<
+  typeof createAccountOperationRepository
+>;
+
+// Parses {"id": "<uuid>"}, the confirmed operation a browser presents.
+export function parseConfirmation(value: unknown) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    Object.keys(value).length !== 1 ||
+    !("id" in value) ||
+    typeof value.id !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+      value.id,
+    )
+  )
+    throw new AccountOperationError(400, "invalid confirmation");
+  return { id: value.id };
 }

@@ -3,12 +3,9 @@ import { after, before, describe, it } from "node:test";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import request from "../scripts/test-http-request.ts";
-import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "../dist/app.js";
 import { verifyRuntimeIdentity } from "../dist/platform/database.js";
 import { createLogger } from "../dist/platform/logger.js";
-import { createUserRepository } from "../dist/platform/auth/users.js";
-import { hashPassword } from "../dist/platform/auth/passwords.js";
 import {
   createSessionRepository,
   insertSession,
@@ -16,47 +13,51 @@ import {
   revokeAccountSessions,
   SessionUnavailableError,
 } from "../dist/platform/auth/sessions.js";
+import { createAuth0Client } from "../dist/platform/auth/auth0.js";
 import {
-  createWalletRepository,
-  ChallengeUnavailableError,
-} from "../dist/platform/auth/wallets.js";
-import { createChallengeMessage } from "../dist/platform/auth/siwe.js";
-import { hashSessionToken } from "../dist/platform/auth/session-tokens.js";
+  createAuth0Accounts,
+  SignInError,
+} from "../dist/platform/auth/auth0-accounts.js";
+import { createSignInState } from "../dist/platform/auth/sign-in-state.js";
+import {
+  createSessionToken,
+  hashSessionToken,
+} from "../dist/platform/auth/session-tokens.js";
 import { endAllAccountSessions } from "./helpers/account-sessions.js";
 
 const connectionString = process.env.REVOCATION_TEST_DATABASE_URL;
 const enabled = Boolean(connectionString);
 const origin = "http://localhost:53023";
+const issuer = new URL("https://synthetic-issuer.example.test/");
 const logger = createLogger({ enabled: false });
-const password = "synthetic strong passphrase";
 const expiresAt = () => new Date(Date.now() + 600000);
 const namespace = randomUUID();
-let owner,
-  firstPool,
-  secondPool,
-  users,
-  sessions,
-  wallets,
-  appA,
-  appB,
-  passwordHash;
+let owner, firstPool, secondPool, sessions, appA, appB;
 const accounts = [];
-const challengeIds = [];
 let counter = 0;
-const signers = Array.from({ length: 5 }, (_, i) =>
-  privateKeyToAccount(`0x${String(40 + i).repeat(32)}`),
-);
 function app(pool, overrides = {}) {
   return createApp({
     messages: { isReady: async () => {} },
-    users: createUserRepository(pool),
     sessions: createSessionRepository(pool),
-    wallets: createWalletRepository(pool),
     environment: "production",
     applicationOrigin: origin,
     authRateLimit: 1000,
     apiRateLimit: 10000,
     logger,
+    // Only the provider's logout URL is built here, locally. Sign-in goes
+    // through the post-callback account mapping, so no issuer is contacted.
+    auth0: {
+      client: createAuth0Client(
+        {
+          issuer,
+          clientId: "synthetic-client",
+          clientSecret: "synthetic-secret",
+        },
+        { redirectUri: `${origin}/api/auth/callback` },
+      ),
+      accounts: createAuth0Accounts(pool),
+      state: createSignInState(pool),
+    },
     ...overrides,
   });
 }
@@ -68,56 +69,55 @@ function post(instance, path, cookie) {
 }
 const me = (instance, cookie) =>
   request(instance).get("/api/auth/me").set("Cookie", cookie);
-function cookieOf(response) {
-  return response.headers["set-cookie"][0].split(";")[0];
-}
+const generationOf = async (user) =>
+  (
+    await owner.query(
+      "SELECT auth_generation::text AS generation FROM users WHERE id=$1",
+      [user.id],
+    )
+  ).rows[0].generation;
+const sessionCount = async (user) =>
+  (
+    await owner.query(
+      "SELECT count(*)::int AS n FROM sessions WHERE user_id=$1",
+      [user.id],
+    )
+  ).rows[0].n;
+// An account with one Auth0 email-code subject, as a first sign-in leaves it.
 async function account() {
-  const email = `f03-${namespace}-${counter++}@example.test`;
-  const user = await users.create(email, passwordHash);
+  const user = (
+    await owner.query(
+      `INSERT INTO users DEFAULT VALUES RETURNING id,auth_generation AS "authGeneration"`,
+    )
+  ).rows[0];
   accounts.push(user.id);
+  user.email = `f03-${namespace}-${counter++}@example.test`;
+  user.subject = `email|${randomUUID()}`;
+  await owner.query(
+    `INSERT INTO provider_identities(provider,subject,user_id,email,methods)
+     VALUES('auth0',$1,$2,$3,'["email"]'::jsonb)`,
+    [user.subject, user.id, user.email],
+  );
   return user;
 }
-async function login(user, instance = appA) {
-  const response = await post(instance, "login").send({
-    email: user.email,
-    password,
-  });
-  assert.equal(response.status, 200);
-  assert.equal(response.body.user.authGeneration, undefined);
-  return cookieOf(response);
-}
-async function linkFixture(user, signer = signers[0]) {
-  const result = await owner.query(
-    "INSERT INTO wallet_identities(user_id,chain_id,address) VALUES ($1,1,$2) RETURNING id",
-    [user.id, signer.address.toLowerCase()],
+const identity = (user, subject = user.subject) => ({
+  subject,
+  email: user.email,
+  method: "email",
+  authTime: Math.floor(Date.now() / 1000),
+});
+// The verified-callback sign-in path, on the instance that owns `pool`.
+async function login(user, pool = firstPool) {
+  const { token, tokenHash } = createSessionToken();
+  const result = await createAuth0Accounts(pool).signIn(
+    identity(user),
+    { purpose: "sign_in" },
+    { tokenHash, expiresAt: expiresAt() },
   );
-  return result.rows[0].id;
-}
-async function challenge(signer = signers[0]) {
-  const fields = createChallengeMessage({
-    address: signer.address,
-    chainId: 1,
-    origin,
-    purpose: "login",
-  });
-  const issued = await wallets.createChallenge({
-    address: signer.address.toLowerCase(),
-    chainId: 1,
-    purpose: "login",
-    ...fields,
-  });
-  challengeIds.push(issued.id);
-  return issued;
-}
-function barrier() {
-  let release, arrived;
-  const wait = new Promise((resolve) => {
-    release = resolve;
-  });
-  const entered = new Promise((resolve) => {
-    arrived = resolve;
-  });
-  return { wait, entered, release, arrived };
+  assert.equal(result.kind, "session");
+  assert.equal(result.user.id, user.id);
+  assert.equal(result.created, false);
+  return `__Host-session=${token}`;
 }
 async function waitForLock(applicationName) {
   const deadline = Date.now() + 5000;
@@ -155,10 +155,7 @@ describe(
           process.env.REVOCATION_TEST_RUNTIME_URL || connectionString,
         application_name: "f03-instance-b",
       });
-      users = createUserRepository(firstPool);
       sessions = createSessionRepository(firstPool);
-      wallets = createWalletRepository(firstPool);
-      passwordHash = await hashPassword(password);
       appA = app(firstPool);
       appB = app(secondPool);
     });
@@ -171,10 +168,6 @@ describe(
           "DELETE FROM identity_audit_events WHERE user_id = ANY($1::bigint[])",
           [accounts],
         );
-        await owner.query(
-          "DELETE FROM wallet_challenges WHERE id = ANY($1::uuid[])",
-          [challengeIds],
-        );
       }
       await Promise.all([owner?.end(), firstPool?.end(), secondPool?.end()]);
     });
@@ -182,25 +175,22 @@ describe(
     it("sign out ends only this device across instances; the other device and the account generation are unchanged", async () => {
       const user = await account();
       const a = await login(user),
-        b = await login(user, appB);
-      const generation = async () =>
-        (
-          await owner.query(
-            "SELECT auth_generation::text AS generation FROM users WHERE id=$1",
-            [user.id],
-          )
-        ).rows[0].generation;
-      const before = await generation();
+        b = await login(user, secondPool);
+      const before = await generationOf(user);
       const result = await post(appA, "logout", a);
-      assert.equal(result.status, 204);
+      assert.equal(result.status, 200);
+      // The browser then visits the provider's logout endpoint.
+      const redirect = new URL(result.body.redirectTo);
+      assert.equal(redirect.href.split("?")[0], `${issuer.href}v2/logout`);
+      assert.equal(redirect.searchParams.get("returnTo"), `${origin}/`);
       assert.equal(result.headers["set-cookie"], undefined);
       for (const instance of [appA, appB]) {
         assert.equal((await me(instance, a)).status, 401);
         assert.equal((await me(instance, b)).status, 200);
       }
-      assert.equal(await generation(), before);
+      assert.equal(await generationOf(user), before);
       assert.equal((await post(appB, "logout", a)).status, 401);
-      const fresh = await login(user, appB);
+      const fresh = await login(user, secondPool);
       assert.equal((await me(appA, fresh)).status, 200);
       const audit = await owner.query(
         "SELECT event_type AS type, subject_id AS subject, metadata FROM identity_audit_events WHERE user_id = $1 AND event_type IN ('sessions.logout_one','sessions.logout_all','sessions.logout_others','sessions.incident')",
@@ -226,7 +216,7 @@ describe(
     it("offers no sign-out-everywhere or sign-out-others routes", async () => {
       const user = await account();
       const a = await login(user),
-        b = await login(user, appB);
+        b = await login(user, secondPool);
       for (const path of ["logout-all", "logout-other-sessions"])
         assert.equal((await post(appA, path, a)).status, 404);
       assert.equal((await me(appA, a)).status, 200);
@@ -237,7 +227,7 @@ describe(
       const user = await account(),
         other = await account();
       const a = await login(user),
-        b = await login(other, appB);
+        b = await login(other, secondPool);
       assert.equal((await post(appA, "logout")).status, 401);
       assert.equal(
         (await post(appA, "logout", a).send({ userId: other.id })).status,
@@ -273,136 +263,51 @@ describe(
       assert.equal((await me(appA, a)).status, 200);
     });
 
-    it("wallet removal revokes password and wallet sessions, preserves account ownership and final method", async () => {
-      const user = await account();
-      const walletId = await linkFixture(user);
-      const passwordCookie = await login(user);
-      const pending = await challenge();
-      const response = await post(appB, "wallet/login/verify").send({
-        challengeId: pending.id,
-        signature: await signers[0].signMessage({ message: pending.message }),
-      });
-      assert.equal(response.status, 200);
-      const walletCookie = cookieOf(response);
-      const target = {
-        purpose: "unlink",
-        address: signers[0].address.toLowerCase(),
-        chainId: 1,
-        targetWalletId: walletId,
-      };
-      const operation = await post(
-        appA,
-        "wallet/operations",
-        passwordCookie,
-      ).send({ ...target, credential: { type: "password" } });
-      assert.equal(operation.status, 201);
-      const removed = await post(
-        appA,
-        `wallet/operations/${operation.body.id}/complete`,
-        passwordCookie,
-      ).send({ ...target, password });
-      assert.equal(removed.status, 200);
-      assert.equal((await me(appA, cookieOf(removed))).status, 200);
-      assert.equal((await me(appB, passwordCookie)).status, 401);
-      assert.equal((await me(appA, walletCookie)).status, 401);
-      assert.equal((await me(appB, await login(user))).body.user.id, user.id);
-      const fresh = await challenge();
-      const newAccount = await wallets.completeLogin(fresh.id, {
-        tokenHash: hashSessionToken("fresh-wallet-account"),
-        expiresAt: expiresAt(),
-      });
-      accounts.push(newAccount.id);
-      assert.notEqual(newAccount.id, user.id);
-      const [newWallet] = await wallets.listWallets(newAccount.id);
-      const foreignTarget = {
-        purpose: "unlink",
-        address: newWallet.address,
-        chainId: Number(newWallet.chainId),
-        targetWalletId: newWallet.id,
-      };
-      const currentCookie = await login(user);
-      assert.equal(
-        (
-          await post(appA, "wallet/operations", currentCookie).send({
-            ...foreignTarget,
-            credential: { type: "password" },
-          })
-        ).status,
-        404,
-      );
-      const soleCookie = "__Host-session=fresh-wallet-account";
-      assert.equal(
-        (
-          await post(appA, "wallet/operations", soleCookie).send({
-            ...foreignTarget,
-            credential: { type: "wallet", walletId: newWallet.id },
-          })
-        ).status,
-        403,
-      );
-    });
-
-    it("supported owner password update atomically revokes sessions; rollback restores old credential and sessions", async () => {
+    it("an incident revocation is atomic: rollback restores the generation and sessions; commit ends them and a fresh sign-in works", async () => {
       const user = await account();
       const a = await login(user),
-        b = await login(user, appB);
-      const replacementHash = await hashPassword(
-        "changed synthetic passphrase",
-      );
+        b = await login(user, secondPool);
+      const incidents = async () =>
+        (
+          await owner.query(
+            "SELECT count(*)::int AS n FROM identity_audit_events WHERE user_id=$1 AND event_type='sessions.incident'",
+            [user.id],
+          )
+        ).rows[0].n;
       const client = await owner.connect();
       try {
         await client.query("BEGIN");
         await lockAccount(client, user.id);
-        await client.query(
-          "UPDATE users SET password_hash = $2 WHERE id = $1",
-          [user.id, replacementHash],
-        );
+        await revokeAccountSessions(client, user.id, {
+          action: "sessions.incident",
+        });
         await client.query("ROLLBACK");
         assert.equal(
-          (
-            await owner.query(
-              "SELECT count(*)::int AS n FROM sessions WHERE user_id=$1",
-              [user.id],
-            )
-          ).rows[0].n,
+          await sessionCount(user),
           2,
-          "credential rollback restores both session rows",
+          "rollback restores both session rows",
         );
         assert.equal(
-          (
-            await owner.query("SELECT auth_generation FROM users WHERE id=$1", [
-              user.id,
-            ])
-          ).rows[0].auth_generation,
-          "0",
-          "credential rollback restores the generation",
+          await generationOf(user),
+          user.authGeneration,
+          "rollback restores the generation",
         );
+        assert.equal(await incidents(), 0);
         assert.equal((await me(appB, a)).status, 200);
-        assert.equal(
-          (await users.findByEmail(user.email)).passwordHash,
-          passwordHash,
-        );
         await client.query("BEGIN");
         await lockAccount(client, user.id);
-        await client.query(
-          "UPDATE users SET password_hash = $2 WHERE id = $1",
-          [user.id, replacementHash],
-        );
+        const generation = await revokeAccountSessions(client, user.id, {
+          action: "sessions.incident",
+        });
         await client.query("COMMIT");
+        assert.equal(await generationOf(user), generation);
+        assert.ok(BigInt(generation) > BigInt(user.authGeneration));
+        assert.equal(await incidents(), 1);
         for (const oldCookie of [a, b])
-          assert.equal((await me(appB, oldCookie)).status, 401);
+          for (const instance of [appA, appB])
+            assert.equal((await me(instance, oldCookie)).status, 401);
         assert.equal(
-          (await post(appA, "login").send({ email: user.email, password }))
-            .status,
-          401,
-        );
-        assert.equal(
-          (
-            await post(appB, "login").send({
-              email: user.email,
-              password: "changed synthetic passphrase",
-            })
-          ).status,
+          (await me(appA, await login(user, secondPool))).status,
           200,
         );
       } finally {
@@ -410,52 +315,73 @@ describe(
       }
     });
 
-    it("stale password authentication cannot cross an all-session revocation or password-change ordering points", async () => {
-      for (const mutate of ["revocation", "password"]) {
+    it("a sign-in waiting behind a locked revocation or suspension reads the committed account state", async () => {
+      for (const mutate of ["revocation", "suspension"]) {
         const user = await account();
-        await login(user);
-        const gate = barrier();
-        const staleUsers = {
-          ...users,
-          async findByEmail(email) {
-            const snapshot = await users.findByEmail(email);
-            gate.arrived();
-            await gate.wait;
-            return snapshot;
-          },
-        };
-        const inFlight = post(app(firstPool, { users: staleUsers }), "login")
-          .send({ email: user.email, password })
-          .then((value) => value);
-        await gate.entered;
-        if (mutate === "revocation")
-          await endAllAccountSessions(secondPool, user.id);
-        else
-          await owner.query(
-            "UPDATE users SET password_hash = $2 WHERE id = $1",
-            [user.id, await hashPassword("new synthetic credential")],
-          );
-        gate.release();
-        const result = await inFlight;
-        assert.equal(result.status, 401);
-        assert.equal(result.headers["set-cookie"], undefined);
+        const earlier = await login(user);
+        const { token, tokenHash } = createSessionToken();
+        const client = await owner.connect();
+        await client.query("BEGIN");
+        await lockAccount(client, user.id);
+        const signIn = createAuth0Accounts(secondPool).signIn(
+          identity(user),
+          { purpose: "sign_in" },
+          { tokenHash, expiresAt: expiresAt() },
+        );
+        const settled = signIn.then(
+          (value) => ({ value }),
+          (error) => ({ error }),
+        );
+        try {
+          await waitForLock("f03-instance-b");
+          if (mutate === "revocation")
+            await revokeAccountSessions(client, user.id, {
+              action: "sessions.incident",
+            });
+          else
+            await client.query(
+              "UPDATE users SET account_status='suspended' WHERE id=$1",
+              [user.id],
+            );
+          await client.query("COMMIT");
+          const outcome = await settled;
+          assert.equal((await me(appA, earlier)).status, 401);
+          if (mutate === "revocation") {
+            // Ordered after the revocation, the sign-in issues its session
+            // at the new generation instead of an obsolete one.
+            assert.equal(outcome.value.kind, "session");
+            assert.equal(
+              outcome.value.user.authGeneration,
+              await generationOf(user),
+            );
+            assert.equal(
+              (await me(appA, `__Host-session=${token}`)).status,
+              200,
+            );
+            assert.equal(await sessionCount(user), 1);
+          } else {
+            assert.ok(outcome.error instanceof SignInError);
+            assert.equal(outcome.error.code, "account_unavailable");
+            assert.equal(await sessions.findUserByTokenHash(tokenHash), null);
+            assert.equal(await sessionCount(user), 0);
+          }
+        } finally {
+          await client.query("ROLLBACK");
+          client.release();
+        }
       }
     });
 
-    it("password issuance waiting behind a locked revocation fails with its obsolete snapshot", async () => {
+    it("session issuance waiting behind a locked revocation fails with its obsolete snapshot", async () => {
       const user = await account();
       const client = await owner.connect();
       await client.query("BEGIN");
       await lockAccount(client, user.id);
       const issuance = createSessionRepository(secondPool).create(
         user.id,
-        hashSessionToken("blocked-password"),
+        hashSessionToken("blocked-issuance"),
         expiresAt(),
-        {
-          authGeneration: user.authGeneration,
-          passwordHash,
-          email: user.email,
-        },
+        { authGeneration: user.authGeneration },
       );
       const rejected = assert.rejects(issuance, SessionUnavailableError);
       try {
@@ -478,70 +404,6 @@ describe(
       } finally {
         await client.query("ROLLBACK");
         client.release();
-      }
-    });
-
-    it("wallet completion waiting behind unlink cannot resurrect the old account; remove/readd rejects its old UUID proof", async () => {
-      const user = await account();
-      const walletId = await linkFixture(user, signers[1]);
-      const pending = await challenge(signers[1]);
-      const client = await owner.connect();
-      await client.query("BEGIN");
-      await lockAccount(client, user.id);
-      const completion = createWalletRepository(secondPool).completeLogin(
-        pending.id,
-        {
-          tokenHash: hashSessionToken("blocked-wallet"),
-          expiresAt: expiresAt(),
-        },
-      );
-      const rejected = assert.rejects(completion, ChallengeUnavailableError);
-      try {
-        await waitForLock("f03-instance-b");
-        await client.query("DELETE FROM wallet_identities WHERE id=$1", [
-          walletId,
-        ]);
-        await client.query(
-          "INSERT INTO wallet_identities(user_id,chain_id,address) VALUES($1,1,$2)",
-          [user.id, signers[1].address.toLowerCase()],
-        );
-        await client.query("COMMIT");
-        await rejected;
-        assert.equal(
-          await sessions.findUserByTokenHash(
-            hashSessionToken("blocked-wallet"),
-          ),
-          null,
-        );
-      } finally {
-        await client.query("ROLLBACK");
-        client.release();
-      }
-    });
-
-    it("wallet challenges issued before an all-session revocation are invalidated; fresh challenges succeed", async () => {
-      const user = await account();
-      await linkFixture(user, signers[2]);
-      for (let round = 0; round < 2; round++) {
-        const old = await challenge(signers[2]);
-        await endAllAccountSessions(secondPool, user.id);
-        await assert.rejects(
-          wallets.completeLogin(old.id, {
-            tokenHash: hashSessionToken(randomUUID()),
-            expiresAt: expiresAt(),
-          }),
-          ChallengeUnavailableError,
-        );
-        const fresh = await challenge(signers[2]);
-        assert.equal(
-          (
-            await wallets.completeLogin(fresh.id, {
-              tokenHash: hashSessionToken(randomUUID()),
-              expiresAt: expiresAt(),
-            })
-          ).id,
-          user.id,
-        );
       }
     });
 
@@ -571,23 +433,23 @@ describe(
       }
     });
 
-    it("credential deletion and session replacement roll back together; a transaction-local successor is unavailable before commit", async () => {
+    it("revocation and session replacement roll back together; a transaction-local successor is unavailable before commit", async () => {
       const user = await account();
-      const id = await linkFixture(user, signers[3]);
       const cookie = await login(user);
       const client = await owner.connect();
       const successor = hashSessionToken("rollback-successor");
       try {
         await client.query("BEGIN");
         await lockAccount(client, user.id);
-        await client.query("DELETE FROM wallet_identities WHERE id=$1", [id]);
-        const updated = await lockAccount(client, user.id);
+        const generation = await revokeAccountSessions(client, user.id, {
+          action: "sessions.incident",
+        });
         await insertSession(
           client,
           user.id,
           successor,
           expiresAt(),
-          updated.authGeneration,
+          generation,
         );
         assert.equal(
           await createSessionRepository(secondPool).findUserByTokenHash(
@@ -598,18 +460,16 @@ describe(
         await client.query("ROLLBACK");
         assert.equal(await sessions.findUserByTokenHash(successor), null);
         assert.equal((await me(appB, cookie)).status, 200);
-        assert.ok(
-          (await wallets.listWallets(user.id)).some(
-            (wallet) => wallet.id === id,
-          ),
-        );
+        assert.equal(await generationOf(user), user.authGeneration);
       } finally {
         client.release();
       }
     });
 
-    it("wallet session-insert failure rolls back account provisioning and challenge consumption", async () => {
-      const pending = await challenge(signers[4]);
+    it("sign-in session-insert failure rolls back a newly linked email subject; a retry links it once", async () => {
+      const user = await account();
+      // A second email-code subject for the same address joins the account.
+      const subject = `email|${randomUUID()}`;
       const brokenPool = {
         async connect() {
           const client = await firstPool.connect();
@@ -623,28 +483,36 @@ describe(
           };
         },
       };
+      const failed = createSessionToken();
       await assert.rejects(
-        createWalletRepository(brokenPool).completeLogin(pending.id, {
-          tokenHash: hashSessionToken("broken"),
-          expiresAt: expiresAt(),
-        }),
+        createAuth0Accounts(brokenPool).signIn(
+          identity(user, subject),
+          { purpose: "sign_in" },
+          { tokenHash: failed.tokenHash, expiresAt: expiresAt() },
+        ),
         /synthetic issuance failure/,
       );
-      assert.ok(await wallets.getChallenge(pending.id));
-      assert.equal(
+      const linked = async () =>
         (
           await owner.query(
-            "SELECT id FROM wallet_identities WHERE address=$1",
-            [signers[4].address.toLowerCase()],
+            `SELECT (SELECT count(*)::int FROM provider_identities WHERE provider='auth0' AND subject=$2) AS subjects,
+               (SELECT count(*)::int FROM identity_audit_events WHERE user_id=$1 AND event_type='sign_in.method_linked') AS events,
+               (SELECT count(*)::int FROM account_notifications WHERE user_id=$1 AND event_type='sign_in.method_linked') AS notices`,
+            [user.id, subject],
           )
-        ).rowCount,
-        0,
+        ).rows[0];
+      assert.deepEqual(await linked(), { subjects: 0, events: 0, notices: 0 });
+      assert.equal(await sessions.findUserByTokenHash(failed.tokenHash), null);
+      const { token, tokenHash } = createSessionToken();
+      const completed = await createAuth0Accounts(firstPool).signIn(
+        identity(user, subject),
+        { purpose: "sign_in" },
+        { tokenHash, expiresAt: expiresAt() },
       );
-      const completed = await wallets.completeLogin(pending.id, {
-        tokenHash: hashSessionToken("recovered"),
-        expiresAt: expiresAt(),
-      });
-      accounts.push(completed.id);
+      assert.equal(completed.user.id, user.id);
+      assert.deepEqual(completed.linked, ["email"]);
+      assert.deepEqual(await linked(), { subjects: 1, events: 1, notices: 1 });
+      assert.equal((await me(appB, `__Host-session=${token}`)).status, 200);
     });
 
     it("database rejects old-binary inserts and explicit obsolete generations; expiry stays authoritative", async () => {
@@ -674,17 +542,10 @@ describe(
         /cannot decrease/,
       );
     });
-    it("runtime role can revoke but cannot edit credentials or execute trigger functions directly", async () => {
+    it("runtime role can revoke but cannot edit account email or execute trigger functions directly", async () => {
       if (!process.env.REVOCATION_TEST_RUNTIME_URL) return;
       await verifyRuntimeIdentity(firstPool);
       const user = await account();
-      await assert.rejects(
-        firstPool.query(
-          "UPDATE users SET password_hash='forbidden' WHERE id=$1",
-          [user.id],
-        ),
-        { code: "42501" },
-      );
       await assert.rejects(
         firstPool.query(
           "UPDATE users SET email='forbidden@example.test' WHERE id=$1",
@@ -697,18 +558,10 @@ describe(
       );
       assert.equal(result.rows[0].executable, false);
       const cookie = await login(user);
-      assert.equal((await post(appB, "logout", cookie)).status, 204);
+      assert.equal((await post(appB, "logout", cookie)).status, 200);
       await login(user);
       await endAllAccountSessions(firstPool, user.id);
-      assert.equal(
-        (
-          await owner.query(
-            "SELECT count(*)::int AS n FROM sessions WHERE user_id=$1",
-            [user.id],
-          )
-        ).rows[0].n,
-        0,
-      );
+      assert.equal(await sessionCount(user), 0);
     });
   },
 );

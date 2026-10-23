@@ -5910,225 +5910,6 @@ exports[`renders the about and account pages 1`] = `
 
 exports[`renders the about and account pages 2`] = `
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
-<title>Account · YAP Arena</title>
-<meta name="description" content="Manage your YAP Arena profile and follows.">
-<link rel="canonical" href="https://arena.example/account">
-<link rel="stylesheet" href="/assets/site.css?v=0123456789ab">
-<link rel="stylesheet" href="/assets/arena.css?v=0123456789ab">
-<link rel="stylesheet" href="/assets/site-header.css?v=0123456789ab">
-<script defer src="/assets/session-coordination.js?v=0123456789ab">
-</script>
-<script type="module" src="/assets/site-header.js?v=0123456789ab">
-</script>
-<script defer src="/assets/site.js?v=0123456789ab">
-</script>
-<script defer src="/assets/account-balance.js?v=0123456789ab">
-</script>
-<script defer src="/assets/measurement.js?v=0123456789ab">
-</script>
-</head>
-<body class="">
-<a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header" data-site-header data-session="checking">\\n    <div class="container nav arena-nav">\\n      <a class="brand" href="/" aria-label="YAP Arena home">
-<svg class="arena-brand-symbol" viewBox="0 0 40 40" aria-hidden="true">
-<ellipse cx="20" cy="20" rx="13" ry="16" transform="rotate(30 20 20)"/>
-<path d="M9 35 31 5"/>
-</svg>
-<span>YAP ARENA</span>
-</a>\\n      <nav aria-label="Main navigation">
-<a href="/live">Live</a>
-<a href="/debates">Explore</a>
-<a href="/match">Create</a>
-</nav>\\n      <form class="arena-header-search" action="/debates" method="get" role="search">
-<label class="sr-only" for="header-search">Search debates</label>
-<svg viewBox="0 0 24 24" aria-hidden="true">
-<circle cx="10.5" cy="10.5" r="6.5"/>
-<path d="m16 16 5 5"/>
-</svg>
-<input id="header-search" type="search" name="q" maxlength="80" placeholder="Search debates…">
-<button type="submit" class="sr-only">Search</button>
-</form>\\n      <div class="arena-header-account">\\n        <span data-header-checking class="header-session-loading" role="status">
-<span class="sr-only">Checking your account…</span>
-</span>\\n        <div class="header-auth-actions" data-header-guest hidden>
-<a class="header-login" href="/api/auth/login?connection=google" data-sign-in="google">Continue with Google</a>
-<a class="header-signup" href="/api/auth/login?connection=email" data-sign-in="email">Continue with email</a>
-</div>\\n        <button class="header-retry" type="button" data-header-retry hidden>Retry account</button>\\n        <div class="header-member-actions" data-header-member hidden>\\n          <details class="arena-wallet-menu">
-<summary aria-label="Yap Coins balance and actions">
-<span class="header-balance-label">Balance</span>
-<strong data-header-balance>—</strong>
-<span class="arena-chevron" aria-hidden="true">⌄</span>
-</summary>
-<div class="arena-wallet-popover">
-<strong data-header-balance-heading>Your Yap Coins</strong>
-<span data-header-reserved>Checking balance…</span>
-<a href="/account#account-wallet" data-header-balances-link>Balances &amp; activity →</a>
-</div>
-</details>\\n          <button class="header-deposit" type="button" data-deposit-open>
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-<path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/>
-</svg>Deposit</button>\\n          <details class="header-user-menu">
-<summary class="arena-avatar" data-header-account aria-label="Open account menu">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-<circle cx="12" cy="8" r="3.5"/>
-<path d="M5 21v-2a7 7 0 0 1 14 0v2"/>
-</svg>
-</summary>
-<div class="header-user-popover">
-<span class="header-menu-caption">YOUR ACCOUNT</span>
-<a href="/account">Account settings</a>
-<a href="/account#account-wallet">Yap Coins &amp; activity</a>
-<button type="button" data-header-logout>Log out <span aria-hidden="true">↗</span>
-</button>
-</div>
-</details>\\n        </div>\\n        <noscript>
-<div class="header-auth-actions">
-<a class="header-login" href="/api/auth/login?connection=google">Continue with Google</a>
-<a class="header-signup" href="/api/auth/login?connection=email">Continue with email</a>
-</div>
-</noscript>\\n      </div>\\n      <p class="sr-only" role="status" data-header-status>
-</p>\\n    </div>\\n  </header>
-<main id="main">
-<section class="container page-intro ">
-<span class="eyebrow accent">YOUR CORNER OF THE ARENA</span>
-<h1>Make it<br>
-<em>your own.</em>
-</h1>
-<p>Sign in to manage your profile and follow ideas or people. Signing in never approves a financial transaction.</p>
-</section>
-<section class="container account-layout">
-<div id="account-notice" class="notice" role="status" aria-live="polite">Checking your account…</div>
-<div id="signed-out" hidden>
-<div class="information-card">
-<span class="eyebrow">WALLET SIGN-IN</span>
-<h2>Connect and sign</h2>
-<p>Review a one-time Sign-In with Ethereum message in your wallet. No transaction or gas fee is requested.</p>
-<button class="button" id="wallet-login" type="button">Connect wallet ↗</button>
-</div>
-<details class="information-card account-details">
-<summary>Use an existing email account</summary>
-<form id="email-login" class="stack-form">
-<label>Email<input name="email" type="email" autocomplete="email" required>
-</label>
-<label>Password<input name="password" type="password" autocomplete="current-password" required>
-</label>
-<button class="button" type="submit">Sign in</button>
-</form>
-<div >
-<h3>New to this preview?</h3>
-<form id="email-register" class="stack-form">
-<label>Email<input name="email" type="email" autocomplete="email" required>
-</label>
-<label>Password<input name="password" type="password" autocomplete="new-password" minlength="12" required>
-</label>
-<button class="button-secondary" type="submit">Create email account →</button>
-</form>
-</div>
-</details>
-</div>
-<div id="signed-in" hidden>
-<div class="account-heading">
-<div>
-<span class="eyebrow">SIGNED IN</span>
-<h2 id="account-name">Your account</h2>
-</div>
-<div>
-<button class="button-secondary" id="sign-out" type="button">Sign out →</button>
-</div>
-</div>
-<div class="account-columns">
-<div class="information-card">
-<span class="eyebrow">YOUR PROFILE</span>
-<p id="profile-state">
-</p>
-<form id="profile-form" class="stack-form">
-<label>Handle<input name="handle" maxlength="40" minlength="3" pattern="[a-z0-9][a-z0-9-]{2,39}" required>
-</label>
-<label>Display name<input name="displayName" maxlength="80" required>
-</label>
-<label>Bio<textarea name="bio" maxlength="500" rows="4">
-</textarea>
-</label>
-<label>Visibility<select name="publicationState">
-<option value="draft">Private draft</option>
-<option value="published">Public</option>
-</select>
-</label>
-<button class="button" type="submit">Save profile ↗</button>
-</form>
-<p class="form-note">Your handle is permanent after creation so shared links remain stable.</p>
-</div>
-<div class="account-side">
-<div id="retained-wallets" class="information-card" hidden>
-<span class="eyebrow">RETAINED WALLET ACCESS</span>
-<p>Wallets already associated with your account remain available for sign-in and security approvals. Removing one requires another retained security method.</p>
-<ul id="wallet-list" class="account-list">
-</ul>
-</div>
-<div class="information-card">
-<span class="eyebrow">FOLLOWING</span>
-<ul id="follow-list" class="account-list">
-</ul>
-<p class="form-note">Follow people and topics from their public pages.</p>
-</div>
-<div class="information-card">
-<span class="eyebrow">ACCOUNT NOTIFICATIONS</span>
-<ul id="account-notifications" class="account-list">
-</ul>
-</div>
-<div class="information-card">
-<span class="eyebrow">ACCOUNT ACTIVITY</span>
-<p>
-<a href="/account/moderation">My reports and appeals</a>
-</p>
-<ul id="activity-list" class="account-list">
-</ul>
-</div>
-</div>
-</div>
-</div>
-</section>
-<dialog id="wallet-change" class="information-card">
-<h2>Authorize wallet change</h2>
-<p id="wallet-change-target">
-</p>
-<p id="wallet-change-notice" role="status" aria-live="polite">
-</p>
-<form id="wallet-change-form" class="stack-form">
-<label>Verify an existing sign-in method<select name="credential" required>
-</select>
-</label>
-<label id="current-password-label">Current password<input name="password" type="password" autocomplete="current-password" maxlength="512">
-</label>
-<p id="existing-wallet-help">Switch your wallet extension to the selected existing wallet and its chain before continuing. A new wallet cannot approve its own addition.</p>
-<button type="submit" class="button">Verify and continue →</button>
-</form>
-<div id="new-wallet-proof" hidden>
-<button id="sign-new-wallet" type="button" class="button">Sign new wallet proof →</button>
-</div>
-<button id="cancel-wallet-change" type="button" class="button-secondary">Cancel</button>
-</dialog>
-<script defer src="/assets/account.js?v=0123456789ab">
-</script>
-</main>
-<footer class="site-footer">
-<div class="container footer-inner">
-<span>YAP ARENA <span class="muted">/ Ideas under pressure.</span>
-</span>
-<span>
-<a href="/topics">Topics</a> · <a href="/coins">Yap Coins</a> · <a href="/about">About</a> · Play money</span>
-</div>
-</footer>
-</body>
-</html>
-`;
-
-exports[`renders the about and account pages 3`] = `
-<!doctype html>
 <html lang="en" data-email-first>
 <head>
 <meta charset="utf-8">
@@ -6344,28 +6125,10 @@ exports[`renders the about and account pages 3`] = `
 </ul>
 <p class="form-note">Google and email-code sign-in with the same address lead to this account after you confirm the email code.</p>
 </div>
-<section id="account-security-passkeys" class="account-section">
-</section>
 <div class="account-session-controls">
 <h3>Active sessions</h3>
 <p>Signing out only ends the session on that device. Sign out any session you don’t recognize.</p>
 </div>
-</section>\\n          <section id="retained-wallets" class="information-card account-card" hidden>
-<div class="account-card-heading">
-<span class="account-section-icon">
-<svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-<path d="M20 8V5H6a3 3 0 0 1 0-6h12v4M3 3v16a2 2 0 0 0 2 2h15V8H6a3 3 0 0 1-3-3" transform="translate(0 2) scale(.9)"/>
-<path d="M21 12h-6v5h6M17 14.5h.01"/>
-</svg>
-</span>
-<div>
-<span class="eyebrow">EXISTING SIGN-IN METHODS</span>
-<h2>Retained wallet access</h2>
-</div>
-</div>
-<p>Wallets already associated with your account remain available for sign-in and security approvals. Removing one requires another retained security method.</p>
-<ul id="wallet-list" class="account-list">
-</ul>
 </section>\\n        </div>\\n        <div class="account-side">\\n          <section id="account-wallet" class="information-card account-card account-coin-card">
 <div class="account-card-heading">
 <span class="account-coin-symbol" aria-hidden="true">Y</span>
@@ -6441,33 +6204,11 @@ exports[`renders the about and account pages 3`] = `
 <path d="M5 12h14m-6-6 6 6-6 6"/>
 </svg>
 </a>
-</section>\\n        </div>\\n      </div>\\n    </div>\\n  </section>\\n  <dialog id="wallet-change" class="information-card account-operation-dialog">
-<span class="eyebrow accent">ACCOUNT SECURITY</span>
-<h2>Authorize wallet change</h2>
-<p id="wallet-change-target">
-</p>
-<p id="wallet-change-notice" role="status" aria-live="polite">
-</p>
-<form id="wallet-change-form" class="stack-form">
-<label>Verify an existing sign-in method<select name="credential" required>
-</select>
-</label>
-<label id="current-password-label">Current password<input name="password" type="password" autocomplete="current-password" maxlength="512">
-</label>
-<p id="existing-wallet-help">Switch your wallet extension to the selected existing wallet and its chain before continuing. A new wallet cannot approve its own addition.</p>
-<button type="submit" class="button">Verify and continue →</button>
-</form>
-<div id="new-wallet-proof" hidden>
-<button id="sign-new-wallet" type="button" class="button">Sign new wallet proof →</button>
-</div>
-<button id="cancel-wallet-change" type="button" class="button-secondary">Cancel</button>
-</dialog>\\n  <script defer src="/assets/account.js?v=0123456789ab">
+</section>\\n        </div>\\n      </div>\\n    </div>\\n  </section>\\n  <script defer src="/assets/account.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/account-session-list.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/account-coins.js?v=0123456789ab">
-</script>
-<script defer src="/assets/account-security.bundle.js?v=0123456789ab">
 </script>
 </main>
 <footer class="site-footer">

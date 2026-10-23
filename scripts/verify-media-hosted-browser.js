@@ -215,10 +215,7 @@ export async function verifyHostedMediaBrowser({
     );
     for (const side of ["A", "B"]) {
       const id = (
-        await owner.query(
-          "INSERT INTO users(email,password_hash) VALUES($1,'unused-synthetic') RETURNING id",
-          [tag + "-" + side + "@example.test"],
-        )
+        await owner.query("INSERT INTO users DEFAULT VALUES RETURNING id")
       ).rows[0].id;
       users.push(id);
       await saveCleanupManifest();

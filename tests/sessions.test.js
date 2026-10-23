@@ -86,11 +86,9 @@ describe("session issuance authoritative checks and failure atomicity", () => {
   function clientPool({
     account = {
       id: "2",
-      email: "user@example.com",
-      passwordHash: "current-hash",
+      email: null,
       authGeneration: "1",
     },
-    wallet = true,
     saved = true,
     commitError = false,
   } = {}) {
@@ -105,8 +103,6 @@ describe("session issuance authoritative checks and failure atomicity", () => {
               throw new Error("commit failed");
             if (sql.includes("FROM users"))
               return { rows: account ? [account] : [] };
-            if (sql.includes("FROM wallet_identities"))
-              return { rows: wallet ? [{ id: "wallet" }] : [] };
             if (sql.includes("INSERT INTO sessions"))
               return { rows: saved ? [{ id: "session" }] : [] };
             return { rows: [] };
@@ -118,27 +114,10 @@ describe("session issuance authoritative checks and failure atomicity", () => {
       },
     };
   }
-  it("rejects missing accounts, obsolete generations, and changed credential snapshots", async () => {
+  it("rejects missing accounts and obsolete generations", async () => {
     for (const [options, snapshot] of [
       [{ account: null }, { authGeneration: "1" }],
       [{}, { authGeneration: "0" }],
-      [
-        {},
-        {
-          authGeneration: "1",
-          passwordHash: "obsolete-hash",
-          email: "user@example.com",
-        },
-      ],
-      [
-        {},
-        {
-          authGeneration: "1",
-          passwordHash: "current-hash",
-          email: "different@example.com",
-        },
-      ],
-      [{ wallet: false }, { authGeneration: "1", walletId: "removed-wallet" }],
     ]) {
       const { pool, calls } = clientPool(options);
       await assert.rejects(
@@ -148,18 +127,20 @@ describe("session issuance authoritative checks and failure atomicity", () => {
       assert.equal(calls.includes("COMMIT"), false);
     }
   });
-  it("checks wallet ownership again and releases a committed session", async () => {
+  it("locks the account, inserts at its generation and releases a committed session", async () => {
     const { pool, calls } = clientPool();
     assert.equal(
       (
         await createSessionRepository(pool).create("2", "hash", new Date(), {
           authGeneration: "1",
-          walletId: "wallet",
         })
       ).id,
       "session",
     );
-    assert.ok(calls.some((sql) => sql.includes("FROM wallet_identities")));
+    assert.match(
+      calls[1],
+      /FROM users WHERE id = \$1 AND account_status = 'active' FOR UPDATE/,
+    );
     assert.deepEqual(calls.slice(-2), ["COMMIT", "RELEASE"]);
   });
   it("does not return a session when insertion or commit fails", async () => {

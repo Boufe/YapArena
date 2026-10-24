@@ -6,6 +6,11 @@ import {
   SessionUnavailableError,
 } from "../../platform/auth/sessions.ts";
 import {
+  databaseFailure,
+  type TransactionOptions,
+  withTransaction,
+} from "../../platform/transaction.ts";
+import {
   A4Error,
   RULE,
   YAP,
@@ -177,6 +182,29 @@ export function runConfig(
     throw new A4Error("multiple periods require delayed settlement", 400);
   return config;
 }
+// Every A4 transaction is bounded and reports constraint and contention
+// failures as A4 errors; a busy request is safe to retry with its key.
+const a4Transaction = {
+  statementTimeoutMs: 30000,
+  lockTimeoutMs: 5000,
+  guardConnection: true,
+  mapError(error: unknown) {
+    switch (databaseFailure(error)) {
+      case "check_violation":
+        return new A4Error("funds or accounting invariant failed");
+      case "unique_violation":
+        return new A4Error("conflicting or duplicate commitment");
+      case "busy":
+        return new A4Error(
+          "temporarily busy; retry with the same request key",
+          503,
+        );
+      default:
+        return error;
+    }
+  },
+} as const satisfies TransactionOptions;
+
 export function createA4Repository(
   database: Pool,
   mode: A4Mode = "disabled",
@@ -197,43 +225,18 @@ export function createA4Repository(
     work: (client: PoolClient) => Promise<T>,
     actor?: Actor,
   ) {
-    const client = await database.connect();
-    let connectionError: Error | undefined;
-    const lost = (error: Error) => {
-      connectionError = error;
-    };
-    client.on("error", lost);
-    try {
-      await client.query("BEGIN");
-      await client.query("SET LOCAL statement_timeout='30s'");
-      await client.query("SET LOCAL lock_timeout='5s'");
-      if (actor) {
-        if (!(await lockAccount(client, actor.userId)))
-          throw new SessionUnavailableError("account unavailable");
-        await assertActiveSession(client, actor.userId, actor.tokenHash);
-      }
-      const value = await work(client);
-      if (connectionError) throw connectionError;
-      await client.query("COMMIT");
-      return value;
-    } catch (error) {
-      await client.query("ROLLBACK").catch(() => {});
-      if (error && typeof error === "object" && "code" in error) {
-        if (error.code === "23514")
-          throw new A4Error("funds or accounting invariant failed");
-        if (error.code === "23505")
-          throw new A4Error("conflicting or duplicate commitment");
-        if (["55P03", "57014", "40P01"].includes(String(error.code)))
-          throw new A4Error(
-            "temporarily busy; retry with the same request key",
-            503,
-          );
-      }
-      throw error;
-    } finally {
-      client.removeListener("error", lost);
-      client.release(connectionError);
-    }
+    return withTransaction(
+      database,
+      async (client) => {
+        if (actor) {
+          if (!(await lockAccount(client, actor.userId)))
+            throw new SessionUnavailableError("account unavailable");
+          await assertActiveSession(client, actor.userId, actor.tokenHash);
+        }
+        return work(client);
+      },
+      a4Transaction,
+    );
   }
   async function enabled(client: PoolClient, bots = false) {
     const result = await client.query<{

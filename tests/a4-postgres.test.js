@@ -789,6 +789,26 @@ describe(
           /already posted/,
         );
         await c.query("ROLLBACK");
+        // Grants stop the runtime role; the trigger also stops the owner.
+        for (const sql of [
+          "UPDATE a4_journals SET kind='edited' WHERE reference=$1",
+          "DELETE FROM a4_journals WHERE reference=$1",
+          "UPDATE a4_postings SET amount=-amount WHERE reference=$1",
+          "DELETE FROM a4_postings WHERE reference=$1",
+        ])
+          await assert.rejects(
+            owner.query(sql, [ref]),
+            (e) => e.code === "23514" && /append-only/.test(e.message),
+          );
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT count(*)::int AS n FROM a4_postings WHERE reference=$1",
+              [ref],
+            )
+          ).rows[0].n,
+          2,
+        );
         assert.deepEqual(await reconcile(c, scope), { reconciled: true });
       } finally {
         c.release();

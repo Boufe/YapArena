@@ -260,7 +260,8 @@ the server finishes the transition. Polling at the slower intervals below runs o
 stream is not live (disabled, disconnected, backgrounded or not eligible); media keeps a 60-second
 safety read while it is live. A4 pages spread signal-driven reads over up to three seconds, so a
 room's viewers do not read at once. The `/coins` page has no room stream and uses the deadline and
-30-second private refresh only. The intervals are proposals awaiting product approval. A new server
+30-second private refresh only. The user approved these intervals, and the human-only round timing
+visible to anonymous viewers, on 2026-10-24. A new server
 cannot run before this migration: startup refuses pending migrations.
 
 ## Limits and degraded operation
@@ -280,8 +281,8 @@ cannot run before this migration: startup refuses pending migrations.
 | Listener retry                                 | 0.5–30 sec exponential delay with jitter; reverify identity, commit LISTEN, wake all active rooms                                                  |
 | Browser retry / freshness                      | 1–30 sec exponential delay with jitter; initial application/heartbeat deadline about 10–15 sec; 45-sec transport or stalled-application detection  |
 | Degraded public reads                          | Poll durable updates every 2 sec, failure backoff up to 15 sec, at most 20 batches/pass; abort on stream reconnect/health and while backgrounded   |
-| Media status reads (proposed)                  | On `media` signals, about 2 sec after a known turn deadline, every 60 sec while live; polling 2 sec (speaker) / 6 sec (viewer) while not live      |
-| A4 reads on the debate page (proposed)         | Shared activity on `activity` signals, else every 60 sec live / 15 sec not live; private workspace on own action, `round` signal, deadline, 30 sec |
+| Media status reads                             | On `media` signals, about 2 sec after a known turn deadline, every 60 sec while live; polling 2 sec (speaker) / 6 sec (viewer) while not live      |
+| A4 reads on the debate page                    | Shared activity on `activity` signals, else every 60 sec live / 15 sec not live; private workspace on own action, `round` signal, deadline, 30 sec |
 | Graceful shutdown                              | Close streams first; cancel active delivery connections; bound listener close to 1.5 sec; release pool; existing process hard deadline 10 sec      |
 
 The implemented ten-row limit is stricter than the pre-implementation maximum and prevents a legal

@@ -470,7 +470,7 @@ exports[`renders a debate 1`] = `
 <p data-arena-scope>Human rounds and private bot sandboxes are shown separately.</p>
 </section>\\n      <p class="arena-disclosure">A4 adjusted FTM · Play money<br>Bot activity is synthetic and labeled.</p>\\n    </aside>\\n    \\n    <script type="module" src="/assets/arena.js?v=0123456789ab">
 </script>
-<script defer src="/assets/media.bundle.js?v=0123456789ab">
+<script type="module" src="/assets/media.bundle.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/community.js?v=0123456789ab">
 </script>\\n  </div>
@@ -961,7 +961,7 @@ exports[`renders a debate 2`] = `
 <p data-arena-scope>Human rounds and private bot sandboxes are shown separately.</p>
 </section>\\n      <p class="arena-disclosure">A4 adjusted FTM · Play money<br>Bot activity is synthetic and labeled.</p>\\n    </aside>\\n    \\n    <script type="module" src="/assets/arena.js?v=0123456789ab">
 </script>
-<script defer src="/assets/media.bundle.js?v=0123456789ab">
+<script type="module" src="/assets/media.bundle.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/community.js?v=0123456789ab">
 </script>\\n  </div>
@@ -1450,7 +1450,7 @@ exports[`renders a debate 3`] = `
 <p data-arena-scope>Human rounds and private bot sandboxes are shown separately.</p>
 </section>\\n      <p class="arena-disclosure">A4 adjusted FTM · Play money<br>Bot activity is synthetic and labeled.</p>\\n    </aside>\\n    \\n    <script type="module" src="/assets/arena.js?v=0123456789ab">
 </script>
-<script defer src="/assets/media.bundle.js?v=0123456789ab">
+<script type="module" src="/assets/media.bundle.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/community.js?v=0123456789ab">
 </script>\\n  </div>
@@ -1939,7 +1939,7 @@ exports[`renders a debate 4`] = `
 <p data-arena-scope>Human rounds and private bot sandboxes are shown separately.</p>
 </section>\\n      <p class="arena-disclosure">A4 adjusted FTM · Play money<br>Bot activity is synthetic and labeled.</p>\\n    </aside>\\n    \\n    <script type="module" src="/assets/arena.js?v=0123456789ab">
 </script>
-<script defer src="/assets/media.bundle.js?v=0123456789ab">
+<script type="module" src="/assets/media.bundle.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/community.js?v=0123456789ab">
 </script>\\n  </div>
@@ -2428,7 +2428,7 @@ exports[`renders a debate 5`] = `
 <p data-arena-scope>Human rounds and private bot sandboxes are shown separately.</p>
 </section>\\n      <p class="arena-disclosure">A4 adjusted FTM · Play money<br>Bot activity is synthetic and labeled.</p>\\n    </aside>\\n    \\n    <script type="module" src="/assets/arena.js?v=0123456789ab">
 </script>
-<script defer src="/assets/media.bundle.js?v=0123456789ab">
+<script type="module" src="/assets/media.bundle.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/community.js?v=0123456789ab">
 </script>\\n  </div>
@@ -2917,7 +2917,7 @@ exports[`renders a debate 6`] = `
 <p data-arena-scope>Human rounds and private bot sandboxes are shown separately.</p>
 </section>\\n      <p class="arena-disclosure">A4 adjusted FTM · Play money<br>Bot activity is synthetic and labeled.</p>\\n    </aside>\\n    \\n    <script type="module" src="/assets/arena.js?v=0123456789ab">
 </script>
-<script defer src="/assets/media.bundle.js?v=0123456789ab">
+<script type="module" src="/assets/media.bundle.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/community.js?v=0123456789ab">
 </script>\\n  </div>
@@ -3407,7 +3407,7 @@ exports[`renders a debate 7`] = `
 <p data-arena-scope>Human rounds and private bot sandboxes are shown separately.</p>
 </section>\\n      <p class="arena-disclosure">A4 adjusted FTM · Play money<br>Bot activity is synthetic and labeled.</p>\\n    </aside>\\n    \\n    <script type="module" src="/assets/arena.js?v=0123456789ab">
 </script>
-<script defer src="/assets/media.bundle.js?v=0123456789ab">
+<script type="module" src="/assets/media.bundle.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/community.js?v=0123456789ab">
 </script>\\n  </div>
@@ -3913,7 +3913,7 @@ exports[`renders a debate 8`] = `
 </script>\\n    <template data-shared-bootstrap>{&quot;scope&quot;:&quot;shared&quot;,&quot;synthetic&quot;:true,&quot;revision&quot;:&quot;fixture-revision&quot;,&quot;hasMore&quot;:false,&quot;window&quot;:30,&quot;items&quot;:[{&quot;id&quot;:&quot;round-1&quot;,&quot;runId&quot;:null,&quot;debateId&quot;:&quot;55555555-5555-4555-8555-555555555555&quot;,&quot;debateSlug&quot;:&quot;hostile-debate&quot;,&quot;number&quot;:1,&quot;period&quot;:1,&quot;settledAt&quot;:&quot;2999-01-01T00:00:00.000Z&quot;,&quot;closesAt&quot;:&quot;2999-01-01T00:00:00.000Z&quot;,&quot;mode&quot;:&quot;seed&quot;,&quot;share&quot;:{&quot;n&quot;:&quot;52&quot;,&quot;d&quot;:&quot;100&quot;},&quot;offer&quot;:{&quot;n&quot;:&quot;40&quot;,&quot;d&quot;:&quot;100&quot;},&quot;medianNo&quot;:null,&quot;medianYes&quot;:null,&quot;branch&quot;:null,&quot;argumentLabel&quot;:&quot;Argument &lt;b&gt;&amp;amp;&lt;/b&gt; \\\\&quot;quoted\\\\&quot; &#39;single&#39; &amp; &lt;&quot;,&quot;ownLimit&quot;:null,&quot;humans&quot;:2,&quot;bots&quot;:498,&quot;executed&quot;:120,&quot;premium&quot;:&quot;2500000000&quot;,&quot;quantity&quot;:&quot;500&quot;},{&quot;id&quot;:&quot;round-2&quot;,&quot;runId&quot;:null,&quot;debateId&quot;:&quot;55555555-5555-4555-8555-555555555555&quot;,&quot;debateSlug&quot;:&quot;hostile-debate&quot;,&quot;number&quot;:2,&quot;period&quot;:1,&quot;settledAt&quot;:&quot;2999-01-02T00:00:00.000Z&quot;,&quot;closesAt&quot;:&quot;2999-01-02T00:00:00.000Z&quot;,&quot;mode&quot;:&quot;seed&quot;,&quot;share&quot;:{&quot;n&quot;:&quot;47&quot;,&quot;d&quot;:&quot;100&quot;},&quot;offer&quot;:null,&quot;medianNo&quot;:null,&quot;medianYes&quot;:null,&quot;branch&quot;:null,&quot;argumentLabel&quot;:&quot;Argument &lt;b&gt;&amp;amp;&lt;/b&gt; \\\\&quot;quoted\\\\&quot; &#39;single&#39; &amp; &lt;&quot;,&quot;ownLimit&quot;:null,&quot;humans&quot;:2,&quot;bots&quot;:498,&quot;executed&quot;:120,&quot;premium&quot;:&quot;2500000000&quot;,&quot;quantity&quot;:&quot;500&quot;}],&quot;arguments&quot;:[{&quot;stance&quot;:&quot;for&quot;,&quot;text&quot;:&quot;For argument &lt;b&gt;&amp;amp;&lt;/b&gt; \\\\&quot;quoted\\\\&quot; &#39;single&#39; &amp; &lt;&quot;,&quot;rate&quot;:61,&quot;endorsed&quot;:305,&quot;population&quot;:500},{&quot;stance&quot;:&quot;against&quot;,&quot;text&quot;:&quot;Against argument &lt;b&gt;&amp;amp;&lt;/b&gt; \\\\&quot;quoted\\\\&quot; &#39;single&#39; &amp; &lt;&quot;,&quot;rate&quot;:39,&quot;endorsed&quot;:195,&quot;population&quot;:500}],&quot;category&quot;:&quot;Category &lt;b&gt;&amp;amp;&lt;/b&gt; \\\\&quot;quoted\\\\&quot; &#39;single&#39; &amp; &lt;&quot;,&quot;totals&quot;:{&quot;premium&quot;:&quot;5000000000&quot;,&quot;humanCommitments&quot;:4,&quot;botCommitments&quot;:996,&quot;executed&quot;:240}}</template>
 <script type="module" src="/assets/arena.js?v=0123456789ab">
 </script>
-<script defer src="/assets/media.bundle.js?v=0123456789ab">
+<script type="module" src="/assets/media.bundle.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/community.js?v=0123456789ab">
 </script>\\n  </div>
@@ -4413,7 +4413,7 @@ exports[`renders a debate 9`] = `
 <script type="module" src="/assets/a4-inline.js?v=0123456789ab">
 </script>\\n    <script type="module" src="/assets/arena.js?v=0123456789ab">
 </script>
-<script defer src="/assets/media.bundle.js?v=0123456789ab">
+<script type="module" src="/assets/media.bundle.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/community.js?v=0123456789ab">
 </script>\\n  </div>

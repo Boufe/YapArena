@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 import { RoomEvent, Track, VideoQuality } from "livekit-client";
-import { createHeroLive } from "../public/hero-live.js";
+import { createHeroLive } from "../frontend/hero-live.ts";
 import {
   createHoverIntent,
   previewAutoplayAllowed,

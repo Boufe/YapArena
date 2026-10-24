@@ -351,8 +351,12 @@ export function createApp({
       maxAge: "1y",
       immutable: true,
     });
+    // Shared ESM chunks are imported without ?v=; their names carry an esbuild
+    // content hash, so a changed chunk always gets a new URL.
+    const hashedChunk = /^\/chunks\/[\w-]+-[A-Z2-7]{8}\.js$/;
     app.use("/assets", (request, response, next) =>
-      request.query.v === assetRevision && request.path !== "/offline.html"
+      (request.query.v === assetRevision && request.path !== "/offline.html") ||
+      hashedChunk.test(request.path)
         ? versionedAssets(request, response, next)
         : assets(request, response, next),
     );

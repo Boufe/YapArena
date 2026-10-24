@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
+import { transformSync } from "esbuild";
 import { it } from "node:test";
 import {
   createMediaRecovery,
@@ -25,10 +26,12 @@ import {
 import { joinSpeaker } from "../public/media-speaker.js";
 import { mediaPresentation } from "../public/media-presentation.js";
 
-const source = readFileSync(
-  new URL("../public/media-entry.js", import.meta.url),
-  "utf8",
-).replace(/^import[\s\S]*?;\n/gm, "");
+// The build emits media-entry only inside media.bundle.js, so transform the
+// source exactly as the per-file build did and run it without its imports.
+const source = transformSync(
+  readFileSync(new URL("../frontend/media-entry.ts", import.meta.url), "utf8"),
+  { loader: "ts" },
+).code.replace(/^import[\s\S]*?;\n/gm, "");
 const settle = async () => {
   for (let i = 0; i < 8; i++)
     await new Promise((resolve) => setImmediate(resolve));

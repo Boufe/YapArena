@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, watch, type FSWatcher } from "node:fs";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build, transform, type Plugin } from "esbuild";
@@ -22,6 +22,24 @@ const keepSiblingImports: Plugin = {
     }));
   },
 };
+
+// Bundle entries emit only their bundle; nothing loads a per-file copy. The
+// media page and the live preview both use livekit-client, so they share ESM
+// chunks under /assets/chunks/. Chunk names carry a content hash, so the server
+// can cache them as immutable without a ?v= revision.
+const splitBundles = {
+  "media-entry": "media.bundle",
+  "hero-live": "hero-live.bundle",
+};
+const scriptBundles = {
+  "replay-entry": "replay.bundle",
+  homepage: "homepage.bundle",
+};
+const bundleEntries = [
+  ...Object.keys(splitBundles),
+  ...Object.keys(scriptBundles),
+];
+const chunkDirectory = path.join(publicDirectory, "chunks");
 
 async function files(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -69,7 +87,7 @@ async function buildFrontend(): Promise<void> {
   await Promise.all(
     sources.map(async (source) => {
       const name = path.relative(frontend, source).replace(/\.ts$/, "");
-      if (inPlaceBundles.includes(name)) return;
+      if (inPlaceBundles.includes(name) || bundleEntries.includes(name)) return;
       // Omitting format preserves classic-script scope and existing ESM imports.
       // Type-only modules erase to nothing and need no browser asset.
       const output = await transform(await readFile(source, "utf8"), {
@@ -82,25 +100,44 @@ async function buildFrontend(): Promise<void> {
       await writeFile(destination, output.code);
     }),
   );
-  await Promise.all(
-    (
-      [
-        ["media-entry", "media.bundle", "iife"],
-        ["replay-entry", "replay.bundle", "iife"],
-        ["hero-live", "hero-live.bundle", "esm"],
-        ["homepage", "homepage.bundle", "iife"],
-      ] as const
-    ).map(([entry, output, format]) =>
+  const [split] = await Promise.all([
+    build({
+      absWorkingDir: repository,
+      entryPoints: Object.entries(splitBundles).map(([entry, output]) => ({
+        in: `frontend/${entry}.ts`,
+        out: output,
+      })),
+      bundle: true,
+      minify: true,
+      format: "esm",
+      splitting: true,
+      chunkNames: "chunks/[name]-[hash]",
+      outdir: "public",
+      metafile: true,
+    }),
+    ...Object.entries(scriptBundles).map(([entry, output]) =>
       build({
         absWorkingDir: repository,
         entryPoints: [`frontend/${entry}.ts`],
         bundle: true,
         minify: true,
-        format,
+        format: "iife",
         outfile: `public/${output}.js`,
       }),
     ),
+  ]);
+  // Remove chunks from earlier builds so public/ holds only what the entries import.
+  const current = new Set(
+    Object.keys(split.metafile.outputs).map((name) =>
+      path.join(repository, name),
+    ),
   );
+  if (existsSync(chunkDirectory))
+    await Promise.all(
+      (await files(chunkDirectory))
+        .filter((name) => !current.has(name))
+        .map((name) => rm(name)),
+    );
   await Promise.all(
     inPlaceBundles.map((entry) =>
       build({

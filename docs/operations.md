@@ -214,6 +214,22 @@ the account reset has finished. It refuses, naming the account IDs, while any ac
 has a password, wallet or native passkey; reset those accounts rather than editing the
 migration.
 
+Migration `1792426020000_remove-privy-schema` (prompt 12) drops the Privy, passkey and
+embedded-wallet schema: `provider_revocation_jobs` with its trigger, the passkey and access
+challenge tables, `provider_passkey_*`, `provider_session_exchanges`,
+`embedded_wallet_provisioning`, `users.auth_changed_at` and the Privy columns of
+`provider_identities`, which then accepts only `auth0`. It deletes remaining Privy identities and
+account operations from removed approval flows. Deploy it only after the release without the
+Privy code runs. It refuses, naming each account, while any provider freeze/unfreeze job is
+unfinished; check first, read-only:
+
+```sql
+SELECT state, failure_reason, control_phase, count(*) AS jobs
+  FROM yaparena.provider_revocation_jobs
+ WHERE state <> 'complete'
+ GROUP BY state, failure_reason, control_phase;
+```
+
 Prompt 12 deleted the Privy code, the provider freeze/unfreeze jobs and their owner repair
 scripts, and the embedded-wallet job; no request or background job calls a sign-in provider.
 Their dated records stay in [`docs/evidence`](evidence/) and the

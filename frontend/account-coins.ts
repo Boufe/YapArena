@@ -1,3 +1,5 @@
+import { api as request, apiFetch } from "./lib/api.js";
+
 interface CoinRequest {
   id: string;
   kind: string;
@@ -228,32 +230,22 @@ if (container) {
     data?: unknown,
     idempotencyKey?: string,
   ): Promise<T> {
-    const response = await fetch(`/api/coin-sandbox${path}`, {
+    return request<T>(`/api/coin-sandbox${path}`, {
       method,
-      credentials: "same-origin",
       cache: "no-store",
       headers: {
-        ...(data === undefined ? {} : { "Content-Type": "application/json" }),
         ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
         ...(method !== "GET" && sessionId
           ? { "X-YapArena-Session": sessionId }
           : {}),
       },
-      body: data === undefined ? undefined : JSON.stringify(data),
-      signal: AbortSignal.timeout(30_000),
+      json: data,
+      timeout: 30_000,
+      errorMessage: (status) =>
+        status === 404
+          ? "Sandbox is disabled."
+          : "Could not confirm the result. Refresh receipts before retrying.",
     });
-    if (!response.ok) {
-      const message: { error?: string } = await response
-        .json()
-        .catch(() => ({}));
-      throw new Error(
-        message.error ??
-          (response.status === 404
-            ? "Sandbox is disabled."
-            : "Could not confirm the result. Refresh receipts before retrying."),
-      );
-    }
-    return response.json();
   }
   function setBusy(value: boolean) {
     busy = value;
@@ -699,9 +691,9 @@ if (container) {
               : "The confirmed action could not finish. Refresh and try again.";
       });
       if (generation !== version) return;
-      const response = await fetch("/api/public/debates?limit=100", {
+      const response = await apiFetch("/api/public/debates?limit=100", {
         cache: "no-store",
-        signal: AbortSignal.timeout(10_000),
+        timeout: 10_000,
       });
       if (!response.ok) return;
       const data: { items: { id: string; proposition: string }[] } =

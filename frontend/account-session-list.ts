@@ -1,3 +1,6 @@
+import { apiFetch } from "./lib/api.js";
+import { sessionStore } from "./lib/session.js";
+
 type ManagedAccountSession = {
   id: string;
   current: boolean;
@@ -9,6 +12,7 @@ const sessionControls = document.querySelector<HTMLElement>(
   ".account-session-controls",
 );
 if (sessionControls) {
+  const store = sessionStore();
   const section = document.createElement("section");
   section.setAttribute("aria-label", "Active YapArena sessions");
   const refreshButton = document.createElement("button");
@@ -37,15 +41,7 @@ if (sessionControls) {
     const signedOut = document.querySelector<HTMLElement>("#signed-out");
     if (signedIn) signedIn.hidden = true;
     if (signedOut) signedOut.hidden = false;
-    window.dispatchEvent(
-      new CustomEvent("yap:provider-logout", { detail: unconfirmed }),
-    );
-    window.dispatchEvent(new Event("yap:account-changed"));
-    if ("BroadcastChannel" in window) {
-      const channel = new BroadcastChannel("yaparena-account");
-      channel.postMessage("changed");
-      channel.close();
-    }
+    store.signedOut(unconfirmed);
     const notice = document.querySelector<HTMLElement>("#account-notice");
     if (notice)
       notice.textContent = unconfirmed
@@ -65,27 +61,21 @@ if (sessionControls) {
     const owner = Symbol("session removal");
     removalOwner = owner;
     const removalVersion = version;
-    const expectedAccount = window.yapCurrentSessionAccount?.();
+    const expectedAccount = store.account();
     refreshButton.disabled = true;
     sessionNotice.textContent = "Signing out…";
     for (const button of list.querySelectorAll("button"))
       button.disabled = true;
     try {
-      if (!window.yapSessionFetch)
-        throw new Error("account controls unavailable");
-      const response = await window.yapSessionFetch(
+      const response = await store.fetch(
         `/api/auth/sessions/${encodeURIComponent(session.id)}`,
-        {
-          method: "DELETE",
-          credentials: "same-origin",
-          signal: AbortSignal.timeout(45000),
-        },
+        { method: "DELETE", signal: AbortSignal.timeout(45000) },
       );
       if (removalVersion !== version) {
         if (
           (removalOwner === undefined || removalOwner === owner) &&
           expectedAccount &&
-          expectedAccount === window.yapCurrentSessionAccount?.()
+          expectedAccount === store.account()
         )
           window.dispatchEvent(new Event("yap:account-changed"));
         return;
@@ -127,10 +117,9 @@ if (sessionControls) {
     refreshButton.disabled = true;
     sessionNotice.textContent = "Checking active sessions…";
     try {
-      const response = await fetch("/api/auth/sessions", {
-        credentials: "same-origin",
+      const response = await apiFetch("/api/auth/sessions", {
         cache: "no-store",
-        signal: AbortSignal.timeout(10000),
+        timeout: 10000,
       });
       if (requestVersion !== version) return;
       if (response.status === 401) {

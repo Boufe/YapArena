@@ -7,7 +7,7 @@ import type { AddressInfo } from "node:net";
 import { resolve } from "node:path";
 import express from "express";
 import { chromium, type Page } from "playwright-core";
-import type {} from "../frontend/auth-events.js";
+import type {} from "../frontend/lib/session.js";
 
 // Actual Chromium Fetch/Web Locks and HTTP cookie behavior, synthetic server
 // fixtures only. No provider, application identity, database or funds are used.
@@ -96,10 +96,10 @@ const checks: string[] = [];
 async function start(page: Page, path: string, label: string, method = "POST") {
   await page.evaluate(
     ({ path, label, method }) => {
-      if (!window.yapSessionFetch) throw new Error("session helper missing");
+      if (!window.yapSession) throw new Error("session helper missing");
       Reflect.set(window, label, "pending");
-      void window
-        .yapSessionFetch(path, {
+      void window.yapSession
+        .fetch(path, {
           method,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ label }),
@@ -169,7 +169,7 @@ try {
   await Promise.all([a.goto(base), b.goto(base)]);
   for (const page of [a, b])
     await page.waitForFunction(
-      () => typeof window.yapSessionFetch === "function",
+      () => typeof window.yapSession?.fetch === "function",
     );
 
   const revocations = [
@@ -206,7 +206,7 @@ try {
   assert.equal(entered.has("after-body"), false);
   assert.equal(
     await b.evaluate(
-      async () => (await window.yapSessionFetch!("/api/auth/me")).status,
+      async () => (await window.yapSession!.fetch("/api/auth/me")).status,
     ),
     401,
     "reads pass without the lock",
@@ -219,7 +219,7 @@ try {
   );
 
   await signIn(a, "account-a");
-  await a.evaluate(() => window.yapRememberSessionAccount!("synthetic-a"));
+  await a.evaluate(() => window.yapSession!.remember("synthetic-a"));
   // Another tab completes a sign-in to a different account.
   await signIn(b, "account-b", "synthetic-b");
   await start(a, "/api/auth/logout", "stale-a-logout");
@@ -245,15 +245,12 @@ try {
   );
 
   await b.evaluate(() => {
-    window.yapRememberSessionAccount!("synthetic-a");
+    window.yapSession!.remember("synthetic-a");
     window.dispatchEvent(
       new CustomEvent("yap:provider-logout", { detail: false }),
     );
   });
-  assert.equal(
-    await b.evaluate(() => window.yapCurrentSessionAccount!()),
-    null,
-  );
+  assert.equal(await b.evaluate(() => window.yapSession!.account()), null);
   checks.push("Signing out forgets the verified account.");
 
   const unsupported = await context.newPage();

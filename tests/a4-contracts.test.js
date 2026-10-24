@@ -41,6 +41,8 @@ function fixture({
   session = true,
   missing = false,
   commitFail = false,
+  roundState,
+  due = false,
 } = {}) {
   const calls = [];
   const config = runConfig();
@@ -63,7 +65,7 @@ function fixture({
     session_id: id,
     asset: "YAP",
     period: 1,
-    state: revealed ? "settled" : "pending",
+    state: roundState ?? (revealed ? "settled" : "pending"),
     opens_at: new Date("2026-01-01T00:00:00Z"),
     closes_at: new Date("2026-01-02T00:00:00Z"),
     seed: "secret-price-seed",
@@ -115,6 +117,10 @@ function fixture({
       if (sql.includes("clock_timestamp()>=opens_at"))
         return { rows: [{ started: false, pastCutoff: false }] };
       if (sql === "COMMIT" && commitFail) throw new Error("commit unavailable");
+      if (due && sql.includes("SELECT s.id,s.speed FROM a4_sessions s"))
+        return { rows: [{ id, speed: 1 }] };
+      if (due && sql.includes("SELECT reference FROM a4_journals"))
+        return { rows: [], rowCount: 0 };
       if (sql.includes("FROM users WHERE id"))
         return { rows: account ? [{ id: userId, authGeneration: "0" }] : [] };
       if (sql.includes("FROM sessions s JOIN users u"))
@@ -312,6 +318,30 @@ describe("A4 server disclosure contracts", () => {
     )[0];
     assert.ok(!sql.includes("metadata"));
     assert.ok(sql.includes("a.user_id=$1"));
+  });
+});
+describe("A4 retired YAP play recovery", () => {
+  it("voids an unopened human round instead of opening it, without bots", async () => {
+    const f = fixture({ mode: "human", roundState: "scheduled", due: true });
+    await f.repo.tick();
+    const journals = f.calls.filter(([sql]) =>
+      sql.startsWith("INSERT INTO a4_journals"),
+    );
+    assert.equal(journals.length, 1);
+    const [reference, scope, , kind, metadata] = journals[0][1];
+    assert.equal(reference, `void:${roundId}`);
+    assert.equal(scope, "global");
+    assert.equal(kind, "void_refund");
+    assert.equal(JSON.parse(metadata).reason, "yap_play_retired");
+    assert.ok(
+      f.calls.some(
+        ([sql]) => sql === "UPDATE a4_rounds SET state='void' WHERE id=$1",
+      ),
+    );
+    assert.equal(
+      f.calls.some(([sql]) => sql.includes("SET state='open'")),
+      false,
+    );
   });
 });
 describe("A4 ledger posting boundary", () => {

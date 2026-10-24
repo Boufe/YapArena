@@ -4,7 +4,10 @@ import { describe, it, before, after } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import request from "../scripts/test-http-request.ts";
-import { createA4Repository } from "../dist/features/a4/repository.js";
+import {
+  createA4Repository,
+  runConfig,
+} from "../dist/features/a4/repository.js";
 import {
   createPublicBotRepository,
   simulationArguments,
@@ -95,6 +98,68 @@ async function finish(id) {
 }
 async function terminal(a, id) {
   await a4.control(a, key(), id, "archive");
+}
+// Decision 0010 froze ordinary YAP play, so a human run can only exist as
+// history from before the freeze. Owner SQL writes one the way the engine
+// left it; its ledger rows are not needed by the reads under test. Open
+// rounds close a day away so the shared A4 clock never processes them.
+async function retiredHumanRun(creator, { label, orders = [], open = false }) {
+  const session = randomUUID(),
+    round = randomUUID();
+  await owner.query(
+    `INSERT INTO a4_sessions(id,creator_id,debate_id,asset,mode,state,config,seed,reveal_at,proposition,topic_id)
+    VALUES($1,$2,$3,'YAP','human',$4,$5,'retired-run-seed',clock_timestamp()+$6::interval,'Should this synthetic proposition be endorsed?',$7)`,
+    [
+      session,
+      creator.userId,
+      debateId,
+      open ? "running" : "complete",
+      JSON.stringify(runConfig({ argumentLabel: label }, true)),
+      open ? "1 day" : "-1 hour",
+      topicId,
+    ],
+  );
+  await owner.query(
+    `INSERT INTO a4_rounds(id,session_id,asset,period,state,opens_at,closes_at,seed,seed_commitment,snapshot,pricing,revealed_at)
+    VALUES($1,$2,'YAP',1,$3,clock_timestamp()-interval '2 hours',clock_timestamp()+$4::interval,'retired-round-seed','retired-commitment',$5,$6,$7)`,
+    [
+      round,
+      session,
+      open ? "open" : "settled",
+      open ? "1 day" : "-1 hour",
+      open ? null : JSON.stringify([]),
+      open
+        ? null
+        : JSON.stringify({
+            a: { n: "0", d: "1" },
+            b: { n: "1", d: "1" },
+            share: { n: "1", d: "2" },
+            price: { n: "1", d: "2" },
+            branch: "targeted",
+            reason: null,
+          }),
+      open ? null : new Date(Date.now() - 1800000),
+    ],
+  );
+  for (const order of orders)
+    await owner.query(
+      `INSERT INTO a4_submissions(round_id,asset,participant,user_id,kind,side,limit_value,quantity,request_key,outcome)
+      VALUES($1,'YAP',$2,$3,'human',$4,$5,1,$6,$7)`,
+      [
+        round,
+        `user:${order.actor.userId}`,
+        order.actor.userId,
+        order.side,
+        order.limit,
+        key(),
+        JSON.stringify({
+          executed: true,
+          accepted: true,
+          premium: order.premium,
+        }),
+      ],
+    );
+  return { session, round };
 }
 function app(repo = a4) {
   return createApp({
@@ -266,24 +331,14 @@ describe(
       const observer = await run(a, { population: 10 }, "observer");
       await finish(observer.id);
       assert.equal((await a4.timeline(a, debateId, "sandbox")).items.length, 1);
-      const human = await run(
-        a,
-        { population: 0, argumentLabel: "Pilot studies" },
-        "human",
-      );
-      await a4.submit(a, key(), human.rounds[0].id, {
-        side: "YES",
-        limit: "1",
-        quantity: 1,
-        rule: human.config.rule,
+      // Human charts now show retired YAP play history only.
+      await retiredHumanRun(a, {
+        label: "Pilot studies",
+        orders: [
+          { actor: a, side: "YES", limit: "1", premium: "500001" },
+          { actor: b, side: "NO", limit: "0", premium: "500000" },
+        ],
       });
-      await a4.submit(b, key(), human.rounds[0].id, {
-        side: "NO",
-        limit: "0",
-        quantity: 1,
-        rule: human.config.rule,
-      });
-      await finish(human.id);
       const settled = await a4.timeline(b, debateId, "human");
       assert.equal(settled.items.length, 1);
       assert.equal(settled.items[0].humans, 2);
@@ -524,18 +579,7 @@ describe(
     });
     it("serializes same-account commitments across sessions and prevents overspending", async () => {
       const a = await actor();
-      const one = await run(a, { population: 2 }, "human").catch(async () =>
-        a4.view(
-          a,
-          (
-            await a4.create(a, key(), {
-              debateId,
-              mode: "human",
-              config: { population: 0 },
-            })
-          ).id,
-        ),
-      );
+      const one = await run(a, { population: 2 });
       const results = await Promise.allSettled(
         Array.from({ length: 12 }, () =>
           a4.submit(a, key(), one.rounds[0].id, {
@@ -1014,76 +1058,67 @@ describe(
       assert.equal(final.rounds[1].state, "void");
       assert.equal(final.rounds[1].revealed, true);
     });
-    it("shares starter/refill grants and reservations across two sessions on one account", async () => {
-      const a = await actor();
-      const cloned = (
-        await owner.query(
-          "INSERT INTO debates(slug,topic_id,proposition,status,publication_state,rules_version,rules_snapshot) SELECT $1,topic_id,proposition,status,publication_state,rules_version,rules_snapshot FROM debates WHERE id=$2 RETURNING id",
-          [`a4-${key()}`, debateId],
-        )
-      ).rows[0].id;
-      const one = await a4.create(a, key(), { debateId, mode: "human" });
-      const two = await a4.create(a, key(), {
-        debateId: cloned,
-        mode: "human",
-      });
-      const token = createSessionToken(),
-        u = (
-          await pool.query(
-            "SELECT auth_generation AS generation FROM users WHERE id=$1",
-            [a.userId],
-          )
-        ).rows[0];
-      await sessions.create(
-        a.userId,
-        token.tokenHash,
-        new Date(Date.now() + 3600000),
-        { authGeneration: u.generation },
+    it("retires ordinary YAP play and keeps its runs and balances readable", async () => {
+      const a = await actor(),
+        api = app();
+      const retiredError = (error) =>
+        error.status === 410 && /Yap Coins play is retired/.test(error.message);
+      await assert.rejects(
+        a4.create(a, key(), { debateId, mode: "human" }),
+        retiredError,
       );
-      const second = { ...a, tokenHash: token.tokenHash };
-      const c = await pool.connect();
-      try {
-        await c.query("BEGIN");
-        await post(
-          c,
-          `fixture-debit:${key()}`,
-          "fixture_play_debit",
-          transfer(
-            account("global", `user:${a.userId}`, "available", a.userId),
-            account("global", "play-issuer", "issuer"),
-            850000000n,
-          ),
-        );
-        await c.query("COMMIT");
-      } finally {
-        c.release();
+      await assert.rejects(a4.refill(a, key()), retiredError);
+      const open = await retiredHumanRun(a, { label: "Left open", open: true });
+      await assert.rejects(
+        a4.submit(a, key(), open.round, {
+          side: "YES",
+          limit: "1",
+          quantity: 1,
+          rule: "a4-v1",
+        }),
+        retiredError,
+      );
+      await assert.rejects(a4.refill(a, key(), open.session), retiredError);
+      await assert.rejects(
+        a4.control(a, key(), open.session, "step"),
+        /bot control unavailable/,
+      );
+      const view = await a4.view(a, open.session);
+      assert.equal(view.mode, "human");
+      assert.equal(view.rounds[0].state, "open");
+      assert.deepEqual(view.balances, []);
+      assert.ok(
+        (await a4.list(a, debateId)).items.some((i) => i.id === open.session),
+      );
+      const wallet = await a4.wallet(a);
+      assert.deepEqual(wallet.balances, []);
+      assert.equal(wallet.mode, "bots");
+      for (const [path, body] of [
+        ["runs", { debateId, mode: "human" }],
+        ["refill", {}],
+        ["refill", { runId: open.session }],
+      ]) {
+        const response = await command(api, a, path, body);
+        assert.equal(response.status, 410, path);
+        assert.match(response.body.error, /retired/);
       }
-      const rounds = await Promise.all([
-        a4.view(a, one.id),
-        a4.view(second, two.id),
-      ]);
-      const submitted = await Promise.allSettled(
-        rounds.map((v, i) =>
-          a4.submit(i ? second : a, key(), v.rounds[0].id, {
-            side: "YES",
-            limit: "1",
-            quantity: 100,
-            rule: "a4-v1",
-          }),
-        ),
+      // Human-only mode had nothing left to enable.
+      assert.equal(createA4Repository(pool, "yap-coins").mode, "disabled");
+      await assert.rejects(
+        createA4Repository(pool, "yap-coins").create(a, key(), {
+          debateId,
+          mode: "mixed",
+        }),
+        /disabled/,
       );
-      assert.equal(submitted.filter((x) => x.status === "fulfilled").length, 1);
+      // Bot runs keep their own play balances.
+      const bots = await run(a, { population: 2 });
       assert.equal(
-        (await a4.wallet(a)).balances.find((b) => b.kind === "available")
-          .amount,
-        "50000000",
+        bots.balances.find((b) => b.kind === "available").amount,
+        "1000000000",
       );
-      const grants = await Promise.all(
-        Array.from({ length: 8 }, () => a4.refill(a, key())),
-      );
-      assert.equal(grants.filter((x) => x.issued).length, 1);
-      await finish(one.id);
-      await finish(two.id);
+      assert.equal((await a4.refill(a, key(), bots.id)).issued, true);
+      await terminal(a, bots.id);
     });
     it("applies configured play grants without reissuing prior business references", async () => {
       const a = await actor(),
@@ -1175,6 +1210,222 @@ describe(
       );
       await finish(v.id);
       assert.deepEqual((await a4.view(a, v.id)).rounds[0].offer, draw);
+    });
+  },
+);
+
+// Decision 0010: the freeze migration recorded every retired YAP play
+// ('global') balance, then made that part of the ledger read-only. On an
+// upgraded database these rows are the history seeded before the freeze.
+describe(
+  "A4 retired YAP play ledger and reconciliation",
+  { skip: !enabled, concurrency: false },
+  () => {
+    const frozen = (error) =>
+      error.code === "23514" && /YAP play is retired/.test(error.message);
+    before(async () => {
+      pool = createDatabase(process.env.A4_TEST_DATABASE_URL, logger);
+      owner = new pg.Pool({
+        connectionString: process.env.A4_TEST_OWNER_URL,
+        options: "-c search_path=pg_catalog,yaparena,pg_temp",
+      });
+      sessions = createSessionRepository(pool);
+      a4 = createA4Repository(pool, "bots");
+      await owner.query(
+        "UPDATE a4_controls SET enabled=true,bots_enabled=true",
+      );
+    });
+    after(async () => {
+      await pool?.end();
+      await owner?.end();
+    });
+    it("keeps every retired play balance equal to its closing record and its postings", async () => {
+      const rows = (
+        await owner.query(
+          `SELECT COALESCE(a.id,c.account_id) AS id,a.amount::text AS amount,c.amount::text AS closed,
+            (SELECT COALESCE(sum(p.amount),0) FROM a4_postings p WHERE p.account_id=COALESCE(a.id,c.account_id))::text AS posted
+          FROM a4_accounts a FULL JOIN a4_play_closing_balances c ON c.account_id=a.id
+          WHERE a.scope='global' OR c.account_id IS NOT NULL ORDER BY 1`,
+        )
+      ).rows;
+      for (const row of rows) {
+        assert.equal(row.closed, row.amount, `closing record of ${row.id}`);
+        assert.equal(row.posted, row.amount, `postings of ${row.id}`);
+      }
+      assert.deepEqual(
+        (await owner.query("SELECT * FROM a4_ledger_discrepancies()")).rows,
+        [],
+      );
+      console.log(
+        JSON.stringify({
+          scenario: "retired YAP play reconciliation",
+          closedAccounts: rows.length,
+          discrepancies: 0,
+        }),
+      );
+    });
+    it("refuses every write to the retired play ledger for the runtime and the owner", async () => {
+      const a = await actor();
+      const c = await pool.connect();
+      try {
+        await c.query("BEGIN");
+        await assert.rejects(
+          post(
+            c,
+            key(),
+            "play_issuance",
+            transfer(
+              account("global", "play-issuer", "issuer"),
+              account("global", `user:${a.userId}`, "available", a.userId),
+              1n,
+            ),
+          ),
+          frozen,
+        );
+        await c.query("ROLLBACK");
+      } finally {
+        c.release();
+      }
+      await assert.rejects(
+        owner.query(
+          "INSERT INTO a4_journals(reference,scope,asset,kind,metadata) VALUES($1,'global','YAP','fixture','{}')",
+          [key()],
+        ),
+        frozen,
+      );
+      await assert.rejects(
+        owner.query(
+          "INSERT INTO a4_accounts(id,scope,asset,kind) VALUES($1,'global','YAP','available')",
+          [`global:YAP:fixture-${key()}:available`],
+        ),
+        frozen,
+      );
+      const bots = await run(a, { population: 2 });
+      const botAccount = (
+        await owner.query(
+          "SELECT id FROM a4_accounts WHERE scope=$1 ORDER BY id LIMIT 1",
+          [bots.id],
+        )
+      ).rows[0].id;
+      await assert.rejects(
+        owner.query("UPDATE a4_accounts SET scope='global' WHERE id=$1", [
+          botAccount,
+        ]),
+        frozen,
+      );
+      // Existing play accounts cannot change or disappear. The fixture row is
+      // written with the insert guard off inside a transaction that rolls back.
+      const fixture = await owner.connect();
+      try {
+        await fixture.query("BEGIN");
+        await fixture.query(
+          "ALTER TABLE a4_accounts DISABLE TRIGGER a4_play_account_insert",
+        );
+        const id = `global:YAP:fixture-${key()}:available`;
+        await fixture.query(
+          "INSERT INTO a4_accounts(id,scope,asset,kind) VALUES($1,'global','YAP','available')",
+          [id],
+        );
+        await fixture.query(
+          "ALTER TABLE a4_accounts ENABLE TRIGGER a4_play_account_insert",
+        );
+        for (const sql of [
+          "UPDATE a4_accounts SET amount=amount+1 WHERE id=$1",
+          "UPDATE a4_accounts SET scope='elsewhere' WHERE id=$1",
+          "DELETE FROM a4_accounts WHERE id=$1",
+        ]) {
+          await fixture.query("SAVEPOINT probe");
+          await assert.rejects(fixture.query(sql, [id]), frozen);
+          await fixture.query("ROLLBACK TO SAVEPOINT probe");
+        }
+        for (const sql of [
+          "TRUNCATE a4_postings",
+          "TRUNCATE a4_journals,a4_postings",
+        ]) {
+          await fixture.query("SAVEPOINT probe");
+          await assert.rejects(fixture.query(sql), frozen);
+          await fixture.query("ROLLBACK TO SAVEPOINT probe");
+        }
+        await fixture.query("SAVEPOINT probe");
+        await assert.rejects(
+          fixture.query("TRUNCATE a4_play_closing_balances"),
+          (error) =>
+            error.code === "23514" && /append-only/.test(error.message),
+        );
+        await fixture.query("ROLLBACK TO SAVEPOINT probe");
+        await fixture.query("ROLLBACK");
+      } finally {
+        fixture.release();
+      }
+      // Bot scopes keep writing: archiving voids the open round with a refund.
+      await terminal(a, bots.id);
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT count(*)::int AS n FROM a4_journals WHERE reference=$1",
+            [`void:${bots.rounds[0].id}`],
+          )
+        ).rows[0].n,
+        1,
+      );
+    });
+    it("blocks closing a ledger scope while a round or committed value is open", async () => {
+      // The check the freeze migration ran on 'global', applied to a bot run.
+      const a = await actor(),
+        v = await run(a, { population: 2 });
+      await a4.submit(a, key(), v.rounds[0].id, {
+        side: "YES",
+        limit: "1",
+        quantity: 1,
+        rule: "a4-v1",
+      });
+      const problems = async (client = owner) =>
+        [
+          ...new Set(
+            (
+              await client.query(
+                "SELECT problem FROM a4_ledger_closing_blockers($1)",
+                [v.id],
+              )
+            ).rows.map((r) => r.problem),
+          ),
+        ].sort();
+      assert.deepEqual(await problems(), [
+        "round is not settled or void",
+        "value is still committed",
+      ]);
+      await finish(v.id);
+      assert.deepEqual(await problems(), []);
+      const c = await owner.connect();
+      try {
+        await c.query("BEGIN");
+        await c.query(
+          "UPDATE a4_accounts SET amount=amount+1 WHERE scope=$1 AND kind='available' AND user_id=$2",
+          [v.id, a.userId],
+        );
+        await c.query(
+          "INSERT INTO a4_journals(reference,scope,asset,kind,metadata) VALUES($1,$2,'YAP','fixture','{}')",
+          [key(), v.id],
+        );
+        assert.deepEqual(await problems(c), [
+          "balance differs from its postings",
+          "journal is empty or unbalanced",
+          "scope does not sum to zero",
+        ]);
+        await c.query("ROLLBACK");
+      } finally {
+        c.release();
+      }
+      const closing = (
+        await owner.query(
+          `SELECT a.amount::text AS amount,COALESCE(sum(p.amount),0)::text AS posted
+          FROM a4_accounts a LEFT JOIN a4_postings p ON p.account_id=a.id
+          WHERE a.scope=$1 GROUP BY a.id,a.amount`,
+          [v.id],
+        )
+      ).rows;
+      assert.ok(closing.length > 0);
+      assert.ok(closing.every((r) => r.amount === r.posted));
     });
   },
 );

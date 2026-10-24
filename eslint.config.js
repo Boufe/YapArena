@@ -1,5 +1,6 @@
 import eslint from "@eslint/js";
 import prettier from "eslint-config-prettier";
+import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
@@ -64,11 +65,13 @@ export default [
     },
   },
   {
-    files: ["src/**/*.ts", "frontend/**/*.ts", "scripts/**/*.{js,ts}"],
+    files: ["src/**/*.ts", "frontend/**/*.{ts,tsx}", "scripts/**/*.{js,ts}"],
     ignores: ["src/platform/html.ts"],
     rules: {
       "no-restricted-syntax": ["error", ...escapingRules],
     },
   },
+  // React islands (see scripts/build-frontend.ts) follow the rules of hooks.
+  { files: ["frontend/**/*.tsx"], ...reactHooks.configs.flat.recommended },
   prettier,
 ];

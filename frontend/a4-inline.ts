@@ -15,18 +15,7 @@ import type {
 type TimedWorkspace = Omit<Workspace, "run"> & {
   run: (Run & { serverNow?: string }) | null;
 };
-interface InlineElements {
-  runs: HTMLSelectElement;
-  argument: HTMLInputElement;
-  review: HTMLDialogElement;
-  form: HTMLFormElement & {
-    elements: HTMLFormControlsCollection & { quantity: HTMLInputElement };
-  };
-  setup: HTMLDetailsElement;
-  publish: HTMLInputElement;
-  commit: HTMLButtonElement;
-}
-/* global document, Option, window */
+/* global document, window */
 import {
   createRoundChart,
   sharePercent,
@@ -40,27 +29,71 @@ import {
   watchRoom,
 } from "./community-stream.js";
 import { html } from "../src/platform/html.ts";
-// These selectors refer to the fixed arena server-rendered markup.
+import { ApiError, apiError, apiFetch } from "./lib/api.js";
+import {
+  initialView,
+  money,
+  mountParticipation,
+  type CommitmentFields,
+  type RoundMode,
+} from "./a4-participation.js";
+// These selectors refer to the fixed arena server-rendered markup. The
+// participation panel and its review dialog are a React island that this
+// module drives through `panel`.
 const root = document.querySelector<HTMLElement>("[data-a4-inline]")!;
 if (root) {
-  const el = <K extends string>(name: K) =>
-    root.querySelector<
-      K extends keyof InlineElements ? InlineElements[K] : HTMLElement
-    >(`[data-inline-${name}]`)!;
   const ui = (name: string) =>
     root.querySelector<HTMLElement>(`[data-arena-${name}]`)!;
-  const status = (text: string) => {
-    if (el("status").textContent !== text) el("status").textContent = text;
-    el("status").title = text;
-  };
-  const money = (value: string | number | bigint = "0", precision = 6) => {
-    const n = BigInt(value),
-      a = n < 0n ? -n : n;
-    const fractional = String(a % 1000000n)
-      .padStart(6, "0")
-      .slice(0, precision);
-    return `${n < 0n ? "−" : ""}${a / 1000000n}${precision ? "." + fractional : ""} Yap Coins`;
-  };
+  const receipt = root.querySelector<HTMLElement>("[data-inline-receipt]")!;
+  const panel = mountParticipation(
+    root.querySelector<HTMLElement>("[data-a4-participation]")!,
+    root,
+    {
+      start: (mode) => void act(() => create(mode)),
+      refill: () =>
+        void act(async () => {
+          await api("a4/refill", run ? { runId: run.id } : {});
+          await refresh();
+        }),
+      reload: () =>
+        void act(async () => {
+          await list(run?.id);
+          await refresh();
+        }),
+      chooseRun(id) {
+        panel.update({ run: id });
+        void act(async () => {
+          selectedRound = null;
+          run = panel.view().run ? { id: panel.view().run } : null;
+          await refresh();
+        });
+      },
+      publish(published) {
+        panel.update({ published });
+        void act(async () => {
+          const epoch = accessEpoch;
+          try {
+            const result = await api<Publication>("a4/publication", {
+              published: panel.view().published,
+            });
+            panel.update({ published: result.published });
+            await loadShared();
+          } catch (error) {
+            if (epoch === accessEpoch)
+              panel.update({ published: !panel.view().published });
+            throw error;
+          }
+        });
+      },
+      draft: (argument) => panel.update({ argument }),
+      setup: (setupOpen) => panel.update({ setupOpen }),
+      review,
+      cancelReview: () => panel.update({ review: false }),
+      commit,
+    },
+  );
+  const status = (text: string) =>
+    panel.update({ status: text, statusTitle: text });
   let userId: string | null | undefined,
     run: SelectedRun | null | undefined,
     pending: Commitment | null | undefined,
@@ -124,20 +157,23 @@ if (root) {
     timeline = null;
     selectedRound = null;
     listSignature = undefined;
-    el("runs").replaceChildren(new Option("Choose a round", ""));
-    el("argument").value = "";
-    el("review").close();
-    el("terms").textContent = "";
-    el("review-status").textContent = "";
-    el("access").hidden = true;
-    el("receipt").textContent = "Sign in to view your commitments.";
+    panel.update({
+      runs: [],
+      run: "",
+      argument: "",
+      review: false,
+      terms: "",
+      reviewStatus: "",
+      signedIn: false,
+      available: initialView.available,
+      title: initialView.title,
+    });
+    receipt.textContent = "Sign in to view your commitments.";
     ui("history").textContent = "Sign in to view your history.";
     defaultPrice = null;
     prices.clear();
     ui("volume").textContent = "— Yap Coins";
     ui("participants").textContent = "Finalized commitments";
-    ui("available").textContent = "Your balance —";
-    ui("trade-title").textContent = "Participate in a round";
     ui("round-label").textContent = "Round history";
     ui("round-state").textContent = "waiting";
     ui("countdown").dataset.opens = "";
@@ -148,7 +184,6 @@ if (root) {
     ui("no").textContent = "—";
     ui("sentiment-bar").style.removeProperty("--yes-share");
     ui("sentiment-bar").dataset.empty = "true";
-    ui("signin").hidden = false;
     chart.clear();
     window.dispatchEvent(new CustomEvent("yap:balance", { detail: null }));
     renderShared();
@@ -159,24 +194,24 @@ if (root) {
     key?: string,
   ): Promise<T> {
     const epoch = accessEpoch;
-    const response = await fetch(`/api/${path}`, {
+    const response = await apiFetch(`/api/${path}`, {
       method: body ? "POST" : "GET",
-      credentials: "same-origin",
       cache: "no-store",
-      headers: body
+      ...(body
         ? {
-            "Content-Type": "application/json",
-            "Idempotency-Key": key ?? crypto.randomUUID(),
+            headers: { "Idempotency-Key": key ?? crypto.randomUUID() },
+            json: body,
           }
-        : undefined,
-      body: body ? JSON.stringify(body) : undefined,
+        : {}),
     });
-    const result: T & { error?: string } = await response.json();
+    const result: T | ApiError = response.ok
+      ? await response.json()
+      : await apiError(response, () => "Unable to load Yap Coins");
     if (epoch !== accessEpoch)
       throw new Error(
         "Account changed. Review the current account before continuing.",
       );
-    if (!response.ok) {
+    if (result instanceof ApiError) {
       if (response.status === 401) {
         detachedArgument = null;
         clearPrivate();
@@ -195,14 +230,22 @@ if (root) {
         ui("no").textContent = "—";
         ui("sentiment-bar").dataset.empty = "true";
       }
-      throw Object.assign(
-        new Error(result.error ?? "Unable to load Yap Coins"),
-        { status: response.status },
-      );
+      throw result;
     }
     return result;
   }
-  async function act(work: () => Promise<unknown>) {
+  // Runs one request sequence at a time. A failure from the same account
+  // reaches `fail`, which by default reports it as the panel status.
+  async function act(
+    work: () => Promise<unknown>,
+    fail = (error: Error) => {
+      status(error.message);
+      ui("sync").textContent =
+        shared?.items.length && !userId
+          ? "Shared synthetic history · connected"
+          : "Connection interrupted · retrying";
+    },
+  ) {
     if (busy) return;
     busy = true;
     const epoch = accessEpoch;
@@ -210,11 +253,7 @@ if (root) {
       await work();
     } catch (error) {
       if (epoch !== accessEpoch) return;
-      status((error as Error).message);
-      ui("sync").textContent =
-        shared?.items.length && !userId
-          ? "Shared synthetic history · connected"
-          : "Connection interrupted · retrying";
+      fail(error as Error);
     } finally {
       busy = false;
       if (accessRefreshPending) {
@@ -234,26 +273,18 @@ if (root) {
   }
   function populateRuns(data: Runs, selected?: string) {
     const signature = JSON.stringify([data.items, selected]);
-    if (signature === listSignature) return el("runs").value;
+    if (signature === listSignature) return panel.view().run;
     listSignature = signature;
     const items = data.items.filter((r) => r.mode !== "observer");
     const next =
       selected ?? items.find((r) => r.state === "running")?.id ?? items[0]?.id;
-    el("runs").replaceChildren(
-      new Option("Choose a round", ""),
-      ...items.map(
-        (r) =>
-          new Option(
-            `${r.mode === "mixed" ? "BOTS + YOU" : "Human-only"} · ${r.argumentLabel || r.id.slice(0, 8)} · ${r.state}`,
-            r.id,
-          ),
-      ),
-    );
+    const runs = items.map((r) => ({
+      value: r.id,
+      label: `${r.mode === "mixed" ? "BOTS + YOU" : "Human-only"} · ${r.argumentLabel || r.id.slice(0, 8)} · ${r.state}`,
+    }));
     if (next && !items.some((r) => r.id === next))
-      el("runs").add(new Option("Selected historical run", next));
-    if (next) {
-      el("runs").value = next;
-    }
+      runs.push({ value: next, label: "Selected historical run" });
+    panel.update({ runs, run: next || "" });
     return next;
   }
   function renderReceipts() {
@@ -268,7 +299,7 @@ if (root) {
       rows: (Round & { receipt: NonNullable<Round["receipt"]> })[],
     ) =>
       html`<div class="arena-table-scroll"><table class="arena-order-table"><thead><tr><th>Side</th><th>Contracts</th><th>Limit</th><th>Status</th></tr></thead><tbody>${rows.map((r) => html`<tr><td class="${r.receipt.side === "YES" ? "yes" : "no"}">${r.receipt.side}</td><td>${r.receipt.quantity}</td><td>${r.receipt.limit}</td><td>${r.receipt.status.replaceAll("_", " ")}</td></tr><tr class="arena-receipt-detail"><td colspan="4">Round ${r.period} · reserved ${money(r.receipt.reserved)}${r.receipt.premium !== undefined ? html` · premium ${money(r.receipt.premium)} · fee ${money(r.receipt.fee)} · released ${money(r.receipt.released)}` : " · Binding commitment recorded"}${r.receipt.payout !== undefined ? html`<br>Payout ${money(r.receipt.payout)} · net ${money(r.receipt.net)}` : " · Awaiting final reveal"}</td></tr>`)}</tbody></table></div>`;
-    el("receipt").innerHTML = (
+    receipt.innerHTML = (
       open.length
         ? table(open)
         : html`<p class="arena-order-empty">No open commitments in this run.</p>`
@@ -295,9 +326,9 @@ if (root) {
     ui("round-state").textContent =
       active?.state === "open" ? "open" : (active?.state ?? "waiting");
     ui("round-state").classList.toggle("is-open", active?.state === "open");
-    ui("trade-title").textContent = active
-      ? `Participate in Round ${number}`
-      : "Participate in a round";
+    panel.update({
+      title: active ? `Participate in Round ${number}` : initialView.title,
+    });
     ui("countdown").dataset.closes = active?.closesAt ?? "";
     ui("countdown").dataset.opens = active?.opensAt ?? "";
     ui("countdown").dataset.state = active?.state ?? "";
@@ -326,15 +357,16 @@ if (root) {
         r.state === "open" &&
         new Date(r.closesAt).getTime() > Date.now() + serverOffset,
     );
-    el("form").hidden = !open || !!open.receipt || run?.state !== "running";
-    ui("commit-closed").hidden = !el("form").hidden;
-    ui("commit-closed").textContent = open?.receipt
-      ? "Your commitment is recorded. Continue watching while the round settles."
-      : run?.state === "complete"
-        ? "This run has settled. Inspect its results or start another round."
-        : run
-          ? "The round is processing. Your existing commitment remains recorded."
-          : "Choose a round or start a sandbox to participate.";
+    panel.update({
+      formOpen: !(!open || !!open.receipt || run?.state !== "running"),
+      closed: open?.receipt
+        ? "Your commitment is recorded. Continue watching while the round settles."
+        : run?.state === "complete"
+          ? "This run has settled. Inspect its results or start another round."
+          : run
+            ? "The round is processing. Your existing commitment remains recorded."
+            : "Choose a round or start a sandbox to participate.",
+    });
     // Workspace/shared responses provide the timeline before this renderer runs.
     defaultPrice = timeline!.items.at(-1);
     prices.update(timeline!);
@@ -382,20 +414,6 @@ if (root) {
       ? `Ends in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
       : "Cutoff reached · processing";
   }
-  function updateEstimate() {
-    const fields = new FormData(el("form")),
-      q = Number(fields.get("quantity")),
-      side = fields.get("side");
-    ui("order-help").textContent =
-      side === "NO"
-        ? "A NO contract pays the final NO share. A ceiling of 0.78 corresponds to a YES-scale floor of 0.22."
-        : "A YES contract pays the final YES share. Your ceiling sets the highest purchase price you accept.";
-    const fee = run?.config!.feeBps ?? 0;
-    ui("reservation").textContent =
-      Number.isInteger(q) && q >= 1 && q <= 100
-        ? `${q} contracts · maximum reservation ${money((BigInt(q) * 1000000n * BigInt(10000 + fee)) / 10000n, 2)}`
-        : "Choose 1–100 contracts.";
-  }
   async function refresh() {
     const owner = userId;
     // A signal during this request asks for another read; a failed read
@@ -421,17 +439,16 @@ if (root) {
       Date.now() + serverOffset,
     );
     privateFollowUp = follow === null ? null : Date.now() + follow;
-    if (el("setup").dataset.runId !== (run?.id ?? "")) {
-      el("setup").open = !run;
-      el("setup").dataset.runId = run?.id ?? "";
-    }
+    if (panel.view().setupRun !== (run?.id ?? ""))
+      panel.update({ setupOpen: !run, setupRun: run?.id ?? "" });
     const wallet = data.wallet;
     const balances = wallet.balances,
       available = balances.find((b) => b.kind === "available")?.amount ?? "0",
       reserved = balances.find((b) => b.kind === "reserved")?.amount ?? "0";
-    ui("available").textContent = `Your balance ${money(available, 2)}`;
-    el("balance").textContent =
-      `Reserved ${money(reserved, 2)} · ${run?.mode === "mixed" ? "Private bot sandbox balance" : "Ordinary play balance"}`;
+    panel.update({
+      available: `Your balance ${money(available, 2)}`,
+      balance: `Reserved ${money(reserved, 2)} · ${run?.mode === "mixed" ? "Private bot sandbox balance" : "Ordinary play balance"}`,
+    });
     window.dispatchEvent(
       new CustomEvent("yap:balance", {
         detail: {
@@ -441,13 +458,14 @@ if (root) {
         },
       }),
     );
-    el("bots").hidden =
-      wallet.mode === "yap-coins" || wallet.mode === "disabled";
+    panel.update({
+      botsHidden: wallet.mode === "yap-coins" || wallet.mode === "disabled",
+    });
     timeline = usingShared && shared?.items.length ? shared : data.timeline;
     describeSelection();
     chart.render(timeline!, selectedRound);
     renderReceipts();
-    updateEstimate();
+    panel.update({ feeBps: run?.config!.feeBps ?? 0 });
     ui("volume").textContent = money(timeline!.totals.premium, 2);
     ui("participants").textContent =
       `${timeline!.totals.humanCommitments.toLocaleString()} human commitments${timeline!.totals.botCommitments ? ` · ${timeline!.totals.botCommitments.toLocaleString()} bot commitments` : ""}`;
@@ -463,74 +481,23 @@ if (root) {
     );
     if (usingShared) renderShared();
   }
-  async function create(mode: "human" | "mixed") {
+  async function create(mode: RoundMode) {
+    const argument = panel.view().argument.trim();
     const result = await api<{ id: string }>("a4/runs", {
       debateId: root.dataset.a4Inline,
       mode,
-      ...(el("argument").value.trim()
-        ? { config: { argumentLabel: el("argument").value.trim() } }
-        : {}),
+      ...(argument ? { config: { argumentLabel: argument } } : {}),
     });
     selectedRound = null;
-    el("argument").value = "";
-    el("setup").open = false;
+    panel.update({ argument: "", setupOpen: false });
     run = { id: result.id };
     await list(result.id);
     await refresh();
   }
-  el("human").addEventListener("click", () => act(() => create("human")));
-  el("bots").addEventListener("click", () => act(() => create("mixed")));
-  el("publish").addEventListener("change", () =>
-    act(async () => {
-      const epoch = accessEpoch;
-      try {
-        const result = await api<Publication>("a4/publication", {
-          published: el("publish").checked,
-        });
-        el("publish").checked = result.published;
-        await loadShared();
-      } catch (error) {
-        if (epoch === accessEpoch)
-          el("publish").checked = !el("publish").checked;
-        throw error;
-      }
-    }),
-  );
-  el("refill").addEventListener("click", () =>
-    act(async () => {
-      await api("a4/refill", run ? { runId: run.id } : {});
-      await refresh();
-    }),
-  );
-  el("refresh").addEventListener("click", () =>
-    act(async () => {
-      await list(run?.id);
-      await refresh();
-    }),
-  );
-  el("runs").addEventListener("change", () =>
-    act(async () => {
-      selectedRound = null;
-      run = el("runs").value ? { id: el("runs").value } : null;
-      await refresh();
-    }),
-  );
-  el("form").addEventListener("input", updateEstimate);
-  for (const button of root.querySelectorAll<HTMLButtonElement>(
-    "[data-quantity]",
-  ))
-    button.addEventListener("click", () => {
-      el("form").elements.quantity.value = button.dataset.quantity!;
-      updateEstimate();
-    });
-  el("form").addEventListener("submit", (event) => {
-    event.preventDefault();
+  function review(fields: CommitmentFields) {
     const round = run?.rounds!.find((r) => r.state === "open" && !r.receipt);
     if (!round) return;
-    const fields = Object.fromEntries(
-        new FormData(event.target as HTMLFormElement),
-      ),
-      quantity = Number(fields.quantity);
+    const quantity = Number(fields.quantity);
     pending = {
       roundId: round.id,
       key: crypto.randomUUID(),
@@ -545,46 +512,42 @@ if (root) {
     const reserve =
       (BigInt(quantity) * 1000000n * BigInt(10000 + run!.config!.feeBps)) /
       10000n;
-    el("terms").textContent =
-      `Account ${userId}. ${run!.debate!.proposition}.${run!.config!.argumentLabel ? ` Argument: ${run!.config!.argumentLabel}.` : ""} ${fields.side}; maximum purchase price ${fields.ceiling} Yap Coins; ${quantity} contracts. Maximum reservation and potential loss ${money(reserve)}, including maximum fee allowance. Actual price is drawn later and execution needs an accepting opposite side. Unused reservation is released. Cutoff ${new Date(round.closesAt).toLocaleString()}; lockup until reveal ${new Date(run!.revealAt!).toLocaleString()}. No edits or cancellation after commitment.`;
-    el("review-status").textContent = "";
-    el("review").showModal();
-    el("commit").focus();
-  });
-  el("cancel").addEventListener("click", () => el("review").close());
-  el("commit").addEventListener("click", async () => {
+    panel.update({
+      terms: `Account ${userId}. ${run!.debate!.proposition}.${run!.config!.argumentLabel ? ` Argument: ${run!.config!.argumentLabel}.` : ""} ${fields.side}; maximum purchase price ${fields.ceiling} Yap Coins; ${quantity} contracts. Maximum reservation and potential loss ${money(reserve)}, including maximum fee allowance. Actual price is drawn later and execution needs an accepting opposite side. Unused reservation is released. Cutoff ${new Date(round.closesAt).toLocaleString()}; lockup until reveal ${new Date(run!.revealAt!).toLocaleString()}. No edits or cancellation after commitment.`,
+      reviewStatus: "",
+      review: true,
+    });
+  }
+  function commit() {
     if (!pending || busy) return;
-    const epoch = accessEpoch,
-      commitment = pending;
-    busy = true;
-    el("commit").disabled = true;
-    try {
-      const auth = await api<Auth>("auth/me");
-      if (auth.user.id !== commitment.body.accountId) {
-        clearPrivate();
-        throw new Error("Account changed. Reload and review again.");
-      }
-      await api(
-        `a4/rounds/${commitment.roundId}/submit`,
-        commitment.body,
-        commitment.key,
-      );
-      pending = null;
-      el("review").close();
-      await refresh();
-    } catch (error) {
-      if (epoch === accessEpoch)
-        el("review-status").textContent =
-          `${(error as Error).message}. Retry preserves your request key.`;
-    } finally {
-      busy = false;
-      el("commit").disabled = false;
-      if (accessRefreshPending) {
-        accessRefreshPending = false;
-        void act(refreshAccess);
-      }
-    }
-  });
+    const commitment = pending;
+    void act(
+      async () => {
+        panel.update({ committing: true });
+        try {
+          const auth = await api<Auth>("auth/me");
+          if (auth.user.id !== commitment.body.accountId) {
+            clearPrivate();
+            throw new Error("Account changed. Reload and review again.");
+          }
+          await api(
+            `a4/rounds/${commitment.roundId}/submit`,
+            commitment.body,
+            commitment.key,
+          );
+          pending = null;
+          panel.update({ review: false });
+          await refresh();
+        } finally {
+          panel.update({ committing: false });
+        }
+      },
+      (error) =>
+        panel.update({
+          reviewStatus: `${error.message}. Retry preserves your request key.`,
+        }),
+    );
+  }
   function renderShared() {
     const controls = root.querySelector<HTMLElement>("[data-shared-controls]")!;
     controls.hidden = !shared?.items.length;
@@ -703,7 +666,7 @@ if (root) {
     });
   const countdownTimer = setInterval(countdown, 1000);
   function privateTick() {
-    if (!userId || busy || document.hidden || el("review").open) return;
+    if (!userId || busy || document.hidden || panel.view().review) return;
     const now = Date.now();
     if (
       (privateDueAt !== null && now >= privateDueAt) ||
@@ -751,17 +714,8 @@ if (root) {
     { once: true },
   );
   window.addEventListener("focus", () => {
-    if (userId && !busy && !el("review").open) act(refresh);
+    if (userId && !busy && !panel.view().review) act(refresh);
   });
-  const access = el("access");
-  const startupControls = Array.from(
-    access.querySelectorAll<
-      HTMLButtonElement | HTMLInputElement | HTMLSelectElement
-    >("button, input, select"),
-    (control) => ({ control, disabled: control.disabled }),
-  );
-  access.setAttribute("aria-busy", "true");
-  for (const { control } of startupControls) control.disabled = true;
   async function refreshAccess() {
     const epoch = accessEpoch;
     const auth = await api<Auth>("auth/me");
@@ -769,20 +723,19 @@ if (root) {
     const draft = detachedArgument;
     detachedArgument = null;
     if (draft && (draft.owner === null || draft.owner === auth.user.id))
-      el("argument").value = draft.value;
+      panel.update({ argument: draft.value });
     if (userId === auth.user.id) {
       await refresh();
       return;
     }
     if (userId) clearPrivate();
     userId = auth.user.id;
-    el("access").hidden = false;
-    ui("signin").hidden = true;
+    panel.update({ signedIn: true });
     const publication = await api<Publication>("a4/publication").catch(() => ({
       published: false,
     }));
     if (epoch !== accessEpoch) return;
-    el("publish").checked = publication.published;
+    panel.update({ published: publication.published });
     await list();
     if (epoch !== accessEpoch) return;
     await refresh();
@@ -791,7 +744,7 @@ if (root) {
     ++accessEpoch;
     detachedArgument ??= {
       owner: userId ?? null,
-      value: el("argument").value,
+      value: panel.view().argument,
     };
     clearPrivate();
     status("Checking your account. Review the action before confirming.");
@@ -801,11 +754,8 @@ if (root) {
       void act(refreshAccess);
     }
   });
-  act(refreshAccess).finally(() => {
-    // act has released its busy guard, so visible controls can now accept input.
-    for (const { control, disabled } of startupControls)
-      control.disabled = disabled;
-    access.setAttribute("aria-busy", "false");
-  });
+  // The panel's controls stay disabled until the first account read settles;
+  // act has released its busy guard by then, so they can accept input.
+  act(refreshAccess).finally(() => panel.update({ starting: false }));
   renderShared();
 }

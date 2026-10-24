@@ -18,6 +18,11 @@ const inPlaceBundles = ["a4", "a4-inline"];
 // session store in that code is shared through window.yapSession, so every
 // copy on a page reaches the same instance (see frontend/lib/session.ts).
 const classicBundles = ["session-coordination", "account", "account-balance"];
+// React islands are the only JSX sources. Each frontend/<name>.tsx is a minified
+// ES module bundled with its own copy of React and served at /assets/<name>.js;
+// the page module that mounts it imports it as a sibling. No other bundle
+// ships React.
+const islands = ["a4-participation"];
 const keepSiblingImports: Plugin = {
   name: "keep-sibling-imports",
   setup(context) {
@@ -60,7 +65,12 @@ async function files(directory: string): Promise<string[]> {
 async function checkSources(): Promise<string[]> {
   const sources = await files(frontend);
   const unsupportedSource = /\.(?:[cm]?js|jsx|tsx|[cm]ts)$/i;
-  const unchecked = sources.filter((name) => unsupportedSource.test(name));
+  const island = new Set(islands.map((entry) => `frontend/${entry}.tsx`));
+  const unchecked = sources.filter(
+    (name) =>
+      unsupportedSource.test(name) &&
+      !island.has(path.relative(repository, name)),
+  );
   // Source archives and Docker contexts omit .git. CI and local checkouts also
   // enforce that served JavaScript is never tracked as authored source.
   if (existsSync(path.join(repository, ".git"))) {
@@ -72,7 +82,7 @@ async function checkSources(): Promise<string[]> {
     unchecked.push(
       ...tracked.filter(
         (name) =>
-          unsupportedSource.test(name) ||
+          (unsupportedSource.test(name) && !island.has(name)) ||
           (name.startsWith("public/") && /\.[cm]?tsx?$/i.test(name)),
       ),
     );
@@ -165,6 +175,18 @@ async function buildFrontend(): Promise<void> {
         entryPoints: [`frontend/${entry}.ts`],
         bundle: true,
         format: "iife",
+        outfile: `public/${entry}.js`,
+      }),
+    ),
+    ...islands.map((entry) =>
+      build({
+        absWorkingDir: repository,
+        entryPoints: [`frontend/${entry}.tsx`],
+        bundle: true,
+        minify: true,
+        format: "esm",
+        jsx: "automatic",
+        define: { "process.env.NODE_ENV": '"production"' },
         outfile: `public/${entry}.js`,
       }),
     ),

@@ -372,64 +372,7 @@ exports[`renders a debate 1`] = `
 <h2 id="arena-trade-title" data-arena-trade-title>Participate in a round</h2>
 <span data-arena-available>Your balance —</span>
 </div>
-<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>\\n        <div data-inline-access hidden>
-<label class="arena-publish-choice">
-<input type="checkbox" data-inline-publish> Share my settled Bots + you and Bots-only aggregates publicly</label>
-<div class="arena-run-tools">
-<label class="sr-only" for="arena-runs">Select a run</label>
-<select id="arena-runs" data-inline-runs>
-<option value="">Choose a round</option>
-</select>
-<details class="arena-round-setup" data-inline-setup open>
-<summary>New round</summary>
-<label>Argument label<input data-inline-argument maxlength="80" placeholder="e.g. Cost analysis" autocomplete="off">
-</label>
-<div class="arena-create-buttons">
-<button type="button" data-inline-bots>Start Bots mode · 500 synthetic bots</button>
-<button type="button" data-inline-human>Open human-only round</button>
-</div>
-</details>
-<button class="arena-icon-button" type="button" data-inline-refresh aria-label="Refresh rounds">↻</button>
-</div>
-<p data-inline-balance class="arena-balance-note">
-</p>\\n        <form data-inline-form class="arena-commit-form" hidden>
-<div class="arena-position-row">
-<fieldset class="arena-side-choices">
-<legend class="sr-only">Your position</legend>
-<label class="arena-side yes">
-<input type="radio" name="side" value="YES" checked>
-<span>Endorse (YES)</span>
-</label>
-<label class="arena-side no">
-<input type="radio" name="side" value="NO">
-<span>Reject (NO)</span>
-</label>
-</fieldset>
-<label class="arena-quantity">Contracts<input name="quantity" type="number" min="1" max="100" value="10" required>
-</label>
-</div>
-<div class="arena-quick-amounts" aria-label="Choose contract quantity">
-<button type="button" data-quantity="1">1</button>
-<button type="button" data-quantity="10">10</button>
-<button type="button" data-quantity="50">50</button>
-<button type="button" data-quantity="100">100</button>
-</div>
-<div class="arena-price-row">
-<label>Maximum price · Yap Coins<input name="ceiling" inputmode="decimal" pattern="(0([.][0-9]{1,6})?|1([.]0{1,6})?)" value="0.50" required>
-</label>
-<details class="arena-order-explanation">
-<summary>How the price works</summary>
-<p data-arena-order-help>A YES contract pays the round’s final YES share. Your ceiling sets the highest purchase price you accept.</p>
-</details>
-</div>
-<p class="arena-reservation" data-arena-reservation>10 contracts · maximum reservation 10 Yap Coins</p>
-<button type="submit" class="arena-commit-button">Review commitment</button>
-</form>\\n        <div data-arena-commit-closed class="arena-commit-closed">Choose a round or start a sandbox to participate.</div>
-<div class="arena-wallet-actions">
-<button type="button" data-inline-refill>Get daily play coins</button>
-<a href="/coins?debate=33333333-3333-4333-8333-333333333333" target="_blank" rel="noopener">Full controls ↗</a>
-</div>
-</div>
+<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>
 <p data-arena-signin>
 <a href="/account?next=%2Fdebates%2Fpublic-debate">Log in to participate →</a>
 </p>
@@ -863,64 +806,7 @@ exports[`renders a debate 2`] = `
 <h2 id="arena-trade-title" data-arena-trade-title>Participate in a round</h2>
 <span data-arena-available>Your balance —</span>
 </div>
-<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>\\n        <div data-inline-access hidden>
-<label class="arena-publish-choice">
-<input type="checkbox" data-inline-publish> Share my settled Bots + you and Bots-only aggregates publicly</label>
-<div class="arena-run-tools">
-<label class="sr-only" for="arena-runs">Select a run</label>
-<select id="arena-runs" data-inline-runs>
-<option value="">Choose a round</option>
-</select>
-<details class="arena-round-setup" data-inline-setup open>
-<summary>New round</summary>
-<label>Argument label<input data-inline-argument maxlength="80" placeholder="e.g. Cost analysis" autocomplete="off">
-</label>
-<div class="arena-create-buttons">
-<button type="button" data-inline-bots>Start Bots mode · 500 synthetic bots</button>
-<button type="button" data-inline-human>Open human-only round</button>
-</div>
-</details>
-<button class="arena-icon-button" type="button" data-inline-refresh aria-label="Refresh rounds">↻</button>
-</div>
-<p data-inline-balance class="arena-balance-note">
-</p>\\n        <form data-inline-form class="arena-commit-form" hidden>
-<div class="arena-position-row">
-<fieldset class="arena-side-choices">
-<legend class="sr-only">Your position</legend>
-<label class="arena-side yes">
-<input type="radio" name="side" value="YES" checked>
-<span>Endorse (YES)</span>
-</label>
-<label class="arena-side no">
-<input type="radio" name="side" value="NO">
-<span>Reject (NO)</span>
-</label>
-</fieldset>
-<label class="arena-quantity">Contracts<input name="quantity" type="number" min="1" max="100" value="10" required>
-</label>
-</div>
-<div class="arena-quick-amounts" aria-label="Choose contract quantity">
-<button type="button" data-quantity="1">1</button>
-<button type="button" data-quantity="10">10</button>
-<button type="button" data-quantity="50">50</button>
-<button type="button" data-quantity="100">100</button>
-</div>
-<div class="arena-price-row">
-<label>Maximum price · Yap Coins<input name="ceiling" inputmode="decimal" pattern="(0([.][0-9]{1,6})?|1([.]0{1,6})?)" value="0.50" required>
-</label>
-<details class="arena-order-explanation">
-<summary>How the price works</summary>
-<p data-arena-order-help>A YES contract pays the round’s final YES share. Your ceiling sets the highest purchase price you accept.</p>
-</details>
-</div>
-<p class="arena-reservation" data-arena-reservation>10 contracts · maximum reservation 10 Yap Coins</p>
-<button type="submit" class="arena-commit-button">Review commitment</button>
-</form>\\n        <div data-arena-commit-closed class="arena-commit-closed">Choose a round or start a sandbox to participate.</div>
-<div class="arena-wallet-actions">
-<button type="button" data-inline-refill>Get daily play coins</button>
-<a href="/coins?debate=33333333-3333-4333-8333-333333333333" target="_blank" rel="noopener">Full controls ↗</a>
-</div>
-</div>
+<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>
 <p data-arena-signin>
 <a href="/account?next=%2Fdebates%2Fpublic-debate">Log in to participate →</a>
 </p>
@@ -1352,64 +1238,7 @@ exports[`renders a debate 3`] = `
 <h2 id="arena-trade-title" data-arena-trade-title>Participate in a round</h2>
 <span data-arena-available>Your balance —</span>
 </div>
-<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>\\n        <div data-inline-access hidden>
-<label class="arena-publish-choice">
-<input type="checkbox" data-inline-publish> Share my settled Bots + you and Bots-only aggregates publicly</label>
-<div class="arena-run-tools">
-<label class="sr-only" for="arena-runs">Select a run</label>
-<select id="arena-runs" data-inline-runs>
-<option value="">Choose a round</option>
-</select>
-<details class="arena-round-setup" data-inline-setup open>
-<summary>New round</summary>
-<label>Argument label<input data-inline-argument maxlength="80" placeholder="e.g. Cost analysis" autocomplete="off">
-</label>
-<div class="arena-create-buttons">
-<button type="button" data-inline-bots>Start Bots mode · 500 synthetic bots</button>
-<button type="button" data-inline-human>Open human-only round</button>
-</div>
-</details>
-<button class="arena-icon-button" type="button" data-inline-refresh aria-label="Refresh rounds">↻</button>
-</div>
-<p data-inline-balance class="arena-balance-note">
-</p>\\n        <form data-inline-form class="arena-commit-form" hidden>
-<div class="arena-position-row">
-<fieldset class="arena-side-choices">
-<legend class="sr-only">Your position</legend>
-<label class="arena-side yes">
-<input type="radio" name="side" value="YES" checked>
-<span>Endorse (YES)</span>
-</label>
-<label class="arena-side no">
-<input type="radio" name="side" value="NO">
-<span>Reject (NO)</span>
-</label>
-</fieldset>
-<label class="arena-quantity">Contracts<input name="quantity" type="number" min="1" max="100" value="10" required>
-</label>
-</div>
-<div class="arena-quick-amounts" aria-label="Choose contract quantity">
-<button type="button" data-quantity="1">1</button>
-<button type="button" data-quantity="10">10</button>
-<button type="button" data-quantity="50">50</button>
-<button type="button" data-quantity="100">100</button>
-</div>
-<div class="arena-price-row">
-<label>Maximum price · Yap Coins<input name="ceiling" inputmode="decimal" pattern="(0([.][0-9]{1,6})?|1([.]0{1,6})?)" value="0.50" required>
-</label>
-<details class="arena-order-explanation">
-<summary>How the price works</summary>
-<p data-arena-order-help>A YES contract pays the round’s final YES share. Your ceiling sets the highest purchase price you accept.</p>
-</details>
-</div>
-<p class="arena-reservation" data-arena-reservation>10 contracts · maximum reservation 10 Yap Coins</p>
-<button type="submit" class="arena-commit-button">Review commitment</button>
-</form>\\n        <div data-arena-commit-closed class="arena-commit-closed">Choose a round or start a sandbox to participate.</div>
-<div class="arena-wallet-actions">
-<button type="button" data-inline-refill>Get daily play coins</button>
-<a href="/coins?debate=33333333-3333-4333-8333-333333333333" target="_blank" rel="noopener">Full controls ↗</a>
-</div>
-</div>
+<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>
 <p data-arena-signin>
 <a href="/account?next=%2Fdebates%2Fpublic-debate">Log in to participate →</a>
 </p>
@@ -1841,64 +1670,7 @@ exports[`renders a debate 4`] = `
 <h2 id="arena-trade-title" data-arena-trade-title>Participate in a round</h2>
 <span data-arena-available>Your balance —</span>
 </div>
-<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>\\n        <div data-inline-access hidden>
-<label class="arena-publish-choice">
-<input type="checkbox" data-inline-publish> Share my settled Bots + you and Bots-only aggregates publicly</label>
-<div class="arena-run-tools">
-<label class="sr-only" for="arena-runs">Select a run</label>
-<select id="arena-runs" data-inline-runs>
-<option value="">Choose a round</option>
-</select>
-<details class="arena-round-setup" data-inline-setup open>
-<summary>New round</summary>
-<label>Argument label<input data-inline-argument maxlength="80" placeholder="e.g. Cost analysis" autocomplete="off">
-</label>
-<div class="arena-create-buttons">
-<button type="button" data-inline-bots>Start Bots mode · 500 synthetic bots</button>
-<button type="button" data-inline-human>Open human-only round</button>
-</div>
-</details>
-<button class="arena-icon-button" type="button" data-inline-refresh aria-label="Refresh rounds">↻</button>
-</div>
-<p data-inline-balance class="arena-balance-note">
-</p>\\n        <form data-inline-form class="arena-commit-form" hidden>
-<div class="arena-position-row">
-<fieldset class="arena-side-choices">
-<legend class="sr-only">Your position</legend>
-<label class="arena-side yes">
-<input type="radio" name="side" value="YES" checked>
-<span>Endorse (YES)</span>
-</label>
-<label class="arena-side no">
-<input type="radio" name="side" value="NO">
-<span>Reject (NO)</span>
-</label>
-</fieldset>
-<label class="arena-quantity">Contracts<input name="quantity" type="number" min="1" max="100" value="10" required>
-</label>
-</div>
-<div class="arena-quick-amounts" aria-label="Choose contract quantity">
-<button type="button" data-quantity="1">1</button>
-<button type="button" data-quantity="10">10</button>
-<button type="button" data-quantity="50">50</button>
-<button type="button" data-quantity="100">100</button>
-</div>
-<div class="arena-price-row">
-<label>Maximum price · Yap Coins<input name="ceiling" inputmode="decimal" pattern="(0([.][0-9]{1,6})?|1([.]0{1,6})?)" value="0.50" required>
-</label>
-<details class="arena-order-explanation">
-<summary>How the price works</summary>
-<p data-arena-order-help>A YES contract pays the round’s final YES share. Your ceiling sets the highest purchase price you accept.</p>
-</details>
-</div>
-<p class="arena-reservation" data-arena-reservation>10 contracts · maximum reservation 10 Yap Coins</p>
-<button type="submit" class="arena-commit-button">Review commitment</button>
-</form>\\n        <div data-arena-commit-closed class="arena-commit-closed">Choose a round or start a sandbox to participate.</div>
-<div class="arena-wallet-actions">
-<button type="button" data-inline-refill>Get daily play coins</button>
-<a href="/coins?debate=33333333-3333-4333-8333-333333333333" target="_blank" rel="noopener">Full controls ↗</a>
-</div>
-</div>
+<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>
 <p data-arena-signin>
 <a href="/account?next=%2Fdebates%2Fpublic-debate">Log in to participate →</a>
 </p>
@@ -2330,64 +2102,7 @@ exports[`renders a debate 5`] = `
 <h2 id="arena-trade-title" data-arena-trade-title>Participate in a round</h2>
 <span data-arena-available>Your balance —</span>
 </div>
-<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>\\n        <div data-inline-access hidden>
-<label class="arena-publish-choice">
-<input type="checkbox" data-inline-publish> Share my settled Bots + you and Bots-only aggregates publicly</label>
-<div class="arena-run-tools">
-<label class="sr-only" for="arena-runs">Select a run</label>
-<select id="arena-runs" data-inline-runs>
-<option value="">Choose a round</option>
-</select>
-<details class="arena-round-setup" data-inline-setup open>
-<summary>New round</summary>
-<label>Argument label<input data-inline-argument maxlength="80" placeholder="e.g. Cost analysis" autocomplete="off">
-</label>
-<div class="arena-create-buttons">
-<button type="button" data-inline-bots>Start Bots mode · 500 synthetic bots</button>
-<button type="button" data-inline-human>Open human-only round</button>
-</div>
-</details>
-<button class="arena-icon-button" type="button" data-inline-refresh aria-label="Refresh rounds">↻</button>
-</div>
-<p data-inline-balance class="arena-balance-note">
-</p>\\n        <form data-inline-form class="arena-commit-form" hidden>
-<div class="arena-position-row">
-<fieldset class="arena-side-choices">
-<legend class="sr-only">Your position</legend>
-<label class="arena-side yes">
-<input type="radio" name="side" value="YES" checked>
-<span>Endorse (YES)</span>
-</label>
-<label class="arena-side no">
-<input type="radio" name="side" value="NO">
-<span>Reject (NO)</span>
-</label>
-</fieldset>
-<label class="arena-quantity">Contracts<input name="quantity" type="number" min="1" max="100" value="10" required>
-</label>
-</div>
-<div class="arena-quick-amounts" aria-label="Choose contract quantity">
-<button type="button" data-quantity="1">1</button>
-<button type="button" data-quantity="10">10</button>
-<button type="button" data-quantity="50">50</button>
-<button type="button" data-quantity="100">100</button>
-</div>
-<div class="arena-price-row">
-<label>Maximum price · Yap Coins<input name="ceiling" inputmode="decimal" pattern="(0([.][0-9]{1,6})?|1([.]0{1,6})?)" value="0.50" required>
-</label>
-<details class="arena-order-explanation">
-<summary>How the price works</summary>
-<p data-arena-order-help>A YES contract pays the round’s final YES share. Your ceiling sets the highest purchase price you accept.</p>
-</details>
-</div>
-<p class="arena-reservation" data-arena-reservation>10 contracts · maximum reservation 10 Yap Coins</p>
-<button type="submit" class="arena-commit-button">Review commitment</button>
-</form>\\n        <div data-arena-commit-closed class="arena-commit-closed">Choose a round or start a sandbox to participate.</div>
-<div class="arena-wallet-actions">
-<button type="button" data-inline-refill>Get daily play coins</button>
-<a href="/coins?debate=33333333-3333-4333-8333-333333333333" target="_blank" rel="noopener">Full controls ↗</a>
-</div>
-</div>
+<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>
 <p data-arena-signin>
 <a href="/account?next=%2Fdebates%2Fpublic-debate">Log in to participate →</a>
 </p>
@@ -2819,64 +2534,7 @@ exports[`renders a debate 6`] = `
 <h2 id="arena-trade-title" data-arena-trade-title>Participate in a round</h2>
 <span data-arena-available>Your balance —</span>
 </div>
-<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>\\n        <div data-inline-access hidden>
-<label class="arena-publish-choice">
-<input type="checkbox" data-inline-publish> Share my settled Bots + you and Bots-only aggregates publicly</label>
-<div class="arena-run-tools">
-<label class="sr-only" for="arena-runs">Select a run</label>
-<select id="arena-runs" data-inline-runs>
-<option value="">Choose a round</option>
-</select>
-<details class="arena-round-setup" data-inline-setup open>
-<summary>New round</summary>
-<label>Argument label<input data-inline-argument maxlength="80" placeholder="e.g. Cost analysis" autocomplete="off">
-</label>
-<div class="arena-create-buttons">
-<button type="button" data-inline-bots>Start Bots mode · 500 synthetic bots</button>
-<button type="button" data-inline-human>Open human-only round</button>
-</div>
-</details>
-<button class="arena-icon-button" type="button" data-inline-refresh aria-label="Refresh rounds">↻</button>
-</div>
-<p data-inline-balance class="arena-balance-note">
-</p>\\n        <form data-inline-form class="arena-commit-form" hidden>
-<div class="arena-position-row">
-<fieldset class="arena-side-choices">
-<legend class="sr-only">Your position</legend>
-<label class="arena-side yes">
-<input type="radio" name="side" value="YES" checked>
-<span>Endorse (YES)</span>
-</label>
-<label class="arena-side no">
-<input type="radio" name="side" value="NO">
-<span>Reject (NO)</span>
-</label>
-</fieldset>
-<label class="arena-quantity">Contracts<input name="quantity" type="number" min="1" max="100" value="10" required>
-</label>
-</div>
-<div class="arena-quick-amounts" aria-label="Choose contract quantity">
-<button type="button" data-quantity="1">1</button>
-<button type="button" data-quantity="10">10</button>
-<button type="button" data-quantity="50">50</button>
-<button type="button" data-quantity="100">100</button>
-</div>
-<div class="arena-price-row">
-<label>Maximum price · Yap Coins<input name="ceiling" inputmode="decimal" pattern="(0([.][0-9]{1,6})?|1([.]0{1,6})?)" value="0.50" required>
-</label>
-<details class="arena-order-explanation">
-<summary>How the price works</summary>
-<p data-arena-order-help>A YES contract pays the round’s final YES share. Your ceiling sets the highest purchase price you accept.</p>
-</details>
-</div>
-<p class="arena-reservation" data-arena-reservation>10 contracts · maximum reservation 10 Yap Coins</p>
-<button type="submit" class="arena-commit-button">Review commitment</button>
-</form>\\n        <div data-arena-commit-closed class="arena-commit-closed">Choose a round or start a sandbox to participate.</div>
-<div class="arena-wallet-actions">
-<button type="button" data-inline-refill>Get daily play coins</button>
-<a href="/coins?debate=33333333-3333-4333-8333-333333333333" target="_blank" rel="noopener">Full controls ↗</a>
-</div>
-</div>
+<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>
 <p data-arena-signin>
 <a href="/account?next=%2Fdebates%2Fpublic-debate">Log in to participate →</a>
 </p>
@@ -3309,64 +2967,7 @@ exports[`renders a debate 7`] = `
 <h2 id="arena-trade-title" data-arena-trade-title>Participate in a round</h2>
 <span data-arena-available>Your balance —</span>
 </div>
-<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>\\n        <div data-inline-access hidden>
-<label class="arena-publish-choice">
-<input type="checkbox" data-inline-publish> Share my settled Bots + you and Bots-only aggregates publicly</label>
-<div class="arena-run-tools">
-<label class="sr-only" for="arena-runs">Select a run</label>
-<select id="arena-runs" data-inline-runs>
-<option value="">Choose a round</option>
-</select>
-<details class="arena-round-setup" data-inline-setup open>
-<summary>New round</summary>
-<label>Argument label<input data-inline-argument maxlength="80" placeholder="e.g. Cost analysis" autocomplete="off">
-</label>
-<div class="arena-create-buttons">
-<button type="button" data-inline-bots>Start Bots mode · 500 synthetic bots</button>
-<button type="button" data-inline-human>Open human-only round</button>
-</div>
-</details>
-<button class="arena-icon-button" type="button" data-inline-refresh aria-label="Refresh rounds">↻</button>
-</div>
-<p data-inline-balance class="arena-balance-note">
-</p>\\n        <form data-inline-form class="arena-commit-form" hidden>
-<div class="arena-position-row">
-<fieldset class="arena-side-choices">
-<legend class="sr-only">Your position</legend>
-<label class="arena-side yes">
-<input type="radio" name="side" value="YES" checked>
-<span>Endorse (YES)</span>
-</label>
-<label class="arena-side no">
-<input type="radio" name="side" value="NO">
-<span>Reject (NO)</span>
-</label>
-</fieldset>
-<label class="arena-quantity">Contracts<input name="quantity" type="number" min="1" max="100" value="10" required>
-</label>
-</div>
-<div class="arena-quick-amounts" aria-label="Choose contract quantity">
-<button type="button" data-quantity="1">1</button>
-<button type="button" data-quantity="10">10</button>
-<button type="button" data-quantity="50">50</button>
-<button type="button" data-quantity="100">100</button>
-</div>
-<div class="arena-price-row">
-<label>Maximum price · Yap Coins<input name="ceiling" inputmode="decimal" pattern="(0([.][0-9]{1,6})?|1([.]0{1,6})?)" value="0.50" required>
-</label>
-<details class="arena-order-explanation">
-<summary>How the price works</summary>
-<p data-arena-order-help>A YES contract pays the round’s final YES share. Your ceiling sets the highest purchase price you accept.</p>
-</details>
-</div>
-<p class="arena-reservation" data-arena-reservation>10 contracts · maximum reservation 10 Yap Coins</p>
-<button type="submit" class="arena-commit-button">Review commitment</button>
-</form>\\n        <div data-arena-commit-closed class="arena-commit-closed">Choose a round or start a sandbox to participate.</div>
-<div class="arena-wallet-actions">
-<button type="button" data-inline-refill>Get daily play coins</button>
-<a href="/coins?debate=33333333-3333-4333-8333-333333333333" target="_blank" rel="noopener">Full controls ↗</a>
-</div>
-</div>
+<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Yap Coins participation is currently disabled.</p>
 <p data-arena-signin>
 <a href="/account?next=%2Fdebates%2Fpublic-debate">Log in to participate →</a>
 </p>
@@ -3798,69 +3399,12 @@ exports[`renders a debate 8`] = `
 <button type="button" id="arena-info-tab" role="tab" aria-selected="false" aria-controls="arena-info-panel" tabindex="-1" data-detail-tab="info">Info</button>
 </div>
 <div class="arena-sidecar-content">
-<div id="arena-rounds-panel" role="tabpanel" aria-labelledby="arena-rounds-tab" data-detail-panel="rounds">      <section class="arena-panel arena-trade" aria-labelledby="arena-trade-title">
+<div id="arena-rounds-panel" role="tabpanel" aria-labelledby="arena-rounds-tab" data-detail-panel="rounds">      <section class="arena-panel arena-trade" aria-labelledby="arena-trade-title" data-a4-participation>
 <div class="arena-section-top">
 <h2 id="arena-trade-title" data-arena-trade-title>Participate in a round</h2>
 <span data-arena-available>Your balance —</span>
 </div>
-<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Checking your Yap Coins account…</p>\\n        <div data-inline-access hidden>
-<label class="arena-publish-choice">
-<input type="checkbox" data-inline-publish> Share my settled Bots + you and Bots-only aggregates publicly</label>
-<div class="arena-run-tools">
-<label class="sr-only" for="arena-runs">Select a run</label>
-<select id="arena-runs" data-inline-runs>
-<option value="">Choose a round</option>
-</select>
-<details class="arena-round-setup" data-inline-setup open>
-<summary>New round</summary>
-<label>Argument label<input data-inline-argument maxlength="80" placeholder="e.g. Cost analysis" autocomplete="off">
-</label>
-<div class="arena-create-buttons">
-<button type="button" data-inline-bots>Start Bots mode · 500 synthetic bots</button>
-<button type="button" data-inline-human>Open human-only round</button>
-</div>
-</details>
-<button class="arena-icon-button" type="button" data-inline-refresh aria-label="Refresh rounds">↻</button>
-</div>
-<p data-inline-balance class="arena-balance-note">
-</p>\\n        <form data-inline-form class="arena-commit-form" hidden>
-<div class="arena-position-row">
-<fieldset class="arena-side-choices">
-<legend class="sr-only">Your position</legend>
-<label class="arena-side yes">
-<input type="radio" name="side" value="YES" checked>
-<span>Endorse (YES)</span>
-</label>
-<label class="arena-side no">
-<input type="radio" name="side" value="NO">
-<span>Reject (NO)</span>
-</label>
-</fieldset>
-<label class="arena-quantity">Contracts<input name="quantity" type="number" min="1" max="100" value="10" required>
-</label>
-</div>
-<div class="arena-quick-amounts" aria-label="Choose contract quantity">
-<button type="button" data-quantity="1">1</button>
-<button type="button" data-quantity="10">10</button>
-<button type="button" data-quantity="50">50</button>
-<button type="button" data-quantity="100">100</button>
-</div>
-<div class="arena-price-row">
-<label>Maximum price · Yap Coins<input name="ceiling" inputmode="decimal" pattern="(0([.][0-9]{1,6})?|1([.]0{1,6})?)" value="0.50" required>
-</label>
-<details class="arena-order-explanation">
-<summary>How the price works</summary>
-<p data-arena-order-help>A YES contract pays the round’s final YES share. Your ceiling sets the highest purchase price you accept.</p>
-</details>
-</div>
-<p class="arena-reservation" data-arena-reservation>10 contracts · maximum reservation 10 Yap Coins</p>
-<button type="submit" class="arena-commit-button">Review commitment</button>
-</form>\\n        <div data-arena-commit-closed class="arena-commit-closed">Choose a round or start a sandbox to participate.</div>
-<div class="arena-wallet-actions">
-<button type="button" data-inline-refill>Get daily play coins</button>
-<a href="/coins?debate=55555555-5555-4555-8555-555555555555" target="_blank" rel="noopener">Full controls ↗</a>
-</div>
-</div>
+<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Checking your Yap Coins account…</p>
 <p data-arena-signin>
 <a href="/account?next=%2Fdebates%2Fhostile-debate">Log in to participate →</a>
 </p>
@@ -3899,17 +3443,7 @@ exports[`renders a debate 8`] = `
 <strong class="no" data-arena-no>—</strong>
 </div>
 <p data-arena-scope>Human rounds and private bot sandboxes are shown separately.</p>
-</section>\\n      <p class="arena-disclosure">A4 adjusted FTM · Play money<br>Bot activity is synthetic and labeled.</p>\\n    </aside>\\n    <dialog data-inline-review class="information-card arena-review" aria-labelledby="a4-inline-review-title">
-<span class="eyebrow accent">REVIEW BEFORE COMMITTING</span>
-<h2 id="a4-inline-review-title">Your exact commitment</h2>
-<p data-inline-terms>
-</p>
-<p data-inline-review-status role="status" aria-live="polite">
-</p>
-<button type="button" data-inline-commit class="button">Commit these exact terms</button>
-<button type="button" data-inline-cancel>Back</button>
-</dialog>
-<script type="module" src="/assets/a4-inline.js?v=0123456789ab">
+</section>\\n      <p class="arena-disclosure">A4 adjusted FTM · Play money<br>Bot activity is synthetic and labeled.</p>\\n    </aside>\\n    <script type="module" src="/assets/a4-inline.js?v=0123456789ab">
 </script>\\n    <template data-shared-bootstrap>{&quot;scope&quot;:&quot;shared&quot;,&quot;synthetic&quot;:true,&quot;revision&quot;:&quot;fixture-revision&quot;,&quot;hasMore&quot;:false,&quot;window&quot;:30,&quot;items&quot;:[{&quot;id&quot;:&quot;round-1&quot;,&quot;runId&quot;:null,&quot;debateId&quot;:&quot;55555555-5555-4555-8555-555555555555&quot;,&quot;debateSlug&quot;:&quot;hostile-debate&quot;,&quot;number&quot;:1,&quot;period&quot;:1,&quot;settledAt&quot;:&quot;2999-01-01T00:00:00.000Z&quot;,&quot;closesAt&quot;:&quot;2999-01-01T00:00:00.000Z&quot;,&quot;mode&quot;:&quot;seed&quot;,&quot;share&quot;:{&quot;n&quot;:&quot;52&quot;,&quot;d&quot;:&quot;100&quot;},&quot;offer&quot;:{&quot;n&quot;:&quot;40&quot;,&quot;d&quot;:&quot;100&quot;},&quot;medianNo&quot;:null,&quot;medianYes&quot;:null,&quot;branch&quot;:null,&quot;argumentLabel&quot;:&quot;Argument &lt;b&gt;&amp;amp;&lt;/b&gt; \\\\&quot;quoted\\\\&quot; &#39;single&#39; &amp; &lt;&quot;,&quot;ownLimit&quot;:null,&quot;humans&quot;:2,&quot;bots&quot;:498,&quot;executed&quot;:120,&quot;premium&quot;:&quot;2500000000&quot;,&quot;quantity&quot;:&quot;500&quot;},{&quot;id&quot;:&quot;round-2&quot;,&quot;runId&quot;:null,&quot;debateId&quot;:&quot;55555555-5555-4555-8555-555555555555&quot;,&quot;debateSlug&quot;:&quot;hostile-debate&quot;,&quot;number&quot;:2,&quot;period&quot;:1,&quot;settledAt&quot;:&quot;2999-01-02T00:00:00.000Z&quot;,&quot;closesAt&quot;:&quot;2999-01-02T00:00:00.000Z&quot;,&quot;mode&quot;:&quot;seed&quot;,&quot;share&quot;:{&quot;n&quot;:&quot;47&quot;,&quot;d&quot;:&quot;100&quot;},&quot;offer&quot;:null,&quot;medianNo&quot;:null,&quot;medianYes&quot;:null,&quot;branch&quot;:null,&quot;argumentLabel&quot;:&quot;Argument &lt;b&gt;&amp;amp;&lt;/b&gt; \\\\&quot;quoted\\\\&quot; &#39;single&#39; &amp; &lt;&quot;,&quot;ownLimit&quot;:null,&quot;humans&quot;:2,&quot;bots&quot;:498,&quot;executed&quot;:120,&quot;premium&quot;:&quot;2500000000&quot;,&quot;quantity&quot;:&quot;500&quot;}],&quot;arguments&quot;:[{&quot;stance&quot;:&quot;for&quot;,&quot;text&quot;:&quot;For argument &lt;b&gt;&amp;amp;&lt;/b&gt; \\\\&quot;quoted\\\\&quot; &#39;single&#39; &amp; &lt;&quot;,&quot;rate&quot;:61,&quot;endorsed&quot;:305,&quot;population&quot;:500},{&quot;stance&quot;:&quot;against&quot;,&quot;text&quot;:&quot;Against argument &lt;b&gt;&amp;amp;&lt;/b&gt; \\\\&quot;quoted\\\\&quot; &#39;single&#39; &amp; &lt;&quot;,&quot;rate&quot;:39,&quot;endorsed&quot;:195,&quot;population&quot;:500}],&quot;category&quot;:&quot;Category &lt;b&gt;&amp;amp;&lt;/b&gt; \\\\&quot;quoted\\\\&quot; &#39;single&#39; &amp; &lt;&quot;,&quot;totals&quot;:{&quot;premium&quot;:&quot;5000000000&quot;,&quot;humanCommitments&quot;:4,&quot;botCommitments&quot;:996,&quot;executed&quot;:240}}</template>
 <script type="module" src="/assets/arena.js?v=0123456789ab">
 </script>
@@ -4299,69 +3833,12 @@ exports[`renders a debate 9`] = `
 <button type="button" id="arena-info-tab" role="tab" aria-selected="false" aria-controls="arena-info-panel" tabindex="-1" data-detail-tab="info">Info</button>
 </div>
 <div class="arena-sidecar-content">
-<div id="arena-rounds-panel" role="tabpanel" aria-labelledby="arena-rounds-tab" data-detail-panel="rounds">      <section class="arena-panel arena-trade" aria-labelledby="arena-trade-title">
+<div id="arena-rounds-panel" role="tabpanel" aria-labelledby="arena-rounds-tab" data-detail-panel="rounds">      <section class="arena-panel arena-trade" aria-labelledby="arena-trade-title" data-a4-participation>
 <div class="arena-section-top">
 <h2 id="arena-trade-title" data-arena-trade-title>Participate in a round</h2>
 <span data-arena-available>Your balance —</span>
 </div>
-<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Checking your Yap Coins account…</p>\\n        <div data-inline-access hidden>
-<label class="arena-publish-choice">
-<input type="checkbox" data-inline-publish> Share my settled Bots + you and Bots-only aggregates publicly</label>
-<div class="arena-run-tools">
-<label class="sr-only" for="arena-runs">Select a run</label>
-<select id="arena-runs" data-inline-runs>
-<option value="">Choose a round</option>
-</select>
-<details class="arena-round-setup" data-inline-setup open>
-<summary>New round</summary>
-<label>Argument label<input data-inline-argument maxlength="80" placeholder="e.g. Cost analysis" autocomplete="off">
-</label>
-<div class="arena-create-buttons">
-<button type="button" data-inline-bots>Start Bots mode · 500 synthetic bots</button>
-<button type="button" data-inline-human>Open human-only round</button>
-</div>
-</details>
-<button class="arena-icon-button" type="button" data-inline-refresh aria-label="Refresh rounds">↻</button>
-</div>
-<p data-inline-balance class="arena-balance-note">
-</p>\\n        <form data-inline-form class="arena-commit-form" hidden>
-<div class="arena-position-row">
-<fieldset class="arena-side-choices">
-<legend class="sr-only">Your position</legend>
-<label class="arena-side yes">
-<input type="radio" name="side" value="YES" checked>
-<span>Endorse (YES)</span>
-</label>
-<label class="arena-side no">
-<input type="radio" name="side" value="NO">
-<span>Reject (NO)</span>
-</label>
-</fieldset>
-<label class="arena-quantity">Contracts<input name="quantity" type="number" min="1" max="100" value="10" required>
-</label>
-</div>
-<div class="arena-quick-amounts" aria-label="Choose contract quantity">
-<button type="button" data-quantity="1">1</button>
-<button type="button" data-quantity="10">10</button>
-<button type="button" data-quantity="50">50</button>
-<button type="button" data-quantity="100">100</button>
-</div>
-<div class="arena-price-row">
-<label>Maximum price · Yap Coins<input name="ceiling" inputmode="decimal" pattern="(0([.][0-9]{1,6})?|1([.]0{1,6})?)" value="0.50" required>
-</label>
-<details class="arena-order-explanation">
-<summary>How the price works</summary>
-<p data-arena-order-help>A YES contract pays the round’s final YES share. Your ceiling sets the highest purchase price you accept.</p>
-</details>
-</div>
-<p class="arena-reservation" data-arena-reservation>10 contracts · maximum reservation 10 Yap Coins</p>
-<button type="submit" class="arena-commit-button">Review commitment</button>
-</form>\\n        <div data-arena-commit-closed class="arena-commit-closed">Choose a round or start a sandbox to participate.</div>
-<div class="arena-wallet-actions">
-<button type="button" data-inline-refill>Get daily play coins</button>
-<a href="/coins?debate=33333333-3333-4333-8333-333333333333" target="_blank" rel="noopener">Full controls ↗</a>
-</div>
-</div>
+<p data-inline-status class="arena-inline-status" role="status" aria-live="polite">Checking your Yap Coins account…</p>
 <p data-arena-signin>
 <a href="/account?next=%2Fdebates%2Fpublic-debate">Log in to participate →</a>
 </p>
@@ -4400,17 +3877,7 @@ exports[`renders a debate 9`] = `
 <strong class="no" data-arena-no>—</strong>
 </div>
 <p data-arena-scope>Human rounds and private bot sandboxes are shown separately.</p>
-</section>\\n      <p class="arena-disclosure">A4 adjusted FTM · Play money<br>Bot activity is synthetic and labeled.</p>\\n    </aside>\\n    <dialog data-inline-review class="information-card arena-review" aria-labelledby="a4-inline-review-title">
-<span class="eyebrow accent">REVIEW BEFORE COMMITTING</span>
-<h2 id="a4-inline-review-title">Your exact commitment</h2>
-<p data-inline-terms>
-</p>
-<p data-inline-review-status role="status" aria-live="polite">
-</p>
-<button type="button" data-inline-commit class="button">Commit these exact terms</button>
-<button type="button" data-inline-cancel>Back</button>
-</dialog>
-<script type="module" src="/assets/a4-inline.js?v=0123456789ab">
+</section>\\n      <p class="arena-disclosure">A4 adjusted FTM · Play money<br>Bot activity is synthetic and labeled.</p>\\n    </aside>\\n    <script type="module" src="/assets/a4-inline.js?v=0123456789ab">
 </script>\\n    <script type="module" src="/assets/arena.js?v=0123456789ab">
 </script>
 <script type="module" src="/assets/media.bundle.js?v=0123456789ab">

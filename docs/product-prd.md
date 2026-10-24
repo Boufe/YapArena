@@ -278,11 +278,11 @@ Supporting operating measures: time to match; acceptance and no-show rates; comp
 | D13 | Confirmed                  | Platform-wide sponsors, winning-debater sponsor share, small participation/trading fees                                                   |
 | D14 | Confirmed                  | Québec operating base; Canada and US intended markets; wallet-first preference                                                            |
 | D15 | Proposed                   | Principal-only support accounting, void exclusion, 120-hour duration interpretation, responsive web, metrics and WCAG verification target |
-| D16 | Open decision              | Production s, fee rates, asset/network, custody, precision, baseline snapshot, zero-volume and correction rules                           |
-| D17 | Open decision              | Event matching, quote visibility, unmatched-order rules, and verified hidden-tally architecture                                           |
-| D18 | Open decision              | Ongoing instrument rights, issuance/supply, redemption/closure, liquidity, and proposition mapping                                        |
-| D19 | Open decision              | Timing parameters, sponsor allocation, self/related-party policies, network-cost refunds, incident/dispute rules                          |
-| D20 | Requires specialist review | Jurisdiction-specific eligibility, required authorizations, identity checks, financial security, and privacy assurance                    |
+| D16 | Partly confirmed           | Phase 1: internal ledger, Base USDC treasury, no fees, no winner (s retired); paid fees open; [brief](financial-architecture-options.md)  |
+| D17 | Confirmed (phase 1)        | A4 one-minute rounds; per-debate reveal mode; own order + count shown; tally proof pending; [brief](financial-architecture-options.md)    |
+| D18 | Confirmed (phase 1)        | One YC market per topic; YES+NO pair redeems for 1 YC; founder market maker; limit book; [brief](financial-architecture-options.md)       |
+| D19 | Partly confirmed           | Replay joins live minutes; debater/founder limits; void unopened rounds; sponsor split open; [brief](financial-architecture-options.md)   |
+| D20 | Requires specialist review | Eligibility, authorizations, identity checks, financial security, privacy; questions in [brief](financial-architecture-options.md)        |
 
 Principal risks are concentrated influence, baseline gaming, strategic last-minute purchases, thin liquidity, fabricated debates, cross-market information advantage, disclosure through event trades, sponsor dependence, and accounting or operational failure. Paid influence is intentional; controls must distinguish permitted influence from prohibited conduct rather than quietly replace the mechanism.
 

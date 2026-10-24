@@ -80,18 +80,9 @@ const applicationTables = [
     (table) => !droppedLegacyTables.has(table),
   ),
   "account_operations",
-  "account_security_users",
-  "account_security_keys",
-  "account_security_challenges",
-  "account_access_challenges",
   "media_account_grants",
   "media_account_revocations",
   "provider_identities",
-  "provider_passkey_intents",
-  "provider_passkey_bootstraps",
-  "provider_session_exchanges",
-  "provider_revocation_jobs",
-  "embedded_wallet_provisioning",
   "auth_login_transactions",
   "auth_pending_links",
   "account_subjects",
@@ -1203,19 +1194,58 @@ async function scenario(database: string, upgrade: boolean) {
       await owner.query("DELETE FROM yaparena.users WHERE id=$1", [
         legacy[0]!.id,
       ]);
+      // The Privy schema removal must refuse while a provider
+      // freeze/unfreeze job is unfinished, naming the account, and delete
+      // remaining Privy identities once it is resolved.
+      await migrate(owner, { count: 1 });
+      const privy = (
+        await owner.query<{ id: string }>(
+          "INSERT INTO yaparena.users DEFAULT VALUES RETURNING id",
+        )
+      ).rows[0]!.id;
+      await owner.query(
+        `INSERT INTO yaparena.provider_identities(provider,subject,user_id,methods,auth_generation,credentials_digest)
+        VALUES('privy','did:privy:isolation',$1,'["email"]',0,repeat('a',64))`,
+        [privy],
+      );
+      await owner.query(
+        "UPDATE yaparena.users SET auth_generation=auth_generation+1 WHERE id=$1",
+        [privy],
+      );
+      await assert.rejects(
+        migrate(owner),
+        (error: unknown) =>
+          error instanceof Error &&
+          /unfinished provider revocation jobs remain/.test(error.message) &&
+          "detail" in error &&
+          typeof error.detail === "string" &&
+          error.detail.includes(`account ${privy}: pending/preflight`),
+      );
+      await owner.query("ROLLBACK");
+      await owner.query(
+        "UPDATE yaparena.provider_revocation_jobs SET state='complete',control_phase='done' WHERE user_id=$1",
+        [privy],
+      );
     }
     await migrate(owner);
     assert.deepEqual(
       (
         await owner.query<{ name: string }>(
           `SELECT c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-          WHERE n.nspname='yaparena' AND c.relname IN ('wallet_identities','wallet_challenges','wallet_operations','provider_identity_recoveries')
-          UNION ALL SELECT column_name FROM information_schema.columns
-          WHERE table_schema='yaparena' AND table_name='users' AND column_name='password_hash'`,
+          WHERE n.nspname='yaparena' AND c.relname IN ('wallet_identities','wallet_challenges','wallet_operations','provider_identity_recoveries',
+            'provider_revocation_jobs','provider_passkey_bootstraps','provider_passkey_intents','provider_session_exchanges',
+            'account_security_keys','account_security_users','account_security_challenges','account_access_challenges',
+            'embedded_wallet_provisioning')
+          UNION ALL SELECT table_name || '.' || column_name FROM information_schema.columns
+          WHERE table_schema='yaparena' AND (
+            (table_name='users' AND column_name IN ('password_hash','auth_changed_at'))
+            OR (table_name='provider_identities' AND column_name IN ('auth_generation','minimum_issued_at','credentials_digest','credentials_snapshot','checked_at'))
+            OR (table_name='account_operations' AND column_name='authorizing_passkey_id'))
+          UNION ALL SELECT provider FROM yaparena.provider_identities WHERE provider<>'auth0'`,
         )
       ).rows,
       [],
-      "legacy sign-in tables and the password column are removed",
+      "legacy sign-in, Privy, passkey and wallet tables and columns are removed",
     );
     await membershipChecks(database, admin, owner);
     const inventory = Object.fromEntries(

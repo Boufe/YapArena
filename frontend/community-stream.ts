@@ -329,17 +329,20 @@ export function watchRoom({
 }
 
 // Coalesces signal-driven reads of one projection. read() resolves to the room
-// revision the projection reported, or null when it reports none. A read still
+// revision the projection reported, or null when it reports none. A signal at
+// or below the revision current() already reports needs no read. A read still
 // behind the signal (a shared read that began before the commit, or a failed
 // request) is retried with bounded backoff; later signals and polls cover the rest.
 export function createSignalRefresh({
   read,
+  current = () => null,
   setTimer = setTimeout,
   clearTimer = clearTimeout,
   retries = 3,
   retryMs = 500,
 }: {
   read: () => Promise<string | null>;
+  current?: () => string | null;
   setTimer?: typeof setTimeout;
   clearTimer?: typeof clearTimeout;
   retries?: number;
@@ -382,6 +385,8 @@ export function createSignalRefresh({
   }
   return {
     request(cursor = 0n) {
+      const known = current();
+      if (cursor > 0n && known !== null && BigInt(known) >= cursor) return;
       if (cursor > wanted) wanted = cursor;
       attempt = 0;
       void run();

@@ -347,8 +347,10 @@ function fixture() {
     document,
     window,
     element: (name) => elements.get(`[data-media-${name}]`),
-    async start() {
+    // early runs before the page's first requests complete.
+    async start(early) {
       vm.runInContext(source, context);
+      early?.();
       await settle();
     },
     setGrant: (grant) => {
@@ -839,5 +841,39 @@ it("reads media status shortly after the turn deadline instead of polling", asyn
   );
   assert.equal(follow.length, 1, "deadline plus grace");
   assert.equal(scheduled(f, viewerPoll), false);
+  f.listeners.get("pagehide")();
+});
+it("holds media signals until the first status read and skips cursors it covers", async () => {
+  const f = fixture();
+  f.setStateResponse(f.response(liveState("8")));
+  await f.start(() => roomSignal(f, "8"));
+  // The first read reported cursor 8, so the held signal needs no second read.
+  assert.equal(statusReads(f), 1);
+  roomSignal(f, "8");
+  await settle();
+  assert.equal(statusReads(f), 1);
+  roomSignal(f, "9");
+  await settle();
+  assert.equal(statusReads(f), 2);
+  f.listeners.get("pagehide")();
+});
+it("ignores media signals once the status endpoint refuses the page", async () => {
+  const f = fixture();
+  f.setStateResponse(f.response({ error: "resource not found" }, 404));
+  await f.start(() => roomSignal(f, "3"));
+  assert.equal(statusReads(f), 1);
+  assert.equal(f.element("replay-video").hidden, true);
+  roomSignal(f, "4");
+  roomStream(f, true);
+  roomStream(f, false);
+  await settle();
+  assert.equal(statusReads(f), 1, "no reads, retries or reconnect reads");
+  // Polling continues, and a successful read resumes signal handling.
+  assert.ok(scheduled(f, viewerPoll));
+  f.setStateResponse(f.response(liveState("5")));
+  await f.timer(viewerPoll);
+  roomSignal(f, "6");
+  await settle();
+  assert.equal(statusReads(f), 3);
   f.listeners.get("pagehide")();
 });

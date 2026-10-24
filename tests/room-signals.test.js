@@ -386,6 +386,31 @@ describe("signal-driven projection reads", () => {
     await delay(0);
     assert.deepEqual(t.pending(), []);
   });
+  it("skips a signal the projection's last read already covers", async () => {
+    const t = timers();
+    let reads = 0;
+    let known = "7";
+    const refresh = createSignalRefresh({
+      read: async () => {
+        reads++;
+        known = "9";
+        return known;
+      },
+      current: () => known,
+      ...t,
+    });
+    refresh.request(7n);
+    refresh.request(3n);
+    await delay(0);
+    assert.equal(reads, 0);
+    refresh.request(8n);
+    await delay(0);
+    assert.equal(reads, 1);
+    refresh.request(9n);
+    await delay(0);
+    assert.equal(reads, 1);
+    assert.deepEqual(t.pending(), []);
+  });
   it("retries a failed read and stops cleanly", async () => {
     const t = timers();
     let reads = 0;

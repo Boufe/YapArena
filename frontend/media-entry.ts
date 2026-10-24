@@ -677,6 +677,11 @@ if (root) {
       }
     });
   let publicRevision = "0";
+  // Room signals wait for the first status read, and stop after the status
+  // endpoint refuses this page (401/403/404) until a later read succeeds.
+  let firstRead = false,
+    heldSignal = 0n,
+    mediaUnavailable = false;
   async function refresh() {
     const pageEpoch = pageGeneration;
     try {
@@ -697,6 +702,7 @@ if (root) {
         return false;
       if (result.streamRevision !== undefined)
         publicRevision = result.streamRevision;
+      mediaUnavailable = false;
       currentState = result.state;
       eventStatus = result.eventStatus;
       serverOffset = new Date(result.serverNow).getTime() - Date.now();
@@ -842,6 +848,7 @@ if (root) {
           (error as MediaError).status,
         )
       ) {
+        mediaUnavailable = true;
         recovery.stop();
         rememberSpeaker(false);
         replayPlayer.stop();
@@ -942,6 +949,7 @@ if (root) {
       seatSide = undefined;
     }
     await refresh();
+    releaseHeldSignal();
     if (remembersSpeaker() && canJoinAsSpeaker()) {
       recovery.start("speaker");
       diagnostics.start("speaker", preparationComplete);
@@ -993,20 +1001,33 @@ if (root) {
       reschedulePoll();
       return publicRevision;
     },
+    // A read that already reported this room cursor covers the signal.
+    current: () => publicRevision,
     setTimer: (fn, ms) => window.setTimeout(fn, ms),
     clearTimer: (timer) => window.clearTimeout(timer),
   });
+  function releaseHeldSignal() {
+    firstRead = true;
+    if (heldSignal && !disposed && !mediaUnavailable)
+      signalRefresh.request(heldSignal);
+  }
   const stopWatching = watchRoom({
     room: id,
     topics: ["media"],
     events: window,
     signal(_topic, cursor) {
-      if (!disposed) signalRefresh.request(cursor);
+      if (disposed || mediaUnavailable) return;
+      if (!firstRead) {
+        if (cursor > heldSignal) heldSignal = cursor;
+        return;
+      }
+      signalRefresh.request(cursor);
     },
     health(live) {
       streamLive = live;
       // A dropped stream may have missed a signal: read once, then poll.
-      if (!live && !disposed && !document.hidden) void refresh();
+      if (!live && !disposed && !document.hidden && !mediaUnavailable)
+        void refresh();
       reschedulePoll();
     },
   });

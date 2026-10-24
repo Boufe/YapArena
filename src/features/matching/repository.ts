@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
+import { withTransaction } from "../../platform/transaction.ts";
 
 export class MatchConflictError extends Error {}
 export class MatchNotFoundError extends Error {}
@@ -62,24 +63,6 @@ const eventFields = `id, slug, status, publication_state AS "publicationState",
   ready_a_at AS "readyAAt", ready_b_at AS "readyBAt",
   live_started_at AS "liveStartedAt", live_ended_at AS "liveEndedAt",
   ended_reason AS "endedReason", created_at AS "createdAt", updated_at AS "updatedAt"`;
-
-async function transaction<T>(
-  database: Pool,
-  action: (client: PoolClient) => Promise<T>,
-) {
-  const client = await database.connect();
-  try {
-    await client.query("BEGIN");
-    const result = await action(client);
-    await client.query("COMMIT");
-    return result;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 async function lockUsers(client: PoolClient, ...ids: string[]) {
   for (const id of [...new Set(ids)].sort((a, b) =>
@@ -354,7 +337,7 @@ export function createMatchingRepository(database: Pool) {
         scheduledAt: Date;
       },
     ) {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         await lockUsers(client, userId);
         await profileFor(client, userId);
         await ensureAvailable(client, userId);
@@ -471,7 +454,7 @@ export function createMatchingRepository(database: Pool) {
       return result.rows;
     },
     async acceptRequest(userId: string, requestId: string) {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         const initial = await requestById(client, requestId);
         if (
           !initial ||
@@ -488,7 +471,7 @@ export function createMatchingRepository(database: Pool) {
       });
     },
     async joinQueue(userId: string, requestId: string) {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         const initial = await requestById(client, requestId);
         if (!initial || initial.kind !== "queue")
           throw new MatchNotFoundError("queue entry not found");
@@ -504,7 +487,7 @@ export function createMatchingRepository(database: Pool) {
       requestId: string,
       action: "declined" | "withdrawn",
     ) {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         const request = await requestById(client, requestId, true);
         if (
           !request ||
@@ -533,7 +516,7 @@ export function createMatchingRepository(database: Pool) {
       });
     },
     async expireRequests() {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         const expired = await client.query<{
           id: string;
           initiatorUserId: string;
@@ -620,7 +603,7 @@ export function createMatchingRepository(database: Pool) {
       return Boolean(result.rows[0]);
     },
     async markReady(userId: string, id: string) {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         const event = await client.query<EventRecord>(
           `SELECT ${eventFields} FROM debates WHERE id = $1 FOR UPDATE`,
           [id],
@@ -685,7 +668,7 @@ export function createMatchingRepository(database: Pool) {
       reason: string,
       scheduledAt?: Date,
     ) {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         const found = await client.query<EventRecord>(
           `SELECT ${eventFields} FROM debates WHERE id = $1 FOR UPDATE`,
           [id],

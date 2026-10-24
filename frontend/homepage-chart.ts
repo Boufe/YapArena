@@ -6,7 +6,7 @@ import type {
 } from "../src/features/discovery/homepage-chart.ts";
 // SVG setAttribute accepts numeric coordinates through existing WebIDL string coercion.
 interface NumericCoordinates {
-  setAttribute(name: "x1" | "x2" | "cx" | "cy", value: number): void;
+  setAttribute(name: "x" | "cx" | "cy" | "width", value: number): void;
 }
 interface ChartOptions {
   root: HTMLElement;
@@ -19,10 +19,75 @@ interface ChartOptions {
   deactivate(reset: () => void): void;
   pin(value: boolean): void;
 }
-/* global document, requestAnimationFrame, cancelAnimationFrame */
+/* global document, window, matchMedia, setTimeout, clearTimeout, IntersectionObserver, requestAnimationFrame, cancelAnimationFrame */
 import { formatValue } from "../src/features/discovery/homepage-chart.ts";
 import { changeText } from "../src/features/discovery/homepage-view.ts";
 import { html } from "../src/platform/html.ts";
+
+// Lines draw from left to right the first time each graph is seen on screen.
+const DRAW_MS = 1500;
+const drawn = new Set<string>();
+function reveal(svg: SVGSVGElement, key: string) {
+  svg.classList.remove("is-pending", "is-drawing");
+  if (
+    drawn.has(key) ||
+    !("IntersectionObserver" in window) ||
+    matchMedia("(prefers-reduced-motion: reduce)").matches
+  )
+    return () => {};
+  svg.classList.add("is-pending");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      observer.disconnect();
+      drawn.add(key);
+      svg.classList.replace("is-pending", "is-drawing");
+      timer = setTimeout(() => svg.classList.remove("is-drawing"), DRAW_MS);
+    },
+    { threshold: 0.3 },
+  );
+  observer.observe(svg);
+  return () => {
+    observer.disconnect();
+    clearTimeout(timer);
+  };
+}
+let sparkObserver: IntersectionObserver | undefined;
+export function revealSparks(container: ParentNode) {
+  sparkObserver?.disconnect();
+  sparkObserver = undefined;
+  if (
+    !("IntersectionObserver" in window) ||
+    matchMedia("(prefers-reduced-motion: reduce)").matches
+  )
+    return;
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const spark = entry.target as SVGSVGElement;
+        observer.unobserve(spark);
+        drawn.add(spark.dataset.drawKey!);
+        spark.classList.replace("is-pending", "is-drawing");
+        setTimeout(() => spark.classList.remove("is-drawing"), DRAW_MS);
+      }
+    },
+    { threshold: 0.6 },
+  );
+  container
+    .querySelectorAll<SVGSVGElement>(".ya-spark:has(.ya-spark-line)")
+    .forEach((spark) => {
+      const key =
+        "spark:" +
+        (spark.closest<HTMLElement>("[data-expand]")?.dataset.expand ?? "");
+      if (drawn.has(key)) return;
+      spark.dataset.drawKey = key;
+      spark.classList.add("is-pending");
+      observer.observe(spark);
+    });
+  sparkObserver = observer;
+}
 export function bindHomepageChart({
   root,
   svg,
@@ -42,9 +107,12 @@ export function bindHomepageChart({
     )!,
     changeEl = root.querySelector<HTMLElement>(prefix + "change")!;
   const tooltip = root.querySelector<HTMLElement>("#ya-chart-tooltip")!,
-    guide = svg.querySelector<SVGLineElement & NumericCoordinates>(
-      "[data-chart-hover-guide]",
-    )!,
+    clip = svg.querySelector<SVGRectElement & NumericCoordinates>(
+      "[data-chart-clip]",
+    ),
+    dateEl = svg.querySelector<SVGTextElement & NumericCoordinates>(
+      "[data-chart-hover-date]",
+    ),
     marker = svg.querySelector<SVGCircleElement & NumericCoordinates>(
       "[data-chart-hover-marker]",
     )!,
@@ -53,6 +121,10 @@ export function bindHomepageChart({
     )!;
   const lifecycle = new AbortController(),
     signal = lifecycle.signal;
+  const stopReveal = reveal(
+    svg,
+    [detail ? "detail" : "main", m.id, metric, range].join(":"),
+  );
   let frame = 0,
     pinned = false,
     pendingX = 0,
@@ -87,6 +159,7 @@ export function bindHomepageChart({
     pinned = false;
     pin(false);
     svg.classList.remove("is-scrubbing");
+    clip?.setAttribute("width", c.w);
     if (active) {
       tooltip.classList.remove("is-visible");
       tooltip.setAttribute("aria-hidden", "true");
@@ -134,8 +207,15 @@ export function bindHomepageChart({
         minute: "2-digit",
         timeZone: "UTC",
       });
-    guide.setAttribute("x1", chartX);
-    guide.setAttribute("x2", chartX);
+    clip?.setAttribute("width", chartX);
+    if (dateEl) {
+      dateEl.textContent = stamp;
+      const half = dateEl.getComputedTextLength() / 2;
+      dateEl.setAttribute(
+        "x",
+        Math.max(c.left + half, Math.min(c.w - c.right - half, chartX)),
+      );
+    }
     [marker, halo].forEach((node) => {
       node.setAttribute("cx", chartX);
       node.setAttribute("cy", chartY);
@@ -156,10 +236,8 @@ export function bindHomepageChart({
         ? "YC / YES contract"
         : (delta >= 0 ? "↗ " : "↘ ") + Math.abs(delta).toFixed(1) + " pp";
     changeEl.classList.toggle("down", metric !== "price" && delta < 0);
-    tooltip.querySelector("span")!.textContent = stamp;
     tooltip.querySelector("strong")!.textContent =
-      formatValue(value, metric) +
-      (metric === "price" ? " YC" : " endorsement");
+      formatValue(value, metric) + (metric === "price" ? " YC" : "");
     tooltip.classList.add("is-visible");
     tooltip.setAttribute("aria-hidden", "false");
     const rect = svg.getBoundingClientRect(),
@@ -167,10 +245,11 @@ export function bindHomepageChart({
       tip = tooltip.getBoundingClientRect(),
       sx = rect.left - base.left + (chartX * rect.width) / c.w,
       sy = rect.top - base.top + (chartY * rect.height) / c.h;
+    // The small value label sits beside the marker, flipping left near the edge.
     tooltip.style.left =
-      Math.max(8, Math.min(base.width - tip.width - 8, sx - tip.width / 2)) +
+      (sx + 12 + tip.width > base.width - 8 ? sx - 12 - tip.width : sx + 12) +
       "px";
-    tooltip.style.top = Math.max(8, sy - tip.height - 17) + "px";
+    tooltip.style.top = sy - tip.height / 2 + "px";
     slider.value = String(Math.round(fraction * 1000));
     slider.setAttribute(
       "aria-valuetext",
@@ -243,6 +322,7 @@ export function bindHomepageChart({
   latest();
   return {
     destroy() {
+      stopReveal();
       lifecycle.abort();
       reset();
     },

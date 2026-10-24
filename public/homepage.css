@@ -1,5 +1,5 @@
 #ya-market-v4 {
-  --ya-bg: #050c15;
+  --ya-bg: #000000;
   --ya-panel: #0b1925;
   --ya-raised: #172634;
   --ya-text: #f0f4fa;
@@ -11,6 +11,7 @@
   --ya-green-bg: #102e2a;
   --ya-red: #fa9b8c;
   --ya-red-bg: #34252a;
+  --ya-chart: #f0f4fa;
   color-scheme: dark;
   background: var(--ya-bg);
   color: var(--ya-text);
@@ -369,8 +370,8 @@
   font-size: 11px;
 }
 #ya-market-v4 .ya-chart .ya-linepath {
-  stroke: var(--ya-accent);
-  stroke-width: 2.5;
+  stroke: var(--ya-chart);
+  stroke-width: 2;
   fill: none;
   stroke-linejoin: round;
   stroke-linecap: round;
@@ -663,6 +664,7 @@
 #ya-market-v4 .ya-spark {
   width: 86px;
   height: 35px;
+  overflow: visible;
 }
 #ya-market-v4 .ya-cardlabel {
   font-size: 11px;
@@ -1349,29 +1351,85 @@
   position: absolute;
   z-index: 20;
   pointer-events: none;
-  background: var(--ya-raised);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ya-bg);
   color: var(--ya-text);
   border: 1px solid var(--ya-line);
-  padding: 8px 10px;
-  border-radius: 7px;
-  box-shadow: 0 4px 14px #0003;
+  padding: 3px 8px 3px 5px;
+  border-radius: 5px;
   white-space: nowrap;
   font-size: 11px;
   line-height: 1.4;
   opacity: 0;
   transition: opacity 0.12s;
 }
+#ya-market-v4 .ya-chart-tooltip::before {
+  content: "";
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--ya-chart);
+}
 #ya-market-v4 .ya-chart-tooltip.is-visible {
   opacity: 1;
 }
 #ya-market-v4 .ya-chart-tooltip strong {
-  display: block;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-#ya-market-v4 .ya-chart-tooltip span {
-  color: var(--ya-sub);
+/* Graph lines draw left to right on first view; the end dot pulses while live. */
+#ya-market-v4 .ya-chart.is-pending .ya-linepath,
+#ya-market-v4 .ya-spark.is-pending .ya-spark-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+#ya-market-v4 .ya-chart.is-drawing .ya-linepath,
+#ya-market-v4 .ya-spark.is-drawing .ya-spark-line {
+  stroke-dasharray: 1;
+  animation: ya-line-draw 1.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+#ya-market-v4 .is-pending .ya-endpoint {
+  opacity: 0;
+}
+#ya-market-v4 .is-drawing .ya-endpoint {
+  animation: ya-endpoint-in 0.25s 1.1s both;
+}
+#ya-market-v4 .ya-endpoint-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ya-endpoint-pulse 1.8s ease-out infinite;
+}
+@keyframes ya-line-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes ya-endpoint-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ya-endpoint-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(3.4);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #ya-market-v4 .ya-endpoint-pulse {
+    animation: none;
+    opacity: 0;
+  }
 }
 #ya-market-v4 .ya-scrub-control {
   position: absolute;
@@ -1726,7 +1784,10 @@
 /* Local resets replace export-shell defaults; the product styles above are
    reproduced from the supplied #ya-market-v4 reference. */
 body.arena-market-home {
-  background: #050c15;
+  background: #000000;
+}
+body.arena-market-home .site-header {
+  background: #000000;
 }
 #ya-market-v4 h1 {
   line-height: 1.25;

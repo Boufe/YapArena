@@ -147,7 +147,11 @@ exports[`renders the shared homepage fragments 1`] = `
 </div>
 </li>
 </ul>\\n<svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,25.53846153846154 6.6,27.692307692307693 12.2,23.384615384615383 17.8,25.53846153846154 23.4,21.23076923076923 29,23.384615384615383 34.6,25.53846153846154 40.2,19.076923076923077 45.8,21.23076923076923 51.4,16.923076923076923 57,16.923076923076923 62.6,19.076923076923077 68.2,12.615384615384617 73.8,14.769230769230766 79.4,10.46153846153846 85,8.307692307692307" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,25.53846153846154 6.6,27.692307692307693 12.2,23.384615384615383 17.8,25.53846153846154 23.4,21.23076923076923 29,23.384615384615383 34.6,25.53846153846154 40.2,19.076923076923077 45.8,21.23076923076923 51.4,16.923076923076923 57,16.923076923076923 62.6,19.076923076923077 68.2,12.615384615384617 73.8,14.769230769230766 79.4,10.46153846153846 85,8.307692307692307" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="8.307692307692307" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="8.307692307692307" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>\\n<a href="#idea-ai" class="ya-marketcard" data-expand="ai" aria-expanded="false">
 <span class="ya-cardtop">
 <span>Technology</span>
@@ -159,7 +163,11 @@ exports[`renders the shared homepage fragments 1`] = `
 <strong>68%</strong> <span class="">↗ 8 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,25.53846153846154 6.6,27.692307692307693 12.2,23.384615384615383 17.8,25.53846153846154 23.4,21.23076923076923 29,23.384615384615383 34.6,25.53846153846154 40.2,19.076923076923077 45.8,21.23076923076923 51.4,16.923076923076923 57,16.923076923076923 62.6,19.076923076923077 68.2,12.615384615384617 73.8,14.769230769230766 79.4,10.46153846153846 85,8.307692307692307" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,25.53846153846154 6.6,27.692307692307693 12.2,23.384615384615383 17.8,25.53846153846154 23.4,21.23076923076923 29,23.384615384615383 34.6,25.53846153846154 40.2,19.076923076923077 45.8,21.23076923076923 51.4,16.923076923076923 57,16.923076923076923 62.6,19.076923076923077 68.2,12.615384615384617 73.8,14.769230769230766 79.4,10.46153846153846 85,8.307692307692307" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="8.307692307692307" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="8.307692307692307" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -182,7 +190,11 @@ exports[`renders the shared homepage fragments 1`] = `
 <strong>68%</strong> <span class="">↗ 8 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,25.53846153846154 6.6,27.692307692307693 12.2,23.384615384615383 17.8,25.53846153846154 23.4,21.23076923076923 29,23.384615384615383 34.6,25.53846153846154 40.2,19.076923076923077 45.8,21.23076923076923 51.4,16.923076923076923 57,16.923076923076923 62.6,19.076923076923077 68.2,12.615384615384617 73.8,14.769230769230766 79.4,10.46153846153846 85,8.307692307692307" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,25.53846153846154 6.6,27.692307692307693 12.2,23.384615384615383 17.8,25.53846153846154 23.4,21.23076923076923 29,23.384615384615383 34.6,25.53846153846154 40.2,19.076923076923077 45.8,21.23076923076923 51.4,16.923076923076923 57,16.923076923076923 62.6,19.076923076923077 68.2,12.615384615384617 73.8,14.769230769230766 79.4,10.46153846153846 85,8.307692307692307" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="8.307692307692307" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="8.307692307692307" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -245,19 +257,23 @@ exports[`renders the shared homepage fragments 1`] = `
 <text x="761" y="83.5">64%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">71%</text>
-<path d="M8,106.86666666666666 L57.6,114.4 L107.2,99.33333333333333 L156.8,106.86666666666666 L206.4,91.8 L256,99.33333333333333 L305.6,106.86666666666666 L355.2,84.26666666666667 L404.8,91.8 L454.4,76.73333333333333 L504,76.73333333333333 L553.5999999999999,84.26666666666667 L603.2,61.666666666666664 L652.8000000000001,69.2 L702.4,54.13333333333333 L752,46.6 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,106.86666666666666 L57.6,114.4 L107.2,99.33333333333333 L156.8,106.86666666666666 L206.4,91.8 L256,99.33333333333333 L305.6,106.86666666666666 L355.2,84.26666666666667 L404.8,91.8 L454.4,76.73333333333333 L504,76.73333333333333 L553.5999999999999,84.26666666666667 L603.2,61.666666666666664 L652.8000000000001,69.2 L702.4,54.13333333333333 L752,46.6"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,106.86666666666666 L57.6,114.4 L107.2,99.33333333333333 L156.8,106.86666666666666 L206.4,91.8 L256,99.33333333333333 L305.6,106.86666666666666 L355.2,84.26666666666667 L404.8,91.8 L454.4,76.73333333333333 L504,76.73333333333333 L553.5999999999999,84.26666666666667 L603.2,61.666666666666664 L652.8000000000001,69.2 L702.4,54.13333333333333 L752,46.6" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="256" y="161" text-anchor="middle">08:00</text>
 <text x="504" y="161" text-anchor="middle">16:00</text>
 <text x="752" y="161" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="137" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="76.73333333333333" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="46.6" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="46.6" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="46.6" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>
 </svg>
@@ -308,19 +324,23 @@ exports[`renders the shared homepage fragments 1`] = `
 <text x="761" y="146">64%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">71%</text>
-<path d="M8,198.53333333333333 L57.6,214.4 L107.2,182.66666666666666 L156.8,198.53333333333333 L206.4,166.79999999999998 L256,182.66666666666666 L305.6,198.53333333333333 L355.2,150.93333333333334 L404.8,166.79999999999998 L454.4,135.06666666666666 L504,135.06666666666666 L553.5999999999999,150.93333333333334 L603.2,103.33333333333333 L652.8000000000001,119.2 L702.4,87.46666666666667 L752,71.6 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,198.53333333333333 L57.6,214.4 L107.2,182.66666666666666 L156.8,198.53333333333333 L206.4,166.79999999999998 L256,182.66666666666666 L305.6,198.53333333333333 L355.2,150.93333333333334 L404.8,166.79999999999998 L454.4,135.06666666666666 L504,135.06666666666666 L553.5999999999999,150.93333333333334 L603.2,103.33333333333333 L652.8000000000001,119.2 L702.4,87.46666666666667 L752,71.6"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,198.53333333333333 L57.6,214.4 L107.2,182.66666666666666 L156.8,198.53333333333333 L206.4,166.79999999999998 L256,182.66666666666666 L305.6,198.53333333333333 L355.2,150.93333333333334 L404.8,166.79999999999998 L454.4,135.06666666666666 L504,135.06666666666666 L553.5999999999999,150.93333333333334 L603.2,103.33333333333333 L652.8000000000001,119.2 L702.4,87.46666666666667 L752,71.6" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="135.06666666666666" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="71.6" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="71.6" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="71.6" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -497,19 +517,23 @@ exports[`renders the shared homepage fragments 1`] = `
 <text x="761" y="146">64%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">71%</text>
-<path d="M8,198.53333333333333 L57.6,214.4 L107.2,182.66666666666666 L156.8,198.53333333333333 L206.4,166.79999999999998 L256,182.66666666666666 L305.6,198.53333333333333 L355.2,150.93333333333334 L404.8,166.79999999999998 L454.4,135.06666666666666 L504,135.06666666666666 L553.5999999999999,150.93333333333334 L603.2,103.33333333333333 L652.8000000000001,119.2 L702.4,87.46666666666667 L752,71.6 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,198.53333333333333 L57.6,214.4 L107.2,182.66666666666666 L156.8,198.53333333333333 L206.4,166.79999999999998 L256,182.66666666666666 L305.6,198.53333333333333 L355.2,150.93333333333334 L404.8,166.79999999999998 L454.4,135.06666666666666 L504,135.06666666666666 L553.5999999999999,150.93333333333334 L603.2,103.33333333333333 L652.8000000000001,119.2 L702.4,87.46666666666667 L752,71.6"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,198.53333333333333 L57.6,214.4 L107.2,182.66666666666666 L156.8,198.53333333333333 L206.4,166.79999999999998 L256,182.66666666666666 L305.6,198.53333333333333 L355.2,150.93333333333334 L404.8,166.79999999999998 L454.4,135.06666666666666 L504,135.06666666666666 L553.5999999999999,150.93333333333334 L603.2,103.33333333333333 L652.8000000000001,119.2 L702.4,87.46666666666667 L752,71.6" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="135.06666666666666" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="71.6" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="71.6" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="71.6" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -2101,19 +2125,23 @@ exports[`renders the shared homepage fragments 12`] = `
 <text x="761" y="83.5">64%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">71%</text>
-<path d="M8,106.86666666666666 L57.6,114.4 L107.2,99.33333333333333 L156.8,106.86666666666666 L206.4,91.8 L256,99.33333333333333 L305.6,106.86666666666666 L355.2,84.26666666666667 L404.8,91.8 L454.4,76.73333333333333 L504,76.73333333333333 L553.5999999999999,84.26666666666667 L603.2,61.666666666666664 L652.8000000000001,69.2 L702.4,54.13333333333333 L752,46.6 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,106.86666666666666 L57.6,114.4 L107.2,99.33333333333333 L156.8,106.86666666666666 L206.4,91.8 L256,99.33333333333333 L305.6,106.86666666666666 L355.2,84.26666666666667 L404.8,91.8 L454.4,76.73333333333333 L504,76.73333333333333 L553.5999999999999,84.26666666666667 L603.2,61.666666666666664 L652.8000000000001,69.2 L702.4,54.13333333333333 L752,46.6"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,106.86666666666666 L57.6,114.4 L107.2,99.33333333333333 L156.8,106.86666666666666 L206.4,91.8 L256,99.33333333333333 L305.6,106.86666666666666 L355.2,84.26666666666667 L404.8,91.8 L454.4,76.73333333333333 L504,76.73333333333333 L553.5999999999999,84.26666666666667 L603.2,61.666666666666664 L652.8000000000001,69.2 L702.4,54.13333333333333 L752,46.6" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="256" y="161" text-anchor="middle">08:00</text>
 <text x="504" y="161" text-anchor="middle">16:00</text>
 <text x="752" y="161" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="137" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="76.73333333333333" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="46.6" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="46.6" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="46.6" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>\\n<title>Sample participant endorsement, in percent</title>
 <line x1="8" y1="262" x2="754" y2="262" stroke="var(--ya-line)"/>
@@ -2122,19 +2150,23 @@ exports[`renders the shared homepage fragments 12`] = `
 <text x="761" y="146">64%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">71%</text>
-<path d="M8,198.53333333333333 L57.6,214.4 L107.2,182.66666666666666 L156.8,198.53333333333333 L206.4,166.79999999999998 L256,182.66666666666666 L305.6,198.53333333333333 L355.2,150.93333333333334 L404.8,166.79999999999998 L454.4,135.06666666666666 L504,135.06666666666666 L553.5999999999999,150.93333333333334 L603.2,103.33333333333333 L652.8000000000001,119.2 L702.4,87.46666666666667 L752,71.6 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,198.53333333333333 L57.6,214.4 L107.2,182.66666666666666 L156.8,198.53333333333333 L206.4,166.79999999999998 L256,182.66666666666666 L305.6,198.53333333333333 L355.2,150.93333333333334 L404.8,166.79999999999998 L454.4,135.06666666666666 L504,135.06666666666666 L553.5999999999999,150.93333333333334 L603.2,103.33333333333333 L652.8000000000001,119.2 L702.4,87.46666666666667 L752,71.6"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,198.53333333333333 L57.6,214.4 L107.2,182.66666666666666 L156.8,198.53333333333333 L206.4,166.79999999999998 L256,182.66666666666666 L305.6,198.53333333333333 L355.2,150.93333333333334 L404.8,166.79999999999998 L454.4,135.06666666666666 L504,135.06666666666666 L553.5999999999999,150.93333333333334 L603.2,103.33333333333333 L652.8000000000001,119.2 L702.4,87.46666666666667 L752,71.6" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="135.06666666666666" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="71.6" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="71.6" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="71.6" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>\\n<title>Sample participant endorsement, in percent</title>
 <line x1="8" y1="137" x2="754" y2="137" stroke="var(--ya-line)"/>
@@ -2143,17 +2175,23 @@ exports[`renders the shared homepage fragments 12`] = `
 <text x="761" y="83.5">63%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">71%</text>
-<path d="M8,97.11764705882354 L57.6,86.849372261068 L107.2,67.48517434790034 L156.8,80.56757247090164 L206.4,81.07196596049548 L256,100.60179278711917 L305.6,112.71212752416322 L355.2,89.35649854208063 L404.8,87.2904730835349 L454.4,65.74306067414497 L504,62.216157068584714 L553.5999999999999,70.63502583485206 L603.2,55.04379346671441 L652.8000000000001,65.01507980797854 L702.4,52.147539151008644 L752,43.94117647058823 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,97.11764705882354 L57.6,86.849372261068 L107.2,67.48517434790034 L156.8,80.56757247090164 L206.4,81.07196596049548 L256,100.60179278711917 L305.6,112.71212752416322 L355.2,89.35649854208063 L404.8,87.2904730835349 L454.4,65.74306067414497 L504,62.216157068584714 L553.5999999999999,70.63502583485206 L603.2,55.04379346671441 L652.8000000000001,65.01507980797854 L702.4,52.147539151008644 L752,43.94117647058823"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,97.11764705882354 L57.6,86.849372261068 L107.2,67.48517434790034 L156.8,80.56757247090164 L206.4,81.07196596049548 L256,100.60179278711917 L305.6,112.71212752416322 L355.2,89.35649854208063 L404.8,87.2904730835349 L454.4,65.74306067414497 L504,62.216157068584714 L553.5999999999999,70.63502583485206 L603.2,55.04379346671441 L652.8000000000001,65.01507980797854 L702.4,52.147539151008644 L752,43.94117647058823" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">Oct 9</text>
 <text x="256" y="161" text-anchor="middle">Oct 11</text>
 <text x="504" y="161" text-anchor="middle">Oct 14</text>
 <text x="752" y="161" text-anchor="end">Oct 16</text>
-<circle class="ya-endpoint" cx="752" cy="43.94117647058823" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="43.94117647058823" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="43.94117647058823" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>\\n<title>Sample participant endorsement, in percent</title>
 <line x1="8" y1="262" x2="754" y2="262" stroke="var(--ya-line)"/>
@@ -2162,17 +2200,23 @@ exports[`renders the shared homepage fragments 12`] = `
 <text x="761" y="146">63%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">71%</text>
-<path d="M8,178 L57.6,156.3730141427804 L107.2,115.58824331681663 L156.8,143.14232077942114 L206.4,144.20467166900818 L256,185.33828923304748 L305.6,210.8450119535473 L355.2,161.65351020367424 L404.8,157.30205835293194 L454.4,111.91901274731421 L504,104.49066710020497 L553.5999999999999,122.2224437937592 L603.2,89.3842729652923 L652.8000000000001,110.38574331237959 L702.4,83.28419750389432 L752,66 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,178 L57.6,156.3730141427804 L107.2,115.58824331681663 L156.8,143.14232077942114 L206.4,144.20467166900818 L256,185.33828923304748 L305.6,210.8450119535473 L355.2,161.65351020367424 L404.8,157.30205835293194 L454.4,111.91901274731421 L504,104.49066710020497 L553.5999999999999,122.2224437937592 L603.2,89.3842729652923 L652.8000000000001,110.38574331237959 L702.4,83.28419750389432 L752,66"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,178 L57.6,156.3730141427804 L107.2,115.58824331681663 L156.8,143.14232077942114 L206.4,144.20467166900818 L256,185.33828923304748 L305.6,210.8450119535473 L355.2,161.65351020367424 L404.8,157.30205835293194 L454.4,111.91901274731421 L504,104.49066710020497 L553.5999999999999,122.2224437937592 L603.2,89.3842729652923 L652.8000000000001,110.38574331237959 L702.4,83.28419750389432 L752,66" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">Oct 9</text>
 <text x="256" y="286" text-anchor="middle">Oct 11</text>
 <text x="504" y="286" text-anchor="middle">Oct 14</text>
 <text x="752" y="286" text-anchor="end">Oct 16</text>
-<circle class="ya-endpoint" cx="752" cy="66" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="66" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="66" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>\\n<title>Sample participant endorsement, in percent</title>
 <line x1="8" y1="137" x2="754" y2="137" stroke="var(--ya-line)"/>
@@ -2181,17 +2225,23 @@ exports[`renders the shared homepage fragments 12`] = `
 <text x="761" y="83.5">62%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">71%</text>
-<path d="M8,89.42105263157895 L57.6,68.88256972456699 L107.2,47.48336509737024 L156.8,63.50712005312225 L206.4,73.21794670130208 L256,99.33701765351555 L305.6,113.83872599178186 L355.2,90.65030692773149 L404.8,82.95481969658755 L454.4,58.13716079241116 L504,52.61477225212598 L553.5999999999999,61.336422030886794 L603.2,50.30541345446075 L652.8000000000001,61.457822330913814 L702.4,50.231015249605576 L752,41.84210526315789 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,89.42105263157895 L57.6,68.88256972456699 L107.2,47.48336509737024 L156.8,63.50712005312225 L206.4,73.21794670130208 L256,99.33701765351555 L305.6,113.83872599178186 L355.2,90.65030692773149 L404.8,82.95481969658755 L454.4,58.13716079241116 L504,52.61477225212598 L553.5999999999999,61.336422030886794 L603.2,50.30541345446075 L652.8000000000001,61.457822330913814 L702.4,50.231015249605576 L752,41.84210526315789"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,89.42105263157895 L57.6,68.88256972456699 L107.2,47.48336509737024 L156.8,63.50712005312225 L206.4,73.21794670130208 L256,99.33701765351555 L305.6,113.83872599178186 L355.2,90.65030692773149 L404.8,82.95481969658755 L454.4,58.13716079241116 L504,52.61477225212598 L553.5999999999999,61.336422030886794 L603.2,50.30541345446075 L652.8000000000001,61.457822330913814 L702.4,50.231015249605576 L752,41.84210526315789" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">Sep 16</text>
 <text x="256" y="161" text-anchor="middle">Sep 26</text>
 <text x="504" y="161" text-anchor="middle">Oct 6</text>
 <text x="752" y="161" text-anchor="end">Oct 16</text>
-<circle class="ya-endpoint" cx="752" cy="41.84210526315789" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="41.84210526315789" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="41.84210526315789" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>\\n<title>Sample participant endorsement, in percent</title>
 <line x1="8" y1="262" x2="754" y2="262" stroke="var(--ya-line)"/>
@@ -2200,17 +2250,23 @@ exports[`renders the shared homepage fragments 12`] = `
 <text x="761" y="146">62%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">71%</text>
-<path d="M8,161.78947368421052 L57.6,118.53143003935351 L107.2,73.46053887764705 L156.8,107.20968648356722 L206.4,127.66257800805218 L256,182.6744265622717 L305.6,213.2178476641069 L355.2,164.37852255575305 L404.8,148.1703282105118 L454.4,95.89950680171553 L504,84.26828138058391 L553.5999999999999,102.6377738349651 L603.2,79.4043221430235 L652.8000000000001,102.89346650227866 L702.4,79.24762503899228 L752,61.57894736842105 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,161.78947368421052 L57.6,118.53143003935351 L107.2,73.46053887764705 L156.8,107.20968648356722 L206.4,127.66257800805218 L256,182.6744265622717 L305.6,213.2178476641069 L355.2,164.37852255575305 L404.8,148.1703282105118 L454.4,95.89950680171553 L504,84.26828138058391 L553.5999999999999,102.6377738349651 L603.2,79.4043221430235 L652.8000000000001,102.89346650227866 L702.4,79.24762503899228 L752,61.57894736842105"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,161.78947368421052 L57.6,118.53143003935351 L107.2,73.46053887764705 L156.8,107.20968648356722 L206.4,127.66257800805218 L256,182.6744265622717 L305.6,213.2178476641069 L355.2,164.37852255575305 L404.8,148.1703282105118 L454.4,95.89950680171553 L504,84.26828138058391 L553.5999999999999,102.6377738349651 L603.2,79.4043221430235 L652.8000000000001,102.89346650227866 L702.4,79.24762503899228 L752,61.57894736842105" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">Sep 16</text>
 <text x="256" y="286" text-anchor="middle">Sep 26</text>
 <text x="504" y="286" text-anchor="middle">Oct 6</text>
 <text x="752" y="286" text-anchor="end">Oct 16</text>
-<circle class="ya-endpoint" cx="752" cy="61.57894736842105" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="61.57894736842105" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="61.57894736842105" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>\\n<title>Sample YES execution prices, in Yap Coins</title>
 <line x1="8" y1="137" x2="754" y2="137" stroke="var(--ya-line)"/>
@@ -2219,19 +2275,23 @@ exports[`renders the shared homepage fragments 12`] = `
 <text x="761" y="83.50000000000001">0.36</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">0.52</text>
-<path d="M8,98.15625 L57.6,73.4375 L107.2,108.75 L156.8,59.312500000000014 L206.4,87.5625 L256,45.1875 L305.6,98.15625 L355.2,69.90625 L404.8,115.8125 L454.4,84.03125000000001 L504,59.312500000000014 L553.5999999999999,101.68750000000001 L603.2,73.4375 L652.8000000000001,112.28125 L702.4,66.375 L752,87.5625 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,98.15625 L57.6,73.4375 L107.2,108.75 L156.8,59.312500000000014 L206.4,87.5625 L256,45.1875 L305.6,98.15625 L355.2,69.90625 L404.8,115.8125 L454.4,84.03125000000001 L504,59.312500000000014 L553.5999999999999,101.68750000000001 L603.2,73.4375 L652.8000000000001,112.28125 L702.4,66.375 L752,87.5625"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,98.15625 L57.6,73.4375 L107.2,108.75 L156.8,59.312500000000014 L206.4,87.5625 L256,45.1875 L305.6,98.15625 L355.2,69.90625 L404.8,115.8125 L454.4,84.03125000000001 L504,59.312500000000014 L553.5999999999999,101.68750000000001 L603.2,73.4375 L652.8000000000001,112.28125 L702.4,66.375 L752,87.5625" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="256" y="161" text-anchor="middle">08:00</text>
 <text x="504" y="161" text-anchor="middle">16:00</text>
 <text x="752" y="161" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="137" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="84.03125000000001" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="87.5625" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="87.5625" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="87.5625" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>\\n<title>Sample YES execution prices, in Yap Coins</title>
 <line x1="8" y1="262" x2="754" y2="262" stroke="var(--ya-line)"/>
@@ -2240,19 +2300,23 @@ exports[`renders the shared homepage fragments 12`] = `
 <text x="761" y="146.00000000000003">0.36</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">0.52</text>
-<path d="M8,180.1875 L57.6,128.125 L107.2,202.5 L156.8,98.37500000000003 L206.4,157.875 L256,68.625 L305.6,180.1875 L355.2,120.6875 L404.8,217.375 L454.4,150.43750000000003 L504,98.37500000000003 L553.5999999999999,187.62500000000003 L603.2,128.125 L652.8000000000001,209.9375 L702.4,113.25 L752,157.875 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,180.1875 L57.6,128.125 L107.2,202.5 L156.8,98.37500000000003 L206.4,157.875 L256,68.625 L305.6,180.1875 L355.2,120.6875 L404.8,217.375 L454.4,150.43750000000003 L504,98.37500000000003 L553.5999999999999,187.62500000000003 L603.2,128.125 L652.8000000000001,209.9375 L702.4,113.25 L752,157.875"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,180.1875 L57.6,128.125 L107.2,202.5 L156.8,98.37500000000003 L206.4,157.875 L256,68.625 L305.6,180.1875 L355.2,120.6875 L404.8,217.375 L454.4,150.43750000000003 L504,98.37500000000003 L553.5999999999999,187.62500000000003 L603.2,128.125 L652.8000000000001,209.9375 L702.4,113.25 L752,157.875" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="150.43750000000003" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="157.875" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="157.875" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="157.875" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>\\n<title>Sample YES execution prices, in Yap Coins</title>
 <line x1="8" y1="137" x2="754" y2="137" stroke="var(--ya-line)"/>
@@ -2261,17 +2325,23 @@ exports[`renders the shared homepage fragments 12`] = `
 <text x="761" y="83.50000000000001">0.35</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">0.52</text>
-<path d="M8,93.79411764705883 L57.6,53.74949036177196 L107.2,85.63224542977022 L156.8,54.421195133394434 L206.4,98.91506152408161 L256,63.0632546535767 L305.6,99.36599140526094 L355.2,54.10479664907825 L404.8,90.68279731733374 L454.4,72.28187255900264 L504,68.08371509361744 L553.5999999999999,117.0586282365111 L603.2,81.22930701189102 L652.8000000000001,98.70961026563346 L702.4,44.12847684820228 L752,83.8235294117647 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,93.79411764705883 L57.6,53.74949036177196 L107.2,85.63224542977022 L156.8,54.421195133394434 L206.4,98.91506152408161 L256,63.0632546535767 L305.6,99.36599140526094 L355.2,54.10479664907825 L404.8,90.68279731733374 L454.4,72.28187255900264 L504,68.08371509361744 L553.5999999999999,117.0586282365111 L603.2,81.22930701189102 L652.8000000000001,98.70961026563346 L702.4,44.12847684820228 L752,83.8235294117647"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,93.79411764705883 L57.6,53.74949036177196 L107.2,85.63224542977022 L156.8,54.421195133394434 L206.4,98.91506152408161 L256,63.0632546535767 L305.6,99.36599140526094 L355.2,54.10479664907825 L404.8,90.68279731733374 L454.4,72.28187255900264 L504,68.08371509361744 L553.5999999999999,117.0586282365111 L603.2,81.22930701189102 L652.8000000000001,98.70961026563346 L702.4,44.12847684820228 L752,83.8235294117647" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">Oct 9</text>
 <text x="256" y="161" text-anchor="middle">Oct 11</text>
 <text x="504" y="161" text-anchor="middle">Oct 14</text>
 <text x="752" y="161" text-anchor="end">Oct 16</text>
-<circle class="ya-endpoint" cx="752" cy="83.8235294117647" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="83.8235294117647" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="83.8235294117647" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>\\n<title>Sample YES execution prices, in Yap Coins</title>
 <line x1="8" y1="262" x2="754" y2="262" stroke="var(--ya-line)"/>
@@ -2280,17 +2350,23 @@ exports[`renders the shared homepage fragments 12`] = `
 <text x="761" y="146.00000000000003">0.35</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">0.52</text>
-<path d="M8,171 L57.6,86.65821863806838 L107.2,153.80950807332135 L156.8,88.07295966148561 L206.4,181.78570480293294 L256,106.2748195358518 L305.6,182.7354509243549 L355.2,87.40656285381084 L404.8,164.44695364181794 L454.4,125.69102361984626 L504,116.84888665735355 L553.5999999999999,219.99958867512956 L603.2,144.53606255601824 L652.8000000000001,181.35298445328107 L702.4,66.39449106081543 L752,149.99999999999997 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,171 L57.6,86.65821863806838 L107.2,153.80950807332135 L156.8,88.07295966148561 L206.4,181.78570480293294 L256,106.2748195358518 L305.6,182.7354509243549 L355.2,87.40656285381084 L404.8,164.44695364181794 L454.4,125.69102361984626 L504,116.84888665735355 L553.5999999999999,219.99958867512956 L603.2,144.53606255601824 L652.8000000000001,181.35298445328107 L702.4,66.39449106081543 L752,149.99999999999997"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,171 L57.6,86.65821863806838 L107.2,153.80950807332135 L156.8,88.07295966148561 L206.4,181.78570480293294 L256,106.2748195358518 L305.6,182.7354509243549 L355.2,87.40656285381084 L404.8,164.44695364181794 L454.4,125.69102361984626 L504,116.84888665735355 L553.5999999999999,219.99958867512956 L603.2,144.53606255601824 L652.8000000000001,181.35298445328107 L702.4,66.39449106081543 L752,149.99999999999997" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">Oct 9</text>
 <text x="256" y="286" text-anchor="middle">Oct 11</text>
 <text x="504" y="286" text-anchor="middle">Oct 14</text>
 <text x="752" y="286" text-anchor="end">Oct 16</text>
-<circle class="ya-endpoint" cx="752" cy="149.99999999999997" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="149.99999999999997" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="149.99999999999997" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>\\n<title>Sample YES execution prices, in Yap Coins</title>
 <line x1="8" y1="137" x2="754" y2="137" stroke="var(--ya-line)"/>
@@ -2299,17 +2375,23 @@ exports[`renders the shared homepage fragments 12`] = `
 <text x="761" y="83.5">0.36</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">0.55</text>
-<path d="M8,65.63157894736842 L57.6,58.4857472202369 L107.2,116.66436645521766 L156.8,92.09714529364484 L206.4,105.88466556778637 L256,42.32794027438301 L305.6,66.81598884434439 L355.2,49.16027506821226 L404.8,114.56355363694034 L454.4,110.56782094551805 L504,87.6092323120103 L553.5999999999999,98.21049898088165 L603.2,49.45907964821801 L652.8000000000001,80.27855623582312 L702.4,64.53913009013547 L752,86.44736842105263 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,65.63157894736842 L57.6,58.4857472202369 L107.2,116.66436645521766 L156.8,92.09714529364484 L206.4,105.88466556778637 L256,42.32794027438301 L305.6,66.81598884434439 L355.2,49.16027506821226 L404.8,114.56355363694034 L454.4,110.56782094551805 L504,87.6092323120103 L553.5999999999999,98.21049898088165 L603.2,49.45907964821801 L652.8000000000001,80.27855623582312 L702.4,64.53913009013547 L752,86.44736842105263"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,65.63157894736842 L57.6,58.4857472202369 L107.2,116.66436645521766 L156.8,92.09714529364484 L206.4,105.88466556778637 L256,42.32794027438301 L305.6,66.81598884434439 L355.2,49.16027506821226 L404.8,114.56355363694034 L454.4,110.56782094551805 L504,87.6092323120103 L553.5999999999999,98.21049898088165 L603.2,49.45907964821801 L652.8000000000001,80.27855623582312 L702.4,64.53913009013547 L752,86.44736842105263" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">Sep 16</text>
 <text x="256" y="161" text-anchor="middle">Sep 26</text>
 <text x="504" y="161" text-anchor="middle">Oct 6</text>
 <text x="752" y="161" text-anchor="end">Oct 16</text>
-<circle class="ya-endpoint" cx="752" cy="86.44736842105263" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="86.44736842105263" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="86.44736842105263" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>\\n<title>Sample YES execution prices, in Yap Coins</title>
 <line x1="8" y1="262" x2="754" y2="262" stroke="var(--ya-line)"/>
@@ -2318,17 +2400,23 @@ exports[`renders the shared homepage fragments 12`] = `
 <text x="761" y="146">0.36</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">0.55</text>
-<path d="M8,111.6842105263158 L57.6,96.63369768510073 L107.2,219.1691966047947 L156.8,167.42584583971214 L206.4,196.46504783303678 L256,62.60221048940846 L305.6,114.17880836242445 L355.2,76.99243775428776 L404.8,214.74447580169738 L454.4,206.32868482330352 L504,157.97342734741994 L553.5999999999999,180.30175891548527 L603.2,77.62177837412288 L652.8000000000001,142.53359631969823 L702.4,109.38330054382517 L752,155.5263157894737 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,111.6842105263158 L57.6,96.63369768510073 L107.2,219.1691966047947 L156.8,167.42584583971214 L206.4,196.46504783303678 L256,62.60221048940846 L305.6,114.17880836242445 L355.2,76.99243775428776 L404.8,214.74447580169738 L454.4,206.32868482330352 L504,157.97342734741994 L553.5999999999999,180.30175891548527 L603.2,77.62177837412288 L652.8000000000001,142.53359631969823 L702.4,109.38330054382517 L752,155.5263157894737"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,111.6842105263158 L57.6,96.63369768510073 L107.2,219.1691966047947 L156.8,167.42584583971214 L206.4,196.46504783303678 L256,62.60221048940846 L305.6,114.17880836242445 L355.2,76.99243775428776 L404.8,214.74447580169738 L454.4,206.32868482330352 L504,157.97342734741994 L553.5999999999999,180.30175891548527 L603.2,77.62177837412288 L652.8000000000001,142.53359631969823 L702.4,109.38330054382517 L752,155.5263157894737" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">Sep 16</text>
 <text x="256" y="286" text-anchor="middle">Sep 26</text>
 <text x="504" y="286" text-anchor="middle">Oct 6</text>
 <text x="752" y="286" text-anchor="end">Oct 16</text>
-<circle class="ya-endpoint" cx="752" cy="155.5263157894737" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="155.5263157894737" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="155.5263157894737" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 `;
@@ -2341,17 +2429,23 @@ exports[`renders the shared homepage fragments 13`] = `
 <text x="761" y="83.5">50%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">55%</text>
-<path d="M8,54.81818181818181 L752,106.18181818181819 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,54.81818181818181 L752,106.18181818181819"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,54.81818181818181 L752,106.18181818181819" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="8" y="161" text-anchor="middle">00:00</text>
 <text x="752" y="161" text-anchor="middle">00:00</text>
 <text x="752" y="161" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>\\n<title>Sample participant endorsement, in percent</title>
 <line x1="8" y1="262" x2="754" y2="262" stroke="var(--ya-line)"/>
@@ -2360,17 +2454,23 @@ exports[`renders the shared homepage fragments 13`] = `
 <text x="761" y="146">50%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">55%</text>
-<path d="M8,88.9090909090909 L752,197.0909090909091 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,88.9090909090909 L752,197.0909090909091"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,88.9090909090909 L752,197.0909090909091" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="8" y="286" text-anchor="middle">00:00</text>
 <text x="752" y="286" text-anchor="middle">00:00</text>
 <text x="752" y="286" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>\\n<title>Sample participant endorsement, in percent</title>
 <line x1="8" y1="137" x2="754" y2="137" stroke="var(--ya-line)"/>
@@ -2379,17 +2479,23 @@ exports[`renders the shared homepage fragments 13`] = `
 <text x="761" y="83.5">50%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">55%</text>
-<path d="M8,54.81818181818181 L752,106.18181818181819 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,54.81818181818181 L752,106.18181818181819"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,54.81818181818181 L752,106.18181818181819" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="8" y="161" text-anchor="middle">00:00</text>
 <text x="752" y="161" text-anchor="middle">00:00</text>
 <text x="752" y="161" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>\\n<title>Sample participant endorsement, in percent</title>
 <line x1="8" y1="262" x2="754" y2="262" stroke="var(--ya-line)"/>
@@ -2398,17 +2504,23 @@ exports[`renders the shared homepage fragments 13`] = `
 <text x="761" y="146">50%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">55%</text>
-<path d="M8,88.9090909090909 L752,197.0909090909091 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,88.9090909090909 L752,197.0909090909091"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,88.9090909090909 L752,197.0909090909091" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="8" y="286" text-anchor="middle">00:00</text>
 <text x="752" y="286" text-anchor="middle">00:00</text>
 <text x="752" y="286" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>\\n<title>Sample participant endorsement, in percent</title>
 <line x1="8" y1="137" x2="754" y2="137" stroke="var(--ya-line)"/>
@@ -2417,17 +2529,23 @@ exports[`renders the shared homepage fragments 13`] = `
 <text x="761" y="83.5">50%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">55%</text>
-<path d="M8,54.81818181818181 L752,106.18181818181819 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,54.81818181818181 L752,106.18181818181819"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,54.81818181818181 L752,106.18181818181819" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="8" y="161" text-anchor="middle">00:00</text>
 <text x="752" y="161" text-anchor="middle">00:00</text>
 <text x="752" y="161" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>\\n<title>Sample participant endorsement, in percent</title>
 <line x1="8" y1="262" x2="754" y2="262" stroke="var(--ya-line)"/>
@@ -2436,17 +2554,23 @@ exports[`renders the shared homepage fragments 13`] = `
 <text x="761" y="146">50%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">55%</text>
-<path d="M8,88.9090909090909 L752,197.0909090909091 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,88.9090909090909 L752,197.0909090909091"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,88.9090909090909 L752,197.0909090909091" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="8" y="286" text-anchor="middle">00:00</text>
 <text x="752" y="286" text-anchor="middle">00:00</text>
 <text x="752" y="286" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>\\n<title>Sample YES execution prices, in Yap Coins</title>
 <line x1="8" y1="137" x2="754" y2="137" stroke="var(--ya-line)"/>
@@ -2455,17 +2579,23 @@ exports[`renders the shared homepage fragments 13`] = `
 <text x="761" y="83.5">0.40</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">0.46</text>
-<path d="M8,80.5 L8,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,80.5"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,80.5" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="8" y="161" text-anchor="middle">00:00</text>
 <text x="8" y="161" text-anchor="middle">00:00</text>
 <text x="8" y="161" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="8" cy="80.5" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="8" cy="80.5" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="8" cy="80.5" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>\\n<title>Sample YES execution prices, in Yap Coins</title>
 <line x1="8" y1="262" x2="754" y2="262" stroke="var(--ya-line)"/>
@@ -2474,17 +2604,23 @@ exports[`renders the shared homepage fragments 13`] = `
 <text x="761" y="146">0.40</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">0.46</text>
-<path d="M8,143 L8,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,143"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,143" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="8" y="286" text-anchor="middle">00:00</text>
 <text x="8" y="286" text-anchor="middle">00:00</text>
 <text x="8" y="286" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="8" cy="143" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="8" cy="143" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="8" cy="143" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>\\n<title>Sample YES execution prices, in Yap Coins</title>
 <line x1="8" y1="137" x2="754" y2="137" stroke="var(--ya-line)"/>
@@ -2493,17 +2629,23 @@ exports[`renders the shared homepage fragments 13`] = `
 <text x="761" y="83.5">0.40</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">0.46</text>
-<path d="M8,80.5 L8,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,80.5"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,80.5" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="8" y="161" text-anchor="middle">00:00</text>
 <text x="8" y="161" text-anchor="middle">00:00</text>
 <text x="8" y="161" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="8" cy="80.5" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="8" cy="80.5" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="8" cy="80.5" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>\\n<title>Sample YES execution prices, in Yap Coins</title>
 <line x1="8" y1="262" x2="754" y2="262" stroke="var(--ya-line)"/>
@@ -2512,17 +2654,23 @@ exports[`renders the shared homepage fragments 13`] = `
 <text x="761" y="146">0.40</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">0.46</text>
-<path d="M8,143 L8,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,143"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,143" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="8" y="286" text-anchor="middle">00:00</text>
 <text x="8" y="286" text-anchor="middle">00:00</text>
 <text x="8" y="286" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="8" cy="143" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="8" cy="143" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="8" cy="143" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>\\n<title>Sample YES execution prices, in Yap Coins</title>
 <line x1="8" y1="137" x2="754" y2="137" stroke="var(--ya-line)"/>
@@ -2531,17 +2679,23 @@ exports[`renders the shared homepage fragments 13`] = `
 <text x="761" y="83.5">0.40</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">0.46</text>
-<path d="M8,80.5 L8,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,80.5"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,80.5" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="8" y="161" text-anchor="middle">00:00</text>
 <text x="8" y="161" text-anchor="middle">00:00</text>
 <text x="8" y="161" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="8" cy="80.5" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="8" cy="80.5" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="8" cy="80.5" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>\\n<title>Sample YES execution prices, in Yap Coins</title>
 <line x1="8" y1="262" x2="754" y2="262" stroke="var(--ya-line)"/>
@@ -2550,17 +2704,23 @@ exports[`renders the shared homepage fragments 13`] = `
 <text x="761" y="146">0.40</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">0.46</text>
-<path d="M8,143 L8,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,143"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,143" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="8" y="286" text-anchor="middle">00:00</text>
 <text x="8" y="286" text-anchor="middle">00:00</text>
 <text x="8" y="286" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="8" cy="143" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="8" cy="143" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="8" cy="143" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 `;
@@ -2828,8 +2988,6 @@ exports[`renders the shared homepage fragments 18`] = `
 <span>Synthetic activity is labeled · <a href="/live">Watch debates</a> · <a href="/coins">Yap Coins</a>
 </span>
 </footer>\\n    <div id="ya-chart-tooltip" class="ya-chart-tooltip" role="tooltip" aria-hidden="true">
-<span>
-</span>
 <strong>
 </strong>
 </div>\\n    <div id="ya-status" aria-live="polite" class="sr-only">
@@ -2993,7 +3151,11 @@ exports[`renders the shared homepage fragments 2`] = `
 </div>
 </li>
 </ul>\\n<svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,25.77777777777778 6.6,22.666666666666668 12.2,25.77777777777778 17.8,19.555555555555557 23.4,22.666666666666668 29,16.444444444444443 34.6,19.555555555555557 40.2,19.555555555555557 45.8,22.666666666666668 51.4,16.444444444444443 57,13.333333333333336 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,10.222222222222221 85,10.222222222222221" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,25.77777777777778 6.6,22.666666666666668 12.2,25.77777777777778 17.8,19.555555555555557 23.4,22.666666666666668 29,16.444444444444443 34.6,19.555555555555557 40.2,19.555555555555557 45.8,22.666666666666668 51.4,16.444444444444443 57,13.333333333333336 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,10.222222222222221 85,10.222222222222221" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="10.222222222222221" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="10.222222222222221" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>\\n<a href="#idea-work" class="ya-marketcard" data-expand="work" aria-expanded="false">
 <span class="ya-cardtop">
 <span>Society</span>
@@ -3005,7 +3167,11 @@ exports[`renders the shared homepage fragments 2`] = `
 <strong>74%</strong> <span class="">↗ 5 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,25.77777777777778 6.6,22.666666666666668 12.2,25.77777777777778 17.8,19.555555555555557 23.4,22.666666666666668 29,16.444444444444443 34.6,19.555555555555557 40.2,19.555555555555557 45.8,22.666666666666668 51.4,16.444444444444443 57,13.333333333333336 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,10.222222222222221 85,10.222222222222221" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,25.77777777777778 6.6,22.666666666666668 12.2,25.77777777777778 17.8,19.555555555555557 23.4,22.666666666666668 29,16.444444444444443 34.6,19.555555555555557 40.2,19.555555555555557 45.8,22.666666666666668 51.4,16.444444444444443 57,13.333333333333336 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,10.222222222222221 85,10.222222222222221" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="10.222222222222221" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="10.222222222222221" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -3028,7 +3194,11 @@ exports[`renders the shared homepage fragments 2`] = `
 <strong>74%</strong> <span class="">↗ 5 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,25.77777777777778 6.6,22.666666666666668 12.2,25.77777777777778 17.8,19.555555555555557 23.4,22.666666666666668 29,16.444444444444443 34.6,19.555555555555557 40.2,19.555555555555557 45.8,22.666666666666668 51.4,16.444444444444443 57,13.333333333333336 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,10.222222222222221 85,10.222222222222221" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,25.77777777777778 6.6,22.666666666666668 12.2,25.77777777777778 17.8,19.555555555555557 23.4,22.666666666666668 29,16.444444444444443 34.6,19.555555555555557 40.2,19.555555555555557 45.8,22.666666666666668 51.4,16.444444444444443 57,13.333333333333336 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,10.222222222222221 85,10.222222222222221" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="10.222222222222221" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="10.222222222222221" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -3091,19 +3261,23 @@ exports[`renders the shared homepage fragments 2`] = `
 <text x="761" y="83.5">72%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">77%</text>
-<path d="M8,106.18181818181819 L57.6,95.9090909090909 L107.2,106.18181818181819 L156.8,85.63636363636363 L206.4,95.9090909090909 L256,75.36363636363636 L305.6,85.63636363636363 L355.2,85.63636363636363 L404.8,95.9090909090909 L454.4,75.36363636363636 L504,65.0909090909091 L553.5999999999999,75.36363636363636 L603.2,54.81818181818181 L652.8000000000001,65.0909090909091 L702.4,54.81818181818181 L752,54.81818181818181 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,106.18181818181819 L57.6,95.9090909090909 L107.2,106.18181818181819 L156.8,85.63636363636363 L206.4,95.9090909090909 L256,75.36363636363636 L305.6,85.63636363636363 L355.2,85.63636363636363 L404.8,95.9090909090909 L454.4,75.36363636363636 L504,65.0909090909091 L553.5999999999999,75.36363636363636 L603.2,54.81818181818181 L652.8000000000001,65.0909090909091 L702.4,54.81818181818181 L752,54.81818181818181"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,106.18181818181819 L57.6,95.9090909090909 L107.2,106.18181818181819 L156.8,85.63636363636363 L206.4,95.9090909090909 L256,75.36363636363636 L305.6,85.63636363636363 L355.2,85.63636363636363 L404.8,95.9090909090909 L454.4,75.36363636363636 L504,65.0909090909091 L553.5999999999999,75.36363636363636 L603.2,54.81818181818181 L652.8000000000001,65.0909090909091 L702.4,54.81818181818181 L752,54.81818181818181" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="256" y="161" text-anchor="middle">08:00</text>
 <text x="504" y="161" text-anchor="middle">16:00</text>
 <text x="752" y="161" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="137" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="75.36363636363636" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="54.81818181818181" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="54.81818181818181" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="54.81818181818181" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>
 </svg>
@@ -3154,19 +3328,23 @@ exports[`renders the shared homepage fragments 2`] = `
 <text x="761" y="146">72%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">77%</text>
-<path d="M8,197.0909090909091 L57.6,175.45454545454544 L107.2,197.0909090909091 L156.8,153.8181818181818 L206.4,175.45454545454544 L256,132.1818181818182 L305.6,153.8181818181818 L355.2,153.8181818181818 L404.8,175.45454545454544 L454.4,132.1818181818182 L504,110.54545454545455 L553.5999999999999,132.1818181818182 L603.2,88.9090909090909 L652.8000000000001,110.54545454545455 L702.4,88.9090909090909 L752,88.9090909090909 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,197.0909090909091 L57.6,175.45454545454544 L107.2,197.0909090909091 L156.8,153.8181818181818 L206.4,175.45454545454544 L256,132.1818181818182 L305.6,153.8181818181818 L355.2,153.8181818181818 L404.8,175.45454545454544 L454.4,132.1818181818182 L504,110.54545454545455 L553.5999999999999,132.1818181818182 L603.2,88.9090909090909 L652.8000000000001,110.54545454545455 L702.4,88.9090909090909 L752,88.9090909090909"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,197.0909090909091 L57.6,175.45454545454544 L107.2,197.0909090909091 L156.8,153.8181818181818 L206.4,175.45454545454544 L256,132.1818181818182 L305.6,153.8181818181818 L355.2,153.8181818181818 L404.8,175.45454545454544 L454.4,132.1818181818182 L504,110.54545454545455 L553.5999999999999,132.1818181818182 L603.2,88.9090909090909 L652.8000000000001,110.54545454545455 L702.4,88.9090909090909 L752,88.9090909090909" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="132.1818181818182" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="88.9090909090909" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="88.9090909090909" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="88.9090909090909" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -3321,19 +3499,23 @@ exports[`renders the shared homepage fragments 2`] = `
 <text x="761" y="146">72%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">77%</text>
-<path d="M8,197.0909090909091 L57.6,175.45454545454544 L107.2,197.0909090909091 L156.8,153.8181818181818 L206.4,175.45454545454544 L256,132.1818181818182 L305.6,153.8181818181818 L355.2,153.8181818181818 L404.8,175.45454545454544 L454.4,132.1818181818182 L504,110.54545454545455 L553.5999999999999,132.1818181818182 L603.2,88.9090909090909 L652.8000000000001,110.54545454545455 L702.4,88.9090909090909 L752,88.9090909090909 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,197.0909090909091 L57.6,175.45454545454544 L107.2,197.0909090909091 L156.8,153.8181818181818 L206.4,175.45454545454544 L256,132.1818181818182 L305.6,153.8181818181818 L355.2,153.8181818181818 L404.8,175.45454545454544 L454.4,132.1818181818182 L504,110.54545454545455 L553.5999999999999,132.1818181818182 L603.2,88.9090909090909 L652.8000000000001,110.54545454545455 L702.4,88.9090909090909 L752,88.9090909090909"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,197.0909090909091 L57.6,175.45454545454544 L107.2,197.0909090909091 L156.8,153.8181818181818 L206.4,175.45454545454544 L256,132.1818181818182 L305.6,153.8181818181818 L355.2,153.8181818181818 L404.8,175.45454545454544 L454.4,132.1818181818182 L504,110.54545454545455 L553.5999999999999,132.1818181818182 L603.2,88.9090909090909 L652.8000000000001,110.54545454545455 L702.4,88.9090909090909 L752,88.9090909090909" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="132.1818181818182" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="88.9090909090909" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="88.9090909090909" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="88.9090909090909" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -3962,8 +4144,6 @@ exports[`renders the shared homepage fragments 22`] = `
 <span>Synthetic activity is labeled · <a href="/live">Watch debates</a> · <a href="/coins">Yap Coins</a>
 </span>
 </footer>\\n    <div id="ya-chart-tooltip" class="ya-chart-tooltip" role="tooltip" aria-hidden="true">
-<span>
-</span>
 <strong>
 </strong>
 </div>\\n    <div id="ya-status" aria-live="polite" class="sr-only">
@@ -4227,8 +4407,6 @@ exports[`renders the shared homepage fragments 26`] = `
 <span>Synthetic activity is labeled · <a href="/live">Watch debates</a> · <a href="/coins">Yap Coins</a>
 </span>
 </footer>\\n    <div id="ya-chart-tooltip" class="ya-chart-tooltip" role="tooltip" aria-hidden="true">
-<span>
-</span>
 <strong>
 </strong>
 </div>\\n    <div id="ya-status" aria-live="polite" class="sr-only">
@@ -4435,7 +4613,11 @@ exports[`renders the shared homepage fragments 3`] = `
 </div>
 </li>
 </ul>\\n<svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,22.666666666666668 6.6,25.77777777777778 12.2,22.666666666666668 17.8,22.666666666666668 23.4,19.555555555555557 29,16.444444444444443 34.6,19.555555555555557 40.2,22.666666666666668 45.8,16.444444444444443 51.4,13.333333333333336 57,16.444444444444443 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,16.444444444444443 85,13.333333333333336" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,22.666666666666668 6.6,25.77777777777778 12.2,22.666666666666668 17.8,22.666666666666668 23.4,19.555555555555557 29,16.444444444444443 34.6,19.555555555555557 40.2,22.666666666666668 45.8,16.444444444444443 51.4,13.333333333333336 57,16.444444444444443 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,16.444444444444443 85,13.333333333333336" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="13.333333333333336" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="13.333333333333336" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>\\n<a href="#idea-nuclear" class="ya-marketcard" data-expand="nuclear" aria-expanded="false">
 <span class="ya-cardtop">
 <span>Climate</span>
@@ -4447,7 +4629,11 @@ exports[`renders the shared homepage fragments 3`] = `
 <strong>61%</strong> <span class="">↗ 3 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,22.666666666666668 6.6,25.77777777777778 12.2,22.666666666666668 17.8,22.666666666666668 23.4,19.555555555555557 29,16.444444444444443 34.6,19.555555555555557 40.2,22.666666666666668 45.8,16.444444444444443 51.4,13.333333333333336 57,16.444444444444443 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,16.444444444444443 85,13.333333333333336" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,22.666666666666668 6.6,25.77777777777778 12.2,22.666666666666668 17.8,22.666666666666668 23.4,19.555555555555557 29,16.444444444444443 34.6,19.555555555555557 40.2,22.666666666666668 45.8,16.444444444444443 51.4,13.333333333333336 57,16.444444444444443 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,16.444444444444443 85,13.333333333333336" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="13.333333333333336" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="13.333333333333336" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -4470,7 +4656,11 @@ exports[`renders the shared homepage fragments 3`] = `
 <strong>61%</strong> <span class="">↗ 3 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,22.666666666666668 6.6,25.77777777777778 12.2,22.666666666666668 17.8,22.666666666666668 23.4,19.555555555555557 29,16.444444444444443 34.6,19.555555555555557 40.2,22.666666666666668 45.8,16.444444444444443 51.4,13.333333333333336 57,16.444444444444443 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,16.444444444444443 85,13.333333333333336" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,22.666666666666668 6.6,25.77777777777778 12.2,22.666666666666668 17.8,22.666666666666668 23.4,19.555555555555557 29,16.444444444444443 34.6,19.555555555555557 40.2,22.666666666666668 45.8,16.444444444444443 51.4,13.333333333333336 57,16.444444444444443 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,16.444444444444443 85,13.333333333333336" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="13.333333333333336" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="13.333333333333336" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -4533,19 +4723,23 @@ exports[`renders the shared homepage fragments 3`] = `
 <text x="761" y="83.5">60%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">65%</text>
-<path d="M8,95.9090909090909 L57.6,106.18181818181819 L107.2,95.9090909090909 L156.8,95.9090909090909 L206.4,85.63636363636363 L256,75.36363636363636 L305.6,85.63636363636363 L355.2,95.9090909090909 L404.8,75.36363636363636 L454.4,65.0909090909091 L504,75.36363636363636 L553.5999999999999,75.36363636363636 L603.2,54.81818181818181 L652.8000000000001,65.0909090909091 L702.4,75.36363636363636 L752,65.0909090909091 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,95.9090909090909 L57.6,106.18181818181819 L107.2,95.9090909090909 L156.8,95.9090909090909 L206.4,85.63636363636363 L256,75.36363636363636 L305.6,85.63636363636363 L355.2,95.9090909090909 L404.8,75.36363636363636 L454.4,65.0909090909091 L504,75.36363636363636 L553.5999999999999,75.36363636363636 L603.2,54.81818181818181 L652.8000000000001,65.0909090909091 L702.4,75.36363636363636 L752,65.0909090909091"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,95.9090909090909 L57.6,106.18181818181819 L107.2,95.9090909090909 L156.8,95.9090909090909 L206.4,85.63636363636363 L256,75.36363636363636 L305.6,85.63636363636363 L355.2,95.9090909090909 L404.8,75.36363636363636 L454.4,65.0909090909091 L504,75.36363636363636 L553.5999999999999,75.36363636363636 L603.2,54.81818181818181 L652.8000000000001,65.0909090909091 L702.4,75.36363636363636 L752,65.0909090909091" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="256" y="161" text-anchor="middle">08:00</text>
 <text x="504" y="161" text-anchor="middle">16:00</text>
 <text x="752" y="161" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="137" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="65.0909090909091" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="65.0909090909091" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="65.0909090909091" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="65.0909090909091" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>
 </svg>
@@ -4596,19 +4790,23 @@ exports[`renders the shared homepage fragments 3`] = `
 <text x="761" y="146">60%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">65%</text>
-<path d="M8,175.45454545454544 L57.6,197.0909090909091 L107.2,175.45454545454544 L156.8,175.45454545454544 L206.4,153.8181818181818 L256,132.1818181818182 L305.6,153.8181818181818 L355.2,175.45454545454544 L404.8,132.1818181818182 L454.4,110.54545454545455 L504,132.1818181818182 L553.5999999999999,132.1818181818182 L603.2,88.9090909090909 L652.8000000000001,110.54545454545455 L702.4,132.1818181818182 L752,110.54545454545455 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,175.45454545454544 L57.6,197.0909090909091 L107.2,175.45454545454544 L156.8,175.45454545454544 L206.4,153.8181818181818 L256,132.1818181818182 L305.6,153.8181818181818 L355.2,175.45454545454544 L404.8,132.1818181818182 L454.4,110.54545454545455 L504,132.1818181818182 L553.5999999999999,132.1818181818182 L603.2,88.9090909090909 L652.8000000000001,110.54545454545455 L702.4,132.1818181818182 L752,110.54545454545455"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,175.45454545454544 L57.6,197.0909090909091 L107.2,175.45454545454544 L156.8,175.45454545454544 L206.4,153.8181818181818 L256,132.1818181818182 L305.6,153.8181818181818 L355.2,175.45454545454544 L404.8,132.1818181818182 L454.4,110.54545454545455 L504,132.1818181818182 L553.5999999999999,132.1818181818182 L603.2,88.9090909090909 L652.8000000000001,110.54545454545455 L702.4,132.1818181818182 L752,110.54545454545455" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="110.54545454545455" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="110.54545454545455" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="110.54545454545455" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="110.54545454545455" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -4741,19 +4939,23 @@ exports[`renders the shared homepage fragments 3`] = `
 <text x="761" y="146">60%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">65%</text>
-<path d="M8,175.45454545454544 L57.6,197.0909090909091 L107.2,175.45454545454544 L156.8,175.45454545454544 L206.4,153.8181818181818 L256,132.1818181818182 L305.6,153.8181818181818 L355.2,175.45454545454544 L404.8,132.1818181818182 L454.4,110.54545454545455 L504,132.1818181818182 L553.5999999999999,132.1818181818182 L603.2,88.9090909090909 L652.8000000000001,110.54545454545455 L702.4,132.1818181818182 L752,110.54545454545455 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,175.45454545454544 L57.6,197.0909090909091 L107.2,175.45454545454544 L156.8,175.45454545454544 L206.4,153.8181818181818 L256,132.1818181818182 L305.6,153.8181818181818 L355.2,175.45454545454544 L404.8,132.1818181818182 L454.4,110.54545454545455 L504,132.1818181818182 L553.5999999999999,132.1818181818182 L603.2,88.9090909090909 L652.8000000000001,110.54545454545455 L702.4,132.1818181818182 L752,110.54545454545455"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,175.45454545454544 L57.6,197.0909090909091 L107.2,175.45454545454544 L156.8,175.45454545454544 L206.4,153.8181818181818 L256,132.1818181818182 L305.6,153.8181818181818 L355.2,175.45454545454544 L404.8,132.1818181818182 L454.4,110.54545454545455 L504,132.1818181818182 L553.5999999999999,132.1818181818182 L603.2,88.9090909090909 L652.8000000000001,110.54545454545455 L702.4,132.1818181818182 L752,110.54545454545455" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="110.54545454545455" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="110.54545454545455" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="110.54545454545455" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="110.54545454545455" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -5253,17 +5455,23 @@ exports[`renders the shared homepage fragments 30`] = `
 <text x="761" y="83.5">50%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">55%</text>
-<path d="M8,54.81818181818181 L752,106.18181818181819 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,54.81818181818181 L752,106.18181818181819"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,54.81818181818181 L752,106.18181818181819" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="8" y="161" text-anchor="middle">00:00</text>
 <text x="752" y="161" text-anchor="middle">00:00</text>
 <text x="752" y="161" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>
 </svg>
@@ -5351,7 +5559,11 @@ exports[`renders the shared homepage fragments 30`] = `
 <strong>47%</strong> <span class="down">↘ 5 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,10.222222222222221 85,25.77777777777778" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,10.222222222222221 85,25.77777777777778" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="25.77777777777778" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="25.77777777777778" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -5395,8 +5607,6 @@ exports[`renders the shared homepage fragments 30`] = `
 <span>Synthetic activity is labeled · <a href="/live">Watch debates</a> · <a href="/coins">Yap Coins</a>
 </span>
 </footer>\\n    <div id="ya-chart-tooltip" class="ya-chart-tooltip" role="tooltip" aria-hidden="true">
-<span>
-</span>
 <strong>
 </strong>
 </div>\\n    <div id="ya-status" aria-live="polite" class="sr-only">
@@ -5709,19 +5919,23 @@ exports[`renders the shared homepage fragments 34`] = `
 <text x="761" y="83.5">64%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">71%</text>
-<path d="M8,106.86666666666666 L57.6,114.4 L107.2,99.33333333333333 L156.8,106.86666666666666 L206.4,91.8 L256,99.33333333333333 L305.6,106.86666666666666 L355.2,84.26666666666667 L404.8,91.8 L454.4,76.73333333333333 L504,76.73333333333333 L553.5999999999999,84.26666666666667 L603.2,61.666666666666664 L652.8000000000001,69.2 L702.4,54.13333333333333 L752,46.6 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,106.86666666666666 L57.6,114.4 L107.2,99.33333333333333 L156.8,106.86666666666666 L206.4,91.8 L256,99.33333333333333 L305.6,106.86666666666666 L355.2,84.26666666666667 L404.8,91.8 L454.4,76.73333333333333 L504,76.73333333333333 L553.5999999999999,84.26666666666667 L603.2,61.666666666666664 L652.8000000000001,69.2 L702.4,54.13333333333333 L752,46.6"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,106.86666666666666 L57.6,114.4 L107.2,99.33333333333333 L156.8,106.86666666666666 L206.4,91.8 L256,99.33333333333333 L305.6,106.86666666666666 L355.2,84.26666666666667 L404.8,91.8 L454.4,76.73333333333333 L504,76.73333333333333 L553.5999999999999,84.26666666666667 L603.2,61.666666666666664 L652.8000000000001,69.2 L702.4,54.13333333333333 L752,46.6" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="256" y="161" text-anchor="middle">08:00</text>
 <text x="504" y="161" text-anchor="middle">16:00</text>
 <text x="752" y="161" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="137" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="76.73333333333333" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="46.6" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="46.6" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="46.6" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>
 </svg>
@@ -5836,7 +6050,11 @@ exports[`renders the shared homepage fragments 34`] = `
 <strong>68%</strong> <span class="">↗ 8 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,25.53846153846154 6.6,27.692307692307693 12.2,23.384615384615383 17.8,25.53846153846154 23.4,21.23076923076923 29,23.384615384615383 34.6,25.53846153846154 40.2,19.076923076923077 45.8,21.23076923076923 51.4,16.923076923076923 57,16.923076923076923 62.6,19.076923076923077 68.2,12.615384615384617 73.8,14.769230769230766 79.4,10.46153846153846 85,8.307692307692307" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,25.53846153846154 6.6,27.692307692307693 12.2,23.384615384615383 17.8,25.53846153846154 23.4,21.23076923076923 29,23.384615384615383 34.6,25.53846153846154 40.2,19.076923076923077 45.8,21.23076923076923 51.4,16.923076923076923 57,16.923076923076923 62.6,19.076923076923077 68.2,12.615384615384617 73.8,14.769230769230766 79.4,10.46153846153846 85,8.307692307692307" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="8.307692307692307" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="8.307692307692307" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -5860,7 +6078,11 @@ exports[`renders the shared homepage fragments 34`] = `
 <strong>74%</strong> <span class="">↗ 5 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,25.77777777777778 6.6,22.666666666666668 12.2,25.77777777777778 17.8,19.555555555555557 23.4,22.666666666666668 29,16.444444444444443 34.6,19.555555555555557 40.2,19.555555555555557 45.8,22.666666666666668 51.4,16.444444444444443 57,13.333333333333336 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,10.222222222222221 85,10.222222222222221" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,25.77777777777778 6.6,22.666666666666668 12.2,25.77777777777778 17.8,19.555555555555557 23.4,22.666666666666668 29,16.444444444444443 34.6,19.555555555555557 40.2,19.555555555555557 45.8,22.666666666666668 51.4,16.444444444444443 57,13.333333333333336 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,10.222222222222221 85,10.222222222222221" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="10.222222222222221" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="10.222222222222221" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -5884,7 +6106,11 @@ exports[`renders the shared homepage fragments 34`] = `
 <strong>61%</strong> <span class="">↗ 3 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,22.666666666666668 6.6,25.77777777777778 12.2,22.666666666666668 17.8,22.666666666666668 23.4,19.555555555555557 29,16.444444444444443 34.6,19.555555555555557 40.2,22.666666666666668 45.8,16.444444444444443 51.4,13.333333333333336 57,16.444444444444443 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,16.444444444444443 85,13.333333333333336" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,22.666666666666668 6.6,25.77777777777778 12.2,22.666666666666668 17.8,22.666666666666668 23.4,19.555555555555557 29,16.444444444444443 34.6,19.555555555555557 40.2,22.666666666666668 45.8,16.444444444444443 51.4,13.333333333333336 57,16.444444444444443 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,16.444444444444443 85,13.333333333333336" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="13.333333333333336" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="13.333333333333336" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -5908,7 +6134,11 @@ exports[`renders the shared homepage fragments 34`] = `
 <strong>46%</strong> <span class="down">↘ 4 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,12.400000000000002 6.6,9.599999999999998 12.2,12.400000000000002 17.8,15.2 23.4,12.400000000000002 29,18 34.6,15.2 40.2,18 45.8,20.799999999999997 51.4,18 57,20.799999999999997 62.6,23.6 68.2,20.799999999999997 73.8,26.4 79.4,23.6 85,23.6" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,12.400000000000002 6.6,9.599999999999998 12.2,12.400000000000002 17.8,15.2 23.4,12.400000000000002 29,18 34.6,15.2 40.2,18 45.8,20.799999999999997 51.4,18 57,20.799999999999997 62.6,23.6 68.2,20.799999999999997 73.8,26.4 79.4,23.6 85,23.6" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="23.6" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="23.6" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -5932,7 +6162,11 @@ exports[`renders the shared homepage fragments 34`] = `
 <strong>57%</strong> <span class="">↗ 6 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,24.363636363636363 6.6,26.90909090909091 12.2,21.81818181818182 17.8,24.363636363636363 23.4,21.81818181818182 29,19.272727272727273 34.6,21.81818181818182 40.2,16.727272727272727 45.8,19.272727272727273 51.4,16.727272727272727 57,16.727272727272727 62.6,11.636363636363637 68.2,14.181818181818183 73.8,11.636363636363637 79.4,9.09090909090909 85,9.09090909090909" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,24.363636363636363 6.6,26.90909090909091 12.2,21.81818181818182 17.8,24.363636363636363 23.4,21.81818181818182 29,19.272727272727273 34.6,21.81818181818182 40.2,16.727272727272727 45.8,19.272727272727273 51.4,16.727272727272727 57,16.727272727272727 62.6,11.636363636363637 68.2,14.181818181818183 73.8,11.636363636363637 79.4,9.09090909090909 85,9.09090909090909" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="9.09090909090909" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="9.09090909090909" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -5956,7 +6190,11 @@ exports[`renders the shared homepage fragments 34`] = `
 <strong>52%</strong> <span class="down">↘ 2 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,14.5 6.6,11 12.2,14.5 17.8,18 23.4,14.5 29,11 34.6,14.5 40.2,18 45.8,14.5 51.4,21.5 57,18 62.6,21.5 68.2,25 73.8,21.5 79.4,18 85,21.5" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,14.5 6.6,11 12.2,14.5 17.8,18 23.4,14.5 29,11 34.6,14.5 40.2,18 45.8,14.5 51.4,21.5 57,18 62.6,21.5 68.2,25 73.8,21.5 79.4,18 85,21.5" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="21.5" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="21.5" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -5974,8 +6212,6 @@ exports[`renders the shared homepage fragments 34`] = `
 <span>Endorsement = share of participants choosing YES in the latest closed round.</span>
 <span>YC = Yap Coins · All activity is illustrative</span>
 </footer>\\n    <div id="ya-chart-tooltip" class="ya-chart-tooltip" role="tooltip" aria-hidden="true">
-<span>
-</span>
 <strong>
 </strong>
 </div>\\n    <div id="ya-status" aria-live="polite" class="sr-only">
@@ -6134,7 +6370,11 @@ exports[`renders the shared homepage fragments 4`] = `
 </div>
 </li>
 </ul>\\n<svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,12.400000000000002 6.6,9.599999999999998 12.2,12.400000000000002 17.8,15.2 23.4,12.400000000000002 29,18 34.6,15.2 40.2,18 45.8,20.799999999999997 51.4,18 57,20.799999999999997 62.6,23.6 68.2,20.799999999999997 73.8,26.4 79.4,23.6 85,23.6" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,12.400000000000002 6.6,9.599999999999998 12.2,12.400000000000002 17.8,15.2 23.4,12.400000000000002 29,18 34.6,15.2 40.2,18 45.8,20.799999999999997 51.4,18 57,20.799999999999997 62.6,23.6 68.2,20.799999999999997 73.8,26.4 79.4,23.6 85,23.6" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="23.6" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="23.6" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>\\n<a href="#idea-ubi" class="ya-marketcard" data-expand="ubi" aria-expanded="false">
 <span class="ya-cardtop">
 <span>Economy</span>
@@ -6146,7 +6386,11 @@ exports[`renders the shared homepage fragments 4`] = `
 <strong>46%</strong> <span class="down">↘ 4 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,12.400000000000002 6.6,9.599999999999998 12.2,12.400000000000002 17.8,15.2 23.4,12.400000000000002 29,18 34.6,15.2 40.2,18 45.8,20.799999999999997 51.4,18 57,20.799999999999997 62.6,23.6 68.2,20.799999999999997 73.8,26.4 79.4,23.6 85,23.6" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,12.400000000000002 6.6,9.599999999999998 12.2,12.400000000000002 17.8,15.2 23.4,12.400000000000002 29,18 34.6,15.2 40.2,18 45.8,20.799999999999997 51.4,18 57,20.799999999999997 62.6,23.6 68.2,20.799999999999997 73.8,26.4 79.4,23.6 85,23.6" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="23.6" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="23.6" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -6169,7 +6413,11 @@ exports[`renders the shared homepage fragments 4`] = `
 <strong>46%</strong> <span class="down">↘ 4 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,12.400000000000002 6.6,9.599999999999998 12.2,12.400000000000002 17.8,15.2 23.4,12.400000000000002 29,18 34.6,15.2 40.2,18 45.8,20.799999999999997 51.4,18 57,20.799999999999997 62.6,23.6 68.2,20.799999999999997 73.8,26.4 79.4,23.6 85,23.6" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,12.400000000000002 6.6,9.599999999999998 12.2,12.400000000000002 17.8,15.2 23.4,12.400000000000002 29,18 34.6,15.2 40.2,18 45.8,20.799999999999997 51.4,18 57,20.799999999999997 62.6,23.6 68.2,20.799999999999997 73.8,26.4 79.4,23.6 85,23.6" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="23.6" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="23.6" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -6232,19 +6480,23 @@ exports[`renders the shared homepage fragments 4`] = `
 <text x="761" y="83.5">48%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">54%</text>
-<path d="M8,61.666666666666664 L57.6,52.25 L107.2,61.666666666666664 L156.8,71.08333333333334 L206.4,61.666666666666664 L256,80.5 L305.6,71.08333333333334 L355.2,80.5 L404.8,89.91666666666667 L454.4,80.5 L504,89.91666666666667 L553.5999999999999,99.33333333333333 L603.2,89.91666666666667 L652.8000000000001,108.75 L702.4,99.33333333333333 L752,99.33333333333333 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,61.666666666666664 L57.6,52.25 L107.2,61.666666666666664 L156.8,71.08333333333334 L206.4,61.666666666666664 L256,80.5 L305.6,71.08333333333334 L355.2,80.5 L404.8,89.91666666666667 L454.4,80.5 L504,89.91666666666667 L553.5999999999999,99.33333333333333 L603.2,89.91666666666667 L652.8000000000001,108.75 L702.4,99.33333333333333 L752,99.33333333333333"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,61.666666666666664 L57.6,52.25 L107.2,61.666666666666664 L156.8,71.08333333333334 L206.4,61.666666666666664 L256,80.5 L305.6,71.08333333333334 L355.2,80.5 L404.8,89.91666666666667 L454.4,80.5 L504,89.91666666666667 L553.5999999999999,99.33333333333333 L603.2,89.91666666666667 L652.8000000000001,108.75 L702.4,99.33333333333333 L752,99.33333333333333" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="256" y="161" text-anchor="middle">08:00</text>
 <text x="504" y="161" text-anchor="middle">16:00</text>
 <text x="752" y="161" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="137" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="80.5" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="99.33333333333333" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="99.33333333333333" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="99.33333333333333" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>
 </svg>
@@ -6295,19 +6547,23 @@ exports[`renders the shared homepage fragments 4`] = `
 <text x="761" y="146">48%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">54%</text>
-<path d="M8,103.33333333333333 L57.6,83.5 L107.2,103.33333333333333 L156.8,123.16666666666667 L206.4,103.33333333333333 L256,143 L305.6,123.16666666666667 L355.2,143 L404.8,162.83333333333334 L454.4,143 L504,162.83333333333334 L553.5999999999999,182.66666666666666 L603.2,162.83333333333334 L652.8000000000001,202.5 L702.4,182.66666666666666 L752,182.66666666666666 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,103.33333333333333 L57.6,83.5 L107.2,103.33333333333333 L156.8,123.16666666666667 L206.4,103.33333333333333 L256,143 L305.6,123.16666666666667 L355.2,143 L404.8,162.83333333333334 L454.4,143 L504,162.83333333333334 L553.5999999999999,182.66666666666666 L603.2,162.83333333333334 L652.8000000000001,202.5 L702.4,182.66666666666666 L752,182.66666666666666"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,103.33333333333333 L57.6,83.5 L107.2,103.33333333333333 L156.8,123.16666666666667 L206.4,103.33333333333333 L256,143 L305.6,123.16666666666667 L355.2,143 L404.8,162.83333333333334 L454.4,143 L504,162.83333333333334 L553.5999999999999,182.66666666666666 L603.2,162.83333333333334 L652.8000000000001,202.5 L702.4,182.66666666666666 L752,182.66666666666666" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="143" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="182.66666666666666" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="182.66666666666666" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="182.66666666666666" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -6462,19 +6718,23 @@ exports[`renders the shared homepage fragments 4`] = `
 <text x="761" y="146">48%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">54%</text>
-<path d="M8,103.33333333333333 L57.6,83.5 L107.2,103.33333333333333 L156.8,123.16666666666667 L206.4,103.33333333333333 L256,143 L305.6,123.16666666666667 L355.2,143 L404.8,162.83333333333334 L454.4,143 L504,162.83333333333334 L553.5999999999999,182.66666666666666 L603.2,162.83333333333334 L652.8000000000001,202.5 L702.4,182.66666666666666 L752,182.66666666666666 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,103.33333333333333 L57.6,83.5 L107.2,103.33333333333333 L156.8,123.16666666666667 L206.4,103.33333333333333 L256,143 L305.6,123.16666666666667 L355.2,143 L404.8,162.83333333333334 L454.4,143 L504,162.83333333333334 L553.5999999999999,182.66666666666666 L603.2,162.83333333333334 L652.8000000000001,202.5 L702.4,182.66666666666666 L752,182.66666666666666"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,103.33333333333333 L57.6,83.5 L107.2,103.33333333333333 L156.8,123.16666666666667 L206.4,103.33333333333333 L256,143 L305.6,123.16666666666667 L355.2,143 L404.8,162.83333333333334 L454.4,143 L504,162.83333333333334 L553.5999999999999,182.66666666666666 L603.2,162.83333333333334 L652.8000000000001,202.5 L702.4,182.66666666666666 L752,182.66666666666666" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="143" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="182.66666666666666" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="182.66666666666666" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="182.66666666666666" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -7082,7 +7342,11 @@ exports[`renders the shared homepage fragments 5`] = `
 </div>
 </li>
 </ul>\\n<svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,24.363636363636363 6.6,26.90909090909091 12.2,21.81818181818182 17.8,24.363636363636363 23.4,21.81818181818182 29,19.272727272727273 34.6,21.81818181818182 40.2,16.727272727272727 45.8,19.272727272727273 51.4,16.727272727272727 57,16.727272727272727 62.6,11.636363636363637 68.2,14.181818181818183 73.8,11.636363636363637 79.4,9.09090909090909 85,9.09090909090909" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,24.363636363636363 6.6,26.90909090909091 12.2,21.81818181818182 17.8,24.363636363636363 23.4,21.81818181818182 29,19.272727272727273 34.6,21.81818181818182 40.2,16.727272727272727 45.8,19.272727272727273 51.4,16.727272727272727 57,16.727272727272727 62.6,11.636363636363637 68.2,14.181818181818183 73.8,11.636363636363637 79.4,9.09090909090909 85,9.09090909090909" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="9.09090909090909" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="9.09090909090909" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>\\n<a href="#idea-city" class="ya-marketcard" data-expand="city" aria-expanded="false">
 <span class="ya-cardtop">
 <span>Society</span>
@@ -7094,7 +7358,11 @@ exports[`renders the shared homepage fragments 5`] = `
 <strong>57%</strong> <span class="">↗ 6 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,24.363636363636363 6.6,26.90909090909091 12.2,21.81818181818182 17.8,24.363636363636363 23.4,21.81818181818182 29,19.272727272727273 34.6,21.81818181818182 40.2,16.727272727272727 45.8,19.272727272727273 51.4,16.727272727272727 57,16.727272727272727 62.6,11.636363636363637 68.2,14.181818181818183 73.8,11.636363636363637 79.4,9.09090909090909 85,9.09090909090909" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,24.363636363636363 6.6,26.90909090909091 12.2,21.81818181818182 17.8,24.363636363636363 23.4,21.81818181818182 29,19.272727272727273 34.6,21.81818181818182 40.2,16.727272727272727 45.8,19.272727272727273 51.4,16.727272727272727 57,16.727272727272727 62.6,11.636363636363637 68.2,14.181818181818183 73.8,11.636363636363637 79.4,9.09090909090909 85,9.09090909090909" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="9.09090909090909" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="9.09090909090909" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -7117,7 +7385,11 @@ exports[`renders the shared homepage fragments 5`] = `
 <strong>57%</strong> <span class="">↗ 6 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,24.363636363636363 6.6,26.90909090909091 12.2,21.81818181818182 17.8,24.363636363636363 23.4,21.81818181818182 29,19.272727272727273 34.6,21.81818181818182 40.2,16.727272727272727 45.8,19.272727272727273 51.4,16.727272727272727 57,16.727272727272727 62.6,11.636363636363637 68.2,14.181818181818183 73.8,11.636363636363637 79.4,9.09090909090909 85,9.09090909090909" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,24.363636363636363 6.6,26.90909090909091 12.2,21.81818181818182 17.8,24.363636363636363 23.4,21.81818181818182 29,19.272727272727273 34.6,21.81818181818182 40.2,16.727272727272727 45.8,19.272727272727273 51.4,16.727272727272727 57,16.727272727272727 62.6,11.636363636363637 68.2,14.181818181818183 73.8,11.636363636363637 79.4,9.09090909090909 85,9.09090909090909" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="9.09090909090909" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="9.09090909090909" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -7180,19 +7452,23 @@ exports[`renders the shared homepage fragments 5`] = `
 <text x="761" y="83.5">54%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">60%</text>
-<path d="M8,102.23076923076923 L57.6,110.92307692307693 L107.2,93.53846153846155 L156.8,102.23076923076923 L206.4,93.53846153846155 L256,84.84615384615384 L305.6,93.53846153846155 L355.2,76.15384615384616 L404.8,84.84615384615384 L454.4,76.15384615384616 L504,76.15384615384616 L553.5999999999999,58.769230769230774 L603.2,67.46153846153847 L652.8000000000001,58.769230769230774 L702.4,50.07692307692308 L752,50.07692307692308 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,102.23076923076923 L57.6,110.92307692307693 L107.2,93.53846153846155 L156.8,102.23076923076923 L206.4,93.53846153846155 L256,84.84615384615384 L305.6,93.53846153846155 L355.2,76.15384615384616 L404.8,84.84615384615384 L454.4,76.15384615384616 L504,76.15384615384616 L553.5999999999999,58.769230769230774 L603.2,67.46153846153847 L652.8000000000001,58.769230769230774 L702.4,50.07692307692308 L752,50.07692307692308"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,102.23076923076923 L57.6,110.92307692307693 L107.2,93.53846153846155 L156.8,102.23076923076923 L206.4,93.53846153846155 L256,84.84615384615384 L305.6,93.53846153846155 L355.2,76.15384615384616 L404.8,84.84615384615384 L454.4,76.15384615384616 L504,76.15384615384616 L553.5999999999999,58.769230769230774 L603.2,67.46153846153847 L652.8000000000001,58.769230769230774 L702.4,50.07692307692308 L752,50.07692307692308" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="256" y="161" text-anchor="middle">08:00</text>
 <text x="504" y="161" text-anchor="middle">16:00</text>
 <text x="752" y="161" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="137" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="76.15384615384616" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="50.07692307692308" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="50.07692307692308" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="50.07692307692308" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>
 </svg>
@@ -7243,19 +7519,23 @@ exports[`renders the shared homepage fragments 5`] = `
 <text x="761" y="146">54%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">60%</text>
-<path d="M8,188.76923076923077 L57.6,207.0769230769231 L107.2,170.46153846153848 L156.8,188.76923076923077 L206.4,170.46153846153848 L256,152.15384615384616 L305.6,170.46153846153848 L355.2,133.84615384615387 L404.8,152.15384615384616 L454.4,133.84615384615387 L504,133.84615384615387 L553.5999999999999,97.23076923076924 L603.2,115.53846153846155 L652.8000000000001,97.23076923076924 L702.4,78.92307692307693 L752,78.92307692307693 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,188.76923076923077 L57.6,207.0769230769231 L107.2,170.46153846153848 L156.8,188.76923076923077 L206.4,170.46153846153848 L256,152.15384615384616 L305.6,170.46153846153848 L355.2,133.84615384615387 L404.8,152.15384615384616 L454.4,133.84615384615387 L504,133.84615384615387 L553.5999999999999,97.23076923076924 L603.2,115.53846153846155 L652.8000000000001,97.23076923076924 L702.4,78.92307692307693 L752,78.92307692307693"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,188.76923076923077 L57.6,207.0769230769231 L107.2,170.46153846153848 L156.8,188.76923076923077 L206.4,170.46153846153848 L256,152.15384615384616 L305.6,170.46153846153848 L355.2,133.84615384615387 L404.8,152.15384615384616 L454.4,133.84615384615387 L504,133.84615384615387 L553.5999999999999,97.23076923076924 L603.2,115.53846153846155 L652.8000000000001,97.23076923076924 L702.4,78.92307692307693 L752,78.92307692307693" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="133.84615384615387" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="78.92307692307693" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="78.92307692307693" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="78.92307692307693" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -7388,19 +7668,23 @@ exports[`renders the shared homepage fragments 5`] = `
 <text x="761" y="146">54%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">60%</text>
-<path d="M8,188.76923076923077 L57.6,207.0769230769231 L107.2,170.46153846153848 L156.8,188.76923076923077 L206.4,170.46153846153848 L256,152.15384615384616 L305.6,170.46153846153848 L355.2,133.84615384615387 L404.8,152.15384615384616 L454.4,133.84615384615387 L504,133.84615384615387 L553.5999999999999,97.23076923076924 L603.2,115.53846153846155 L652.8000000000001,97.23076923076924 L702.4,78.92307692307693 L752,78.92307692307693 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,188.76923076923077 L57.6,207.0769230769231 L107.2,170.46153846153848 L156.8,188.76923076923077 L206.4,170.46153846153848 L256,152.15384615384616 L305.6,170.46153846153848 L355.2,133.84615384615387 L404.8,152.15384615384616 L454.4,133.84615384615387 L504,133.84615384615387 L553.5999999999999,97.23076923076924 L603.2,115.53846153846155 L652.8000000000001,97.23076923076924 L702.4,78.92307692307693 L752,78.92307692307693"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,188.76923076923077 L57.6,207.0769230769231 L107.2,170.46153846153848 L156.8,188.76923076923077 L206.4,170.46153846153848 L256,152.15384615384616 L305.6,170.46153846153848 L355.2,133.84615384615387 L404.8,152.15384615384616 L454.4,133.84615384615387 L504,133.84615384615387 L553.5999999999999,97.23076923076924 L603.2,115.53846153846155 L652.8000000000001,97.23076923076924 L702.4,78.92307692307693 L752,78.92307692307693" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="133.84615384615387" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="78.92307692307693" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="78.92307692307693" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="78.92307692307693" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -7910,7 +8194,11 @@ exports[`renders the shared homepage fragments 6`] = `
 </div>
 </li>
 </ul>\\n<svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,14.5 6.6,11 12.2,14.5 17.8,18 23.4,14.5 29,11 34.6,14.5 40.2,18 45.8,14.5 51.4,21.5 57,18 62.6,21.5 68.2,25 73.8,21.5 79.4,18 85,21.5" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,14.5 6.6,11 12.2,14.5 17.8,18 23.4,14.5 29,11 34.6,14.5 40.2,18 45.8,14.5 51.4,21.5 57,18 62.6,21.5 68.2,25 73.8,21.5 79.4,18 85,21.5" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="21.5" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="21.5" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>\\n<a href="#idea-growth" class="ya-marketcard" data-expand="growth" aria-expanded="false">
 <span class="ya-cardtop">
 <span>Economy</span>
@@ -7922,7 +8210,11 @@ exports[`renders the shared homepage fragments 6`] = `
 <strong>52%</strong> <span class="down">↘ 2 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,14.5 6.6,11 12.2,14.5 17.8,18 23.4,14.5 29,11 34.6,14.5 40.2,18 45.8,14.5 51.4,21.5 57,18 62.6,21.5 68.2,25 73.8,21.5 79.4,18 85,21.5" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,14.5 6.6,11 12.2,14.5 17.8,18 23.4,14.5 29,11 34.6,14.5 40.2,18 45.8,14.5 51.4,21.5 57,18 62.6,21.5 68.2,25 73.8,21.5 79.4,18 85,21.5" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="21.5" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="21.5" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -7945,7 +8237,11 @@ exports[`renders the shared homepage fragments 6`] = `
 <strong>52%</strong> <span class="down">↘ 2 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,14.5 6.6,11 12.2,14.5 17.8,18 23.4,14.5 29,11 34.6,14.5 40.2,18 45.8,14.5 51.4,21.5 57,18 62.6,21.5 68.2,25 73.8,21.5 79.4,18 85,21.5" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,14.5 6.6,11 12.2,14.5 17.8,18 23.4,14.5 29,11 34.6,14.5 40.2,18 45.8,14.5 51.4,21.5 57,18 62.6,21.5 68.2,25 73.8,21.5 79.4,18 85,21.5" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="21.5" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="21.5" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -8008,19 +8304,23 @@ exports[`renders the shared homepage fragments 6`] = `
 <text x="761" y="83.5">53%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">58%</text>
-<path d="M8,69.2 L57.6,57.9 L107.2,69.2 L156.8,80.5 L206.4,69.2 L256,57.9 L305.6,69.2 L355.2,80.5 L404.8,69.2 L454.4,91.8 L504,80.5 L553.5999999999999,91.8 L603.2,103.1 L652.8000000000001,91.8 L702.4,80.5 L752,91.8 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,69.2 L57.6,57.9 L107.2,69.2 L156.8,80.5 L206.4,69.2 L256,57.9 L305.6,69.2 L355.2,80.5 L404.8,69.2 L454.4,91.8 L504,80.5 L553.5999999999999,91.8 L603.2,103.1 L652.8000000000001,91.8 L702.4,80.5 L752,91.8"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,69.2 L57.6,57.9 L107.2,69.2 L156.8,80.5 L206.4,69.2 L256,57.9 L305.6,69.2 L355.2,80.5 L404.8,69.2 L454.4,91.8 L504,80.5 L553.5999999999999,91.8 L603.2,103.1 L652.8000000000001,91.8 L702.4,80.5 L752,91.8" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="256" y="161" text-anchor="middle">08:00</text>
 <text x="504" y="161" text-anchor="middle">16:00</text>
 <text x="752" y="161" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="137" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="91.8" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="91.8" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="91.8" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="91.8" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>
 </svg>
@@ -8071,19 +8371,23 @@ exports[`renders the shared homepage fragments 6`] = `
 <text x="761" y="146">53%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">58%</text>
-<path d="M8,119.2 L57.6,95.39999999999999 L107.2,119.2 L156.8,143 L206.4,119.2 L256,95.39999999999999 L305.6,119.2 L355.2,143 L404.8,119.2 L454.4,166.79999999999998 L504,143 L553.5999999999999,166.79999999999998 L603.2,190.6 L652.8000000000001,166.79999999999998 L702.4,143 L752,166.79999999999998 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,119.2 L57.6,95.39999999999999 L107.2,119.2 L156.8,143 L206.4,119.2 L256,95.39999999999999 L305.6,119.2 L355.2,143 L404.8,119.2 L454.4,166.79999999999998 L504,143 L553.5999999999999,166.79999999999998 L603.2,190.6 L652.8000000000001,166.79999999999998 L702.4,143 L752,166.79999999999998"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,119.2 L57.6,95.39999999999999 L107.2,119.2 L156.8,143 L206.4,119.2 L256,95.39999999999999 L305.6,119.2 L355.2,143 L404.8,119.2 L454.4,166.79999999999998 L504,143 L553.5999999999999,166.79999999999998 L603.2,190.6 L652.8000000000001,166.79999999999998 L702.4,143 L752,166.79999999999998" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="166.79999999999998" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="166.79999999999998" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="166.79999999999998" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="166.79999999999998" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -8216,19 +8520,23 @@ exports[`renders the shared homepage fragments 6`] = `
 <text x="761" y="146">53%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">58%</text>
-<path d="M8,119.2 L57.6,95.39999999999999 L107.2,119.2 L156.8,143 L206.4,119.2 L256,95.39999999999999 L305.6,119.2 L355.2,143 L404.8,119.2 L454.4,166.79999999999998 L504,143 L553.5999999999999,166.79999999999998 L603.2,190.6 L652.8000000000001,166.79999999999998 L702.4,143 L752,166.79999999999998 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,119.2 L57.6,95.39999999999999 L107.2,119.2 L156.8,143 L206.4,119.2 L256,95.39999999999999 L305.6,119.2 L355.2,143 L404.8,119.2 L454.4,166.79999999999998 L504,143 L553.5999999999999,166.79999999999998 L603.2,190.6 L652.8000000000001,166.79999999999998 L702.4,143 L752,166.79999999999998"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,119.2 L57.6,95.39999999999999 L107.2,119.2 L156.8,143 L206.4,119.2 L256,95.39999999999999 L305.6,119.2 L355.2,143 L404.8,119.2 L454.4,166.79999999999998 L504,143 L553.5999999999999,166.79999999999998 L603.2,190.6 L652.8000000000001,166.79999999999998 L702.4,143 L752,166.79999999999998" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="256" y="286" text-anchor="middle">08:00</text>
 <text x="504" y="286" text-anchor="middle">16:00</text>
 <text x="752" y="286" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="262" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="166.79999999999998" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="166.79999999999998" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="166.79999999999998" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="166.79999999999998" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -9343,7 +9651,11 @@ exports[`renders the shared homepage fragments 8`] = `
 </div>
 </li>
 </ul>\\n<svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,10.222222222222221 85,25.77777777777778" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,10.222222222222221 85,25.77777777777778" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="25.77777777777778" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="25.77777777777778" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>\\n<a href="/topics/hostile-topic" class="ya-marketcard" data-expand="44444444-4444-4444-8444-444444444444" aria-expanded="false">
 <span class="ya-cardtop">
 <span>Category &lt;b&gt;&amp;amp;&lt;/b&gt; &quot;quoted&quot; &#39;single&#39; &amp; &lt; · Synthetic</span>
@@ -9355,7 +9667,11 @@ exports[`renders the shared homepage fragments 8`] = `
 <strong>47%</strong> <span class="down">↘ 5 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,10.222222222222221 85,25.77777777777778" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,10.222222222222221 85,25.77777777777778" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="25.77777777777778" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="25.77777777777778" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -9378,7 +9694,11 @@ exports[`renders the shared homepage fragments 8`] = `
 <strong>47%</strong> <span class="down">↘ 5 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,10.222222222222221 85,25.77777777777778" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,10.222222222222221 85,25.77777777777778" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="25.77777777777778" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="25.77777777777778" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -9441,17 +9761,23 @@ exports[`renders the shared homepage fragments 8`] = `
 <text x="761" y="83.5">50%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">55%</text>
-<path d="M8,54.81818181818181 L752,106.18181818181819 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,54.81818181818181 L752,106.18181818181819"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,54.81818181818181 L752,106.18181818181819" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="8" y="161" text-anchor="middle">00:00</text>
 <text x="752" y="161" text-anchor="middle">00:00</text>
 <text x="752" y="161" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>
 </svg>
@@ -9504,17 +9830,23 @@ exports[`renders the shared homepage fragments 8`] = `
 <text x="761" y="146">50%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">55%</text>
-<path d="M8,88.9090909090909 L752,197.0909090909091 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,88.9090909090909 L752,197.0909090909091"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,88.9090909090909 L752,197.0909090909091" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="8" y="286" text-anchor="middle">00:00</text>
 <text x="752" y="286" text-anchor="middle">00:00</text>
 <text x="752" y="286" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>
@@ -9605,17 +9937,23 @@ exports[`renders the shared homepage fragments 8`] = `
 <text x="761" y="146">50%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">55%</text>
-<path d="M8,88.9090909090909 L752,197.0909090909091 L752,262 L8,262 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,88.9090909090909 L752,197.0909090909091"/>
+<clipPath id="ya-detail-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="290"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,88.9090909090909 L752,197.0909090909091" clip-path="url(#ya-detail-chart-clip)"/>
 <text x="8" y="286" text-anchor="start">00:00</text>
 <text x="8" y="286" text-anchor="middle">00:00</text>
 <text x="752" y="286" text-anchor="middle">00:00</text>
 <text x="752" y="286" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="197.0909090909091" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="262" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="290" fill="transparent"/>
 </svg>

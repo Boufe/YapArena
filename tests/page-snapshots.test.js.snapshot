@@ -7515,8 +7515,6 @@ exports[`renders the home page 1`] = `
 <span>Synthetic activity is labeled · <a href="/live">Watch debates</a> · <a href="/coins">Yap Coins</a>
 </span>
 </footer>\\n    <div id="ya-chart-tooltip" class="ya-chart-tooltip" role="tooltip" aria-hidden="true">
-<span>
-</span>
 <strong>
 </strong>
 </div>\\n    <div id="ya-status" aria-live="polite" class="sr-only">
@@ -7776,8 +7774,6 @@ exports[`renders the home page 2`] = `
 <span>Synthetic activity is labeled · <a href="/live">Watch debates</a> · <a href="/coins">Yap Coins</a>
 </span>
 </footer>\\n    <div id="ya-chart-tooltip" class="ya-chart-tooltip" role="tooltip" aria-hidden="true">
-<span>
-</span>
 <strong>
 </strong>
 </div>\\n    <div id="ya-status" aria-live="polite" class="sr-only">
@@ -8037,8 +8033,6 @@ exports[`renders the home page 3`] = `
 <span>Synthetic activity is labeled · <a href="/live">Watch debates</a> · <a href="/coins">Yap Coins</a>
 </span>
 </footer>\\n    <div id="ya-chart-tooltip" class="ya-chart-tooltip" role="tooltip" aria-hidden="true">
-<span>
-</span>
 <strong>
 </strong>
 </div>\\n    <div id="ya-status" aria-live="polite" class="sr-only">
@@ -8363,8 +8357,6 @@ exports[`renders the home page 4`] = `
 <span>Synthetic activity is labeled · <a href="/live">Watch debates</a> · <a href="/coins">Yap Coins</a>
 </span>
 </footer>\\n    <div id="ya-chart-tooltip" class="ya-chart-tooltip" role="tooltip" aria-hidden="true">
-<span>
-</span>
 <strong>
 </strong>
 </div>\\n    <div id="ya-status" aria-live="polite" class="sr-only">
@@ -8601,17 +8593,23 @@ exports[`renders the home page 5`] = `
 <text x="761" y="83.5">50%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">55%</text>
-<path d="M8,54.81818181818181 L752,106.18181818181819 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,54.81818181818181 L752,106.18181818181819"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,54.81818181818181 L752,106.18181818181819" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="8" y="161" text-anchor="middle">00:00</text>
 <text x="752" y="161" text-anchor="middle">00:00</text>
 <text x="752" y="161" text-anchor="end">00:00</text>
-<circle class="ya-endpoint" cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="106.18181818181819" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>
 </svg>
@@ -8699,7 +8697,11 @@ exports[`renders the home page 5`] = `
 <strong>47%</strong> <span class="down">↘ 5 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,10.222222222222221 85,25.77777777777778" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,10.222222222222221 85,25.77777777777778" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="25.77777777777778" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="25.77777777777778" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -8743,8 +8745,6 @@ exports[`renders the home page 5`] = `
 <span>Synthetic activity is labeled · <a href="/live">Watch debates</a> · <a href="/coins">Yap Coins</a>
 </span>
 </footer>\\n    <div id="ya-chart-tooltip" class="ya-chart-tooltip" role="tooltip" aria-hidden="true">
-<span>
-</span>
 <strong>
 </strong>
 </div>\\n    <div id="ya-status" aria-live="polite" class="sr-only">
@@ -9075,19 +9075,23 @@ exports[`renders the home page 6`] = `
 <text x="761" y="83.5">64%</text>
 <line x1="8" y1="24" x2="754" y2="24" stroke="var(--ya-line)"/>
 <text x="761" y="27">71%</text>
-<path d="M8,106.86666666666666 L57.6,114.4 L107.2,99.33333333333333 L156.8,106.86666666666666 L206.4,91.8 L256,99.33333333333333 L305.6,106.86666666666666 L355.2,84.26666666666667 L404.8,91.8 L454.4,76.73333333333333 L504,76.73333333333333 L553.5999999999999,84.26666666666667 L603.2,61.666666666666664 L652.8000000000001,69.2 L702.4,54.13333333333333 L752,46.6 L752,137 L8,137 Z" fill="var(--ya-accent)" opacity=".07"/>
-<path class="ya-linepath" d="M8,106.86666666666666 L57.6,114.4 L107.2,99.33333333333333 L156.8,106.86666666666666 L206.4,91.8 L256,99.33333333333333 L305.6,106.86666666666666 L355.2,84.26666666666667 L404.8,91.8 L454.4,76.73333333333333 L504,76.73333333333333 L553.5999999999999,84.26666666666667 L603.2,61.666666666666664 L652.8000000000001,69.2 L702.4,54.13333333333333 L752,46.6"/>
+<clipPath id="ya-chart-clip">
+<rect data-chart-clip x="0" y="0" width="800" height="165"/>
+</clipPath>
+<path class="ya-linepath" pathLength="1" d="M8,106.86666666666666 L57.6,114.4 L107.2,99.33333333333333 L156.8,106.86666666666666 L206.4,91.8 L256,99.33333333333333 L305.6,106.86666666666666 L355.2,84.26666666666667 L404.8,91.8 L454.4,76.73333333333333 L504,76.73333333333333 L553.5999999999999,84.26666666666667 L603.2,61.666666666666664 L652.8000000000001,69.2 L702.4,54.13333333333333 L752,46.6" clip-path="url(#ya-chart-clip)"/>
 <text x="8" y="161" text-anchor="start">00:00</text>
 <text x="256" y="161" text-anchor="middle">08:00</text>
 <text x="504" y="161" text-anchor="middle">16:00</text>
 <text x="752" y="161" text-anchor="end">Now</text>
-<line x1="454.4" x2="454.4" y1="24" y2="137" stroke="var(--ya-sub)" stroke-dasharray="3 4" opacity=".5"/>
-<circle cx="454.4" cy="76.73333333333333" r="4" fill="var(--ya-panel)" stroke="var(--ya-accent)" stroke-width="2"/>
-<circle class="ya-endpoint" cx="752" cy="46.6" r="3.5" fill="var(--ya-accent)"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="752" cy="46.6" r="3.5" fill="var(--ya-chart)"/>
+<circle cx="752" cy="46.6" r="3.5" fill="var(--ya-chart)"/>
+</g>
 <g class="ya-hover-group" aria-hidden="true">
-<line data-chart-hover-guide y1="24" y2="137" stroke="var(--ya-sub)" stroke-width="1" stroke-dasharray="3 3"/>
-<circle data-chart-hover-halo r="9" fill="var(--ya-accent)" opacity=".16"/>
-<circle data-chart-hover-marker r="4.5" fill="var(--ya-accent)" stroke="var(--ya-panel)" stroke-width="2"/>
+<text data-chart-hover-date y="12" text-anchor="middle">
+</text>
+<circle data-chart-hover-halo r="9" fill="var(--ya-chart)" opacity=".18"/>
+<circle data-chart-hover-marker r="4.5" fill="var(--ya-chart)" stroke="var(--ya-panel)" stroke-width="2"/>
 </g>
 <rect data-chart-hit x="8" y="0" width="744" height="165" fill="transparent"/>
 </svg>
@@ -9202,7 +9206,11 @@ exports[`renders the home page 6`] = `
 <strong>68%</strong> <span class="">↗ 8 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,25.53846153846154 6.6,27.692307692307693 12.2,23.384615384615383 17.8,25.53846153846154 23.4,21.23076923076923 29,23.384615384615383 34.6,25.53846153846154 40.2,19.076923076923077 45.8,21.23076923076923 51.4,16.923076923076923 57,16.923076923076923 62.6,19.076923076923077 68.2,12.615384615384617 73.8,14.769230769230766 79.4,10.46153846153846 85,8.307692307692307" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,25.53846153846154 6.6,27.692307692307693 12.2,23.384615384615383 17.8,25.53846153846154 23.4,21.23076923076923 29,23.384615384615383 34.6,25.53846153846154 40.2,19.076923076923077 45.8,21.23076923076923 51.4,16.923076923076923 57,16.923076923076923 62.6,19.076923076923077 68.2,12.615384615384617 73.8,14.769230769230766 79.4,10.46153846153846 85,8.307692307692307" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="8.307692307692307" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="8.307692307692307" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -9226,7 +9234,11 @@ exports[`renders the home page 6`] = `
 <strong>74%</strong> <span class="">↗ 5 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,25.77777777777778 6.6,22.666666666666668 12.2,25.77777777777778 17.8,19.555555555555557 23.4,22.666666666666668 29,16.444444444444443 34.6,19.555555555555557 40.2,19.555555555555557 45.8,22.666666666666668 51.4,16.444444444444443 57,13.333333333333336 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,10.222222222222221 85,10.222222222222221" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,25.77777777777778 6.6,22.666666666666668 12.2,25.77777777777778 17.8,19.555555555555557 23.4,22.666666666666668 29,16.444444444444443 34.6,19.555555555555557 40.2,19.555555555555557 45.8,22.666666666666668 51.4,16.444444444444443 57,13.333333333333336 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,10.222222222222221 85,10.222222222222221" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="10.222222222222221" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="10.222222222222221" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -9250,7 +9262,11 @@ exports[`renders the home page 6`] = `
 <strong>61%</strong> <span class="">↗ 3 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,22.666666666666668 6.6,25.77777777777778 12.2,22.666666666666668 17.8,22.666666666666668 23.4,19.555555555555557 29,16.444444444444443 34.6,19.555555555555557 40.2,22.666666666666668 45.8,16.444444444444443 51.4,13.333333333333336 57,16.444444444444443 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,16.444444444444443 85,13.333333333333336" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,22.666666666666668 6.6,25.77777777777778 12.2,22.666666666666668 17.8,22.666666666666668 23.4,19.555555555555557 29,16.444444444444443 34.6,19.555555555555557 40.2,22.666666666666668 45.8,16.444444444444443 51.4,13.333333333333336 57,16.444444444444443 62.6,16.444444444444443 68.2,10.222222222222221 73.8,13.333333333333336 79.4,16.444444444444443 85,13.333333333333336" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="13.333333333333336" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="13.333333333333336" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -9274,7 +9290,11 @@ exports[`renders the home page 6`] = `
 <strong>46%</strong> <span class="down">↘ 4 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,12.400000000000002 6.6,9.599999999999998 12.2,12.400000000000002 17.8,15.2 23.4,12.400000000000002 29,18 34.6,15.2 40.2,18 45.8,20.799999999999997 51.4,18 57,20.799999999999997 62.6,23.6 68.2,20.799999999999997 73.8,26.4 79.4,23.6 85,23.6" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,12.400000000000002 6.6,9.599999999999998 12.2,12.400000000000002 17.8,15.2 23.4,12.400000000000002 29,18 34.6,15.2 40.2,18 45.8,20.799999999999997 51.4,18 57,20.799999999999997 62.6,23.6 68.2,20.799999999999997 73.8,26.4 79.4,23.6 85,23.6" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="23.6" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="23.6" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -9298,7 +9318,11 @@ exports[`renders the home page 6`] = `
 <strong>57%</strong> <span class="">↗ 6 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,24.363636363636363 6.6,26.90909090909091 12.2,21.81818181818182 17.8,24.363636363636363 23.4,21.81818181818182 29,19.272727272727273 34.6,21.81818181818182 40.2,16.727272727272727 45.8,19.272727272727273 51.4,16.727272727272727 57,16.727272727272727 62.6,11.636363636363637 68.2,14.181818181818183 73.8,11.636363636363637 79.4,9.09090909090909 85,9.09090909090909" fill="none" stroke="var(--ya-green)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,24.363636363636363 6.6,26.90909090909091 12.2,21.81818181818182 17.8,24.363636363636363 23.4,21.81818181818182 29,19.272727272727273 34.6,21.81818181818182 40.2,16.727272727272727 45.8,19.272727272727273 51.4,16.727272727272727 57,16.727272727272727 62.6,11.636363636363637 68.2,14.181818181818183 73.8,11.636363636363637 79.4,9.09090909090909 85,9.09090909090909" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="9.09090909090909" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="9.09090909090909" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -9322,7 +9346,11 @@ exports[`renders the home page 6`] = `
 <strong>52%</strong> <span class="down">↘ 2 pp</span>
 </span>
 <svg class="ya-spark" viewBox="0 0 86 35" role="img" aria-label="Sample endorsement trend">
-<polyline points="1,14.5 6.6,11 12.2,14.5 17.8,18 23.4,14.5 29,11 34.6,14.5 40.2,18 45.8,14.5 51.4,21.5 57,18 62.6,21.5 68.2,25 73.8,21.5 79.4,18 85,21.5" fill="none" stroke="var(--ya-red)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="ya-spark-line" pathLength="1" points="1,14.5 6.6,11 12.2,14.5 17.8,18 23.4,14.5 29,11 34.6,14.5 40.2,18 45.8,14.5 51.4,21.5 57,18 62.6,21.5 68.2,25 73.8,21.5 79.4,18 85,21.5" fill="none" stroke="var(--ya-chart)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<g class="ya-endpoint" aria-hidden="true">
+<circle class="ya-endpoint-pulse" cx="85" cy="21.5" r="2" fill="var(--ya-chart)"/>
+<circle cx="85" cy="21.5" r="2" fill="var(--ya-chart)"/>
+</g>
 </svg>
 </span>
 <span class="ya-cardlabel">Participant endorsement</span>
@@ -9340,8 +9368,6 @@ exports[`renders the home page 6`] = `
 <span>Endorsement = share of participants choosing YES in the latest closed round.</span>
 <span>YC = Yap Coins · All activity is illustrative</span>
 </footer>\\n    <div id="ya-chart-tooltip" class="ya-chart-tooltip" role="tooltip" aria-hidden="true">
-<span>
-</span>
 <strong>
 </strong>
 </div>\\n    <div id="ya-status" aria-live="polite" class="sr-only">
@@ -9666,8 +9692,6 @@ exports[`renders the home page 7`] = `
 <span>Synthetic activity is labeled · <a href="/live">Watch debates</a> · <a href="/coins">Yap Coins</a>
 </span>
 </footer>\\n    <div id="ya-chart-tooltip" class="ya-chart-tooltip" role="tooltip" aria-hidden="true">
-<span>
-</span>
 <strong>
 </strong>
 </div>\\n    <div id="ya-status" aria-live="polite" class="sr-only">

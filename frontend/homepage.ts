@@ -34,7 +34,7 @@ import { emptyIdea } from "../src/features/discovery/homepage-model.ts";
 import { chartGeometry } from "../src/features/discovery/homepage-chart.ts";
 import { createRotationClock } from "../src/features/discovery/homepage-clock.ts";
 import { html } from "../src/platform/html.ts";
-import { bindHomepageChart } from "./homepage-chart.js";
+import { bindHomepageChart, revealSparks } from "./homepage-chart.js";
 
 const root = document.getElementById("ya-market-v4")!;
 if (root) {
@@ -476,6 +476,7 @@ if (root) {
             )}`
           : html`<p class="ya-empty">${data.available === false ? "Discovery temporarily unavailable. Try again shortly." : nav === "following" && followsState === "signed-out" ? html`Sign in to see your followed ideas. <a href="/account">Log in</a>.` : nav === "following" && followsState === "unavailable" ? "Follow status is unavailable. Try again when your connection returns." : "No ideas match this view. Try another category or follow an idea above."}</p>`
       ).toString();
+      revealSparks($("#ya-grid"));
       if (insert >= 0) {
         $$("[data-detail-metric]").forEach((b) =>
           b.setAttribute(

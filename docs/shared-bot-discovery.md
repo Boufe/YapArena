@@ -83,7 +83,9 @@ and `hasMore`. Topic charts merge related debates chronologically; debate charts
 contain only that debate. Public reads are `no-store` and recheck visibility and
 consent on every request.
 
-Visible pages poll every five seconds. Homepage updates preserve trending and
+The visible homepage polls every five seconds; the debate page re-reads shared activity on
+room signals, otherwise every 60 seconds with a live room stream or 15 without one.
+Homepage updates preserve trending and
 expanded selections, filters and ranges, and defer replacement during inspection.
 Both chart sizes use stored values, timestamps and piecewise interpolation. The
 debate workspace defaults to shared history when available, including while signed

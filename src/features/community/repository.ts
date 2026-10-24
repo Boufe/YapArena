@@ -142,6 +142,12 @@ async function lockAccount(client: PoolClient, userId: string) {
   await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
     `community:${userId}`,
   ]);
+  // Take the account row before any room counter, as a chat or like insert's
+  // foreign key would afterwards. An A4 transaction holding this row FOR UPDATE
+  // takes its room counter at COMMIT, so waiting here cannot form a cycle.
+  await client.query("SELECT 1 FROM users WHERE id = $1 FOR KEY SHARE", [
+    userId,
+  ]);
 }
 
 async function eventFor(client: PoolClient, id: string, lock = false) {

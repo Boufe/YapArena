@@ -21,11 +21,13 @@ physical devices listed in the media trial plan. The available iPhone 15 Pro can
 establish its own device results; it cannot establish iPhone SE 2 or Pixel 4a results.
 No new production limit or transcoding latency objective has been approved.
 
-Media clock status uses HTTP independently of the one public community SSE
-connection per event page. Speakers poll once per second; viewers poll every three
-seconds. Viewer polling stops in background, all polling stops offline, and a single
+Media clock status uses HTTP. The one public community SSE connection per event page
+carries reference-only `media` [room signals](community-delivery.md#media-and-a4-room-signals):
+the page re-reads status on a signal, about two seconds after a known turn deadline, and
+every 60 seconds while that stream is live; without it, speakers poll every two seconds and
+viewers every six. Viewer polling stops in background, all polling stops offline, and a single
 chain resumes on foreground/network/cache return. Community polling remains confined
-to degraded community delivery. Media polling never represents healthy SSE fallback.
+to degraded community delivery.
 
 ## Shared-network admission
 

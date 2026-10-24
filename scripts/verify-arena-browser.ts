@@ -236,11 +236,16 @@ export async function verifyArenaBrowser({
       await page.locator("[data-inline-runs]").inputValue(),
       beforeHover,
     );
-    const response = await page.waitForResponse(
+    // A settled private sandbox has no deadline or room signal left, so its
+    // next timed refresh can be 30 s away. Returning focus refreshes the
+    // workspace now, without moving the pointer off the inspected round.
+    const refreshed = page.waitForResponse(
       (r) =>
         r.url().includes(`/api/a4/debates/${debate.id}/workspace`) &&
         r.request().method() === "GET",
     );
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    const response = await refreshed;
     await response.finished();
     await page.evaluate(
       () =>

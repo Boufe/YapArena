@@ -35,8 +35,8 @@ switches both services to those images, pinned by digest. After that switch, `re
 describes a source-built service.
 
 This is a small trial environment. Render Free sleeps after 15 minutes without inbound traffic and
-can take about a minute to wake. A live debate page polls the app every three seconds, but an
-instance restart can still interrupt the turn clock. The background jobs run in the paid jobs
+can take about a minute to wake. An open debate page still sends the app requests at least once a
+minute, but an instance restart can still interrupt the turn clock. The background jobs run in the paid jobs
 worker, which does not sleep; moved back to web, they stop while web sleeps. Supabase Free can
 pause after a week of low activity. Do not use this environment for promised live events or real user data.
 

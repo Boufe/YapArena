@@ -1170,6 +1170,10 @@ export function createA4Repository(
         }>("SELECT proposition,slug,topic_id FROM debates WHERE id=$1", [
           s.debate_id,
         ]);
+        // Round deadlines use the database clock; browsers offset countdowns by it.
+        const clock = await client.query<{ serverNow: Date }>(
+          'SELECT clock_timestamp() AS "serverNow"',
+        );
         return {
           id: s.id,
           debateId: s.debate_id,
@@ -1185,6 +1189,7 @@ export function createA4Repository(
           config: s.config,
           speed: s.speed,
           revealAt: s.reveal_at,
+          serverNow: clock.rows[0]?.serverNow,
           observer,
           balances: balances.rows,
           rounds,

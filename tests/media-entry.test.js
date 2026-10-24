@@ -25,6 +25,11 @@ import {
 } from "../public/media-session.js";
 import { joinSpeaker } from "../public/media-speaker.js";
 import { mediaPresentation } from "../public/media-presentation.js";
+import {
+  createDeadlineFollower,
+  createSignalRefresh,
+  watchRoom,
+} from "../public/community-stream.js";
 
 // The build emits media-entry only inside media.bundle.js, so transform the
 // source exactly as the per-file build did and run it without its imports.
@@ -32,6 +37,8 @@ const source = transformSync(
   readFileSync(new URL("../frontend/media-entry.ts", import.meta.url), "utf8"),
   { loader: "ts" },
 ).code.replace(/^import[\s\S]*?;\n/gm, "");
+// Viewers poll media status only while the room stream is not live.
+const viewerPoll = 6000;
 const settle = async () => {
   for (let i = 0; i < 8; i++)
     await new Promise((resolve) => setImmediate(resolve));
@@ -114,6 +121,8 @@ function fixture() {
   const jobs = new Map();
   const intervals = new Map();
   const listeners = new Map();
+  // Room signals and stream health arrive as window events from community.js.
+  const roomEvents = new EventTarget();
   let index = 0;
   let viewerGrant;
   let stateResponse;
@@ -204,7 +213,13 @@ function fixture() {
       return index;
     },
     clearInterval: (id) => intervals.delete(id),
-    addEventListener: (event, fn) => listeners.set(event, fn),
+    addEventListener: (event, fn) =>
+      event.startsWith("yap:room")
+        ? roomEvents.addEventListener(event, fn)
+        : listeners.set(event, fn),
+    removeEventListener: (event, fn) =>
+      roomEvents.removeEventListener(event, fn),
+    dispatchEvent: (event) => roomEvents.dispatchEvent(event),
   };
   const navigator = {
     onLine: true,
@@ -308,6 +323,9 @@ function fixture() {
     stopMediaSession,
     joinSpeaker,
     mediaPresentation,
+    createDeadlineFollower,
+    createSignalRefresh,
+    watchRoom,
     performance,
     setInterval: window.setInterval,
     clearInterval: window.clearInterval,
@@ -317,6 +335,7 @@ function fixture() {
   return {
     rooms,
     storage,
+    roomEvents,
     intervals,
     requests,
     requestDetails,
@@ -328,8 +347,10 @@ function fixture() {
     document,
     window,
     element: (name) => elements.get(`[data-media-${name}]`),
-    async start() {
+    // early runs before the page's first requests complete.
+    async start(early) {
       vm.runInContext(source, context);
+      early?.();
       await settle();
     },
     setGrant: (grant) => {
@@ -381,11 +402,11 @@ it("keeps an automatically published replay paused until Play replay is pressed"
   assert.equal(video.playCalls, 0);
 
   f.setStateResponse(snapshot("replay"));
-  await f.timer(3000);
+  await f.timer(viewerPoll);
   assert.equal(f.element("replay").hidden, false);
   assert.equal(f.requests.filter((url) => url.endsWith("/replay")).length, 1);
   video.handlers.get("loadedmetadata")();
-  await f.timer(3000);
+  await f.timer(viewerPoll);
   assert.equal(video.playCalls, 0);
   assert.equal(video.paused, true);
   assert.equal(video.hidden, true);
@@ -410,7 +431,7 @@ it("prepares without joining or capturing and rejoins viewers only after termina
   assert.ok(f.calls.includes("connect"));
   const room = f.rooms[0];
   room.emit("Reconnecting");
-  await f.timer(3000);
+  await f.timer(viewerPoll);
   assert.match(f.element("status").textContent, /Reconnecting/);
   assert.equal(
     f.requests.filter((url) => url.endsWith("/viewer-token")).length,
@@ -433,32 +454,44 @@ it("prepares without joining or capturing and rejoins viewers only after termina
 it("suspends viewer polling offline and in background, and resumes one poll chain after return", async () => {
   const f = fixture();
   await f.start();
-  assert.equal([...f.jobs.values()].filter((job) => job.ms === 3000).length, 1);
+  assert.equal(
+    [...f.jobs.values()].filter((job) => job.ms === viewerPoll).length,
+    1,
+  );
   f.document.hidden = true;
   f.listeners.get("visibilitychange")();
   assert.equal(
-    [...f.jobs.values()].some((job) => job.ms === 3000),
+    [...f.jobs.values()].some((job) => job.ms === viewerPoll),
     false,
   );
   f.document.hidden = false;
   f.listeners.get("visibilitychange")();
   f.listeners.get("visibilitychange")();
   await settle();
-  assert.equal([...f.jobs.values()].filter((job) => job.ms === 3000).length, 1);
+  assert.equal(
+    [...f.jobs.values()].filter((job) => job.ms === viewerPoll).length,
+    1,
+  );
   f.navigator.onLine = false;
   f.listeners.get("offline")();
   assert.equal(
-    [...f.jobs.values()].some((job) => job.ms === 3000),
+    [...f.jobs.values()].some((job) => job.ms === viewerPoll),
     false,
   );
   f.navigator.onLine = true;
   f.listeners.get("online")();
   await settle();
-  assert.equal([...f.jobs.values()].filter((job) => job.ms === 3000).length, 1);
+  assert.equal(
+    [...f.jobs.values()].filter((job) => job.ms === viewerPoll).length,
+    1,
+  );
   f.listeners.get("pagehide")({ persisted: true });
   f.listeners.get("pageshow")({ persisted: true });
   await settle();
-  assert.equal([...f.jobs.values()].filter((job) => job.ms === 3000).length, 1);
+  assert.equal(
+    [...f.jobs.values()].filter((job) => job.ms === viewerPoll).length,
+    1,
+  );
   f.listeners.get("pagehide")();
 });
 
@@ -473,7 +506,7 @@ it("does not let older lifecycle HTTP results restore ended media, including lar
       serverNow: new Date().toISOString(),
     }),
   );
-  await f.timer(3000);
+  await f.timer(viewerPoll);
   assert.equal(f.element("viewer").hidden, true);
   for (const streamRevision of ["9007199254740992", "bad"]) {
     f.setStateResponse(
@@ -484,7 +517,7 @@ it("does not let older lifecycle HTTP results restore ended media, including lar
         serverNow: new Date().toISOString(),
       }),
     );
-    await f.timer(3000);
+    await f.timer(viewerPoll);
     assert.equal(f.element("viewer").hidden, true);
   }
   f.listeners.get("pagehide")();
@@ -710,11 +743,137 @@ it("stops after debate end and preserves a speaker's deliberate mute and chosen 
     1,
   );
   f.setStatus("ended");
-  await f.timer(3000);
+  await f.timer(viewerPoll);
   assert.equal(f.calls.at(-1), "disconnect");
   assert.equal(
     [...f.jobs.values()].some((job) => job.ms < 400),
     false,
   );
+  f.listeners.get("pagehide")();
+});
+
+const mediaRoom = "33333333-3333-4333-8333-333333333333";
+const statusReads = (f) =>
+  f.requests.filter((url) => url === `/api/media/events/${mediaRoom}`).length;
+const roomStream = (f, live, room = mediaRoom) =>
+  f.roomEvents.dispatchEvent(
+    new CustomEvent("yap:room-stream", { detail: { room, live } }),
+  );
+const roomSignal = (f, cursor, topics = ["media"], room = mediaRoom) =>
+  f.roomEvents.dispatchEvent(
+    new CustomEvent("yap:room-signal", { detail: { room, cursor, topics } }),
+  );
+const scheduled = (f, ms) => [...f.jobs.values()].some((job) => job.ms === ms);
+const liveState = (streamRevision, extra = {}) => ({
+  streamRevision,
+  eventStatus: "live",
+  preparationUrl: "wss://synthetic.example",
+  state: { revision: 2, state: "paused", activeSide: null, ...extra },
+  serverNow: new Date().toISOString(),
+});
+it("replaces status polling with room signals while the room stream is live", async () => {
+  const f = fixture();
+  await f.start();
+  assert.ok(scheduled(f, viewerPoll));
+  roomStream(f, true);
+  assert.equal(scheduled(f, viewerPoll), false);
+  // A slow safety read remains while the stream is live.
+  assert.ok(scheduled(f, 60000));
+  f.setStateResponse(f.response(liveState("5")));
+  const before = statusReads(f);
+  roomSignal(f, "5");
+  await settle();
+  assert.equal(statusReads(f), before + 1);
+  // Other projections and rooms do not read media status.
+  roomSignal(f, "6", ["round", "activity"]);
+  roomSignal(f, "6", ["media"], "44444444-4444-4444-8444-444444444444");
+  await settle();
+  assert.equal(statusReads(f), before + 1);
+  // A read still behind the signal retries once the server catches up.
+  roomSignal(f, "7");
+  await settle();
+  assert.equal(statusReads(f), before + 2);
+  assert.ok(scheduled(f, 500));
+  f.setStateResponse(f.response(liveState("7")));
+  await f.timer(500);
+  assert.equal(statusReads(f), before + 3);
+  assert.equal(scheduled(f, 1000), false);
+  // A dropped stream may have missed a signal: read now, then poll again.
+  roomStream(f, false);
+  await settle();
+  assert.equal(statusReads(f), before + 4);
+  assert.ok(scheduled(f, viewerPoll));
+  f.listeners.get("pagehide")();
+  roomSignal(f, "8");
+  await settle();
+  assert.equal(statusReads(f), before + 4);
+});
+it("polls a connected speaker at the slower fallback only while the stream is down", async () => {
+  const f = fixture();
+  f.speaker();
+  await f.start();
+  await f.element("speaker").click();
+  await f.timer(viewerPoll);
+  assert.ok(scheduled(f, 2000));
+  roomStream(f, true);
+  assert.equal(scheduled(f, 2000), false);
+  roomStream(f, false);
+  await settle();
+  assert.ok(scheduled(f, 2000));
+  f.listeners.get("pagehide")();
+});
+it("reads media status shortly after the turn deadline instead of polling", async () => {
+  const f = fixture();
+  const deadline = new Date(Date.now() + 10000).toISOString();
+  f.setStateResponse(
+    f.response(
+      liveState("3", {
+        state: "running",
+        activeSide: "A",
+        turnDeadlineAt: deadline,
+      }),
+    ),
+  );
+  await f.start();
+  roomStream(f, true);
+  const follow = [...f.jobs.values()].filter(
+    (job) => job.ms > 11000 && job.ms <= 12000,
+  );
+  assert.equal(follow.length, 1, "deadline plus grace");
+  assert.equal(scheduled(f, viewerPoll), false);
+  f.listeners.get("pagehide")();
+});
+it("holds media signals until the first status read and skips cursors it covers", async () => {
+  const f = fixture();
+  f.setStateResponse(f.response(liveState("8")));
+  await f.start(() => roomSignal(f, "8"));
+  // The first read reported cursor 8, so the held signal needs no second read.
+  assert.equal(statusReads(f), 1);
+  roomSignal(f, "8");
+  await settle();
+  assert.equal(statusReads(f), 1);
+  roomSignal(f, "9");
+  await settle();
+  assert.equal(statusReads(f), 2);
+  f.listeners.get("pagehide")();
+});
+it("ignores media signals once the status endpoint refuses the page", async () => {
+  const f = fixture();
+  f.setStateResponse(f.response({ error: "resource not found" }, 404));
+  await f.start(() => roomSignal(f, "3"));
+  assert.equal(statusReads(f), 1);
+  assert.equal(f.element("replay-video").hidden, true);
+  roomSignal(f, "4");
+  roomStream(f, true);
+  roomStream(f, false);
+  await settle();
+  assert.equal(statusReads(f), 1, "no reads, retries or reconnect reads");
+  // Polling continues, and a successful read resumes signal handling.
+  assert.ok(scheduled(f, viewerPoll));
+  f.setStateResponse(f.response(liveState("5")));
+  await f.timer(viewerPoll);
+  roomSignal(f, "6");
+  await settle();
+  assert.equal(statusReads(f), 3);
   f.listeners.get("pagehide")();
 });

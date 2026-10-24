@@ -6,7 +6,11 @@ import {
   type FanoutOptions,
 } from "../../platform/room-fanout.ts";
 import { createPgListener } from "../../platform/pg-listener.ts";
-import { createCommunityDelivery, roomIdPattern } from "./delivery.ts";
+import {
+  createCommunityDelivery,
+  publicChange,
+  roomIdPattern,
+} from "./delivery.ts";
 
 export function createCommunityStreams(
   database: Pool,
@@ -32,7 +36,7 @@ export function createCommunityStreams(
           cursor: e.cursor,
           reset: e.kind === "reset",
           at: e.occurredAt,
-          change: { type: e.kind, message: e.message, summary: value.summary },
+          change: publicChange(e.kind, e.message, value.summary, e.refresh),
         })),
       };
     },

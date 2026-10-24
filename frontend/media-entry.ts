@@ -31,6 +31,11 @@ import { mediaPresentation } from "./media-presentation.js";
 import { speakerButtonState, stopMediaSession } from "./media-session.js";
 import { joinSpeaker } from "./media-speaker.js";
 import { createMediaTracks } from "./media-tracks.js";
+import {
+  createDeadlineFollower,
+  createSignalRefresh,
+  watchRoom,
+} from "./community-stream.js";
 
 const root = document.querySelector<HTMLElement>("[data-media-event]");
 if (root) {
@@ -672,6 +677,11 @@ if (root) {
       }
     });
   let publicRevision = "0";
+  // Room signals wait for the first status read, and stop after the status
+  // endpoint refuses this page (401/403/404) until a later read succeeds.
+  let firstRead = false,
+    heldSignal = 0n,
+    mediaUnavailable = false;
   async function refresh() {
     const pageEpoch = pageGeneration;
     try {
@@ -692,6 +702,7 @@ if (root) {
         return false;
       if (result.streamRevision !== undefined)
         publicRevision = result.streamRevision;
+      mediaUnavailable = false;
       currentState = result.state;
       eventStatus = result.eventStatus;
       serverOffset = new Date(result.serverNow).getTime() - Date.now();
@@ -837,6 +848,7 @@ if (root) {
           (error as MediaError).status,
         )
       ) {
+        mediaUnavailable = true;
         recovery.stop();
         rememberSpeaker(false);
         replayPlayer.stop();
@@ -937,6 +949,7 @@ if (root) {
       seatSide = undefined;
     }
     await refresh();
+    releaseHeldSignal();
     if (remembersSpeaker() && canJoinAsSpeaker()) {
       recovery.start("speaker");
       diagnostics.start("speaker", preparationComplete);
@@ -944,6 +957,22 @@ if (root) {
     }
   })();
   let pollTimer: number | undefined;
+  let streamLive = false;
+  const followDeadline = createDeadlineFollower();
+  // Room signals replace status polling while the stream is live; a slow read
+  // remains as a safety net. The turn deadline is read shortly after it
+  // passes, and polling is the slower fallback while the stream is down.
+  function pollDelay() {
+    const running = currentState?.state === "running";
+    const deadline = running ? currentState!.turnDeadlineAt : null;
+    const follow = followDeadline(
+      [deadline],
+      `${currentState?.revision}:${deadline}`,
+      Date.now() + serverOffset,
+    );
+    const fallback = streamLive ? 60000 : speakerConnected ? 2000 : 6000;
+    return follow === null ? fallback : Math.min(follow, fallback);
+  }
   function pollStatus() {
     if (
       disposed ||
@@ -952,16 +981,56 @@ if (root) {
       (document.hidden && !speakerConnected)
     )
       return;
-    pollTimer = window.setTimeout(
-      async () => {
-        pollTimer = undefined;
-        await refresh();
-        pollStatus();
-      },
-      speakerConnected ? 1000 : 3000,
-    );
+    const delay = pollDelay();
+    if (delay === null) return;
+    pollTimer = window.setTimeout(async () => {
+      pollTimer = undefined;
+      await refresh();
+      pollStatus();
+    }, delay);
+  }
+  function reschedulePoll() {
+    window.clearTimeout(pollTimer);
+    pollTimer = undefined;
+    pollStatus();
   }
   pollStatus();
+  const signalRefresh = createSignalRefresh({
+    async read() {
+      await refresh();
+      reschedulePoll();
+      return publicRevision;
+    },
+    // A read that already reported this room cursor covers the signal.
+    current: () => publicRevision,
+    setTimer: (fn, ms) => window.setTimeout(fn, ms),
+    clearTimer: (timer) => window.clearTimeout(timer),
+  });
+  function releaseHeldSignal() {
+    firstRead = true;
+    if (heldSignal && !disposed && !mediaUnavailable)
+      signalRefresh.request(heldSignal);
+  }
+  const stopWatching = watchRoom({
+    room: id,
+    topics: ["media"],
+    events: window,
+    signal(_topic, cursor) {
+      if (disposed || mediaUnavailable) return;
+      if (!firstRead) {
+        if (cursor > heldSignal) heldSignal = cursor;
+        return;
+      }
+      signalRefresh.request(cursor);
+    },
+    health(live) {
+      streamLive = live;
+      // A dropped stream may have missed a signal: read once, then poll.
+      if (!live && !disposed && !document.hidden && !mediaUnavailable)
+        void refresh();
+      reschedulePoll();
+    },
+  });
   const clockTimer = window.setInterval(paintClock, 250);
   const statsTimer = window.setInterval(async () => {
     if (!room || document.hidden) return;
@@ -1040,6 +1109,8 @@ if (root) {
       reporter.stop();
       replayPlayer.destroy();
       replayObservers.forEach((stop) => stop());
+      stopWatching();
+      signalRefresh.stop();
       window.clearInterval(watchTimer);
       window.clearInterval(clockTimer);
       window.clearInterval(statsTimer);

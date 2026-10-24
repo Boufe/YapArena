@@ -1,4 +1,8 @@
 import type { Pool, PoolClient } from "pg";
+import {
+  type TransactionOptions,
+  withTransaction,
+} from "../../platform/transaction.ts";
 import { createCommunityDelivery, publicFrame } from "./delivery.ts";
 
 export class CommunityNotFoundError extends Error {}
@@ -128,26 +132,11 @@ const caseJoin = `FROM moderation_cases c
   LEFT JOIN event_chat_messages m ON m.id = c.target_chat_id
   LEFT JOIN event_chat_controls ec ON ec.debate_id = c.debate_id`;
 
-async function transaction<T>(
-  pool: Pool,
-  action: (client: PoolClient) => Promise<T>,
-  readOnly = false,
-) {
-  const client = await pool.connect();
-  try {
-    await client.query(
-      readOnly ? "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY" : "BEGIN",
-    );
-    const result = await action(client);
-    await client.query("COMMIT");
-    return result;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-}
+// Public reads bind projection and visibility in one snapshot.
+const readSnapshot = {
+  isolation: "repeatable read",
+  readOnly: true,
+} as const satisfies TransactionOptions;
 
 async function lockAccount(client: PoolClient, userId: string) {
   await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
@@ -285,7 +274,7 @@ export function createCommunityRepository(database: Pool) {
     },
 
     async listChat(id: string, before?: string, viewerId?: string) {
-      return transaction(
+      return withTransaction(
         database,
         async (client) => {
           await eventFor(client, id);
@@ -304,7 +293,7 @@ export function createCommunityRepository(database: Pool) {
             hasMore: result.rows.length > 50,
           };
         },
-        true,
+        readSnapshot,
       );
     },
 
@@ -314,7 +303,7 @@ export function createCommunityRepository(database: Pool) {
       watchedIds: string[],
       viewerId?: string,
     ) {
-      return transaction(
+      return withTransaction(
         database,
         async (client) => {
           await eventFor(client, id);
@@ -348,7 +337,7 @@ export function createCommunityRepository(database: Pool) {
               .map((item) => publicMessage(item, viewerId)),
           };
         },
-        true,
+        readSnapshot,
       );
     },
 
@@ -360,7 +349,7 @@ export function createCommunityRepository(database: Pool) {
       canPost = true,
     ) {
       body = body.trim();
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         await lockAccount(client, userId);
         // Access is always checked, even for an acknowledgment of an earlier write.
         const event = await eventFor(client, id, true);
@@ -458,7 +447,7 @@ export function createCommunityRepository(database: Pool) {
     },
 
     async reconcileSubmissions(id: string, userId: string, keys: string[]) {
-      return transaction(
+      return withTransaction(
         database,
         async (client) => {
           await eventFor(client, id);
@@ -469,12 +458,12 @@ export function createCommunityRepository(database: Pool) {
           );
           return result.rows.map((item) => publicMessage(item, userId));
         },
-        true,
+        readSnapshot,
       );
     },
 
     async setLike(id: string, userId: string, liked: boolean) {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         await lockAccount(client, userId);
         await eventFor(client, id, true);
         if (liked) await assertWritable(client, userId);
@@ -525,7 +514,7 @@ export function createCommunityRepository(database: Pool) {
       reasonCode: ReasonCode,
       detail: string,
     ) {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         await lockAccount(client, userId);
         await assertWritable(client, userId);
         const count = await client.query<{ total: string }>(
@@ -649,7 +638,7 @@ export function createCommunityRepository(database: Pool) {
       reasonCode: ReasonCode,
       note: string,
     ) {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         const record = await caseFor(client, id, true);
         if (record.status !== "open")
           throw new CommunityConflictError("case already reviewed");
@@ -753,7 +742,7 @@ export function createCommunityRepository(database: Pool) {
     },
 
     async resumeChat(id: string, moderatorId: string, note: string) {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         const record = await caseFor(client, id, true);
         if (record.action !== "pause_chat" || record.status !== "actioned")
           throw new CommunityConflictError("case did not pause chat");
@@ -779,7 +768,7 @@ export function createCommunityRepository(database: Pool) {
     },
 
     async appeal(id: string, userId: string, reason: string) {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         const record = await caseFor(client, id, true);
         if (
           record.status !== "actioned" ||
@@ -828,7 +817,7 @@ export function createCommunityRepository(database: Pool) {
       decision: "upheld" | "overturned",
       note: string,
     ) {
-      return transaction(database, async (client) => {
+      return withTransaction(database, async (client) => {
         const target = await client.query<{ caseId: string }>(
           'SELECT case_id AS "caseId" FROM moderation_appeals WHERE id = $1',
           [id],
@@ -885,7 +874,7 @@ export function createCommunityRepository(database: Pool) {
     },
 
     async pruneExpired() {
-      const totals = await transaction(database, async (client) => {
+      const totals = await withTransaction(database, async (client) => {
         const cases =
           await client.query(`DELETE FROM moderation_cases WHERE id IN (
           SELECT c.id FROM moderation_cases c WHERE c.status <> 'open'
@@ -910,7 +899,7 @@ export function createCommunityRepository(database: Pool) {
         UNION SELECT debate_id FROM event_likes WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '365 days'
         ) candidates ORDER BY debate_id LIMIT 10`);
       for (const { id } of rooms.rows) {
-        await transaction(database, async (client) => {
+        await withTransaction(database, async (client) => {
           // Lock both entity sets without waiting before any trigger takes the counter.
           // One room/transaction avoids inversions against multi-room topic/profile triggers.
           const chatIds = await client.query<{ id: string }>(

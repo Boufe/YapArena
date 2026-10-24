@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
+import { withTransaction } from "../transaction.ts";
 import type { VerifiedIdentity } from "./auth0.ts";
 import { assertActiveSession, lockAccount } from "./sessions.ts";
 
@@ -71,9 +72,7 @@ export function createAccountOperationRepository(database: Pool) {
       if (!/^[a-z][a-z0-9_.]{0,79}$/.test(input.purpose))
         throw new AccountOperationError(400, "invalid operation purpose");
       const termsDigest = accountOperationTermsDigest(input.terms);
-      const client = await database.connect();
-      try {
-        await client.query("BEGIN");
+      return withTransaction(database, async (client) => {
         const account = await lockAccount(client, input.userId);
         if (!account)
           throw new AccountOperationError(401, "authentication required");
@@ -96,19 +95,13 @@ export function createAccountOperationRepository(database: Pool) {
             randomBytes(32).toString("hex"),
           ],
         );
-        await client.query("COMMIT");
         return Object.freeze({
           id,
           expiresAt: result.rows[0]!.expiresAt,
           // The browser adds &return=<path> and navigates here.
           confirmPath: `/api/auth/confirm?operation=${id}`,
         });
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
-      } finally {
-        client.release();
-      }
+      });
     },
 
     // Before sending the browser to the provider: the operation must belong
@@ -142,9 +135,8 @@ export function createAccountOperationRepository(database: Pool) {
     }) {
       if (input.identity.authTime === null)
         throw new ConfirmationError("stale_sign_in");
-      const client = await database.connect();
-      try {
-        await client.query("BEGIN");
+      const authTime = input.identity.authTime;
+      return withTransaction(database, async (client) => {
         const operation = (
           await client.query<{ createdSecond: string }>(
             `SELECT extract(epoch FROM date_trunc('second',created_at))::bigint::text AS "createdSecond"
@@ -164,21 +156,15 @@ export function createAccountOperationRepository(database: Pool) {
         ).rows[0];
         if (owner?.userId !== input.userId)
           throw new ConfirmationError("other_account");
-        if (input.identity.authTime < Number(operation.createdSecond))
+        if (authTime < Number(operation.createdSecond))
           throw new ConfirmationError("stale_sign_in");
         await client.query(
           `UPDATE account_operations SET confirmed_at=clock_timestamp(),
              confirmed_subject=$2,confirmed_auth_time=to_timestamp($3)
            WHERE id=$1`,
-          [input.id, input.identity.subject, input.identity.authTime],
+          [input.id, input.identity.subject, authTime],
         );
-        await client.query("COMMIT");
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
-      } finally {
-        client.release();
-      }
+      });
     },
 
     async prepare(input: {
@@ -294,18 +280,10 @@ export function createAccountOperationRepository(database: Pool) {
   return Object.freeze({
     ...repository,
     async authorize(input: Parameters<typeof repository.prepare>[0]) {
-      const approval = await repository.prepare(input),
-        client = await database.connect();
-      try {
-        await client.query("BEGIN");
+      const approval = await repository.prepare(input);
+      await withTransaction(database, async (client) => {
         await approval.consume(client, async () => {});
-        await client.query("COMMIT");
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
-      } finally {
-        client.release();
-      }
+      });
     },
   });
 }

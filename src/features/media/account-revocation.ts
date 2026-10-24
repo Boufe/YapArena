@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
+import { withTransaction } from "../../platform/transaction.ts";
 import {
   assertActiveSession,
   lockAccount,
@@ -59,20 +60,6 @@ export function createMediaAccountRevocation(
   const timeoutMs = provider.timeoutMs ?? 3000;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 10000)
     throw new Error("invalid media revocation timeout");
-  async function transaction<T>(work: (client: PoolClient) => Promise<T>) {
-    const client = await database.connect();
-    try {
-      await client.query("BEGIN");
-      const result = await work(client);
-      await client.query("COMMIT");
-      return result;
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
   async function retire(
     client: PoolClient,
     grant: Grant,
@@ -107,7 +94,7 @@ export function createMediaAccountRevocation(
       )
     ).rows;
     for (const candidate of candidates)
-      await transaction(async (client) => {
+      await withTransaction(database, async (client) => {
         await accountLock(client, candidate.user_id);
         const grant = (
           await client.query<Grant>(
@@ -127,7 +114,7 @@ export function createMediaAccountRevocation(
       )
     ).rows[0];
     if (!candidate) return null;
-    const claim = await transaction(async (client) => {
+    const claim = await withTransaction(database, async (client) => {
       await accountLock(client, candidate.user_id);
       const grant = (
         await client.query<Grant>(
@@ -194,7 +181,7 @@ export function createMediaAccountRevocation(
         : failure
           ? "retry"
           : "complete";
-    const acknowledged = await transaction(async (client) => {
+    const acknowledged = await withTransaction(database, async (client) => {
       await accountLock(client, claim.grant.user_id);
       await client.query(
         "SELECT id FROM media_account_grants WHERE id=$1 FOR UPDATE",
@@ -241,7 +228,7 @@ export function createMediaAccountRevocation(
         );
       if (!uuid.test(context.debateId))
         throw new MediaConflictError("speaker seat is unavailable");
-      const issued = await transaction(async (client) => {
+      const issued = await withTransaction(database, async (client) => {
         const account = await lockAccount(client, context.userId);
         if (!account) throw new SessionUnavailableError("account unavailable");
         const session = await assertActiveSession(
@@ -390,7 +377,7 @@ export function createMediaAccountRevocation(
       identity: string,
       pause: (client: PoolClient) => Promise<unknown>,
     ) {
-      return transaction(async (client) => {
+      return withTransaction(database, async (client) => {
         const tracked = (
           await client.query<{ user_id: string }>(
             "SELECT user_id FROM media_account_grants WHERE debate_id=$1 AND identity=$2",

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
+import { withTransaction } from "../transaction.ts";
 import type { SignInMethod, VerifiedIdentity } from "./auth0.ts";
 import { insertSession, lockAccount } from "./sessions.ts";
 import type { AuthenticationUser } from "./users.ts";
@@ -148,22 +149,18 @@ export function createAuth0Accounts(database: Pool) {
   async function transaction<T>(
     work: (client: PoolClient) => Promise<T>,
   ): Promise<T> {
-    const client = await database.connect();
-    try {
-      await client.query("BEGIN");
-      const result = await work(client);
-      await client.query("COMMIT");
-      return result;
-    } catch (error) {
-      if (error instanceof SpentRefusal) {
-        await client.query("COMMIT");
-        throw error.refusal;
+    // A spent refusal commits the work's writes, then fails.
+    const outcome = await withTransaction(database, async (client) => {
+      try {
+        return { spent: false as const, value: await work(client) };
+      } catch (error) {
+        if (error instanceof SpentRefusal)
+          return { spent: true as const, refusal: error.refusal };
+        throw error;
       }
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
+    if (outcome.spent) throw outcome.refusal;
+    return outcome.value;
   }
 
   async function activeAccount(client: PoolClient, userId: string | null) {

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { QueryResult, QueryResultRow } from "pg";
+import { withTransaction } from "../../platform/transaction.ts";
 
 export type ReplayDatabaseQuery = <
   Row extends QueryResultRow = Record<string, unknown>,
@@ -164,97 +165,85 @@ export function createReplayJobs(
       if (!/^[0-9a-f]{64}$/.test(manifestDigest))
         throw new RangeError("invalid manifest digest");
       if (!allows(job.debateId)) return false;
-      const client = await db.connect();
-      let broken = false;
-      const lost = () => {
-        broken = true;
-      };
-      client.on("error", lost);
-      try {
-        await client.query("BEGIN");
-        await client.query(
-          "SET LOCAL statement_timeout='5s'; SET LOCAL lock_timeout='3s'",
-        );
-        // Visibility changes serialize before publication. The topic may move
-        // while acquiring these locks; the locked event must still reference it.
-        const topic = await client.query<{ id: string }>(
-          `SELECT t.id FROM yaparena.topics t
-          JOIN yaparena.debates d ON d.topic_id=t.id WHERE d.id=$1 AND t.publication_state='published'
-          FOR SHARE OF t`,
-          [job.debateId],
-        );
-        const event = await client.query<{ status: string; topic_id: string }>(
-          `SELECT status,topic_id
-          FROM yaparena.debates WHERE id=$1 AND publication_state='published' AND NOT is_demo
-          AND status IN ('ended','replay','finalized') FOR UPDATE`,
-          [job.debateId],
-        );
-        if (!topic.rows[0] || event.rows[0]?.topic_id !== topic.rows[0].id) {
-          await client.query("ROLLBACK");
-          return false;
-        }
-        await client.query(
-          "SELECT debate_id FROM yaparena.debate_media WHERE debate_id=$1 FOR UPDATE",
-          [job.debateId],
-        );
-        // Domain -> community room -> queue job -> attempt is the common lock
-        // order. No transaction or row lock spans download/encoding/upload.
-        await client.query(
-          "INSERT INTO yaparena.community_rooms(room_id) VALUES($1) ON CONFLICT DO NOTHING",
-          [job.debateId],
-        );
-        await client.query(
-          "SELECT room_id FROM yaparena.community_rooms WHERE room_id=$1 FOR UPDATE",
-          [job.debateId],
-        );
-        const valid = await client.query(
-          `SELECT j.id FROM yaparena.media_replay_jobs j
-          WHERE j.id=$1 AND j.lease_id=$2 AND j.state='processing' AND j.source_etag IS NOT NULL
-          AND j.lease_expires_at>clock_timestamp() AND ${current} FOR UPDATE OF j`,
-          [job.id, job.leaseId],
-        );
-        const attempt = await client.query(
-          `SELECT id FROM yaparena.media_replay_attempts
-          WHERE job_id=$1 AND id=$2 AND state='writing' FOR UPDATE`,
-          [job.id, job.leaseId],
-        );
-        if (!valid.rowCount || !attempt.rowCount) {
-          await client.query("ROLLBACK");
-          return false;
-        }
-        await client.query(
-          `UPDATE yaparena.media_replay_jobs SET state='ready',lease_expires_at=NULL,
-          manifest_digest=$2,failure_code=NULL,updated_at=clock_timestamp() WHERE id=$1`,
-          [job.id, manifestDigest],
-        );
-        await client.query(
-          "UPDATE yaparena.media_replay_attempts SET state='ready' WHERE id=$1",
-          [job.leaseId],
-        );
-        if (event.rows[0]!.status === "ended") {
+      return withTransaction(
+        db,
+        async (client, transaction) => {
+          // Visibility changes serialize before publication. The topic may move
+          // while acquiring these locks; the locked event must still reference it.
+          const topic = await client.query<{ id: string }>(
+            `SELECT t.id FROM yaparena.topics t
+            JOIN yaparena.debates d ON d.topic_id=t.id WHERE d.id=$1 AND t.publication_state='published'
+            FOR SHARE OF t`,
+            [job.debateId],
+          );
+          const event = await client.query<{
+            status: string;
+            topic_id: string;
+          }>(
+            `SELECT status,topic_id
+            FROM yaparena.debates WHERE id=$1 AND publication_state='published' AND NOT is_demo
+            AND status IN ('ended','replay','finalized') FOR UPDATE`,
+            [job.debateId],
+          );
+          if (!topic.rows[0] || event.rows[0]?.topic_id !== topic.rows[0].id) {
+            return transaction.rollback(false);
+          }
           await client.query(
-            "UPDATE yaparena.debates SET status='replay',updated_at=clock_timestamp() WHERE id=$1",
+            "SELECT debate_id FROM yaparena.debate_media WHERE debate_id=$1 FOR UPDATE",
+            [job.debateId],
+          );
+          // Domain -> community room -> queue job -> attempt is the common lock
+          // order. No transaction or row lock spans download/encoding/upload.
+          await client.query(
+            "INSERT INTO yaparena.community_rooms(room_id) VALUES($1) ON CONFLICT DO NOTHING",
             [job.debateId],
           );
           await client.query(
-            `INSERT INTO yaparena.event_history(debate_id,action,from_status,to_status,reason)
-            VALUES($1,'automatic_replay','ended','replay','verified adaptive replay available')`,
+            "SELECT room_id FROM yaparena.community_rooms WHERE room_id=$1 FOR UPDATE",
             [job.debateId],
           );
-        }
-        await client.query("COMMIT");
-        return true;
-      } catch (error) {
-        try {
-          await client.query("ROLLBACK");
-        } catch {
-          broken = true;
-        }
-        throw error;
-      } finally {
-        client.removeListener("error", lost);
-        client.release(broken);
-      }
+          const valid = await client.query(
+            `SELECT j.id FROM yaparena.media_replay_jobs j
+            WHERE j.id=$1 AND j.lease_id=$2 AND j.state='processing' AND j.source_etag IS NOT NULL
+            AND j.lease_expires_at>clock_timestamp() AND ${current} FOR UPDATE OF j`,
+            [job.id, job.leaseId],
+          );
+          const attempt = await client.query(
+            `SELECT id FROM yaparena.media_replay_attempts
+            WHERE job_id=$1 AND id=$2 AND state='writing' FOR UPDATE`,
+            [job.id, job.leaseId],
+          );
+          if (!valid.rowCount || !attempt.rowCount) {
+            return transaction.rollback(false);
+          }
+          await client.query(
+            `UPDATE yaparena.media_replay_jobs SET state='ready',lease_expires_at=NULL,
+            manifest_digest=$2,failure_code=NULL,updated_at=clock_timestamp() WHERE id=$1`,
+            [job.id, manifestDigest],
+          );
+          await client.query(
+            "UPDATE yaparena.media_replay_attempts SET state='ready' WHERE id=$1",
+            [job.leaseId],
+          );
+          if (event.rows[0]!.status === "ended") {
+            await client.query(
+              "UPDATE yaparena.debates SET status='replay',updated_at=clock_timestamp() WHERE id=$1",
+              [job.debateId],
+            );
+            await client.query(
+              `INSERT INTO yaparena.event_history(debate_id,action,from_status,to_status,reason)
+              VALUES($1,'automatic_replay','ended','replay','verified adaptive replay available')`,
+              [job.debateId],
+            );
+          }
+          return true;
+        },
+        {
+          statementTimeoutMs: 5000,
+          lockTimeoutMs: 3000,
+          guardConnection: true,
+        },
+      );
     },
     async fail(job: ReplayJob, code: string, retryable = true) {
       if (!/^[a-z_]{1,40}$/.test(code))

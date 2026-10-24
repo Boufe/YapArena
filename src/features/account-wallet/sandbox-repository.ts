@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
+import { withTransaction } from "../../platform/transaction.ts";
 import { getAddress, isAddress } from "viem";
 import {
   validatePreparedTestTransfer,
@@ -577,9 +578,7 @@ export function createCoinSandboxRepository(
     mutation: (client: PoolClient) => Promise<T>,
     strong = true,
   ) {
-    const client = await database.connect();
-    try {
-      await client.query("BEGIN");
+    return withTransaction(database, async (client) => {
       if (!(await lockAccount(client, context.userId)))
         throw new SessionUnavailableError("account unavailable");
       const session = await assertActiveSession(
@@ -603,14 +602,8 @@ export function createCoinSandboxRepository(
         context.userId,
         context.sessionTokenHash,
       );
-      await client.query("COMMIT");
       return result;
-    } catch (failure) {
-      await client.query("ROLLBACK");
-      throw failure;
-    } finally {
-      client.release();
-    }
+    });
   }
   async function claim(
     client: PoolClient,
@@ -1160,9 +1153,7 @@ async function ownerTx<T>(
   userId: string,
   mutation: (client: PoolClient) => Promise<T>,
 ) {
-  const client = await database.connect();
-  try {
-    await client.query("BEGIN");
+  return withTransaction(database, async (client) => {
     if (
       (await client.query<{ role: string }>("SELECT current_user AS role"))
         .rows[0]?.role !== "yaparena_owner"
@@ -1177,15 +1168,8 @@ async function ownerTx<T>(
     )
       error("account unavailable", 404);
     await assertSandboxRail(client, rail);
-    const result = await mutation(client);
-    await client.query("COMMIT");
-    return result;
-  } catch (failure) {
-    await client.query("ROLLBACK");
-    throw failure;
-  } finally {
-    client.release();
-  }
+    return mutation(client);
+  });
 }
 export function createCoinSandboxOperatorRepository(
   database: Pool,

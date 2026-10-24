@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
+import { withTransaction } from "../../platform/transaction.ts";
 import {
   RULE,
   digest,
@@ -189,20 +190,11 @@ async function serial(client: PoolClient) {
 }
 export function createCoinDebateSandbox(database: Pool, rail: SandboxRail) {
   async function transaction<T>(mutation: (client: PoolClient) => Promise<T>) {
-    const client = await database.connect();
-    try {
-      await client.query("BEGIN");
+    return withTransaction(database, async (client) => {
       await serial(client);
       await assertSandboxRail(client, rail);
-      const result = await mutation(client);
-      await client.query("COMMIT");
-      return result;
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+      return mutation(client);
+    });
   }
   async function assertCallerSession(
     client: PoolClient,

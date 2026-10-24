@@ -1,4 +1,8 @@
 import type { Pool, PoolClient } from "pg";
+import {
+  runTransaction,
+  type TransactionOptions,
+} from "../../platform/transaction.ts";
 
 export const roomIdPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -106,7 +110,11 @@ export function createCommunityDelivery(database: Pool) {
       4000,
     );
   }
-  async function transaction<T>(action: (client: PoolClient) => Promise<T>) {
+  // A tracked client is discarded after any failure.
+  async function trackedTransaction<T>(
+    action: (client: PoolClient) => Promise<T>,
+    options: TransactionOptions,
+  ) {
     const client = await database.connect();
     let failed = false;
     const onError = () => {
@@ -114,14 +122,13 @@ export function createCommunityDelivery(database: Pool) {
     };
     const deadline = track(client, onError);
     try {
-      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-      await client.query("SET LOCAL statement_timeout = '3s'");
-      const result = await action(client);
-      await client.query("COMMIT");
-      return result;
+      return await runTransaction(client, action, {
+        ...options,
+        statementTimeoutMs: 3000,
+        guardConnection: true,
+      });
     } catch (error) {
       failed = true;
-      await client.query("ROLLBACK").catch(() => {});
       throw error;
     } finally {
       clearTimeout(deadline);
@@ -129,6 +136,12 @@ export function createCommunityDelivery(database: Pool) {
       client.off("error", onError);
       client.release(failed);
     }
+  }
+  function transaction<T>(action: (client: PoolClient) => Promise<T>) {
+    return trackedTransaction(action, {
+      isolation: "repeatable read",
+      readOnly: true,
+    });
   }
   return {
     stop() {
@@ -245,15 +258,7 @@ export function createCommunityDelivery(database: Pool) {
     },
     async prune() {
       // Delete a prefix per room and advance the recovery floor in the same transaction.
-      const client = await database.connect();
-      let failed = false;
-      const onError = () => {
-        failed = true;
-      };
-      const deadline = track(client, onError);
-      try {
-        await client.query("BEGIN");
-        await client.query("SET LOCAL statement_timeout = '3s'");
+      return trackedTransaction(async (client) => {
         const rooms = await client.query<{
           room_id: string;
         }>(`SELECT DISTINCT room_id FROM
@@ -289,18 +294,8 @@ export function createCommunityDelivery(database: Pool) {
           SELECT r.room_id FROM community_rooms r WHERE NOT EXISTS (SELECT 1 FROM debates d WHERE d.id=r.room_id)
             AND NOT EXISTS (SELECT 1 FROM community_room_events e WHERE e.room_id=r.room_id)
           ORDER BY r.room_id LIMIT 100 FOR UPDATE SKIP LOCKED)`);
-        await client.query("COMMIT");
         return 1000 - remaining;
-      } catch (error) {
-        failed = true;
-        await client.query("ROLLBACK").catch(() => {});
-        throw error;
-      } finally {
-        clearTimeout(deadline);
-        activeClients.delete(client);
-        client.off("error", onError);
-        client.release(failed);
-      }
+      }, {});
     },
   };
 }

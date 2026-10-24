@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import { createSharedRead } from "../../platform/shared-read.ts";
+import { withTransaction } from "../../platform/transaction.ts";
 
 export class MediaConflictError extends Error {}
 export class MediaNotFoundError extends Error {}
@@ -27,24 +28,6 @@ const fields = `debate_id AS "debateId", state, active_side AS "activeSide",
   last_resumed_at AS "lastResumedAt", revision, incident,
   egress_id AS "egressId", recording_status AS "recordingStatus",
   recording_key AS "recordingKey", captions_vtt IS NOT NULL AS "hasCaptions"`;
-
-async function transaction<T>(
-  db: Pool,
-  fn: (client: PoolClient) => Promise<T>,
-) {
-  const client = await db.connect();
-  try {
-    await client.query("BEGIN");
-    const result = await fn(client);
-    await client.query("COMMIT");
-    return result;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 type Rules = {
   initial_speaking_time_seconds?: number;
@@ -189,7 +172,7 @@ export function createMediaRepository(
       cameraOk: boolean,
       microphoneOk: boolean,
     ) {
-      return transaction(db, async (client) => {
+      return withTransaction(db, async (client) => {
         const event = await client.query<{ status: string }>(
           "SELECT status FROM debates WHERE id = $1 FOR UPDATE",
           [debateId],
@@ -226,7 +209,7 @@ export function createMediaRepository(
         );
     },
     async start(debateId: string, egressId: string, key: string) {
-      return transaction(db, async (client) => {
+      return withTransaction(db, async (client) => {
         const result = await client.query<{
           status: string;
           rulesSnapshot: Rules;
@@ -258,7 +241,7 @@ export function createMediaRepository(
       );
     },
     async stop(debateId: string, reason: string) {
-      return transaction(db, async (client) => {
+      return withTransaction(db, async (client) => {
         const current = await client.query<MediaState>(
           `SELECT ${fields} FROM debate_media WHERE debate_id = $1 FOR UPDATE`,
           [debateId],
@@ -280,12 +263,12 @@ export function createMediaRepository(
     },
     pauseWithClient,
     async pause(debateId: string, actorId: string | null, reason: string) {
-      return transaction(db, (client) =>
+      return withTransaction(db, (client) =>
         pauseWithClient(client, debateId, actorId, reason),
       );
     },
     async resume(debateId: string, actorId: string, revision: number) {
-      return transaction(db, async (client) => {
+      return withTransaction(db, async (client) => {
         const result = await client.query<MediaState>(
           `UPDATE debate_media SET state = 'running',
           turn_deadline_at = CURRENT_TIMESTAMP + (remaining_ms * INTERVAL '1 millisecond'),
@@ -315,7 +298,7 @@ export function createMediaRepository(
       const turns: Array<{ debateId: string; side: "A" | "B" }> = [];
       const ended: string[] = [];
       for (const { debateId } of due.rows) {
-        await transaction(db, async (client) => {
+        await withTransaction(db, async (client) => {
           const eventResult = await client.query<{
             status: string;
             rulesSnapshot: Rules;

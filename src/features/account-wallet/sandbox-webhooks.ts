@@ -6,6 +6,7 @@ import {
 } from "node:crypto";
 import { Router, raw } from "express";
 import type { Pool } from "pg";
+import { withTransaction } from "../../platform/transaction.ts";
 import { CoinOperationError } from "./external-operations.ts";
 import { assertSandboxRail, type SandboxRail } from "./sandbox-repository.ts";
 
@@ -106,9 +107,7 @@ export function authenticateSandboxNotification(input: {
 export function createSandboxWebhookInbox(database: Pool, rail: SandboxRail) {
   return {
     async enqueue(notification: AuthenticatedSandboxNotification) {
-      const client = await database.connect();
-      try {
-        await client.query("BEGIN");
+      return withTransaction(database, async (client) => {
         await assertSandboxRail(client, rail);
         if (
           !(
@@ -155,14 +154,8 @@ export function createSandboxWebhookInbox(database: Pool, rail: SandboxRail) {
               409,
             );
         }
-        await client.query("COMMIT");
         return { accepted: true, duplicate: !inserted };
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
-      } finally {
-        client.release();
-      }
+      });
     },
   };
 }

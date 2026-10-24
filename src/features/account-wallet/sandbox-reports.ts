@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
+import { withTransaction } from "../../platform/transaction.ts";
 import { accountOperationTermsDigest } from "../../platform/auth/account-operations.ts";
 import {
   assertActiveSession,
@@ -294,9 +295,7 @@ async function transaction<T>(
   context: SandboxContext | undefined,
   work: (client: PoolClient) => Promise<T>,
 ) {
-  const client = await database.connect();
-  try {
-    await client.query("BEGIN");
+  return withTransaction(database, async (client) => {
     if (context) {
       if (!(await lockAccount(client, userId)))
         throw new SessionUnavailableError("account unavailable");
@@ -319,14 +318,8 @@ async function transaction<T>(
     await assertSandboxRail(client, rail);
     const result = await work(client);
     if (context) await assertContext(client, context);
-    await client.query("COMMIT");
     return result;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+  });
 }
 // Reports are immutable. Every caller already holds the account ordering lock;
 // no row UPDATE privilege or mutable positive-authorization cache is needed.

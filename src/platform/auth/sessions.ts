@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import { withTransaction } from "../transaction.ts";
 import type { AuthenticationUser, PublicUser } from "./users.ts";
 
 export interface StoredSession {
@@ -104,9 +105,7 @@ export function createSessionRepository(database: Pool) {
       expiresAt: Date,
       expected: AuthenticationSnapshot,
     ): Promise<StoredSession> {
-      const client = await database.connect();
-      try {
-        await client.query("BEGIN");
+      return withTransaction(database, async (client) => {
         const account = await lockAccount(client, userId);
         if (!account || account.authGeneration !== expected.authGeneration)
           throw new SessionUnavailableError(
@@ -119,14 +118,8 @@ export function createSessionRepository(database: Pool) {
           expiresAt,
           account.authGeneration,
         );
-        await client.query("COMMIT");
         return session;
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
-      } finally {
-        client.release();
-      }
+      });
     },
 
     // The request path: one indexed SELECT, no provider call and no row lock.
@@ -145,9 +138,7 @@ export function createSessionRepository(database: Pool) {
     },
 
     async list(userId: string, currentTokenHash: string) {
-      const client = await database.connect();
-      try {
-        await client.query("BEGIN");
+      return withTransaction(database, async (client) => {
         if (!(await lockAccount(client, userId)))
           throw new SessionUnavailableError("account is unavailable");
         const current = await assertActiveSession(
@@ -166,17 +157,11 @@ export function createSessionRepository(database: Pool) {
             AND expires_at>clock_timestamp() ORDER BY created_at DESC,id DESC LIMIT 101`,
           [userId, current.id],
         );
-        await client.query("COMMIT");
         return {
           sessions: result.rows.slice(0, 100),
           hasMore: result.rows.length > 100,
         };
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
-      } finally {
-        client.release();
-      }
+      });
     },
 
     // Ends one session row. The account generation is unchanged, so every
@@ -187,9 +172,7 @@ export function createSessionRepository(database: Pool) {
       targetId?: string,
       requestId?: string,
     ) {
-      const client = await database.connect();
-      try {
-        await client.query("BEGIN");
+      return withTransaction(database, async (client) => {
         if (!(await lockAccount(client, userId)))
           throw new SessionUnavailableError("account is unavailable");
         const current = await assertActiveSession(
@@ -203,7 +186,6 @@ export function createSessionRepository(database: Pool) {
           [target, userId],
         );
         if (!removed.rows[0]) {
-          await client.query("COMMIT");
           return null;
         }
         await client.query(
@@ -220,14 +202,8 @@ export function createSessionRepository(database: Pool) {
             }),
           ],
         );
-        await client.query("COMMIT");
         return { current: current.id === target };
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
-      } finally {
-        client.release();
-      }
+      });
     },
 
     async deleteByTokenHash(tokenHash: string) {

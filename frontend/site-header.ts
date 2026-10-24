@@ -6,6 +6,8 @@ import {
   type AuthResumeAction,
 } from "./auth-return.js";
 import type { AuthRequest } from "./auth-events.js";
+import { apiErrorStatus, apiFetch } from "./lib/api.js";
+import { sessionStore } from "./lib/session.js";
 
 const header = document.querySelector<HTMLElement>("[data-site-header]");
 if (header) {
@@ -22,10 +24,7 @@ if (header) {
   const emailFirst =
     document.documentElement.hasAttribute("data-email-first") ||
     Boolean(document.querySelector("#email-auth"));
-  const channel =
-    "BroadcastChannel" in window
-      ? new BroadcastChannel("yaparena-account")
-      : null;
+  const store = sessionStore();
   let version = 0;
   let endedSessionNotice = "";
   let resumeNotice = "";
@@ -57,40 +56,31 @@ if (header) {
       ? `${value.scope} · reserved ${coins(value.reserved)}`
       : "Balance unavailable. Reopen to retry.";
   }
-  async function refresh() {
+  // The first read on a page and after an account change is shared with the
+  // page's other account scripts; focus, the timer and retry ask again.
+  async function refresh(fresh = true) {
     const current = ++version;
     try {
-      const auth = await fetch("/api/auth/me", {
-        credentials: "same-origin",
-        cache: "no-store",
-        signal: AbortSignal.timeout(10000),
+      const user = await store.me({ fresh }).catch((error: unknown) => {
+        if (apiErrorStatus(error) === 403) return null;
+        throw error;
       });
       if (current !== version) return;
-      if (auth.status === 401 || auth.status === 403) {
-        window.yapRememberSessionAccount?.(null);
+      if (!user) {
         clearAccount();
         session("guest");
         status.textContent = endedSessionNotice;
         return;
       }
-      if (!auth.ok) throw new Error("account unavailable");
-      const identity: { user: { id: string } } = await auth.json();
-      if (current !== version) return;
-      window.yapRememberSessionAccount?.(identity.user.id);
       endedSessionNotice = "";
       session("member");
       status.textContent = resumeNotice;
       resumeConfirmedAction();
       const [profileResponse, walletResponse] = await Promise.all([
-        fetch("/api/me/profile", {
-          credentials: "same-origin",
+        apiFetch("/api/me/profile", { cache: "no-store", timeout: 10000 }),
+        apiFetch(emailFirst ? "/api/account-wallet" : "/api/a4/wallet", {
           cache: "no-store",
-          signal: AbortSignal.timeout(10000),
-        }),
-        fetch(emailFirst ? "/api/account-wallet" : "/api/a4/wallet", {
-          credentials: "same-origin",
-          cache: "no-store",
-          signal: AbortSignal.timeout(10000),
+          timeout: 10000,
         }),
       ]);
       if (current !== version) return;
@@ -173,7 +163,7 @@ if (header) {
     resumeNotice = "";
     clearAccount();
     session("checking");
-    void refresh();
+    void refresh(false);
   });
   window.addEventListener("yap:provider-logout", (event) => {
     clearAuthReturn();
@@ -195,7 +185,7 @@ if (header) {
     if (event.persisted) {
       clearAccount();
       session("checking");
-      void refresh();
+      void refresh(false);
     }
   });
   retry.addEventListener("click", () => {
@@ -205,7 +195,7 @@ if (header) {
   setInterval(() => {
     if (!document.hidden) void refresh();
   }, 45000);
-  void refresh();
+  void refresh(false);
 
   let cancelResume: (() => void) | undefined;
   function returnPath(candidate?: string) {
@@ -402,22 +392,16 @@ if (header) {
       const button = event.currentTarget as HTMLButtonElement;
       if (button.disabled) return;
       const logoutVersion = version;
-      const expectedAccount = window.yapCurrentSessionAccount?.();
+      const expectedAccount = store.account();
       button.disabled = true;
       status.textContent = "Signing out…";
       try {
-        if (!window.yapSessionFetch)
-          throw new Error("account controls unavailable");
-        const response = await window.yapSessionFetch("/api/auth/logout", {
+        const response = await store.fetch("/api/auth/logout", {
           method: "POST",
-          credentials: "same-origin",
           signal: AbortSignal.timeout(45000),
         });
         if (logoutVersion !== version) {
-          if (
-            expectedAccount &&
-            expectedAccount === window.yapCurrentSessionAccount?.()
-          )
+          if (expectedAccount && expectedAccount === store.account())
             window.dispatchEvent(new Event("yap:account-changed"));
           return;
         }
@@ -426,13 +410,7 @@ if (header) {
         const redirectTo = await providerLogout(response);
         clearAccount();
         session("guest");
-        window.dispatchEvent(
-          new CustomEvent("yap:provider-logout", {
-            detail: response.status === 401,
-          }),
-        );
-        window.dispatchEvent(new Event("yap:account-changed"));
-        channel?.postMessage("changed");
+        store.signedOut(response.status === 401);
         // Signing out also ends this browser's provider session; the provider
         // then returns to the home page.
         if (redirectTo) location.assign(redirectTo);

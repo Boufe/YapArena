@@ -1,16 +1,14 @@
 import type { AccountWalletSummary } from "../src/features/account-wallet/types.js";
+import { apiFetch } from "./lib/api.js";
+import { sessionStore } from "./lib/session.js";
 
 type WalletView = AccountWalletSummary & {
   enabled: boolean;
   withdrawalsEnabled: boolean;
 };
-const walletChannel =
-  "BroadcastChannel" in window
-    ? new BroadcastChannel("yaparena-account")
-    : null;
-walletChannel?.addEventListener("message", () =>
-  window.dispatchEvent(new Event("yap:account-changed")),
-);
+// The page's session store turns other tabs' account changes into
+// yap:account-changed, which clears the wallet below.
+sessionStore();
 let walletRead: Promise<WalletView | null> | undefined;
 let walletEpoch = 0;
 window.addEventListener("yap:account-changed", () => {
@@ -19,10 +17,7 @@ window.addEventListener("yap:account-changed", () => {
 });
 function readWallet() {
   const epoch = walletEpoch;
-  walletRead ??= fetch("/api/account-wallet", {
-    credentials: "same-origin",
-    cache: "no-store",
-  })
+  walletRead ??= apiFetch("/api/account-wallet", { cache: "no-store" })
     .then(async (response) => {
       if (response.status === 401) return null;
       if (!response.ok)

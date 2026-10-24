@@ -1,13 +1,13 @@
 // DOM assertions retain the existing server-rendered markup and event-target guarantees.
 import type {
   Profile,
-  AccountUser,
   FollowEntry,
   ActivityEntry,
   CollectionPage,
   AccountError,
 } from "./account-types.js";
-import type {} from "./auth-events.js";
+import { api as request } from "./lib/api.js";
+import { accountErrorMessage, sessionStore } from "./lib/session.js";
 interface ProfileForm extends HTMLFormElement {
   readonly elements: HTMLFormControlsCollection & {
     handle: HTMLInputElement;
@@ -28,6 +28,7 @@ checkingSignOut.textContent = "Sign out";
 checkingSignOut.hidden = true;
 notice.parentElement!.append(checkingSignOut);
 const profileForm = document.querySelector<ProfileForm>("#profile-form")!;
+const store = sessionStore();
 let currentProfile: Profile | null = null;
 let accountVersion = 0;
 let signOutPending = false;
@@ -36,43 +37,8 @@ function say(message: string) {
   notice.textContent = message;
 }
 
-async function api<T = void>(
-  path: string,
-  method = "GET",
-  body?: unknown,
-  signal?: AbortSignal,
-): Promise<T> {
-  const coordinated = path.startsWith("/api/auth/") && method !== "GET";
-  const send = coordinated ? window.yapSessionFetch : fetch;
-  if (!send)
-    throw new Error(
-      "Secure account controls are unavailable. Reload and try again.",
-    );
-  const response = await send(path, {
-    method,
-    credentials: "same-origin",
-    headers: body === undefined ? {} : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal,
-  });
-  if (response.status === 204) return null as T;
-  const json = response.headers
-    .get("Content-Type")
-    ?.includes("application/json");
-  const data: { error?: string } = json
-    ? await response.json()
-    : {
-        error:
-          response.status === 429
-            ? "Too many attempts. Wait a moment, then try again."
-            : "Request failed. Please try again.",
-      };
-  if (!response.ok) {
-    const error = new Error(data.error || "Request failed. Please try again.");
-    (error as AccountError).status = response.status;
-    throw error;
-  }
-  return data as T;
+function api<T = void>(path: string, method = "GET", json?: unknown) {
+  return request<T>(path, { method, json, errorMessage: accountErrorMessage });
 }
 
 function item(text: string, href?: string) {
@@ -178,9 +144,7 @@ async function loadAccount() {
   // Refreshing the account already on screen updates it in place, so the page
   // does not collapse and lose the reader's place. Another account, or none,
   // still clears everything first.
-  const shown = signedIn.hidden
-    ? null
-    : (window.yapCurrentSessionAccount?.() ?? null);
+  const shown = signedIn.hidden ? null : store.account();
   if (shown) ++accountVersion;
   else {
     clearAccountState(true);
@@ -188,13 +152,17 @@ async function loadAccount() {
   }
   let version = accountVersion;
   try {
-    const { user } = await api<{ user: AccountUser }>("/api/auth/me");
+    // Shared with the header's read of the same account.
+    const user = await store.me();
     if (version !== accountVersion) return;
+    if (!user) {
+      showSignedOut();
+      return;
+    }
     if (shown && user.id !== shown) {
       clearAccountState(true);
       version = accountVersion;
     }
-    window.yapRememberSessionAccount?.(user.id);
     endedSessionNotice = "";
     checkingSignOut.hidden = true;
     signedOut.hidden = true;
@@ -253,12 +221,8 @@ async function loadAccount() {
   } catch (error) {
     if (version !== accountVersion) return;
     if ((error as AccountError).status === 401) {
-      window.yapRememberSessionAccount?.(null);
-      clearAccountState();
-      say(
-        endedSessionNotice ||
-          "Sign in to create a profile and follow people or topics.",
-      );
+      store.remember(null);
+      showSignedOut();
       return;
     }
     // An in-place refresh that cannot confirm the account must not leave the
@@ -266,6 +230,14 @@ async function loadAccount() {
     if (shown) clearAccountState(true);
     say((error as AccountError).message);
   }
+}
+
+function showSignedOut() {
+  clearAccountState();
+  say(
+    endedSessionNotice ||
+      "Sign in to create a profile and follow people or topics.",
+  );
 }
 
 const signOutButtons = [
@@ -278,17 +250,12 @@ for (const button of signOutButtons)
     if (signOutPending || button.disabled) return;
     signOutPending = true;
     const version = accountVersion;
-    const expectedAccount = window.yapCurrentSessionAccount?.();
+    const expectedAccount = store.account();
     for (const control of signOutButtons) control.disabled = true;
     say("Signing out…");
     try {
-      if (!window.yapSessionFetch)
-        throw new Error(
-          "Secure account controls are unavailable. Reload and try again.",
-        );
-      const response = await window.yapSessionFetch("/api/auth/logout", {
+      const response = await store.fetch("/api/auth/logout", {
         method: "POST",
-        credentials: "same-origin",
         signal: AbortSignal.timeout(45000),
       });
       const body: { error?: string; redirectTo?: unknown } = response.headers
@@ -302,22 +269,11 @@ for (const button of signOutButtons)
         );
       const expired = response.status === 401;
       if (version !== accountVersion) {
-        if (
-          expectedAccount &&
-          expectedAccount === window.yapCurrentSessionAccount?.()
-        )
+        if (expectedAccount && expectedAccount === store.account())
           window.dispatchEvent(new Event("yap:account-changed"));
         return;
       }
-      window.dispatchEvent(
-        new CustomEvent("yap:provider-logout", { detail: expired }),
-      );
-      window.dispatchEvent(new Event("yap:account-changed"));
-      if ("BroadcastChannel" in window) {
-        const channel = new BroadcastChannel("yaparena-account");
-        channel.postMessage("changed");
-        channel.close();
-      }
+      store.signedOut(expired);
       // Signing out also ends this browser's provider session; the provider
       // then returns to the home page.
       if (typeof body.redirectTo === "string") {

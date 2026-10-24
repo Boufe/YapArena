@@ -13,6 +13,11 @@ const publicDirectory = path.join(repository, "public");
 // imports such as ./arena-chart.js stay separate requests, exactly as the
 // per-file transform emits them.
 const inPlaceBundles = ["a4", "a4-inline"];
+// Classic (non-module) page scripts that use frontend/lib/ keep their URL and
+// script scope as IIFE bundles with their own copy of the shared code. The
+// session store in that code is shared through window.yapSession, so every
+// copy on a page reaches the same instance (see frontend/lib/session.ts).
+const classicBundles = ["session-coordination", "account", "account-balance"];
 const keepSiblingImports: Plugin = {
   name: "keep-sibling-imports",
   setup(context) {
@@ -87,7 +92,12 @@ async function buildFrontend(): Promise<void> {
   await Promise.all(
     sources.map(async (source) => {
       const name = path.relative(frontend, source).replace(/\.ts$/, "");
-      if (inPlaceBundles.includes(name) || bundleEntries.includes(name)) return;
+      if (
+        inPlaceBundles.includes(name) ||
+        classicBundles.includes(name) ||
+        bundleEntries.includes(name)
+      )
+        return;
       // Omitting format preserves classic-script scope and existing ESM imports.
       // Type-only modules erase to nothing and need no browser asset.
       const output = await transform(await readFile(source, "utf8"), {
@@ -138,8 +148,8 @@ async function buildFrontend(): Promise<void> {
         .filter((name) => !current.has(name))
         .map((name) => rm(name)),
     );
-  await Promise.all(
-    inPlaceBundles.map((entry) =>
+  await Promise.all([
+    ...inPlaceBundles.map((entry) =>
       build({
         absWorkingDir: repository,
         entryPoints: [`frontend/${entry}.ts`],
@@ -149,7 +159,16 @@ async function buildFrontend(): Promise<void> {
         plugins: [keepSiblingImports],
       }),
     ),
-  );
+    ...classicBundles.map((entry) =>
+      build({
+        absWorkingDir: repository,
+        entryPoints: [`frontend/${entry}.ts`],
+        bundle: true,
+        format: "iife",
+        outfile: `public/${entry}.js`,
+      }),
+    ),
+  ]);
 }
 
 if (process.argv.includes("--check-sources")) {

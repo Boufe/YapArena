@@ -3,6 +3,7 @@ import type {
   Commitment,
   Publication,
   Round,
+  Run,
   Runs,
   SelectedRun,
   SharedActivity,
@@ -10,6 +11,10 @@ import type {
   Workspace,
   RoundPoint,
 } from "./arena-types.js";
+// The run view carries the database clock its round deadlines use.
+type TimedWorkspace = Omit<Workspace, "run"> & {
+  run: (Run & { serverNow?: string }) | null;
+};
 interface InlineElements {
   runs: HTMLSelectElement;
   argument: HTMLInputElement;
@@ -28,6 +33,12 @@ import {
   roundProgress,
 } from "./arena-chart.js";
 import { createPriceInspector } from "./arena-price.js";
+import {
+  createDeadlineFollower,
+  roundDeadlines,
+  roundStates,
+  watchRoom,
+} from "./community-stream.js";
 import { html } from "../src/platform/html.ts";
 // These selectors refer to the fixed arena server-rendered markup.
 const root = document.querySelector<HTMLElement>("[data-a4-inline]")!;
@@ -71,6 +82,16 @@ if (root) {
     sharedBusy = false;
   let accessEpoch = 0;
   let accessRefreshPending = false;
+  // Private data refreshes after the viewer's own actions, at known round
+  // deadlines, on human-round signals and otherwise every 30 seconds.
+  let serverOffset = 0,
+    lastPrivate = 0,
+    privateDue = false,
+    privateFollowUp: number | null = null,
+    lastShared = Date.now(),
+    sharedDue = false,
+    roomLive = false;
+  const followDeadline = createDeadlineFollower();
   // Keep a draft off the visible document until its original account is verified.
   // A guest's initiating draft may survive sign-in; another account's draft may not.
   let detachedArgument: { owner: string | null; value: string } | null = null;
@@ -299,7 +320,9 @@ if (root) {
         : `YES ${share.toFixed(1)}%, NO ${(100 - share).toFixed(1)}%`,
     );
     const open = run?.rounds!.find(
-      (r) => r.state === "open" && new Date(r.closesAt) > new Date(),
+      (r) =>
+        r.state === "open" &&
+        new Date(r.closesAt).getTime() > Date.now() + serverOffset,
     );
     el("form").hidden = !open || !!open.receipt || run?.state !== "running";
     ui("commit-closed").hidden = !el("form").hidden;
@@ -325,6 +348,7 @@ if (root) {
     const { percent, seconds } = roundProgress(
       node.dataset.opens,
       node.dataset.closes,
+      Date.now() + serverOffset,
     );
     const open = node.dataset.state === "open";
     progress.style.setProperty("--round-remaining", `${open ? percent : 0}%`);
@@ -372,16 +396,29 @@ if (root) {
   }
   async function refresh() {
     const owner = userId;
-    const data = await api<Workspace>(
+    // A signal during this request asks for another read; a failed read
+    // waits for the slow interval rather than its passed deadline.
+    privateDue = false;
+    privateFollowUp = null;
+    lastPrivate = Date.now();
+    const data = await api<TimedWorkspace>(
       `a4/debates/${root.dataset.a4Inline}/workspace${run ? `?runId=${encodeURIComponent(run.id)}` : ""}`,
     );
     if (owner !== userId) return;
+    if (data.run?.serverNow)
+      serverOffset = new Date(data.run.serverNow).getTime() - Date.now();
     if (data.accountId !== userId) {
       clearPrivate();
       throw new Error("Account changed. Reload before reviewing a commitment.");
     }
     populateRuns(data.runs, run?.id ?? "");
     run = data.run;
+    const follow = followDeadline(
+      roundDeadlines(run),
+      roundStates(run),
+      Date.now() + serverOffset,
+    );
+    privateFollowUp = follow === null ? null : Date.now() + follow;
     if (el("setup").dataset.runId !== (run?.id ?? "")) {
       el("setup").open = !run;
       el("setup").dataset.runId = run?.id ?? "";
@@ -608,6 +645,8 @@ if (root) {
   async function loadShared() {
     if (sharedBusy || document.hidden || sharedAbort.signal.aborted) return;
     sharedBusy = true;
+    sharedDue = false;
+    lastShared = Date.now();
     try {
       const response = await fetch(
         `/api/public/debates/${root.dataset.a4Inline}/activity`,
@@ -661,18 +700,53 @@ if (root) {
         !usingShared;
     });
   const countdownTimer = setInterval(countdown, 1000);
-  const privateTimer = setInterval(() => {
-    if (userId && !busy && !document.hidden && !el("review").open) act(refresh);
-  }, 5000);
+  function privateTick() {
+    if (!userId || busy || document.hidden || el("review").open) return;
+    const now = Date.now();
+    if (
+      privateDue ||
+      now - lastPrivate >= 30000 ||
+      (privateFollowUp !== null && now >= privateFollowUp)
+    )
+      act(refresh);
+  }
+  const privateTimer = setInterval(privateTick, 1000);
+  // Shared activity re-reads on room signals; the interval is a safety net,
+  // slower while the room stream is live.
   // Keep the existing declaration and assignment order during the language migration.
   // eslint-disable-next-line prefer-const
-  sharedTimer = setInterval(() => void loadShared(), 5000);
+  sharedTimer = setInterval(() => {
+    if (sharedDue || Date.now() - lastShared >= (roomLive ? 60000 : 15000))
+      void loadShared();
+  }, 1000);
+  const stopWatching = watchRoom({
+    room: root.dataset.a4Inline!,
+    topics: ["round", "activity"],
+    events: window,
+    signal(topic) {
+      if (topic === "activity") {
+        sharedDue = true;
+        void loadShared();
+        return;
+      }
+      // Human-only rounds reach viewers through the signed-in workspace. A
+      // private sandbox is never signalled, so its view keeps its own timing.
+      if (!run?.mode || run.mode === "human") {
+        privateDue = true;
+        privateTick();
+      }
+    },
+    health(live) {
+      roomLive = live;
+    },
+  });
   window.addEventListener(
     "pagehide",
     () => {
       clearInterval(countdownTimer);
       clearInterval(privateTimer);
       clearInterval(sharedTimer);
+      stopWatching();
       sharedAbort.abort();
     },
     { once: true },

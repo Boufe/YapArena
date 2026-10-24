@@ -63,11 +63,15 @@ writers, including older schema-compatible application images:
 | Chat writability / event visibility | Matching event creation and manual `operatorTransition`; media `tick` automatic maximum-duration ending in web or worker; operator event SQL | Debate INSERT/status/publication/demo/topic UPDATE/DELETE              |
 | Topic visibility                    | Matching `publishTopic`; operator topic publication SQL                                                                                      | Topic publication UPDATE, sorted affected rooms                        |
 | Public author label                 | Identity profile editing/publication                                                                                                         | Profile name/publication UPDATE, sorted affected rooms, snapshot reset |
+| Media state signal                  | Media `start`, `pause`, `resume`, `stop`, `tick` (turns, automatic ending), recording results, captions; operator SQL                        | Public-snapshot column change on `debate_media`, at COMMIT             |
+| Human round signal                  | A4 `create`, `tick`, `control` and voiding for human-only runs; operator SQL                                                                 | Human run INSERT/state UPDATE and its round state UPDATE, at COMMIT    |
+| Shared activity signal              | Settlement of a consenting creator's sandbox; publication consent; synthetic seed rounds                                                     | Round `settled`, publisher INSERT/DELETE, synthetic round INSERT       |
 
 Private reports, case reasons, evidence, restrictions, notifications, audit records and like-change
 allowance records do not enter this log. Restrictions and role changes remain server checks on
-every write; the shared summary cannot express a viewer's personal permission. Ready-state changes,
-media turn/pause clocks and recordings keep their existing media transport. No financial writer or
+every write; the shared summary cannot express a viewer's personal permission. Ready-state changes
+keep their existing media transport; media state and A4 rounds add the reference-only
+[room signals](#media-and-a4-room-signals) below. No financial writer or
 payload is added. A public like is visible interest; it is not official support. Ending a debate
 makes chat read-only; it does not implement financial participation closure or settlement.
 
@@ -105,6 +109,9 @@ does not allocate an event, which avoids counter-to-control inversion with a pau
 the case/appeal and target message/control before capture. Profile/topic fanout acquires affected
 room counters in ascending UUID order and does not subsequently lock their public entities.
 
+Room signals run as deferred constraint triggers, so a media or A4 transaction allocates its
+room counter at COMMIT, after every business row lock it took. A publication-consent change
+allocates its affected rooms there in ascending UUID order.
 Chat/like retention locks at most 50 eligible messages and 50 likes using SKIP LOCKED before either
 DELETE trigger, in a separate transaction for each of at most ten rooms. Stream retention acquires
 only room counters, sorted by UUID. Manual bulk SQL that mutates multiple existing rooms must prelock
@@ -138,7 +145,7 @@ Only these fields are emitted, using constructed allowlists rather than spreadin
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `event: community` envelope | `version: 1`, `roomId`, `cursor`, `kind: snapshot/changes`, and the corresponding `snapshot` or `changes`                                               |
 | Snapshot                    | `summary`, `items` (latest ten visible messages, ascending message ID), `hasMore`                                                                       |
-| Change                      | `type: message/summary`, `message` (public message or null), `summary`                                                                                  |
+| Change                      | `type: message/summary`, `message` (public message or null), `summary`; a room signal adds `refresh: media/round/activity` with `message: null`         |
 | Public message              | `id`, `debateId`, `authorName`, `body` (null when removed), `state`, `createdAt`, decimal `revision`, decimal `streamRevision`, `clientMessageId: null` |
 | Public summary              | `eventId`, decimal-string `likes`, `chatState: open/paused`, `chatWritable`, `eventStatus`, decimal `revision`                                          |
 | `event: heartbeat`          | `version: 1`; no SSE ID and no application cursor                                                                                                       |
@@ -212,24 +219,63 @@ status region, updated only when its text changes. Publication revocation sends 
 delivery, clears chat/like count and disables public actions while preserving an editable local draft.
 Future re-publication requires a fresh page or connection; a revoked page does not silently resume.
 
+## Media and A4 room signals
+
+Migration `1792817943415_publish-media-and-round-room-events.js` adds reference-only signals to
+each debate's log: a `summary` row with no message reference whose new `refresh` column names the
+public projection that changed. The browser re-reads that projection over HTTP, so it sees the
+current state, never a historical value, and one signal covers a whole transaction (at most one per
+room and projection).
+
+| `refresh`  | Committed when                                                                                      | Re-read projection                      |
+| ---------- | --------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `media`    | a column of the public media snapshot changes (state, side, turn, deadlines, revision, recording)   | `GET /api/media/events/<id>`            |
+| `round`    | a human-only run is created or changes state, or one of its rounds changes state                    | the signed-in A4 workspace              |
+| `activity` | a consenting creator's sandbox round settles, publication consent changes, or a seed round is added | `GET /api/public/debates/<id>/activity` |
+
+A private sandbox emits nothing while it opens, locks or prices; a signal appears only when a
+consenting creator's settled result enters the public activity. Private incident text, egress and
+recording keys, receipts, balances, orders, seeds and unrevealed pricing never enter the log or a
+frame. On the wire a signal is a `summary` change with `refresh` set and `message: null`. A server
+image from before the migration reads only the original columns and sends the same row as a plain
+summary change, and clients that predate signals apply either, so migrating before deploying
+leaves chat delivery intact. Signals reveal when a human-only
+round changes state, which signed-in accounts can already see; anonymous viewers learn the timing,
+not the content.
+
+`community-stream.ts` dispatches `yap:room-signal` (room, applied cursor, topics) after each
+successful application, in cursor order, and `yap:room-stream` when the EventSource becomes live or
+stops. A snapshot signals every topic, because it can stand in for skipped references. Polled
+`/updates` frames also signal but never mark the stream live. Media re-reads on `media` signals; if
+the response's `streamRevision` is still below the signal's cursor (a shared read that began before
+the commit), it retries up to three times with backoff. Countdowns use server deadlines with the
+offset from the response's `serverNow`; A4 run views now carry `serverNow` from the database
+clock. Each page also reads about two seconds after a deadline it already knows, backing off while
+the server finishes the transition. Polling at the slower intervals below runs only while the
+stream is not live (disabled, disconnected, backgrounded or not eligible). The `/coins` page has no
+room stream and uses the deadline and 30-second private refresh only. The intervals are proposals
+awaiting product approval.
+
 ## Limits and degraded operation
 
-| Resource/control                               | Implemented default                                                                                                                               |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `COMMUNITY_STREAM_ENABLED`                     | `false`; `.env.example`, Compose and Render explicitly retain this rollout gate                                                                   |
-| `COMMUNITY_MAX_STREAMS`, `COMMUNITY_MAX_ROOMS` | 500 streams / 50 active rooms per web process; validated range 1–10,000 and 1–1,000; larger values have no capacity approval                      |
-| Ordinary database pool / LISTEN                | Ten pooled runtime connections + one persistent runtime session; workers/operators budget separately                                              |
-| Room reads                                     | Four concurrent; 80 reads/second with burst 20; 25 ms coalescing and room rotation                                                                |
-| Recovery                                       | Ten events/read, maximum 100 consecutive batches or 1,000 events then snapshot                                                                    |
-| Snapshot size                                  | Ten visible messages; tested maximum JSON-escaped bodies/names fit the 64 KiB output limit                                                        |
-| Per-client buffering                           | 64 KiB across Node writable queue and transport queue; respects write(false)/drain                                                                |
-| Stalled client                                 | Disconnect after 15 seconds without drain or immediately on byte pressure; no silently dropped changes                                            |
-| Admission/reconnect                            | Primary process/room limits; per-IP burst 1,200 tokens, refill 50/sec, 60-sec expiry, at most 2,048 IP entries                                    |
-| Heartbeat / repair                             | 15-sec no-ID heartbeat; 5-sec reconciliation for active rooms                                                                                     |
-| Listener retry                                 | 0.5–30 sec exponential delay with jitter; reverify identity, commit LISTEN, wake all active rooms                                                 |
-| Browser retry / freshness                      | 1–30 sec exponential delay with jitter; initial application/heartbeat deadline about 10–15 sec; 45-sec transport or stalled-application detection |
-| Degraded public reads                          | Poll durable updates every 2 sec, failure backoff up to 15 sec, at most 20 batches/pass; abort on stream reconnect/health and while backgrounded  |
-| Graceful shutdown                              | Close streams first; cancel active delivery connections; bound listener close to 1.5 sec; release pool; existing process hard deadline 10 sec     |
+| Resource/control                               | Implemented default                                                                                                                                |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `COMMUNITY_STREAM_ENABLED`                     | `false`; `.env.example`, Compose and Render explicitly retain this rollout gate                                                                    |
+| `COMMUNITY_MAX_STREAMS`, `COMMUNITY_MAX_ROOMS` | 500 streams / 50 active rooms per web process; validated range 1–10,000 and 1–1,000; larger values have no capacity approval                       |
+| Ordinary database pool / LISTEN                | Ten pooled runtime connections + one persistent runtime session; workers/operators budget separately                                               |
+| Room reads                                     | Four concurrent; 80 reads/second with burst 20; 25 ms coalescing and room rotation                                                                 |
+| Recovery                                       | Ten events/read, maximum 100 consecutive batches or 1,000 events then snapshot                                                                     |
+| Snapshot size                                  | Ten visible messages; tested maximum JSON-escaped bodies/names fit the 64 KiB output limit                                                         |
+| Per-client buffering                           | 64 KiB across Node writable queue and transport queue; respects write(false)/drain                                                                 |
+| Stalled client                                 | Disconnect after 15 seconds without drain or immediately on byte pressure; no silently dropped changes                                             |
+| Admission/reconnect                            | Primary process/room limits; per-IP burst 1,200 tokens, refill 50/sec, 60-sec expiry, at most 2,048 IP entries                                     |
+| Heartbeat / repair                             | 15-sec no-ID heartbeat; 5-sec reconciliation for active rooms                                                                                      |
+| Listener retry                                 | 0.5–30 sec exponential delay with jitter; reverify identity, commit LISTEN, wake all active rooms                                                  |
+| Browser retry / freshness                      | 1–30 sec exponential delay with jitter; initial application/heartbeat deadline about 10–15 sec; 45-sec transport or stalled-application detection  |
+| Degraded public reads                          | Poll durable updates every 2 sec, failure backoff up to 15 sec, at most 20 batches/pass; abort on stream reconnect/health and while backgrounded   |
+| Media status reads (proposed)                  | On `media` signals, about 2 sec after a known turn deadline, and polling 2 sec (speaker) / 6 sec (viewer) only while the stream is not live        |
+| A4 reads on the debate page (proposed)         | Shared activity on `activity` signals, else every 60 sec live / 15 sec not live; private workspace on own action, `round` signal, deadline, 30 sec |
+| Graceful shutdown                              | Close streams first; cancel active delivery connections; bound listener close to 1.5 sec; release pool; existing process hard deadline 10 sec      |
 
 The implemented ten-row limit is stricter than the pre-implementation maximum and prevents a legal
 worst-case payload from repeatedly exceeding the byte limit. Events are encoded once per shared
@@ -249,8 +295,9 @@ tabs a risk; verify browser-to-edge HTTP/2 on the actual SSE route before enabli
 
 Browser fallback has explicit switching: before each stream attempt, any fallback fetch/timer is
 cancelled; after a healthy application/heartbeat no fallback polling runs. On failure polling and
-reconnect backoff begin; background/offline pages suspend public delivery. Own-state reads, manual
-history pagination and unrelated media polling remain separate. Allowlisted community/media and
+reconnect backoff begin; background/offline pages suspend public delivery. Own-state reads and manual
+history pagination remain separate; media and A4 fallback polling follow the stream's health
+(see [room signals](#media-and-a4-room-signals)). Allowlisted community/media and
 bootstrap reads now use [delivery admission budgets](media-delivery-controls.md#shared-network-admission),
 replacing the earlier 600/min shared-IP read restriction for those routes. Protected writes retain
 their own limits. The isolated SSE harness raises the general API allowance for its trial; that
@@ -324,7 +371,8 @@ clock advancement and provider repair in PostgreSQL. Process-local abuse counter
 hosted acceptance still prevent treating community fanout as approval to add web instances.
 
 Rollback first disables the stream flag and restarts the web process; new clients switch to bounded
-durable HTTP recovery. Retain the additive tables, triggers, keys and revisions. The migration's down
+durable HTTP recovery. Retain the additive tables, triggers, keys and revisions, including the room
+signal column and triggers, which earlier images ignore. The migration's down
 refuses to destroy the log; use a forward fix. An earlier server with the prerequisite chat protocol
 continues to have its writes captured by triggers but cannot serve `/updates` or new stream assets;
 roll its assets back together and refresh clients. Before reverting to a server without keyed

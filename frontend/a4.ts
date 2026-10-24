@@ -11,6 +11,11 @@ import type {
   Wallet,
 } from "./arena-types.js";
 import { html } from "../src/platform/html.ts";
+import {
+  createDeadlineFollower,
+  roundDeadlines,
+  roundStates,
+} from "./community-stream.js";
 interface A4Elements {
   review: HTMLDialogElement;
   submit: HTMLFormElement;
@@ -68,6 +73,12 @@ if (root) {
     bookOffset = 0,
     historyOffset = 0,
     lastRefresh = 0;
+  // The run view carries the database clock its round deadlines use. Besides
+  // the viewer's own actions, a run refreshes shortly after each known deadline
+  // and otherwise every 30 seconds.
+  let serverOffset = 0,
+    followUpAt: number | null = null;
+  const followDeadline = createDeadlineFollower();
   let accessEpoch = 0;
   let accessRefreshPending = false;
   function clearAccess() {
@@ -167,7 +178,9 @@ if (root) {
       run!.mode === "human" || ["complete", "archived"].includes(run!.state!);
     el("speed").value = String(run!.speed);
     const open = run!.rounds!.find(
-      (r) => r.state === "open" && new Date(r.closesAt) > new Date(),
+      (r) =>
+        r.state === "open" &&
+        new Date(r.closesAt).getTime() > Date.now() + serverOffset,
     );
     el("submit").hidden =
       !open || run!.observer || run!.state! !== "running" || !!open.receipt;
@@ -197,11 +210,25 @@ if (root) {
       throw new Error("Account changed. Reload to review the current account.");
     }
     if (run) {
-      const next = await api<Run>(`a4/runs/${run!.id}?offset=${bookOffset}`);
+      followUpAt = null;
+      const next = await api<Run & { serverNow?: string }>(
+        `a4/runs/${run!.id}?offset=${bookOffset}`,
+      );
       if (owner !== accountId) return;
-      const changed = JSON.stringify(next) !== JSON.stringify(run);
+      if (next.serverNow)
+        serverOffset = new Date(next.serverNow).getTime() - Date.now();
+      // The clock differs on every read; only run content triggers a render.
+      const changed =
+        JSON.stringify({ ...next, serverNow: undefined }) !==
+        JSON.stringify({ ...run, serverNow: undefined });
       run = next;
       if (changed) render();
+      const follow = followDeadline(
+        roundDeadlines(run),
+        roundStates(run),
+        Date.now() + serverOffset,
+      );
+      followUpAt = follow === null ? null : Date.now() + follow;
     } else {
       const wallet = await api<Wallet>("a4/wallet");
       if (owner !== accountId) return;
@@ -482,7 +509,8 @@ if (root) {
       !busy &&
       !document.hidden &&
       !el("review").open &&
-      Date.now() - lastRefresh > 5000
+      (Date.now() - lastRefresh > 30000 ||
+        (followUpAt !== null && Date.now() >= followUpAt))
     )
       perform(refresh);
   }, 1000);

@@ -52,9 +52,27 @@ export interface RoomRead {
   events: {
     cursor: string;
     kind: string;
+    refresh: RoomSignal | null;
     message: PublicChat | null;
     occurredAt: Date;
   }[];
+}
+
+// Reference-only room signals name the public projection a client should
+// re-read. They are logged and sent as summary changes, so chat clients and
+// servers that predate them keep applying the shared room cursor.
+export const roomSignals = ["media", "round", "activity"] as const;
+export type RoomSignal = (typeof roomSignals)[number];
+
+export function publicChange(
+  kind: string,
+  message: PublicChat | null,
+  summary: PublicSummary,
+  refresh: RoomSignal | null = null,
+) {
+  return refresh
+    ? { type: "summary", message: null, summary, refresh }
+    : { type: kind, message, summary };
 }
 
 export function publicFrame(
@@ -80,11 +98,9 @@ export function publicFrame(
       : undefined,
     changes: reset
       ? undefined
-      : value.events.map((e) => ({
-          type: e.kind,
-          message: e.message,
-          summary: value.summary,
-        })),
+      : value.events.map((e) =>
+          publicChange(e.kind, e.message, value.summary, e.refresh),
+        ),
     more: !reset && BigInt(cursor) < BigInt(value.head),
   };
 }
@@ -205,11 +221,12 @@ export function createCommunityDelivery(database: Pool) {
         const log = await client.query<{
           cursor: string;
           kind: string;
+          refresh: RoomSignal | null;
           messageId: string | null;
           messageRevision: string | null;
           occurredAt: Date;
         }>(
-          `SELECT cursor::text,kind,
+          `SELECT cursor::text,kind,refresh,
           message_id::text AS "messageId", message_revision::text AS "messageRevision",
           occurred_at AS "occurredAt" FROM community_room_events e
           WHERE e.room_id=$1 AND e.cursor>$2 ORDER BY e.cursor LIMIT 10`,
@@ -238,6 +255,7 @@ export function createCommunityDelivery(database: Pool) {
           events: log.rows.map((e) => ({
             cursor: e.cursor,
             kind: e.kind,
+            refresh: e.refresh,
             occurredAt: e.occurredAt,
             message: e.messageId
               ? (byId.get(e.messageId) ?? {

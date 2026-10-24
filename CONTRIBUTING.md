@@ -141,8 +141,11 @@ browser-safe shared implementations in `src/features/`. Never edit or commit gen
   `npm run check` CI gate include it.
 - `npm run build:frontend` emits every executable `frontend/**/*.ts` module to the corresponding
   `public/**/*.js` path and builds the four bundles `media.bundle.js`, `replay.bundle.js`,
-  `hero-live.bundle.js` and `homepage.bundle.js`. Type-only modules produce no asset. Run the type
-  check before this focused build; `npm run build` runs both and also compiles the server.
+  `hero-live.bundle.js` and `homepage.bundle.js`. Bundle entries emit only their bundle, and
+  type-only modules produce no asset. `media.bundle.js` and `hero-live.bundle.js` are ES modules
+  that share code such as `livekit-client` through content-hashed `public/chunks/` files, which
+  the server caches as immutable without a `?v=` revision. Run the type check before this focused
+  build; `npm run build` runs both and also compiles the server.
 - `npm run dev` generates assets before starting the API, then watches frontend and shared discovery
   sources. Sign-in is a full-page redirect through Auth0
   ([Decision 0009](docs/decisions/0009-auth0.md)): the header and `/account` link to

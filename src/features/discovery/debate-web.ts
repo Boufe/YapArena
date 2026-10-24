@@ -72,6 +72,6 @@ export function renderDebateWorkspace(
       <p class="arena-disclosure">A4 adjusted FTM · Play money<br>Bot activity is synthetic and labeled.</p>
     </aside>
     ${enabled ? html`<dialog data-inline-review class="information-card arena-review" aria-labelledby="a4-inline-review-title"><span class="eyebrow accent">REVIEW BEFORE COMMITTING</span><h2 id="a4-inline-review-title">Your exact commitment</h2><p data-inline-terms></p><p data-inline-review-status role="status" aria-live="polite"></p><button type="button" data-inline-commit class="button">Commit these exact terms</button><button type="button" data-inline-cancel>Back</button></dialog><script type="module" src="${asset("a4-inline.js")}"></script>` : ""}
-    ${activity ? html`<template data-shared-bootstrap>${JSON.stringify(activity)}</template>` : ""}<script type="module" src="${asset("arena.js")}"></script><script defer src="${asset("media.bundle.js")}"></script><script type="module" src="${asset("community.js")}"></script>
+    ${activity ? html`<template data-shared-bootstrap>${JSON.stringify(activity)}</template>` : ""}<script type="module" src="${asset("arena.js")}"></script><script type="module" src="${asset("media.bundle.js")}"></script><script type="module" src="${asset("community.js")}"></script>
   </div>`;
 }

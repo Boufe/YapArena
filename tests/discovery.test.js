@@ -269,7 +269,10 @@ describe("public discovery", () => {
     const page = await request(app).get("/debates/public-debate");
     assert.match(page.text, /\/assets\/site\.css\?v=[0-9a-f]{12}/);
     assert.match(page.text, /\/assets\/site\.js\?v=[0-9a-f]{12}/);
-    assert.match(page.text, /\/assets\/media\.bundle\.js\?v=[0-9a-f]{12}/);
+    assert.match(
+      page.text,
+      /<script type="module" src="\/assets\/media\.bundle\.js\?v=[0-9a-f]{12}">/,
+    );
     assert.match(page.text, /data-media-microphone/);
     const response = await request(app).get("/assets/site.css");
     assert.equal(response.status, 200);
@@ -302,6 +305,24 @@ describe("public discovery", () => {
       assert.equal(response.status, 200);
       assert.equal(response.headers["cache-control"], "public, max-age=0");
     }
+    // Shared bundle chunks are imported without ?v= and cached by content hash.
+    const bundle = await request(app).get(
+      `/assets/media.bundle.js?v=${revision}`,
+    );
+    const chunk = /from"\.\/(chunks\/chunk-[A-Z2-7]{8}\.js)"/.exec(
+      bundle.text,
+    )[1];
+    const shared = await request(app).get(`/assets/${chunk}`);
+    assert.equal(shared.status, 200);
+    assert.match(shared.headers["content-type"], /javascript/);
+    assert.equal(
+      shared.headers["cache-control"],
+      "public, max-age=31536000, immutable",
+    );
+    assert.equal(
+      (await request(app).get("/assets/chunks/chunk-AAAAAAAA.js")).status,
+      404,
+    );
     const offline = await request(app).get("/assets/offline.html");
     assert.equal(offline.status, 200);
     assert.equal(offline.headers["cache-control"], "public, max-age=0");

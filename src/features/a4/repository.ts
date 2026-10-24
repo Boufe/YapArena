@@ -205,15 +205,26 @@ const a4Transaction = {
   },
 } as const satisfies TransactionOptions;
 
+// Decision 0010: ordinary YAP play (human runs and the account-wide balance,
+// ledger scope 'global') is retired and its ledger frozen. Bot runs keep
+// writing their own scopes; past YAP runs and balances stay readable.
+const retired = () =>
+  new A4Error(
+    "Yap Coins play is retired; past runs and balances stay readable",
+    410,
+  );
+
 export function createA4Repository(
   database: Pool,
-  mode: A4Mode = "disabled",
+  configuredMode: A4Mode = "disabled",
   fundingPolicy: PlayFundingPolicy = {
     starterCoins: 1000,
     refillCoins: 1000,
     botCoins: 1000,
   },
 ) {
+  // "yap-coins" allowed human runs only, so it now enables nothing.
+  const mode: A4Mode = configuredMode === "bots" ? "bots" : "disabled";
   for (const [name, amount] of Object.entries(fundingPolicy))
     if (
       !Number.isInteger(amount) ||
@@ -238,15 +249,15 @@ export function createA4Repository(
       a4Transaction,
     );
   }
-  async function enabled(client: PoolClient, bots = false) {
+  async function enabled(client: PoolClient) {
     const result = await client.query<{
       enabled: boolean;
       bots_enabled: boolean;
     }>("SELECT enabled,bots_enabled FROM a4_controls WHERE id=true FOR SHARE");
     if (
-      mode === "disabled" ||
+      mode !== "bots" ||
       !result.rows[0]?.enabled ||
-      (bots && (mode !== "bots" || !result.rows[0].bots_enabled))
+      !result.rows[0].bots_enabled
     )
       throw new A4Error("Yap Coins participation is disabled", 503);
     requirePlayAsset(YAP.id, "play");
@@ -417,7 +428,7 @@ export function createA4Repository(
       "SELECT clock_timestamp()<closes_at AS valid FROM a4_rounds WHERE id=$1",
       [r.id],
     );
-    if (s.mode !== "human" && cutoff.rows[0]?.valid) {
+    if (cutoff.rows[0]?.valid) {
       const bots = generateBots(
         s.seed,
         r.period,
@@ -464,15 +475,20 @@ export function createA4Repository(
       )
     ).rows[0]!;
     if (r.state === "scheduled") {
+      // Retired YAP play opens no new human round. Rounds already open still
+      // lock and settle, so the freeze migration can apply once they finish.
+      if (s.mode === "human") {
+        await voidOpen(client, s, r, "yap_play_retired");
+        return;
+      }
       const control = await client.query<{
         enabled: boolean;
         bots_enabled: boolean;
       }>("SELECT enabled,bots_enabled FROM a4_controls WHERE id=true");
       if (
-        mode === "disabled" ||
+        mode !== "bots" ||
         !control.rows[0]?.enabled ||
-        (s.mode !== "human" &&
-          (mode !== "bots" || !control.rows[0]?.bots_enabled))
+        !control.rows[0].bots_enabled
       ) {
         await voidOpen(client, s, r, "admission_disabled");
         return;
@@ -698,9 +714,10 @@ export function createA4Repository(
         speed?: number;
       },
     ) {
-      const config = runConfig(input.config, input.mode === "human");
+      if (input.mode === "human") throw retired();
+      const config = runConfig(input.config);
       if (
-        !["human", "mixed", "observer"].includes(input.mode) ||
+        !["mixed", "observer"].includes(input.mode) ||
         ![1, 5, 20].includes(input.speed ?? 1) ||
         (input.seed !== undefined &&
           (input.mode !== "observer" ||
@@ -717,7 +734,7 @@ export function createA4Repository(
             "create",
             { ...input, config },
             async () => {
-              await enabled(client, input.mode !== "human");
+              await enabled(client);
               const visible = await client.query<{
                 proposition: string;
                 topic_id: string;
@@ -737,10 +754,10 @@ export function createA4Repository(
               const id = randomUUID(),
                 seed = input.seed ?? secureSeed(),
                 speed = input.speed ?? 1;
-              const duration =
-                input.mode === "human"
-                  ? config.roundSeconds
-                  : Math.max(10, Math.ceil(config.roundSeconds / speed));
+              const duration = Math.max(
+                10,
+                Math.ceil(config.roundSeconds / speed),
+              );
               const created = await client.query<Session>(
                 `INSERT INTO a4_sessions(id,creator_id,debate_id,asset,mode,state,config,seed,reveal_at,speed,proposition,topic_id) VALUES($1,$2,$3,'YAP',$4,'running',$5,$6,clock_timestamp()+($7*INTERVAL '1 second'),$8,$9,$10) RETURNING *`,
                 [
@@ -785,10 +802,11 @@ export function createA4Repository(
                   BigInt(fundingPolicy.starterCoins),
                 );
               for (let period = 1; period <= config.periods; period++) {
-                const roundSeed =
-                  s.mode === "human"
-                    ? secureSeed()
-                    : digest({ seed: s.seed, domain: "price", period });
+                const roundSeed = digest({
+                  seed: s.seed,
+                  domain: "price",
+                  period,
+                });
                 const rows = await client.query<Round>(
                   `INSERT INTO a4_rounds(id,session_id,asset,period,state,opens_at,closes_at,seed,seed_commitment) VALUES($1,$2,'YAP',$3,'scheduled',(SELECT reveal_at FROM a4_sessions WHERE id=$2)-($4*INTERVAL '1 second'),(SELECT reveal_at FROM a4_sessions WHERE id=$2)-($5*INTERVAL '1 second'),$6,$7) RETURNING *`,
                   [
@@ -843,7 +861,8 @@ export function createA4Repository(
                 found.rows[0].session_id,
                 actor.userId,
               );
-              await enabled(client, s.mode !== "human");
+              if (s.mode === "human") throw retired();
+              await enabled(client);
               const visible = await client.query(
                 "SELECT 1 FROM debates d JOIN topics t ON t.id=d.topic_id WHERE d.id=$1 AND d.publication_state='published' AND t.publication_state='published' AND d.status NOT IN ('cancelled','void_review')",
                 [s.debate_id],
@@ -910,53 +929,47 @@ export function createA4Repository(
       );
     },
     async refill(actor: Actor, key: string, sessionId?: string) {
+      // Without a run, the refill was the account-wide YAP play grant.
+      if (sessionId === undefined) throw retired();
       return transaction(
         (client) =>
-          idempotent(
-            client,
-            actor,
-            key,
-            "refill",
-            { sessionId: sessionId ?? null },
-            async () => {
-              const s = sessionId
-                ? await getSession(client, sessionId, actor.userId)
-                : null;
-              await enabled(client, !!s && s.mode !== "human");
-              if (s?.mode === "observer")
-                throw new A4Error("observer runs have no human balance", 403);
-              const scope = s ? scopeOf(s) : "global";
-              const day = (
-                await client.query<{ day: string }>(
-                  "SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD') AS day",
-                )
-              ).rows[0]!.day;
-              await issue(
-                client,
-                scope,
-                `user:${actor.userId}`,
-                actor.userId,
-                `starter:${scope}:${actor.userId}`,
-                BigInt(fundingPolicy.starterCoins),
-              );
-              const issued = await issue(
-                client,
-                scope,
-                `user:${actor.userId}`,
-                actor.userId,
-                `refill:${scope}:${actor.userId}:${day}`,
-                BigInt(fundingPolicy.refillCoins),
-              );
-              return {
-                issued,
-                day,
-                asset: "YAP",
-                amount: issued
-                  ? String(BigInt(fundingPolicy.refillCoins) * BigInt(YAP.face))
-                  : "0",
-              };
-            },
-          ),
+          idempotent(client, actor, key, "refill", { sessionId }, async () => {
+            const s = await getSession(client, sessionId, actor.userId);
+            if (s.mode === "human") throw retired();
+            await enabled(client);
+            if (s.mode === "observer")
+              throw new A4Error("observer runs have no human balance", 403);
+            const scope = s.id;
+            const day = (
+              await client.query<{ day: string }>(
+                "SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD') AS day",
+              )
+            ).rows[0]!.day;
+            await issue(
+              client,
+              scope,
+              `user:${actor.userId}`,
+              actor.userId,
+              `starter:${scope}:${actor.userId}`,
+              BigInt(fundingPolicy.starterCoins),
+            );
+            const issued = await issue(
+              client,
+              scope,
+              `user:${actor.userId}`,
+              actor.userId,
+              `refill:${scope}:${actor.userId}:${day}`,
+              BigInt(fundingPolicy.refillCoins),
+            );
+            return {
+              issued,
+              day,
+              asset: "YAP",
+              amount: issued
+                ? String(BigInt(fundingPolicy.refillCoins) * BigInt(YAP.face))
+                : "0",
+            };
+          }),
         actor,
       );
     },
@@ -983,7 +996,7 @@ export function createA4Repository(
                 throw new A4Error("run has ended");
               if (action === "speed" && ![1, 5, 20].includes(speed ?? 0))
                 throw new A4Error("invalid speed", 400);
-              if (action === "run") await enabled(client, true);
+              if (action === "run") await enabled(client);
               if (
                 action === "pause" ||
                 action === "run" ||
@@ -1006,8 +1019,7 @@ export function createA4Repository(
                   [id],
                 );
                 if (next.rows[0]) {
-                  if (next.rows[0].state === "scheduled")
-                    await enabled(client, true);
+                  if (next.rows[0].state === "scheduled") await enabled(client);
                   await transition(client, s, next.rows[0], true);
                 }
                 await settle(client, s);

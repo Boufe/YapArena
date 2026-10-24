@@ -14,9 +14,11 @@ incentives and sponsor workflows remain unimplemented.
 
 Set up the owner/runtime database boundary, apply the new migrations, then follow
 [local play activation](docs/financial-operations.md#local-activation-and-exercise).
-Open `/coins` or the participation panel on a published debate. Sign-in uses the existing
-account flow; a crypto wallet is optional. Starter/refill coins and all bot funding are
-recorded, nonredeemable play issuance. Bots mode defaults to 500 synthetic participants.
+Ordinary Yap Coins play (human runs and the account-wide balance) is retired and its ledger
+frozen read-only under [decision 0010](docs/decisions/0010-single-ledger.md); past runs and
+balances stay readable. Bots mode continues: open `/coins` or the participation panel on a
+published debate to start a labeled bot run. Its play funding is recorded, nonredeemable
+issuance, and it defaults to 500 synthetic participants.
 See [A4 rules](docs/a4-mechanism.md), [decision 0007](docs/decisions/0007-a4-adjusted-ftm.md)
 and the [financial implementation plan](docs/financial-implementation-plan.md).
 Default activation is disabled; no hosted migration or deployment follows from this change.

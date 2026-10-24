@@ -68,6 +68,7 @@ import { createMatchingRepository } from "../dist/features/matching/repository.j
 import { createMediaRepository } from "../dist/features/media/repository.js";
 import { createCommunityRepository } from "../dist/features/community/repository.js";
 import { createMeasurementRepository } from "../dist/features/measurement/repository.js";
+import { createA4Repository } from "../dist/features/a4/repository.js";
 
 // This harness creates its own isolated Docker cluster. It accepts no external URL,
 // never reads .env, mounts no data volume, and uses only synthetic random credentials.
@@ -111,6 +112,7 @@ const applicationTables = [
   ...replayJobTables,
   ...a4Tables,
   ...publicBotTables,
+  "a4_play_closing_balances",
 ];
 const container = `yaparena-isolation-${randomUUID().slice(0, 8)}`;
 const evidenceDirectory = `/tmp/${container}-evidence`;
@@ -167,6 +169,107 @@ async function migrate(
     ...options,
   });
 }
+const migrationsBefore = async (timestamp: bigint) =>
+  (await readdir(new URL("../migrations", import.meta.url))).filter(
+    (name) =>
+      /^\d+_.+\.js$/.test(name) && BigInt(name.split("_")[0]!) < timestamp,
+  ).length;
+// Decision 0010 retires ordinary YAP play (A4 ledger scope 'global'). Seed it
+// as the A4 engine wrote it, just before the freeze migration: a funded
+// account, play value still reserved for a round, and an unopened human round.
+const freezeMigration = 1792860564050n;
+async function seedRetiredPlay(owner: pg.Client) {
+  const user = (
+    await owner.query<{ id: string }>(
+      "INSERT INTO yaparena.users DEFAULT VALUES RETURNING id",
+    )
+  ).rows[0]!.id;
+  const issuer = "global:YAP:play-issuer:issuer",
+    wallet = `global:YAP:user:${user}:available`,
+    held = `global:YAP:round:isolation:user:${user}:reserved`;
+  const journal = async (
+    reference: string,
+    from: string,
+    to: string,
+    amount: bigint,
+  ) => {
+    await owner.query("BEGIN");
+    await owner.query(
+      `INSERT INTO yaparena.a4_accounts(id,scope,asset,user_id,kind) VALUES
+        ($1,'global','YAP',NULL,'issuer'),($2,'global','YAP',$4,'available'),
+        ($3,'global','YAP',$4,'reserved') ON CONFLICT DO NOTHING`,
+      [issuer, wallet, held, user],
+    );
+    await owner.query(
+      "UPDATE yaparena.a4_accounts SET amount=amount+(CASE WHEN id=$2 THEN $3::numeric ELSE -$3::numeric END) WHERE id IN ($1,$2)",
+      [from, to, String(amount)],
+    );
+    await owner.query(
+      "INSERT INTO yaparena.a4_journals(reference,scope,asset,kind,metadata) VALUES($1,'global','YAP','isolation_fixture','{}')",
+      [reference],
+    );
+    await owner.query(
+      "INSERT INTO yaparena.a4_postings(reference,account_id,amount) VALUES($1,$2,$3),($1,$4,$5)",
+      [reference, from, String(-amount), to, String(amount)],
+    );
+    await owner.query("COMMIT");
+  };
+  await journal(`starter:global:${user}`, issuer, wallet, 1_000_000_000n);
+  await journal(`reserve:isolation:${user}`, wallet, held, 10_000_000n);
+  const topic = (
+    await owner.query<{ id: string }>(
+      "INSERT INTO yaparena.topics(slug,title,summary,side_a_label,side_b_label,publication_state) VALUES('retired-play-isolation','Retired play fixture','Synthetic upgrade fixture','Support','Oppose','published') RETURNING id",
+    )
+  ).rows[0]!.id;
+  const debate = (
+    await owner.query<{ id: string }>(
+      "INSERT INTO yaparena.debates(slug,topic_id,proposition,status,publication_state,rules_version,rules_snapshot) VALUES('retired-play-isolation',$1,'Should retired play stay readable?','scheduled','published','preview-1','{}') RETURNING id",
+      [topic],
+    )
+  ).rows[0]!.id;
+  const session = randomUUID(),
+    round = randomUUID();
+  await owner.query(
+    `INSERT INTO yaparena.a4_sessions(id,creator_id,debate_id,asset,mode,state,config,seed,reveal_at,proposition,topic_id)
+    VALUES($1,$2,$3,'YAP','human','running',$4,'isolation-seed',clock_timestamp()-interval '1 second','Should retired play stay readable?',$5)`,
+    [
+      session,
+      user,
+      debate,
+      JSON.stringify({
+        rule: "a4-v1",
+        epsilon: 50000,
+        feeBps: 0,
+        maxQuantity: 100,
+        capacity: 1001,
+        population: 0,
+        preset: "heterogeneous",
+        quantity: 1,
+        periods: 1,
+        delayed: false,
+        roundSeconds: 300,
+      }),
+      topic,
+    ],
+  );
+  await owner.query(
+    `INSERT INTO yaparena.a4_rounds(id,session_id,asset,period,state,opens_at,closes_at,seed,seed_commitment)
+    VALUES($1,$2,'YAP',1,'scheduled',clock_timestamp()-interval '2 seconds',clock_timestamp()-interval '1 second','isolation-round-seed','isolation-commitment')`,
+    [round, session],
+  );
+  return {
+    held,
+    round,
+    release: () =>
+      journal(`release:isolation:${user}`, held, wallet, 10_000_000n),
+  };
+}
+const playBalances = async (owner: pg.Client) =>
+  (
+    await owner.query<{ id: string; kind: string; amount: string }>(
+      "SELECT id,kind,amount::text AS amount FROM yaparena.a4_accounts WHERE scope='global' ORDER BY id",
+    )
+  ).rows;
 async function treasuryScenario(database: string, upgrade: boolean) {
   const admin = await connect(database);
   let owner: pg.Client | undefined;
@@ -1010,6 +1113,7 @@ async function runtimeChecks(
 async function scenario(database: string, upgrade: boolean) {
   const admin = await connect(database);
   let owner;
+  let retiredPlay: Awaited<ReturnType<typeof playBalances>> | undefined;
   try {
     const encoding = (
       await admin.query<{
@@ -1226,8 +1330,76 @@ async function scenario(database: string, upgrade: boolean) {
         "UPDATE yaparena.provider_revocation_jobs SET state='complete',control_phase='done' WHERE user_id=$1",
         [privy],
       );
+      // Stop before the YAP play freeze. It must refuse while play value is
+      // committed or a human round is unfinished, and name both.
+      const applied = (
+        await owner.query<{ n: number }>(
+          "SELECT count(*)::int AS n FROM yaparena_migrations.pgmigrations",
+        )
+      ).rows[0]!.n;
+      await migrate(owner, {
+        count: (await migrationsBefore(freezeMigration)) - applied,
+      });
+      const play = await seedRetiredPlay(owner);
+      await assert.rejects(
+        migrate(owner),
+        (error: unknown) =>
+          error instanceof Error &&
+          /YAP play is still in progress/.test(error.message) &&
+          "detail" in error &&
+          typeof error.detail === "string" &&
+          error.detail.includes(
+            `value is still committed: account ${play.held}`,
+          ) &&
+          error.detail.includes(`round ${play.round}`),
+      );
+      await owner.query("ROLLBACK");
+      // The worker of this release voids the unopened human round instead of
+      // opening it, even with A4 disabled as on staging.
+      await play.release();
+      const worker = createDatabase(url(database, "yaparena_runtime"), logger);
+      try {
+        await createA4Repository(worker, "disabled").tick();
+      } finally {
+        await worker.end();
+      }
+      assert.equal(
+        (
+          await owner.query<{ state: string }>(
+            "SELECT state FROM yaparena.a4_rounds WHERE id=$1",
+            [play.round],
+          )
+        ).rows[0]!.state,
+        "void",
+      );
+      retiredPlay = await playBalances(owner);
     }
     await migrate(owner);
+    if (retiredPlay) {
+      // Balances match before and after the freeze, and are recorded.
+      assert.deepEqual(await playBalances(owner), retiredPlay);
+      assert.deepEqual(
+        (
+          await owner.query<{ id: string; kind: string; amount: string }>(
+            "SELECT account_id AS id,kind,amount::text AS amount FROM yaparena.a4_play_closing_balances ORDER BY account_id",
+          )
+        ).rows,
+        retiredPlay,
+      );
+      await assert.rejects(
+        owner.query(
+          "UPDATE yaparena.a4_accounts SET amount=amount+1 WHERE scope='global'",
+        ),
+        /YAP play is retired/,
+      );
+      console.log(
+        JSON.stringify({
+          trial: "retired-yap-play-freeze",
+          database,
+          closedAccounts: retiredPlay.length,
+        }),
+      );
+    }
     assert.deepEqual(
       (
         await owner.query<{ name: string }>(

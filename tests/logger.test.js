@@ -378,27 +378,11 @@ describe("credential-safe HTTP logs", () => {
     const { app, capture } = fixture();
     const requestId = "logger-oauth-return";
     await request(app)
-      .get(
-        "/account?privy_oauth_code=synthetic-oauth-secret&privy_oauth_state=synthetic-state",
-      )
+      .get("/account?code=synthetic-oauth-secret&state=synthetic-state")
       .set("X-Request-Id", requestId);
     const record = await capture.completion(requestId, 404, 40);
     assert.equal(record.req.url, "/account");
     capture.assertAbsent(["synthetic-oauth-secret", "synthetic-state"]);
-  });
-  it("omits OAuth credentials on public popup return routes, including encoded keys", async () => {
-    const { app, capture } = fixture();
-    for (const [index, path] of ["/live", "/debates/fixture", "/"].entries()) {
-      const requestId = `logger-public-oauth-${index}`;
-      await request(app)
-        .get(
-          `${path}?%70rivy_oauth_code=synthetic-popup-secret&privy_oauth_state=synthetic-popup-state`,
-        )
-        .set("X-Request-Id", requestId);
-      const record = await capture.completion(requestId, 404, 40);
-      assert.equal(record.req.url, path);
-      capture.assertAbsent(["synthetic-popup-secret", "synthetic-popup-state"]);
-    }
   });
   it("redacts sign-in cookies, codes, state and provider redirects with the real app logger", async () => {
     const { app, capture, sessionRecords } = fixture({ withAuth0: true });

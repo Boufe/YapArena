@@ -157,7 +157,7 @@ Line numbers refer to [accounts](../email-first-accounts.md) and
    completion L475 (second sentence), L494 and L511–516, revocation procedure L125–141.
 5. Password and SIWE proofs for step-up and first-key approval, and retained-wallet sign-in and
    removal: accounts L297–303, completion L283–284, L476, R13 (L312) and R52 (L351),
-   [embedded wallets](../embedded-wallets.md) L3–6.
+   [embedded wallets](../history/embedded-wallets.md) L3–6.
 6. Credential-delta and dual-ownership reconciliation, where a Privy method change ends sessions:
    accounts L178–180 and L198–202, R11–R12 (L310–311).
 7. Decision 0002 L9–25 (SIWE sign-in, wallet link and unlink with password or wallet proof) and the

@@ -8,6 +8,7 @@ import {
   postCoinJournal,
   reverseCoinJournal,
 } from "../dist/features/account-wallet/ledger.js";
+import { createAccountWallet } from "../dist/features/account-wallet/repository.js";
 
 const ownerUrl = process.env.A4_TEST_OWNER_URL;
 const runtimeUrl = process.env.A4_TEST_DATABASE_URL;
@@ -333,6 +334,194 @@ describe(
         ).rows[0].n,
         0,
       );
+    });
+    it("reads each owned grant separately and retains qualification after later losses", async () => {
+      const user = (
+        await owner.query("INSERT INTO users DEFAULT VALUES RETURNING id")
+      ).rows[0];
+      const lot = randomUUID(),
+        other = randomUUID(),
+        operating = randomUUID(),
+        backing = randomUUID();
+      await owner.query(
+        "INSERT INTO coin_grant_lots(id,user_id,environment,asset,kind,reference,target) VALUES($1::uuid,$2,'live','USDC','welcome',$1::text,25000000)",
+        [lot, user.id],
+      );
+      await owner.query(
+        "INSERT INTO coin_grant_lots(id,user_id,environment,asset,kind,reference,target) VALUES($1::uuid,$2,'sandbox','USDC','daily',$1::text,5000000)",
+        [other, user.id],
+      );
+      for (const [id, kind] of [
+        [operating, "operating"],
+        [backing, "backing"],
+      ])
+        await owner.query(
+          "INSERT INTO coin_accounts(id,environment,asset,kind) VALUES($1,'live','USDC',$2)",
+          [id, kind],
+        );
+      const c = await owner.connect();
+      try {
+        for (const net of [10000000, 15000000, -20000000]) {
+          const journal = randomUUID();
+          await c.query("BEGIN");
+          await c.query(
+            "INSERT INTO coin_journals(id,environment,asset,reference,operation) VALUES($1::uuid,'live','USDC',$1::text,'funding')",
+            [journal],
+          );
+          await c.query(
+            "INSERT INTO coin_postings VALUES($1,$2,'live','USDC',$4),($1,$3,'live','USDC',-$4)",
+            [journal, operating, backing, net],
+          );
+          await c.query(
+            "INSERT INTO coin_grant_profit_events(lot_id,journal_id,environment,asset,net_profit) VALUES($1,$2,'live','USDC',$3)",
+            [lot, journal, net],
+          );
+          await c.query("COMMIT");
+        }
+        const view = await createAccountWallet(runtime).balances(user.id);
+        assert.equal(view.grants.length, 1);
+        assert.equal(view.grants[0].netProfit, "500");
+        assert.equal(view.grants[0].qualified, true);
+        assert.equal(view.grants[0].remaining, "0");
+        assert.equal(view.grants[0].percent, 100);
+        assert.equal(view.withdrawable, "0");
+        const stranger = (
+          await owner.query("INSERT INTO users DEFAULT VALUES RETURNING id")
+        ).rows[0];
+        assert.deepEqual(
+          (await createAccountWallet(runtime).balances(stranger.id)).grants,
+          [],
+        );
+        await assert.rejects(
+          runtime.query(
+            "INSERT INTO coin_grant_lots(id,user_id,environment,asset,kind,reference,target) VALUES($1::uuid,$2,'live','USDC','daily',$1::text,5000000)",
+            [randomUUID(), user.id],
+          ),
+          { code: "42501" },
+        );
+        await assert.rejects(
+          owner.query("DELETE FROM coin_grant_lots WHERE id=$1", [lot]),
+          { code: "23514" },
+        );
+      } finally {
+        await c.query("ROLLBACK");
+        c.release();
+      }
+    });
+    it("enforces balanced immutable journals, exact projections and environment isolation", async () => {
+      const user = (
+        await owner.query("INSERT INTO users DEFAULT VALUES RETURNING id")
+      ).rows[0];
+      const credit = randomUUID(),
+        backing = randomUUID(),
+        live = randomUUID();
+      for (const [id, kind, environment, userId] of [
+        [credit, "available", "sandbox", user.id],
+        [backing, "backing", "sandbox", null],
+        [live, "available", "live", user.id],
+      ])
+        await owner.query(
+          "INSERT INTO coin_accounts(id,environment,asset,user_id,kind) VALUES($1,$2,'USDC',$3,$4)",
+          [id, environment, userId, kind],
+        );
+      const journal = randomUUID();
+      const c = await owner.connect();
+      try {
+        await c.query("BEGIN");
+        await c.query(
+          "INSERT INTO coin_journals(id,environment,asset,reference,operation) VALUES($1::uuid,'sandbox','USDC',$1::text,'funding')",
+          [journal],
+        );
+        await c.query(
+          "INSERT INTO coin_postings VALUES($1,$2,'sandbox','USDC',1000000),($1,$3,'sandbox','USDC',-1000000)",
+          [journal, credit, backing],
+        );
+        await c.query("COMMIT");
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT balance::text n FROM coin_accounts WHERE id=$1",
+              [credit],
+            )
+          ).rows[0].n,
+          "1000000",
+        );
+        for (const sql of [
+          "DELETE FROM coin_journals WHERE id=$1",
+          "UPDATE coin_journals SET reference='changed' WHERE id=$1",
+          "DELETE FROM coin_postings WHERE journal_id=$1",
+        ])
+          await assert.rejects(owner.query(sql, [journal]), { code: "23514" });
+        await assert.rejects(
+          owner.query("UPDATE coin_accounts SET balance=2000000 WHERE id=$1", [
+            credit,
+          ]),
+          { code: "23514" },
+        );
+        const lateAccount = randomUUID();
+        await owner.query(
+          "INSERT INTO coin_accounts(id,environment,asset,user_id,kind) VALUES($1,'sandbox','USDC',$2,'reserved')",
+          [lateAccount, user.id],
+        );
+        await assert.rejects(
+          owner.query(
+            "INSERT INTO coin_postings VALUES($1,$2,'sandbox','USDC',1)",
+            [journal, lateAccount],
+          ),
+          { code: "23514" },
+        );
+        await assert.rejects(
+          runtime.query(
+            "INSERT INTO coin_journals(id,environment,asset,reference,operation) VALUES($1::uuid,'live','USDC',$1::text,'funding')",
+            [randomUUID()],
+          ),
+          { code: "42501" },
+        );
+        for (const account of [credit, live]) {
+          await c.query("BEGIN");
+          const j = randomUUID();
+          await c.query(
+            "INSERT INTO coin_journals(id,environment,asset,reference,operation) VALUES($1::uuid,'sandbox','USDC',$1::text,'funding')",
+            [j],
+          );
+          await assert.rejects(async () => {
+            await c.query(
+              "INSERT INTO coin_postings VALUES($1,$2,'sandbox','USDC',1)",
+              [j, account],
+            );
+            await c.query("COMMIT");
+          });
+          await c.query("ROLLBACK");
+        }
+        for (const amount of [999999, 1000000]) {
+          await c.query("BEGIN");
+          const reversal = randomUUID();
+          await c.query(
+            "INSERT INTO coin_journals(id,environment,asset,reference,operation,reversal_of) VALUES($1::uuid,'sandbox','USDC',$1::text,'reversal',$2)",
+            [reversal, journal],
+          );
+          await c.query(
+            "INSERT INTO coin_postings VALUES($1,$2,'sandbox','USDC',$4),($1,$3,'sandbox','USDC',-$4)",
+            [reversal, backing, credit, amount],
+          );
+          if (amount === 999999) {
+            await assert.rejects(c.query("COMMIT"), { code: "23514" });
+            await c.query("ROLLBACK");
+          } else await c.query("COMMIT");
+        }
+        assert.equal(
+          (
+            await owner.query(
+              "SELECT balance::text n FROM coin_accounts WHERE id=$1",
+              [credit],
+            )
+          ).rows[0].n,
+          "0",
+        );
+      } finally {
+        await c.query("ROLLBACK");
+        c.release();
+      }
     });
   },
 );

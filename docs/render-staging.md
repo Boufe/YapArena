@@ -151,8 +151,8 @@ trial. [Cloudflare identifies 401 as missing or invalid credentials](https://dev
 ## Move background jobs to the worker
 
 While `RUN_BACKGROUND_JOBS` is true (the default), the web process runs the one-second A4/coin
-debate, media clock/recording-stop and speaker-revocation jobs and the hourly cleanup. Since
-[Decision 0009](decisions/0009-auth0.md) no Privy revocation or embedded-wallet job runs. `node dist/worker.js` builds the same jobs from the
+debate, media clock/recording-stop and speaker-revocation jobs and the hourly cleanup.
+`node dist/worker.js` builds the same jobs from the
 same factory (`src/services.ts`) and always runs them, whatever `RUN_BACKGROUND_JOBS` says. It
 serves no HTTP and starts no community stream. The worker is paid compute and needs the separate
 hosted-change/deployment authorization. Staging completed these steps on 2026-10-22; they apply to
@@ -167,7 +167,7 @@ URL, and deploys the release SHA to it after web. Its `deploy` mode accepts
    the same reviewed commit as web, after its migrations. Give it the runtime `DATABASE_URL` and DB
    TLS settings used by web, never an owner/migration URL, plus web's `A4_MODE`/`A4_*`,
    `COIN_SANDBOX_ENABLED` and all `LIVEKIT_*`/`MEDIA_*` media and replay variables. Never give it
-   `AUTH0_*`: Auth0 settings belong to web only, and the worker reads no `PRIVY_*` or `REDIS_*`. Keep
+   `AUTH0_*`: Auth0 settings belong to web only, and the worker reads no `REDIS_*`. Keep
    `LOG_LEVEL` at `info` or more verbose, and keep web's `RUN_BACKGROUND_JOBS=true` until step 3.
    A new environment created from `render.yaml` starts web with `false`: set it to `true` first,
    or no process runs the media jobs until the worker has their settings.
@@ -189,10 +189,10 @@ the jobs, as during steps 1–3; suspend the worker afterwards to return to a si
 `render.yaml` declares `false`, so change the file too or keep Blueprint sync off while rolled back.
 
 Both processes may run every job at once. PostgreSQL coordinates them: row locks and leases for
-A4, recording stops, speaker revocation, Privy revocation and wallet provisioning, advisory locks
-for the coin-debate and media clocks, and idempotent cleanup deletes. A second process can wait on
-an account lock or skip an A4 session for 30 seconds after a lock timeout; it does not repeat
-the settlement, clock step or provider freeze. Two caveats remain:
+A4, recording stops and speaker revocation, advisory locks for the coin-debate and media clocks,
+and idempotent cleanup deletes. A second process can wait on an account lock or skip an A4 session
+for 30 seconds after a lock timeout; it does not repeat the settlement or clock step. One caveat
+remains:
 
 - **Media permission repair.** Each process repairs speaker permissions under a per-room advisory
   try-lock and gives up after about 12 attempts (1.2–2.4 seconds). When LiveKit is slower than
@@ -200,10 +200,6 @@ the settlement, clock step or provider freeze. Two caveats remain:
   unavailable"). One process used to deduplicate this work in memory. The risk stays after the
   cut-over because web API and webhook routes still reconcile permissions while the worker repairs
   rooms. Avoid live events during the cut-over and resume an affected debate as operator.
-- **Embedded-wallet creation.** A process that stalls past its 90-second lease while a Privy
-  create is in flight lets the other process send a second create with the same permanent
-  external ID. Privy's external-ID uniqueness (not verified here) and the review state are the
-  fence, as with two web instances.
 
 ## Later scale-up
 

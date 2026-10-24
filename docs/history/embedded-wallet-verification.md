@@ -1,5 +1,9 @@
 # Read-only embedded-wallet staging verification
 
+Superseded by [Decision 0009](../decisions/0009-auth0.md). Prompt 12 deleted
+`scripts/verify-embedded-wallet-staging.ts` with the embedded wallet. This record moved here
+from `docs/` unchanged except for this note and links that now resolve from `docs/history/`.
+
 `scripts/verify-embedded-wallet-staging.ts` verifies the fixed staging deployment,
 database job and actual Privy wallet without creating, signing, funding, repairing
 or deleting anything. It is checked in `tsconfig.database-tools.json`.
@@ -63,4 +67,4 @@ evidence.
 
 PASS does not establish signing, funding, withdrawal, device recovery, physical
 accessibility or live financial approval. See the [wallet design](embedded-wallets.md)
-and [completion matrix](email-first-completion.md) for those separate gates.
+and [completion matrix](../email-first-completion.md) for those separate gates.

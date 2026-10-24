@@ -48,26 +48,8 @@ acceptance. See the [completion matrix](email-first-completion.md) for current
 commands, tested revisions and limits.
 
 `verify-account-staging.ts` performs a read-only, strict-TLS catalog/account
-preflight. `inspect-account-provider-reset.ts` is also checked in the
-database-tools project. It reads only the fixed staging owner's TLS snapshot and
-bounded Privy user GETs using the named Render service configuration; output is
-aggregate state/digest comparisons only. It never changes provider or account
-state, loads `.env`, or records private identities or credentials.
-`verify-embedded-wallet-staging.ts` is checked in the same project. It verifies
-the fixed deployed revision, read-only owner snapshots and repeated GET-only
-Privy ownership evidence. It imports exact committed TypeScript source using
-Node 24's explicit `--experimental-transform-types` flag, avoiding stale compiled
-code as an acceptance basis. Its offline self-test makes no network or database
-calls. See [invocation and result boundaries](embedded-wallet-verification.md).
-`retry-account-provider-reset.ts` is the separate fixed-staging owner command,
-checked in the same project. Its `retry-uncertain`, `reconcile-delayed` and
-`finalize-reviewed` commands require the matching `ACCOUNT_STAGING_PROVIDER_ACTION`
-and a caller-retained UUID. The latter two also require a private reviewed
-activity-log file and its exact SHA-256. `reconcile-delayed` permits only a single
-reviewed unfreeze after the selected freeze is independently established;
-`finalize-reviewed` permits only provider GETs and finalizes local state after
-the exact unfreeze is confirmed. Neither mode clears a fence on an unknown
-provider outcome.
+preflight. It and `release-account-staging.ts` are still pinned to the retired embedded-wallet
+release; see the [staging release notes](account-staging-release.md).
 Build the reviewed server revision first; the CLI imports its compiled API.
 It selects the sole eligible manual/uncertain mapping, then delegates exact
 provider/digest inspection, atomic claim and full reset to the reviewed operator

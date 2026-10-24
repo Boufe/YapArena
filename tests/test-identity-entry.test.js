@@ -52,9 +52,6 @@ describe("test identity entry", () => {
       "AUTH0_ISSUER_BASE_URL",
       "AUTH0_CLIENT_ID",
       "PRODUCTION_SERVICE",
-      "PRIVY_APP_ID",
-      "PRIVY_APP_SECRET",
-      "PRIVY_VERIFICATION_KEY",
     ])
       assert.match(testIdentityRefusal({ [key]: "x" }), new RegExp(key));
     assert.match(testIdentityRefusal({ APP_ORIGIN: "::" }), /loopback/);

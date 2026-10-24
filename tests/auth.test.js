@@ -250,9 +250,6 @@ describe("authentication API", () => {
     assert.equal(tokenHash, hashSessionToken("raw-session-token"));
     assert.equal(target, undefined);
     assert.ok(requestId);
-    assert.deepEqual(sessions.findUserByTokenHash.mock.calls[0].arguments[1], {
-      localRevocation: true,
-    });
     for (const call of [
       client.authorizationUrl,
       client.verifyCallback,
@@ -457,10 +454,7 @@ describe("authentication API", () => {
         logger,
         environment: "test",
         sessions: {
-          findUserByTokenHash: async (_hash, options) => {
-            assert.equal(options.localRevocation, true);
-            return publicUser;
-          },
+          findUserByTokenHash: async () => publicUser,
           revokeSession: async (_id, _hash, target) => {
             assert.equal(target, undefined);
             revoked++;

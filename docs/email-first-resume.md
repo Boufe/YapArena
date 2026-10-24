@@ -1,5 +1,11 @@
 # Historical pause checkpoint — execution resumed
 
+> **Superseded.** [Decision 0009](decisions/0009-auth0.md) replaced Privy with Auth0. Prompt 12
+> deleted the Privy client, embedded wallet, passkeys, provider freeze/unfreeze jobs and their
+> owner repairs, and its schema change drops their tables. This record describes the Privy-era
+> design and its recorded revisions, not the current checkout; for current behavior see
+> Decision 0009 and the [session revocation procedure](security/account-session-revocation.md).
+
 **Paused at the founder's explicit request on 2026-10-21, 23:03 UTC; subsequently resumed by an explicit “continue working”.**
 The following is the preserved pause checkpoint. Current checklist/release evidence supersedes its pending status.
 

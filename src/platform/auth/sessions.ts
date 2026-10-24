@@ -66,11 +66,7 @@ export async function insertSession(
 export async function revokeAccountSessions(
   client: PoolClient,
   userId: string,
-  options: {
-    action: "sessions.incident";
-    // Why an incident revocation happened, for example "provider_change".
-    reason?: "provider_change";
-  },
+  options: { action: "sessions.incident" },
 ) {
   const result = await client.query<{
     authGeneration: string;
@@ -92,7 +88,6 @@ export async function revokeAccountSessions(
       options.action,
       JSON.stringify({
         actorDatabaseRole: result.rows[0].actorDatabaseRole,
-        reason: options.reason,
         outcome: "success",
         authGeneration,
       }),
@@ -101,18 +96,7 @@ export async function revokeAccountSessions(
   return authGeneration;
 }
 
-export type ProviderCheckScheduler = {
-  // A mapping whose last Privy read is at least this old is due a re-check.
-  staleAfterMs: number;
-  // Starts the re-check without waiting for it; never throws.
-  schedule(userId: string): void;
-};
-
-export function createSessionRepository(
-  database: Pool,
-  options: { providerCheck?: ProviderCheckScheduler } = {},
-) {
-  const providerCheck = options.providerCheck;
+export function createSessionRepository(database: Pool) {
   return Object.freeze({
     async create(
       userId: string,
@@ -146,34 +130,18 @@ export function createSessionRepository(
     },
 
     // The request path: one indexed SELECT, no provider call and no row lock.
-    // A stale Privy read only schedules an asynchronous re-check; the request
-    // never waits for it. Local sign-out routes do not schedule one.
-    async findUserByTokenHash(
-      tokenHash: string,
-      context?: { localRevocation: true },
-    ): Promise<PublicUser | null> {
-      const result = await database.query<
-        PublicUser & { providerCheckDue: boolean }
-      >(
-        `SELECT users.id, users.email, users.created_at AS "createdAt",
-           (p.subject IS NOT NULL AND (p.checked_at IS NULL
-             OR p.checked_at <= clock_timestamp() - make_interval(secs => $2::double precision / 1000)))
-             AS "providerCheckDue"
+    async findUserByTokenHash(tokenHash: string): Promise<PublicUser | null> {
+      const result = await database.query<PublicUser>(
+        `SELECT users.id, users.email, users.created_at AS "createdAt"
          FROM sessions
          INNER JOIN users ON users.id = sessions.user_id
-         LEFT JOIN provider_identities p ON p.user_id = users.id AND p.provider = 'privy'
          WHERE sessions.token_hash = $1
            AND users.account_status = 'active'
            AND sessions.auth_generation = users.auth_generation
            AND sessions.expires_at > clock_timestamp()`,
-        [tokenHash, providerCheck?.staleAfterMs ?? 0],
+        [tokenHash],
       );
-      const row = result.rows[0];
-      if (!row) return null;
-      const { providerCheckDue, ...user } = row;
-      if (providerCheckDue && providerCheck && !context?.localRevocation)
-        providerCheck.schedule(user.id);
-      return user;
+      return result.rows[0] ?? null;
     },
 
     async list(userId: string, currentTokenHash: string) {
@@ -212,7 +180,7 @@ export function createSessionRepository(
     },
 
     // Ends one session row. The account generation is unchanged, so every
-    // other device stays signed in and no provider reset is queued.
+    // other device stays signed in.
     async revokeSession(
       userId: string,
       currentTokenHash: string,

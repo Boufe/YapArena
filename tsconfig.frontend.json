@@ -6,7 +6,6 @@
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "types": [],
     "strict": true,
-    "jsx": "react-jsx",
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,

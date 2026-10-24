@@ -143,7 +143,6 @@ export function createServices({
       media,
       mediaProvider,
       mediaOperations,
-      metrics,
       logger,
       config,
       verifyDatabase: () =>

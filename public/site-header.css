@@ -662,12 +662,10 @@
   color: #e9b4b7;
 }
 .site-header :focus-visible,
-.site-auth-dialog :focus-visible,
 .header-deposit-dialog :focus-visible {
   outline: 2px solid #35e3a4;
   outline-offset: 4px;
 }
-.site-auth-dialog,
 .header-deposit-dialog {
   --account-surface: #0d1a26;
   --account-line: #243b49;
@@ -683,13 +681,9 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.site-auth-dialog::backdrop,
 .header-deposit-dialog::backdrop {
   background: #020910ba;
   backdrop-filter: blur(7px);
-}
-:root:has(#site-auth-dialog[open]) {
-  overflow: hidden;
 }
 .site-auth-close {
   position: absolute;
@@ -713,95 +707,6 @@
 .site-auth-close:hover {
   background: #19303c;
   color: #e9f7ff;
-}
-.site-auth-dialog .auth-mount {
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background: transparent;
-  min-height: 270px;
-}
-.site-auth-dialog .auth-mount > p {
-  margin: 0;
-  padding: 68px 32px 32px;
-}
-.site-auth-dialog .auth-card {
-  padding: 32px;
-}
-.site-auth-dialog .auth-card-top {
-  justify-content: center;
-  margin: 0 0 20px;
-}
-.site-auth-dialog .auth-emblem {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-}
-.site-auth-dialog .auth-step,
-.site-auth-dialog .auth-step-track,
-.site-auth-dialog .auth-card > .eyebrow {
-  display: none;
-}
-.site-auth-dialog .auth-card h2 {
-  font-size: 1.7rem;
-  text-align: center;
-  margin-top: 0;
-}
-.site-auth-dialog .auth-description {
-  text-align: center;
-  font-size: 0.8rem;
-}
-.site-auth-dialog .auth-status {
-  margin-top: 20px;
-  min-height: 0;
-  font-size: 0.74rem;
-}
-.site-auth-dialog .auth-card .button {
-  width: 100%;
-  justify-content: center;
-  min-height: 48px;
-  border: 0;
-  border-radius: 10px;
-  font-size: 0.85rem;
-}
-.site-auth-dialog .auth-card .form-note {
-  font-size: 0.7rem;
-}
-.site-auth-dialog .auth-card input {
-  min-height: 50px;
-}
-.site-auth-dialog .auth-alternatives button {
-  flex-basis: 100%;
-}
-.auth-intent-switch,
-.auth-legacy-link {
-  display: none;
-}
-.site-auth-dialog .auth-intent-switch {
-  display: block;
-  text-align: center;
-  color: #9eb6c6;
-  font-size: 0.75rem;
-  margin: 23px 0 0;
-}
-.auth-intent-switch button {
-  background: transparent;
-  border: 0;
-  color: #43e6aa;
-  padding: 10px 4px;
-  min-height: 44px;
-  cursor: pointer;
-  font-size: inherit;
-  font-weight: 600;
-}
-.site-auth-dialog .auth-legacy-link {
-  display: block;
-  color: #9eb5c5;
-  font-size: 0.68rem;
-  text-align: center;
-  margin: 0 0 14px;
-  padding: 10px 0;
-  min-height: 36px;
 }
 .header-deposit-dialog {
   padding: 42px 30px 30px;
@@ -895,12 +800,6 @@
   }
   .header-user-popover {
     top: calc(100% + 12px);
-  }
-  .site-auth-dialog .auth-card {
-    padding: 28px 24px 24px;
-  }
-  .site-auth-dialog .auth-card h2 {
-    font-size: 1.6rem;
   }
 }
 

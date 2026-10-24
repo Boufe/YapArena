@@ -1,6 +1,10 @@
 # Embedded wallet provisioning
 
-Superseded in part by [Decision 0009](decisions/0009-auth0.md).
+Superseded by [Decision 0009](../decisions/0009-auth0.md), point 9: there is no embedded wallet.
+Prompt 12 deleted the provisioning job, its Privy client and its tests; the
+`embedded_wallet_provisioning` table is dropped by the following schema change. This record
+moved here from `docs/` unchanged except for this note and links that now resolve from
+`docs/history/`.
 
 Current scope: the founder approved automatically provisioning one user-controlled
 Privy Ethereum/EVM wallet with Privy's default recovery. This supersedes the earlier
@@ -56,7 +60,7 @@ Rechecked against official documentation on 2026-10-21 and installed
   app one active user; TEE wallets enabled and smart wallets off. No plan, payment
   method or billable signing/funding feature was purchased.
 
-The [public configuration snapshot](evidence/account-completion-baseline/embedded-wallet/public-settings.json)
+The [public configuration snapshot](../evidence/account-completion-baseline/embedded-wallet/public-settings.json)
 contains only an explicit allowlist of public configuration fields. Capability
 and free-plan inspection do not establish genuine wallet-creation acceptance.
 An authenticated provider create plus independent ownership/status reconciliation
@@ -159,8 +163,8 @@ signing authority is added to work around it. Live funding remains off.
 
 ## Verification and remaining gates
 
-The [combined gate](evidence/account-completion-baseline/wallet-phase-integrated/README.md)
-and [final SDK run](evidence/account-completion-baseline/embedded-wallet-browser/README.md)
+The [combined gate](../evidence/account-completion-baseline/wallet-phase-integrated/README.md)
+and [final SDK run](../evidence/account-completion-baseline/embedded-wallet-browser/README.md)
 record source/asset hashes and their local fixture limits. The
 [read-only provider verifier](embedded-wallet-verification.md) is ready for the
 separate actual-provider check after release; its 20 offline checks passed with

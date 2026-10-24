@@ -4,7 +4,7 @@
 export default {
   overrides: [
     {
-      files: ["**/*.{js,ts,tsx}"],
+      files: ["**/*.{js,ts}"],
       options: { embeddedLanguageFormatting: "off" },
     },
   ],

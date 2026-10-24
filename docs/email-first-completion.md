@@ -1,5 +1,11 @@
 # Email-first completion contract and decision log
 
+> **Superseded.** [Decision 0009](decisions/0009-auth0.md) replaced Privy with Auth0. Prompt 12
+> deleted the Privy client, embedded wallet, passkeys, provider freeze/unfreeze jobs and their
+> owner repairs, and its schema change drops their tables. This record describes the Privy-era
+> design and its recorded revisions, not the current checkout; for current behavior see
+> Decision 0009 and the [session revocation procedure](security/account-session-revocation.md).
+
 **Execution resumed at the founder's explicit request.** The
 [2026-10-21 pause checkpoint](email-first-resume.md) preserves the prior state.
 Source `3096ca7` passed all five exact-source CI checks and is verified LIVE.

@@ -13,7 +13,6 @@ import { createMetrics } from "../src/platform/metrics.ts";
 import {
   createRedisAbuseStore,
   createSharedAbuseLimiter,
-  createSharedAccountAttemptLimiter,
   type AbuseStore,
 } from "../src/platform/shared-abuse.ts";
 
@@ -165,7 +164,7 @@ async function fixture(backing: AbuseStore, environment = namespace) {
       return backing.increment(key, windowMs);
     },
   };
-  const limiter = (scope: "auth" | "exchange" | "account", account = false) =>
+  const limiter = (scope: "auth" | "account", account = false) =>
     createSharedAbuseLimiter({
       store: traced,
       namespace: environment,
@@ -176,41 +175,7 @@ async function fixture(backing: AbuseStore, environment = namespace) {
       windowMs: 60_000,
       observe: (outcome) => metrics.redisOutcome.inc({ outcome }),
     });
-  const accountAttempt = createSharedAccountAttemptLimiter({
-    store: traced,
-    namespace: environment,
-    secret,
-    limit: 2,
-    windowMs: 60_000,
-    observe: (outcome) => metrics.redisOutcome.inc({ outcome }),
-  });
-  app.post("/passkey/:purpose/:subject", async (request, response) => {
-    const purpose = request.params.purpose;
-    if (
-      (purpose !== "link" && purpose !== "restart" && purpose !== "wallet") ||
-      !/^[1-9][0-9]*$/.test(request.params.subject)
-    ) {
-      response.sendStatus(400);
-      return;
-    }
-    // Synthetic numeric fixture identities only. Actual callers derive the
-    // account from server-verified provider evidence before this attempt limit.
-    const outcome = await accountAttempt(
-      request.params.subject,
-      purpose === "link"
-        ? "provider.passkey.link"
-        : purpose === "restart"
-          ? "provider.passkey.restart"
-          : "embedded.wallet.retry",
-    );
-    response.sendStatus(
-      outcome === "allowed" ? 204 : outcome === "throttled" ? 429 : 503,
-    );
-  });
   app.post("/auth", limiter("auth"), (_request, response) =>
-    response.sendStatus(204),
-  );
-  app.post("/exchange", limiter("exchange"), (_request, response) =>
     response.sendStatus(204),
   );
   app.post(
@@ -414,7 +379,6 @@ try {
       .filter((response) => response.status === 429)
       .every((response) => Number(response.headers.get("Retry-After")) > 0),
   );
-  assert.equal((await first("/exchange")).status, 204);
   assert.equal((await first("/account/one")).status, 204);
   assert.equal((await second("/account/one")).status, 204);
   assert.equal((await first("/account/one")).status, 429);
@@ -424,7 +388,7 @@ try {
   for (const key of keys) {
     assert.match(
       key,
-      /^rv-[a-f0-9]{24}(?:-other)?:security:limit:(auth|exchange|account|recovery):[a-f0-9]{64}$/,
+      /^rv-[a-f0-9]{24}(?:-other)?:security:limit:(auth|account):[a-f0-9]{64}$/,
     );
     assert.ok(
       !key.includes("synthetic-") &&
@@ -459,45 +423,6 @@ try {
   checks.push(
     "two separate Node HTTP worker processes enforce one Redis IP/account budget under concurrent requests",
   );
-  for (const purpose of ["link", "restart", "wallet"]) {
-    const attemptResponses = await Promise.all(
-      Array.from({ length: 20 }, (_, index) =>
-        (index % 2 ? processA : processB)(`/passkey/${purpose}/910001`),
-      ),
-    );
-    assert.equal(
-      attemptResponses.filter((response) => response.status === 204).length,
-      2,
-    );
-    assert.equal(
-      attemptResponses.filter((response) => response.status === 429).length,
-      18,
-    );
-    assert.equal((await processA(`/passkey/${purpose}/910002`)).status, 204);
-    assert.equal((await processB(`/passkey/${purpose}/910002`)).status, 204);
-    assert.equal((await processA(`/passkey/${purpose}/910002`)).status, 429);
-    assert.equal((await separate(`/passkey/${purpose}/910001`)).status, 204);
-  }
-  const attemptKeys = await admin.keys(
-    `${namespace}-process:security:limit:recovery:*`,
-  );
-  assert.equal(attemptKeys.length, 6);
-  for (const key of attemptKeys) {
-    assert.match(
-      key,
-      /^rv-[a-f0-9]{24}-process:security:limit:recovery:[a-f0-9]{64}$/,
-    );
-    assert.ok(
-      !["910001", "910002", "provider.passkey", "embedded.wallet", secret].some(
-        (value) => key.includes(value),
-      ),
-    );
-    const ttl = await admin.pTTL(key);
-    assert.ok(ttl > 0 && ttl <= 60_000);
-  }
-  checks.push(
-    "two separate Node HTTP workers atomically share provider.passkey.link, provider.passkey.restart and embedded.wallet.retry attempt budgets; purpose, account and environment stay separate; stored keys are opaque HMACs with bounded TTL",
-  );
 
   const unavailable = store("redis://127.0.0.1:1");
   await rejectsPromptly(unavailable, `${namespace}:closed-port`);
@@ -525,9 +450,6 @@ try {
   }
   const outage = await fixture(unavailable);
   assert.equal((await outage("/auth")).status, 503);
-  assert.equal((await outage("/passkey/link/910001")).status, 503);
-  assert.equal((await outage("/passkey/restart/910001")).status, 503);
-  assert.equal((await outage("/passkey/wallet/910001")).status, 503);
   assert.equal((await outage("/watch", "GET")).status, 204);
   checks.push(
     "closed-port and accepted-but-stalled handshake bounded; backoff fails immediately; protected mutation fails closed while public read works",

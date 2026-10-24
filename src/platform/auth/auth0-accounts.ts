@@ -111,8 +111,8 @@ async function attach(
   via: "sign_in" | "email_code",
 ) {
   await client.query(
-    `INSERT INTO provider_identities(provider,subject,user_id,email,methods,checked_at)
-     VALUES('auth0',$1,$2,$3,$4::jsonb,clock_timestamp())`,
+    `INSERT INTO provider_identities(provider,subject,user_id,email,methods)
+     VALUES('auth0',$1,$2,$3,$4::jsonb)`,
     [
       identity.subject,
       userId,
@@ -209,7 +209,7 @@ export function createAuth0Accounts(database: Pool) {
       if (mapped) {
         const user = await activeAccount(client, mapped.userId);
         await client.query(
-          `UPDATE provider_identities SET email=$2,checked_at=clock_timestamp()
+          `UPDATE provider_identities SET email=$2
            WHERE provider='auth0' AND subject=$1`,
           [identity.subject, identity.email],
         );
@@ -233,8 +233,8 @@ export function createAuth0Accounts(database: Pool) {
           )
         ).rows[0]!;
         await client.query(
-          `INSERT INTO provider_identities(provider,subject,user_id,email,methods,checked_at)
-           VALUES('auth0',$1,$2,$3,$4::jsonb,clock_timestamp())`,
+          `INSERT INTO provider_identities(provider,subject,user_id,email,methods)
+           VALUES('auth0',$1,$2,$3,$4::jsonb)`,
           [
             identity.subject,
             user.id,

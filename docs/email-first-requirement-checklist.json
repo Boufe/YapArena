@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "supersededBy": "docs/decisions/0009-auth0.md: Privy, the embedded wallet, passkeys and the provider freeze/repair machinery were removed in prompt 12; this checklist records the Privy-era scope only.",
   "title": "Email-first account, security and redeemable Yap Coins requirement checklist",
   "checkedAt": "2026-10-22T02:00:32.150651+00:00",
   "overallStatus": "incomplete",

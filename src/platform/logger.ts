@@ -58,13 +58,11 @@ export function createHttpLogger(logger: Logger) {
         const record = pino.stdSerializers.req(request);
         // Sign-in routes carry one-use codes, state and return paths. Keep the
         // route useful for operations without persisting query values.
-        const query = new URLSearchParams((record.url ?? "").split("?")[1]);
         if (
           /^\/account(?:[/?]|$)/.test(record.url ?? "") ||
           /^\/api\/auth\/(?:login|callback|confirm)(?:[/?]|$)/.test(
             record.url ?? "",
-          ) ||
-          [...query.keys()].some((key) => key.startsWith("privy_"))
+          )
         ) {
           record.url = record.url.replace(/\?.*$/, "");
           record.query = {};

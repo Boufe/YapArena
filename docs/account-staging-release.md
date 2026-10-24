@@ -1,5 +1,12 @@
 # Account and coin sandbox staging release
 
+Superseded record. This runbook and its `release-account-staging.ts` and
+`verify-account-staging.ts` helpers describe the Privy embedded-wallet release (43 → 45
+migrations). The helpers stay pinned to that release and refuse the current schema; Privy and
+the embedded wallet were removed under [Decision 0009](decisions/0009-auth0.md). Apply new
+migrations as the owner before deploying, as described in the
+[staging runbook](render-staging.md).
+
 This runbook operates only the named YapArena staging web service and replay
 worker. It does not authorize live money, a paid plan, account deletion or a
 production release. The [completion matrix](email-first-completion.md) and

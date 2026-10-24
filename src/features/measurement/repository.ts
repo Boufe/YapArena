@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import { withTransaction } from "../../platform/transaction.ts";
 
 export type ProductEventType =
   | "discovery_view"
@@ -39,24 +40,6 @@ export interface AffiliationRow {
   affiliation: "founder" | "independent";
   reason: string;
   updatedAt: Date;
-}
-
-async function transaction<T>(
-  pool: Pool,
-  action: (client: PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const result = await action(client);
-    await client.query("COMMIT");
-    return result;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
 }
 
 async function lockConsent(client: PoolClient, tokenHash: string) {
@@ -135,7 +118,7 @@ export function createMeasurementRepository(pool: Pool) {
       surface: DiscoverySurface,
       id: string | null,
     ) {
-      return transaction(pool, async (client) => {
+      return withTransaction(pool, async (client) => {
         if (!(await lockConsent(client, tokenHash))) return false;
         const target = await publicTarget(client, surface, id);
         if (!target) return false;
@@ -184,7 +167,7 @@ export function createMeasurementRepository(pool: Pool) {
       userId: string,
       action: ProductAction,
     ) {
-      return transaction(pool, async (client) => {
+      return withTransaction(pool, async (client) => {
         if (!(await lockConsent(client, tokenHash))) return false;
         let target:
           | (TargetRow & {
@@ -262,7 +245,7 @@ export function createMeasurementRepository(pool: Pool) {
       debateId: string,
       mode: WatchMode,
     ) {
-      return transaction(pool, async (client) => {
+      return withTransaction(pool, async (client) => {
         if (!(await lockConsent(client, tokenHash))) return false;
         const result = await client.query(
           `INSERT INTO product_measurement_watch_sessions
@@ -290,7 +273,7 @@ export function createMeasurementRepository(pool: Pool) {
     },
 
     async progressWatch(tokenHash: string, id: string, end = false) {
-      return transaction(pool, async (client) => {
+      return withTransaction(pool, async (client) => {
         if (!(await lockConsent(client, tokenHash))) return false;
         const result = await client.query(
           `UPDATE product_measurement_watch_sessions SET
@@ -372,7 +355,7 @@ export function createMeasurementRepository(pool: Pool) {
       reason: string,
       reviewerUserId: string,
     ) {
-      return transaction(pool, async (client) => {
+      return withTransaction(pool, async (client) => {
         const profile = await client.query<{ userId: string }>(
           `SELECT user_id AS "userId" FROM public_profiles
            WHERE handle = $1 AND user_id IS NOT NULL AND NOT is_demo FOR UPDATE`,

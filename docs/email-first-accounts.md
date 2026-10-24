@@ -1,5 +1,11 @@
 # Email-first accounts and platform currency
 
+> **Superseded.** [Decision 0009](decisions/0009-auth0.md) replaced Privy with Auth0. Prompt 12
+> deleted the Privy client, embedded wallet, passkeys, provider freeze/unfreeze jobs and their
+> owner repairs, and its schema change drops their tables. This record describes the Privy-era
+> design and its recorded revisions, not the current checkout; for current behavior see
+> Decision 0009 and the [session revocation procedure](security/account-session-revocation.md).
+
 Baseline: clean shared checkout at `fd60543`, equal to fetched `origin/main`
 on 2026-10-19. Branch: `feat/email-first-accounts`; no unrelated edits present.
 This record distinguishes implementation from acceptance; it is not paid-release approval.
@@ -51,7 +57,7 @@ On 2026-10-21, the founder changed the wallet direction: automatically create
 one user-controlled Privy EVM wallet, with default Privy recovery and no
 YapArena signing authority. Remove new external-wallet linking from the product
 while preserving retained wallet credentials. The
-[wallet design](embedded-wallets.md) records supported provisioning,
+[wallet design](history/embedded-wallets.md) records supported provisioning,
 recovery and cost boundaries. Creation must survive the post-login redirect
 without blocking ordinary account access. Implementation is deployed and genuine
 read-only user ownership/configuration acceptance passed; default recovery and

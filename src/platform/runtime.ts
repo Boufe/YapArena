@@ -9,12 +9,7 @@ import type { createMediaRepository } from "../features/media/repository.ts";
 import type { createMediaProvider } from "../features/media/provider.ts";
 import type { createCommunityRepository } from "../features/community/repository.ts";
 import type { createMeasurementRepository } from "../features/measurement/repository.ts";
-import type { createProviderRevocation } from "./auth/provider-revocation.ts";
-import type { createEmbeddedWalletProvisioning } from "./auth/embedded-wallet-provisioning.ts";
 import type { loadConfig } from "./config.ts";
-import type { createMetrics } from "./metrics.ts";
-
-const providerIntervalMs = 10_000;
 
 export function createRuntime({
   app,
@@ -32,9 +27,6 @@ export function createRuntime({
   media,
   mediaProvider,
   mediaOperations,
-  providerRevocation,
-  embeddedWallet,
-  metrics,
   logger,
   config,
   verifyDatabase,
@@ -76,15 +68,6 @@ export function createRuntime({
     "stopRecording" | "setTurn"
   >;
   mediaOperations?: { tick(): Promise<void>; stop(): Promise<void> };
-  providerRevocation?: Pick<
-    ReturnType<typeof createProviderRevocation>,
-    "synchronize"
-  >;
-  embeddedWallet?: Pick<
-    ReturnType<typeof createEmbeddedWalletProvisioning>,
-    "process"
-  >;
-  metrics?: Pick<ReturnType<typeof createMetrics>, "authJourney">;
   logger: Pick<Logger, "info" | "error">;
   config: Pick<ReturnType<typeof loadConfig>, "port" | "host">;
   verifyDatabase: () => Promise<void>;
@@ -104,10 +87,6 @@ export function createRuntime({
   let mediaTimer: NodeJS.Timeout | undefined;
   let mediaTicking = false;
   let mediaTask: Promise<void> | undefined;
-  let providerTimer: NodeJS.Timeout | undefined;
-  let providerWork: Promise<void> | undefined;
-  let embeddedWalletTimer: NodeJS.Timeout | undefined;
-  let embeddedWalletWork: Promise<void> | undefined;
   let stopping = false;
   const completedJobs = new Set<string>();
 
@@ -267,71 +246,6 @@ export function createRuntime({
           }, 1000);
           if (app) mediaTimer.unref();
         }
-        // Privy session revocation and embedded-wallet provisioning run once at
-        // start, then every ten seconds, each without overlapping itself.
-        if (providerRevocation) {
-          const synchronizeProvider = () => {
-            if (providerWork || stopping) return providerWork;
-            providerWork = providerRevocation
-              .synchronize()
-              .catch(() => {
-                metrics?.authJourney.inc({
-                  event: "provider_revocation_retry",
-                });
-              })
-              .finally(() => {
-                providerWork = undefined;
-                completed("provider-revocation");
-              });
-            return providerWork;
-          };
-          providerTimer = setIntervalFn(
-            synchronizeProvider,
-            providerIntervalMs,
-          );
-          if (app) providerTimer.unref();
-          void synchronizeProvider();
-        }
-        if (embeddedWallet) {
-          const synchronizeEmbeddedWallet = () => {
-            if (embeddedWalletWork || stopping) return embeddedWalletWork;
-            embeddedWalletWork = embeddedWallet
-              .process(1)
-              .then((result) => {
-                if (result.ready)
-                  metrics?.authJourney.inc(
-                    { event: "embedded_wallet_ready" },
-                    result.ready,
-                  );
-                if (result.retry)
-                  metrics?.authJourney.inc(
-                    { event: "embedded_wallet_retry" },
-                    result.retry,
-                  );
-                if (result.review)
-                  metrics?.authJourney.inc(
-                    { event: "embedded_wallet_review" },
-                    result.review,
-                  );
-              })
-              .catch(() => {
-                metrics?.authJourney.inc({
-                  event: "embedded_wallet_worker_error",
-                });
-              })
-              .finally(() => {
-                embeddedWalletWork = undefined;
-                completed("embedded-wallet");
-              });
-            return embeddedWalletWork;
-          };
-          embeddedWalletTimer = setIntervalFn(
-            synchronizeEmbeddedWallet,
-            providerIntervalMs,
-          );
-          if (app) embeddedWalletTimer.unref();
-          void synchronizeEmbeddedWallet();
-        }
       }
       return server;
     },
@@ -340,10 +254,6 @@ export function createRuntime({
       stopping = true;
       if (a4Timer) clearIntervalFn(a4Timer);
       if (speakerTimer) clearIntervalFn(speakerTimer);
-      if (providerTimer) clearIntervalFn(providerTimer);
-      if (embeddedWalletTimer) clearIntervalFn(embeddedWalletTimer);
-      await providerWork;
-      await embeddedWalletWork;
       await speakerTask;
       await a4Task;
       if (cleanupTimer) clearIntervalFn(cleanupTimer);

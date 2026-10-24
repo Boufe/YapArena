@@ -7,129 +7,7 @@ import request from "supertest";
 import {
   createRedisAbuseStore,
   createSharedAbuseLimiter,
-  createSharedAccountAttemptLimiter,
 } from "../dist/platform/shared-abuse.js";
-
-it("scopes resolved-account recovery attempts independently, without storing account identifiers or caching authorization", async () => {
-  const counters = new Map(),
-    outcomes = [];
-  const options = {
-    store: {
-      async increment(key) {
-        const count = (counters.get(key) ?? 0) + 1;
-        counters.set(key, count);
-        return { count, ttl: 3000 };
-      },
-    },
-    namespace: "isolated",
-    secret: "s".repeat(32),
-    limit: 1,
-    windowMs: 3000,
-    observe: (outcome) => outcomes.push(outcome),
-  };
-  const first = createSharedAccountAttemptLimiter(options),
-    second = createSharedAccountAttemptLimiter(options);
-  assert.equal(await first("12345678901234", "security.login"), "allowed");
-  assert.equal(await second("12345678901234", "security.login"), "throttled");
-  assert.equal(
-    await second("12345678901234", "provider.credentials.reconcile"),
-    "allowed",
-  );
-  assert.equal(await second("12345678901235", "security.login"), "allowed");
-  assert.equal(
-    await first("12345678901234", "provider.passkey.link"),
-    "allowed",
-  );
-  assert.equal(
-    await second("12345678901234", "provider.passkey.link"),
-    "throttled",
-  );
-  assert.equal(
-    await second("12345678901235", "provider.passkey.link"),
-    "allowed",
-  );
-  assert.equal(
-    await first("12345678901234", "provider.passkey.restart"),
-    "allowed",
-  );
-  assert.equal(
-    await second("12345678901234", "provider.passkey.restart"),
-    "throttled",
-  );
-  assert.equal(
-    await first("12345678901234", "embedded.wallet.retry"),
-    "allowed",
-  );
-  assert.equal(
-    await second("12345678901234", "embedded.wallet.retry"),
-    "throttled",
-  );
-  assert.equal(
-    await second("12345678901235", "embedded.wallet.retry"),
-    "allowed",
-  );
-  assert.equal(
-    [...counters.keys()].some((key) => key.includes("12345678901234")),
-    false,
-  );
-  const unavailable = createSharedAccountAttemptLimiter({
-    ...options,
-    store: {
-      async increment() {
-        throw new Error("private cause");
-      },
-    },
-  });
-  assert.equal(
-    await unavailable("12345678901234", "security.login"),
-    "unavailable",
-  );
-  assert.equal(
-    await unavailable("12345678901234", "embedded.wallet.retry"),
-    "unavailable",
-  );
-  await assert.rejects(
-    first("browser-choice", "security.login"),
-    /verified recovery/,
-  );
-  await assert.rejects(first("1", "arbitrary-operation"), /verified recovery/);
-  assert.throws(
-    () => createSharedAccountAttemptLimiter({ ...options, limit: 0 }),
-    /invalid shared abuse/,
-  );
-  assert.throws(
-    () =>
-      createSharedAccountAttemptLimiter({
-        ...options,
-        namespace: "PII:unsafe",
-      }),
-    /invalid shared abuse/,
-  );
-  assert.throws(
-    () => createSharedAccountAttemptLimiter({ ...options, secret: "short" }),
-    /invalid shared abuse/,
-  );
-  assert.throws(
-    () => createSharedAccountAttemptLimiter({ ...options, windowMs: 999 }),
-    /invalid shared abuse/,
-  );
-  assert.deepEqual(outcomes, [
-    "allowed",
-    "throttled",
-    "allowed",
-    "allowed",
-    "allowed",
-    "throttled",
-    "allowed",
-    "allowed",
-    "throttled",
-    "allowed",
-    "throttled",
-    "allowed",
-    "unavailable",
-    "unavailable",
-  ]);
-});
 
 // Protocol fixtures exercise the actual locked Redis client. Operational
 // acceptance separately uses a real, verifier-owned Redis container.
@@ -252,7 +130,7 @@ describe("shared abuse operational boundaries", () => {
         204,
       );
     assert.equal(keys[0], keys[1]);
-    await request(app({ scope: "exchange" })).get("/");
+    await request(app({ scope: "account" })).get("/");
     await request(app({ namespace: "other-environment" })).get("/");
     await request(
       app({ secret: "different-synthetic-material".repeat(2) }),
@@ -263,7 +141,7 @@ describe("shared abuse operational boundaries", () => {
     assert.equal(new Set(keys).size, 6);
     assert.ok(
       keys.every((key) =>
-        /:security:limit:(auth|exchange|account):[a-f0-9]{64}$/.test(key),
+        /:security:limit:(auth|account):[a-f0-9]{64}$/.test(key),
       ),
     );
     assert.ok(keys.every((key) => !/2001:|account-one|account-two/.test(key)));

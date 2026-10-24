@@ -17,9 +17,6 @@ export function safeAuthReturn(
     target.password
   )
     return null;
-  for (const key of [...target.searchParams.keys()]) {
-    if (key.startsWith("privy_")) target.searchParams.delete(key);
-  }
   return target.pathname + target.search + target.hash;
 }
 

@@ -2,22 +2,16 @@
 
 Since [Decision 0009](../decisions/0009-auth0.md), people sign in only through
 Auth0 (email code or Google), and sensitive operations are confirmed by a fresh
-Auth0 sign-in. Password, wallet and native-passkey sign-in, legacy linking and
-identity recovery were removed. Privy is unmounted: no request, re-check or
-background job calls it, although its code remains until prompt 12 deletes it.
-The Privy sections below that describe that unmounted code are marked as such.
+Auth0 sign-in. Password, wallet and passkey sign-in, legacy linking, identity
+recovery, Privy and its provider freeze/unfreeze jobs were removed (prompts 11 and 12).
+YapArena owns suspension: an Auth0 change never ends a YapArena session by itself.
 
-Current email-first work adds account status, PostgreSQL provider-session replay
-fences, an asynchronous Privy re-check ([Decision 0008](../decisions/0008-auth-simplification.md)
-step 9), a durable Privy freeze/unfreeze
-queue and a separate durable LiveKit speaker-revocation queue. See the
-[provider session contract](../email-first-accounts.md#ownership-sessions-and-recovery)
-and [requirement/evidence matrix](../email-first-completion.md). Combined local,
-hosted provider, legacy-token and physical-device acceptance remain separate;
-the historical F03 trials do not establish acceptance of these additions.
+Session cut-offs that remain: the 7-day absolute session lifetime, single-device sign
+out, the account generation advanced by an incident revocation, account suspension, and
+the durable LiveKit speaker-revocation queue that follows all of them.
 
 This implementation preserves opaque cookies, server-side token hashes, independent normal
-sign-ins, wallet-only accounts, stable account ownership, and the nonfinancial preview. It
+sign-ins, stable account ownership, and the nonfinancial preview. It
 addresses F03, merged in PR #21 before the final F02 credential routes in PR #22. The original
 auth audit is an untracked historical local artifact, not a portable repository source of truth.
 Use the current contract below and [F03 handoff](f03-integration-handoff.md) for implementation
@@ -80,12 +74,6 @@ operation is confirmed; sessions still end after 7 days. A change made in the Au
 dashboard (a blocked user, for example) reaches the app at the next sign-in or
 confirmation. To end existing sessions sooner, use the incident procedure below.
 
-The unmounted Privy re-check (a request whose last Privy read was over 15 minutes old
-scheduled an asynchronous read, which could revoke sessions as `sessions.incident` with
-`reason: "provider_change"`) and the Privy freeze/unfreeze reset queue no longer run.
-Their code and the `provider_revocation_jobs` table remain until prompt 12; their
-historical contract is in the [provider session contract](../email-first-accounts.md#ownership-sessions-and-recovery).
-
 ## Confirmation by fresh sign-in
 
 Sensitive operations (opening the financial sandbox once per account, each withdrawal and
@@ -105,66 +93,6 @@ the operation; the server consumes the confirmation in the same account-locked
 transaction as the mutation, after rechecking session, generation and terms. A
 confirmation is single-use, expires with its operation and cannot be moved to another
 session, account, purpose or set of terms. A suspended account cannot confirm.
-
-## One Privy passkey (unmounted)
-
-This section describes code that no longer runs since Decision 0009. Privy passkey
-activation and step-up were unmounted, and native YapArena passkeys were removed.
-
-New enrollment uses Privy from Account settings, and sign-in offers one passkey
-option. YapArena obtains the credential ID and COSE public key from its trusted
-server-side Privy read, then verifies an application-issued native assertion
-with required user verification, exact origin/RP and a one-use challenge. This
-second ceremony uses the same credential; it does not register a second key.
-The accepted credential's provenance, provider subject and public-key fingerprint
-remain bound to the internal account. Future operation proofs check current
-provider evidence and bind the exact application session, generation and terms.
-Neither token refresh nor a frontend MFA flag substitutes for that proof.
-
-The original enrollment intent lasts at most five minutes. Its original cookie
-can finish the exact pending addition through narrowly scoped routes while
-ordinary protected reads stay unavailable. A refresh stores only the intent ID;
-passwords, signatures and approval proofs stay in memory. Resumed strong
-approvals are still consumed with the key adoption transaction. Account/provider
-changes abort queued application requests and the application's native assertion.
-The installed Privy registration hook exposes no public abort option for an
-already-started registration; its continuation is fenced instead.
-
-The founder also approved restarting unfinished first setup after expiry. It
-requires a fresh unconsumed Privy session, the same provider identity, the exact
-old baseline plus one current provider key, a new short-lived native UV challenge
-and no financial or previously accepted stronger-method history. A captured
-original key must match exactly; when no key was captured, the explicitly
-approved fallback accepts the sole current added key. It cannot prove an
-unrecorded historical key was never replaced. Existing reset, minimum-token-time,
-SID and generation fences still apply. The expired original challenge is never
-extended or reused. Established accounts and financial access require retained
-strong proof; email alone cannot reset it.
-
-Previously enrolled independent application keys remain retained credentials.
-Only those legacy keys can use the older direct application-key login and
-new-provider-identity replacement below. A new Privy passkey instead signs into
-its existing Privy identity, after which retained-proof settings can verify a new
-email and remove an unavailable Google method without changing account ownership.
-
-The retained legacy lost-login replacement has a separate authority boundary: a new
-Privy-verified email identifies the replacement provider user, while a retained
-YapArena security passkey authorizes replacing the existing account's sole email
-or Google binding. A refreshed token or email match does not supply that
-authorization. Retiring the old binding advances the account generation,
-revokes old local sessions and speaking grants, consumes the operation and new
-provider session, and creates one successor cookie after commit. The old
-provider subject stays permanently tombstoned. Provider-control jobs and
-inspection fingerprints must be scoped to the currently bound subject so old
-work cannot affect the successor identity. No old provider user is deleted or
-modified. Acceptance is recorded in the linked completion matrix.
-
-F02 supplies fresh retained-credential proof for credential-management operations. A mutation
-may return a new session only when that proof authorizes it; the old invoking session is never
-implicitly exempted from credential revocation. The replacement is inserted at the new
-generation inside the mutation transaction and its cookie is published after COMMIT. The
-standalone F03 baseline unlink path clears the cookie and requires a fresh sign-in; the final
-combined product uses F02's operation routes and authorized successor.
 
 ## Database ordering and shared interfaces
 
@@ -197,9 +125,8 @@ in-memory revocation caches or cross-instance broadcasts to lose.
   before the caller successfully commits.
 - `revokeAccountSessions(client, userId, options)`: after the account lock, advances the
   generation, deletes every session and records the account audit event. It serves security
-  incidents only: `action` is `sessions.incident`, with an optional `reason` such as
-  `provider_change`. Sign out uses the repository's `revokeSession`, which deletes one
-  owned session row without changing the generation.
+  incidents only: `action` is `sessions.incident`. Sign out uses the repository's
+  `revokeSession`, which deletes one owned session row without changing the generation.
 - `sessions.create(userId, tokenHash, expiresAt, expected)`: owns its transaction and requires
   `expected.authGeneration`. It commits before returning.
 
@@ -212,19 +139,45 @@ commit boundaries; revocation alone still permits a fresh sign-in.
 
 ## Compromised-account procedure
 
+Suspend the account in YapArena first, then block its sign-in identities in Auth0. Blocking
+in Auth0 alone does not end YapArena sessions, and suspension alone does not stop the person
+signing in to Auth0 (YapArena still refuses them at the callback).
+
 1. Identify the affected account through an authenticated owner request or the existing
-   private support process. Never treat an email string as recovery proof.
-2. The owner signs out every unrecognized device under **Active sessions**. A still-compromised
-   mailbox or Google account can sign in again; the owner secures it with their email or
-   Google provider. Until then, an operator suspends the account (step 4).
-3. Use a separately authorized operator database connection for administrative remediation.
-   Never put a token, cookie, authorization code or confirmation in command history, issue
-   text or logs.
-4. With bound parameters in an owner session, hold the account lock, then either call
-   `revokeAccountSessions(client, accountId, { action: 'sessions.incident', requestId })`
-   for session-only containment, or set `users.account_status = 'suspended'` and revoke as
-   well to keep the account out. Commit. `account_id` and `request_id` are reviewed
-   parameters, not text substituted into SQL.
+   private support process. Never treat an email string as recovery proof. If the owner can
+   still sign in, they may first sign out unrecognized devices under **Active sessions**; that
+   does not stop a compromised mailbox or Google account from signing in again.
+2. Use a separately authorized owner database connection. Never put a token, cookie,
+   authorization code or confirmation in command history, issue text or logs. With the
+   reviewed account ID as a bound parameter, suspend the account:
+
+   ```sql
+   UPDATE yaparena.users SET account_status = 'suspended' WHERE id = $1;
+   ```
+
+   The `account_status_revoke` trigger advances the generation and deletes every session in
+   the same transaction, and the speaker-revocation queue removes live speaking grants.
+   Suspension also refuses sign-in, confirmation and sensitive commits. For session-only
+   containment of an account that should stay usable, call
+   `revokeAccountSessions(client, accountId, { action: 'sessions.incident' })` under the
+   account lock instead.
+
+3. List the account's Auth0 subjects (one per sign-in method):
+
+   ```sql
+   SELECT subject FROM yaparena.provider_identities
+    WHERE provider = 'auth0' AND user_id = $1;
+   ```
+
+4. In the Auth0 dashboard of the matching tenant, open **User Management → Users**, find each
+   subject (`email|…`, `google-oauth2|…`) and choose **Block**. This stops new Auth0 sign-ins
+   for those identities. It does not touch YapArena sessions, which step 2 already ended.
+5. Confirm in a private browser that an old cookie gets 401 and that signing in again is
+   refused, then record the incident without credentials or personal data.
+
+To restore access after the person secures their mailbox or Google account, unblock the
+identities in Auth0, then set `account_status = 'active'`. Ended sessions do not return; the
+person signs in again.
 
 No public administrative revocation endpoint is introduced. Verify old cookies fail and a
 fresh sign-in behaves as intended in a synthetic drill before applying the procedure to real

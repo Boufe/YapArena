@@ -1,5 +1,5 @@
-// Shared Redis abuse controls. They used to load only with the Privy settings;
-// sign-in limits, the signup pause and rate limits now read them on their own.
+// Shared Redis abuse controls for sign-in limits, the signup pause and rate
+// limits. They load on their own, independent of the sign-in provider settings.
 export type AbuseControlConfig = Readonly<{
   redisUrl: string;
   namespace: string;

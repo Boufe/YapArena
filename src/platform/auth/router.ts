@@ -91,11 +91,9 @@ export function getCookieSettings(environment: string) {
 export function createRequireAuthentication({
   sessions,
   environment,
-  localRevocation = false,
 }: {
   sessions: ReturnType<typeof createSessionRepository>;
   environment: string;
-  localRevocation?: boolean;
 }) {
   const cookie = getCookieSettings(environment);
 
@@ -114,10 +112,7 @@ export function createRequireAuthentication({
       return response.status(401).json({ error: "authentication required" });
     }
 
-    const user = await sessions.findUserByTokenHash(
-      hashSessionToken(token),
-      localRevocation ? { localRevocation: true } : undefined,
-    );
+    const user = await sessions.findUserByTokenHash(hashSessionToken(token));
 
     if (!user) {
       return response.status(401).json({ error: "authentication required" });
@@ -151,11 +146,7 @@ export function createAuthRouter({
   auth0?: Auth0SignIn;
   // Confirmations of sensitive operations by a fresh sign-in.
   operations?: Pick<AccountOperations, "pending" | "confirm">;
-  recordAuth?: (
-    event: string,
-    seconds?: number,
-    phase?: "journey" | "exchange",
-  ) => void;
+  recordAuth?: (event: string, seconds?: number, phase?: "journey") => void;
   sharedRateLimits?: SharedRateLimits;
 }) {
   const router = express.Router();
@@ -164,11 +155,6 @@ export function createAuthRouter({
   const requireAuthentication = createRequireAuthentication({
     sessions,
     environment,
-  });
-  const requireLocalRevocation = createRequireAuthentication({
-    sessions,
-    environment,
-    localRevocation: true,
   });
   const authLimiter = createApiRateLimiter({
     windowMs: rateLimitWindowMs,
@@ -494,9 +480,7 @@ export function createAuthRouter({
     const token = request.cookies[cookie.name];
     if (!token) return response.status(401).json(ended);
     const hash = hashSessionToken(token);
-    const user = await sessions.findUserByTokenHash(hash, {
-      localRevocation: true,
-    });
+    const user = await sessions.findUserByTokenHash(hash);
     if (!user) return response.status(401).json(ended);
     const expectedAccount = request.get("X-YapArena-Expected-Account");
     if (expectedAccount && expectedAccount !== user.id)
@@ -525,7 +509,7 @@ export function createAuthRouter({
       : response.status(204).end();
   });
 
-  router.get("/sessions", requireLocalRevocation, async (request, response) => {
+  router.get("/sessions", requireAuthentication, async (request, response) => {
     try {
       return response.json(
         await sessions.list(
@@ -543,7 +527,7 @@ export function createAuthRouter({
   // down.
   router.delete(
     "/sessions/:id",
-    requireLocalRevocation,
+    requireAuthentication,
     async (request, response) => {
       const expectedAccount = request.get("X-YapArena-Expected-Account");
       if (expectedAccount && expectedAccount !== request.user!.id)

@@ -25,64 +25,6 @@ export type AbuseStore = {
   ): Promise<{ count: number; ttl: number }>;
 };
 
-// The account is resolved from verified provider/credential evidence by the
-// caller. This is an attempt counter, never an authorization cache. Public
-// recovery endpoints also retain their independent IP limit.
-export function createSharedAccountAttemptLimiter(options: {
-  store: AbuseStore;
-  namespace: string;
-  secret: string;
-  limit: number;
-  windowMs: number;
-  observe?: (outcome: "allowed" | "throttled" | "unavailable") => void;
-}) {
-  if (
-    !/^[a-z0-9_-]{1,48}$/.test(options.namespace) ||
-    options.secret.length < 32 ||
-    !Number.isSafeInteger(options.limit) ||
-    options.limit < 1 ||
-    !Number.isSafeInteger(options.windowMs) ||
-    options.windowMs < 1000
-  )
-    throw new Error("invalid shared abuse configuration");
-  return async (
-    userId: string,
-    purpose:
-      | "security.login"
-      | "provider.credentials.reconcile"
-      | "provider.passkey.link"
-      | "provider.passkey.restart"
-      | "embedded.wallet.retry",
-  ) => {
-    if (
-      !/^[1-9][0-9]*$/.test(userId) ||
-      ![
-        "security.login",
-        "provider.credentials.reconcile",
-        "provider.passkey.link",
-        "provider.passkey.restart",
-        "embedded.wallet.retry",
-      ].includes(purpose)
-    )
-      throw new Error("verified recovery account and operation required");
-    const digest = createHmac("sha256", options.secret)
-      .update(`${purpose}:${userId}`)
-      .digest("hex");
-    let outcome: "allowed" | "throttled" | "unavailable";
-    try {
-      const result = await options.store.increment(
-        `${options.namespace}:security:limit:recovery:${digest}`,
-        options.windowMs,
-      );
-      outcome = result.count > options.limit ? "throttled" : "allowed";
-    } catch {
-      outcome = "unavailable";
-    }
-    options.observe?.(outcome);
-    return outcome;
-  };
-}
-
 async function withinDeadline<T>(operation: Promise<T>): Promise<T> {
   let deadline: NodeJS.Timeout | undefined;
   try {
@@ -190,7 +132,7 @@ export function createSharedAbuseLimiter({
   store: AbuseStore;
   namespace: string;
   secret: string;
-  scope: "auth" | "exchange" | "account";
+  scope: "auth" | "account";
   limit: number;
   windowMs: number;
   account?: boolean;

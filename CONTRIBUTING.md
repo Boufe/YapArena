@@ -140,17 +140,15 @@ browser-safe shared implementations in `src/features/`. Never edit or commit gen
   `tsconfig.frontend-build.json` (the isolated Node build tool). `npm run typecheck` and the normal
   `npm run check` CI gate include it.
 - `npm run build:frontend` emits every executable `frontend/**/*.ts` module to the corresponding
-  `public/**/*.js` path and builds the five bundles `media.bundle.js`, `replay.bundle.js`,
-  `hero-live.bundle.js`, `homepage.bundle.js` and `account-auth.bundle.js` (the retired Privy
-  island, deleted in prompt 12). Type-only modules produce no asset. Run the type check before this
-  focused build; `npm run build` runs both and also compiles the server.
+  `public/**/*.js` path and builds the four bundles `media.bundle.js`, `replay.bundle.js`,
+  `hero-live.bundle.js` and `homepage.bundle.js`. Type-only modules produce no asset. Run the type
+  check before this focused build; `npm run build` runs both and also compiles the server.
 - `npm run dev` generates assets before starting the API, then watches frontend and shared discovery
   sources. Sign-in is a full-page redirect through Auth0
   ([Decision 0009](docs/decisions/0009-auth0.md)): the header and `/account` link to
   `/api/auth/login`, and no page loads a provider script. With no `AUTH0_*` settings, sign in
   locally through the test identity entry instead: `npm run build`, then
-  `npm run start:test-identity` serves the application with `/api/test-identity`. The retired
-  Privy island (`account-auth.bundle.js`, still built until prompt 12) is not loaded by any page.
+  `npm run start:test-identity` serves the application with `/api/test-identity`.
   `npm run watch:frontend` watches assets independently. Runtime configuration remains in
   `.env.runtime`; build processes do not load the operator `.env`.
 

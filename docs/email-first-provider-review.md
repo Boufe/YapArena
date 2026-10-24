@@ -1,5 +1,11 @@
 # Email-first accounts: financial provider and eligibility review
 
+> **Superseded.** [Decision 0009](decisions/0009-auth0.md) replaced Privy with Auth0. Prompt 12
+> deleted the Privy client, embedded wallet, passkeys, provider freeze/unfreeze jobs and their
+> owner repairs, and its schema change drops their tables. This record describes the Privy-era
+> design and its recorded revisions, not the current checkout; for current behavior see
+> Decision 0009 and the [session revocation procedure](security/account-session-revocation.md).
+
 Reviewed **2026-10-19**, against the account implementation at `03ecffb` and
 current official sources linked below. This is desk research and two anonymous
 read-only HTTP probes. It is not a provider account approval, legal opinion,

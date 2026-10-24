@@ -91,9 +91,9 @@ the local stack intentionally does not send them.
 
 ## Local verification
 
-The in-progress [email-first account operating contract](email-first-accounts.md)
-lists Privy/Redis runtime variables, provider-session fences, financial gates and
-the explicit guarded staging-reset command. Provision/migrate as a separate owner
+The superseded [email-first account operating contract](email-first-accounts.md)
+records the Privy-era runtime variables, provider-session fences and financial gates
+and the explicit guarded staging-reset command. Provision/migrate as a separate owner
 process; web and worker processes must keep runtime credentials only. The narrowed
 four-account staging reset was executed after backup and rehearsal; retained
 accounts and the later manual signup must remain. The guarded reset command must
@@ -214,67 +214,10 @@ the account reset has finished. It refuses, naming the account IDs, while any ac
 has a password, wallet or native passkey; reset those accounts rather than editing the
 migration.
 
-The Privy sections below describe code that is unmounted since Decision 0009 and is deleted
-in prompt 12. No request, re-check or background job calls Privy.
-
-Normal provider reset jobs persist intent before the single mutation. Only an
-acknowledged freeze/unfreeze response enables GET-only confirmation across web
-instances and restarts. Each phase permits at most eight reads or 120 seconds,
-scheduled ten seconds apart. Unknown mutation outcomes, independent freezes and
-exhausted budgets remain fenced for review; do not reset their state to pending.
-Sign out no longer queues these jobs; incidents, key triggers, wallet removal,
-password changes and suspension still do. A job overtaken by a newer generation
-stops for manual review once it has requested a freeze, and a newer job behind
-an unfinished older one stops as `inherited_manual`. The older job cannot advance
-the mapping's generation/token cutoff or wake wallet provisioning. The `92f11b4`
-drain for resets superseded by sign-out-all/others was removed with those actions
-on 2026-10-22. Read-only propagation checks release database connections. The bounded mutation
-window retains account ordering. These authentication jobs run every ten seconds with
-the other background jobs: on the web service while `RUN_BACKGROUND_JOBS` is true,
-and in the maintenance worker (`npm run start:worker`). Since
-[Decision 0009](decisions/0009-auth0.md) neither process starts these Privy jobs; the
-code remains until prompt 12 deletes it.
-See [the staging cut-over](render-staging.md#move-background-jobs-to-the-worker).
-
-An uncertain provider freeze/unfreeze requires evidence review. The explicit
-owner-only `scripts/retry-account-provider-reset.ts` modes separate an ordinary
-retry, a single reviewed delayed-freeze reconciliation and read-only-provider
-finalization after a delayed unfreeze confirmation. Finalization can make only
-provider GET requests and requires the exact audit event, review-file hash,
-generation, unchanged credential digest and explicit null freeze timestamp.
-Never repeat an unfreeze merely because its immediate read lagged. The
-[recorded repair](evidence/account-completion-baseline/provider-reset-repair/README.md)
-documents the concrete evidence and limitations. The operator inspection and
-repair processes must not run in the web or worker process.
-
-The owner repository methods `prepareAcknowledgedLogoutReset` and
-`resumeAcknowledgedLogoutReset`, which rearmed the stopped first-key/logout
-overlap pair, were removed on 2026-10-22 together with sign-out-all/others; no
-owner rearm procedure exists. Uncertain or independently imposed freezes use the
-modes above or separate investigation. Before deploying that change, confirm
-read-only that no `provider_revocation_jobs` row is unfinished and no linked
-Privy user is frozen ([Decision 0008](decisions/0008-auth-simplification.md#rollout-prompts-912)).
-
-The separate `repair-first-passkey` / `finalize-first-passkey` modes cover only
-the reviewed unfinished first-key case: an unchanged valid accepted baseline,
-exactly one trusted new key, no financial or prior strong-method history, exact
-generation/attempt and an independently reviewed own-freeze window. A durable
-review marker precedes the one unfreeze; finalization is GET-only. Neither mode
-adopts the key or creates a session. `ACCOUNT_STAGING_PROVIDER_ACTION` must match
-the explicit mode, and `ACCOUNT_STAGING_CA_PATH` selects the trusted CA file.
-The [actual first-key repair](evidence/account-completion-baseline/first-passkey-reset-repair/README.md)
-is complete and must not be repeated as a routine login workaround.
-
-The [embedded-wallet runbook](embedded-wallets.md) describes the separate durable
-empty-wallet queue, user-only ownership verification, bounded retry/review states
-and original-DID recovery restriction. Its creation job uses existing runtime
-`PRIVY_APP_ID` / `PRIVY_APP_SECRET`, no application signing key or owner database
-credential. Dashboard creation-on-login remains off because the explicit server
-job handles headless email login and survives browser navigation. Creating an
-empty address does not enable crypto funding, signing or redemption.
-After the exact release, use the [read-only wallet verifier](embedded-wallet-verification.md)
-to distinguish actual provider ownership acceptance from pending setup or a
-synthetic transport result. It performs no creation or repair.
+Prompt 12 deleted the Privy code, the provider freeze/unfreeze jobs and their owner repair
+scripts, and the embedded-wallet job; no request or background job calls a sign-in provider.
+Their dated records stay in [`docs/evidence`](evidence/) and the
+[embedded-wallet history](history/embedded-wallets.md).
 
 Staging migration release uses `scripts/release-account-staging.ts` explicitly:
 stop and independently verify all writers, pass the exact-revision release gates,

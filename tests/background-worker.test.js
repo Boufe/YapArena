@@ -9,10 +9,8 @@ const base = {
   NODE_ENV: "test",
   DATABASE_URL: "postgresql://yaparena_runtime@localhost:5432/yaparena",
 };
-// Settings the jobs worker must ignore: it never calls Privy or Auth0.
+// Settings the jobs worker must ignore: it never calls Auth0.
 const signIn = {
-  PRIVY_APP_ID: "test-app",
-  PRIVY_APP_SECRET: "test-secret",
   AUTH0_ISSUER_BASE_URL: "https://tenant.example.test",
   AUTH0_CLIENT_ID: "test-client-0123456789",
   AUTH0_CLIENT_SECRET: "test-client-secret-0123456789",
@@ -105,7 +103,7 @@ describe("background worker", () => {
     assert.deepEqual(await authJourney(metrics), {});
   });
 
-  it("runs media jobs but no Privy session or embedded-wallet jobs with every setting present", async () => {
+  it("runs media jobs but no sign-in provider jobs with every setting present", async () => {
     const { worker, events, errors, ran, timers, cleared, metrics } =
       startWorker({
         ...base,

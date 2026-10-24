@@ -35,9 +35,6 @@ const providerSettings = [
   "AUTH0_CLIENT_ID",
   "AUTH0_CLIENT_SECRET",
   "PRODUCTION_SERVICE",
-  "PRIVY_APP_ID",
-  "PRIVY_APP_SECRET",
-  "PRIVY_VERIFICATION_KEY",
 ];
 
 // The startup refusals. The entry exits before loading the application when

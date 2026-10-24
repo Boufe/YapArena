@@ -64,7 +64,7 @@ export default [
     },
   },
   {
-    files: ["src/**/*.ts", "frontend/**/*.{ts,tsx}", "scripts/**/*.{js,ts}"],
+    files: ["src/**/*.ts", "frontend/**/*.ts", "scripts/**/*.{js,ts}"],
     ignores: ["src/platform/html.ts"],
     rules: {
       "no-restricted-syntax": ["error", ...escapingRules],

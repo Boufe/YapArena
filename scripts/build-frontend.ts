@@ -36,7 +36,7 @@ async function files(directory: string): Promise<string[]> {
 
 async function checkSources(): Promise<string[]> {
   const sources = await files(frontend);
-  const unsupportedSource = /\.(?:[cm]?js|jsx|[cm]ts)$/i;
+  const unsupportedSource = /\.(?:[cm]?js|jsx|tsx|[cm]ts)$/i;
   const unchecked = sources.filter((name) => unsupportedSource.test(name));
   // Source archives and Docker contexts omit .git. CI and local checkouts also
   // enforce that served JavaScript is never tracked as authored source.
@@ -60,7 +60,7 @@ async function checkSources(): Promise<string[]> {
     );
   }
   return sources.filter(
-    (name) => /\.tsx?$/.test(name) && !name.endsWith(".d.ts"),
+    (name) => name.endsWith(".ts") && !name.endsWith(".d.ts"),
   );
 }
 
@@ -68,12 +68,12 @@ async function buildFrontend(): Promise<void> {
   const sources = await checkSources();
   await Promise.all(
     sources.map(async (source) => {
-      const name = path.relative(frontend, source).replace(/\.tsx?$/, "");
+      const name = path.relative(frontend, source).replace(/\.ts$/, "");
       if (inPlaceBundles.includes(name)) return;
       // Omitting format preserves classic-script scope and existing ESM imports.
       // Type-only modules erase to nothing and need no browser asset.
       const output = await transform(await readFile(source, "utf8"), {
-        loader: source.endsWith(".tsx") ? "tsx" : "ts",
+        loader: "ts",
         sourcefile: path.relative(repository, source),
       });
       if (!output.code.trim()) return;
@@ -113,16 +113,6 @@ async function buildFrontend(): Promise<void> {
       }),
     ),
   );
-  await build({
-    absWorkingDir: repository,
-    entryPoints: ["frontend/account-auth.tsx"],
-    bundle: true,
-    jsx: "automatic",
-    minify: true,
-    format: "iife",
-    outfile: "public/account-auth.bundle.js",
-    define: { "process.env.NODE_ENV": '"production"' },
-  });
 }
 
 if (process.argv.includes("--check-sources")) {

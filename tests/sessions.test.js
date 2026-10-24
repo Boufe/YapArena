@@ -41,8 +41,7 @@ describe("session repository", () => {
     const result = await repository.findUserByTokenHash("token-hash");
 
     assert.deepEqual(result, savedUser);
-    // No provider re-check is configured, so no staleness interval applies.
-    assert.deepEqual(query.mock.calls[0].arguments[1], ["token-hash", 0]);
+    assert.deepEqual(query.mock.calls[0].arguments[1], ["token-hash"]);
     assert.match(
       query.mock.calls[0].arguments[0],
       /expires_at > clock_timestamp/,

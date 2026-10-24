@@ -775,6 +775,8 @@ it("replaces status polling with room signals while the room stream is live", as
   assert.ok(scheduled(f, viewerPoll));
   roomStream(f, true);
   assert.equal(scheduled(f, viewerPoll), false);
+  // A slow safety read remains while the stream is live.
+  assert.ok(scheduled(f, 60000));
   f.setStateResponse(f.response(liveState("5")));
   const before = statusReads(f);
   roomSignal(f, "5");

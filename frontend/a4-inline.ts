@@ -83,14 +83,16 @@ if (root) {
   let accessEpoch = 0;
   let accessRefreshPending = false;
   // Private data refreshes after the viewer's own actions, at known round
-  // deadlines, on human-round signals and otherwise every 30 seconds.
+  // deadlines, on human-round signals and otherwise every 30 seconds. Signal
+  // reads are spread over a few seconds so a room's viewers do not read at once.
   let serverOffset = 0,
     lastPrivate = 0,
-    privateDue = false,
+    privateDueAt: number | null = null,
     privateFollowUp: number | null = null,
     lastShared = Date.now(),
-    sharedDue = false,
+    sharedDueAt: number | null = null,
     roomLive = false;
+  const spread = () => Date.now() + Math.random() * 3000;
   const followDeadline = createDeadlineFollower();
   // Keep a draft off the visible document until its original account is verified.
   // A guest's initiating draft may survive sign-in; another account's draft may not.
@@ -398,7 +400,7 @@ if (root) {
     const owner = userId;
     // A signal during this request asks for another read; a failed read
     // waits for the slow interval rather than its passed deadline.
-    privateDue = false;
+    privateDueAt = null;
     privateFollowUp = null;
     lastPrivate = Date.now();
     const data = await api<TimedWorkspace>(
@@ -645,7 +647,7 @@ if (root) {
   async function loadShared() {
     if (sharedBusy || document.hidden || sharedAbort.signal.aborted) return;
     sharedBusy = true;
-    sharedDue = false;
+    sharedDueAt = null;
     lastShared = Date.now();
     try {
       const response = await fetch(
@@ -704,7 +706,7 @@ if (root) {
     if (!userId || busy || document.hidden || el("review").open) return;
     const now = Date.now();
     if (
-      privateDue ||
+      (privateDueAt !== null && now >= privateDueAt) ||
       now - lastPrivate >= 30000 ||
       (privateFollowUp !== null && now >= privateFollowUp)
     )
@@ -716,7 +718,11 @@ if (root) {
   // Keep the existing declaration and assignment order during the language migration.
   // eslint-disable-next-line prefer-const
   sharedTimer = setInterval(() => {
-    if (sharedDue || Date.now() - lastShared >= (roomLive ? 60000 : 15000))
+    const now = Date.now();
+    if (
+      (sharedDueAt !== null && now >= sharedDueAt) ||
+      now - lastShared >= (roomLive ? 60000 : 15000)
+    )
       void loadShared();
   }, 1000);
   const stopWatching = watchRoom({
@@ -724,17 +730,10 @@ if (root) {
     topics: ["round", "activity"],
     events: window,
     signal(topic) {
-      if (topic === "activity") {
-        sharedDue = true;
-        void loadShared();
-        return;
-      }
+      if (topic === "activity") sharedDueAt ??= spread();
       // Human-only rounds reach viewers through the signed-in workspace. A
       // private sandbox is never signalled, so its view keeps its own timing.
-      if (!run?.mode || run.mode === "human") {
-        privateDue = true;
-        privateTick();
-      }
+      else if (!run?.mode || run.mode === "human") privateDueAt ??= spread();
     },
     health(live) {
       roomLive = live;

@@ -33,6 +33,14 @@ export const up = (pgm) => {
         END IF;
         projection := 'media';
         room := CASE WHEN TG_OP = 'DELETE' THEN OLD.debate_id ELSE NEW.debate_id END;
+      ELSIF TG_TABLE_NAME = 'debates' THEN
+        -- The media snapshot also reports the event status and replay publication.
+        IF (NEW.status, NEW.publication_state, NEW.is_demo)
+          IS NOT DISTINCT FROM (OLD.status, OLD.publication_state, OLD.is_demo) THEN
+          RETURN NULL;
+        END IF;
+        projection := 'media';
+        room := NEW.id;
       ELSIF TG_TABLE_NAME = 'a4_rounds' THEN
         IF NEW.state IS NOT DISTINCT FROM OLD.state THEN RETURN NULL; END IF;
         SELECT s.debate_id, s.mode, s.creator_id INTO run_owner
@@ -90,6 +98,12 @@ export const up = (pgm) => {
 
     CREATE CONSTRAINT TRIGGER room_signal_media
       AFTER INSERT OR UPDATE OR DELETE ON yaparena.debate_media
+      DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+      EXECUTE FUNCTION yaparena.capture_room_signal();
+    -- Debate lifecycle writers already hold this room's counter from the
+    -- community capture, so the commit-time signal takes no new lock.
+    CREATE CONSTRAINT TRIGGER room_signal_lifecycle
+      AFTER UPDATE OF status, publication_state, is_demo ON yaparena.debates
       DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
       EXECUTE FUNCTION yaparena.capture_room_signal();
     CREATE CONSTRAINT TRIGGER room_signal_round

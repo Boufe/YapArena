@@ -6,11 +6,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import { createDatabase } from "../dist/platform/database.js";
 import { createLogger } from "../dist/platform/logger.js";
-import { createSessionRepository } from "../dist/platform/auth/sessions.js";
-import { createSessionToken } from "../dist/platform/auth/session-tokens.js";
 import { defaultFanoutOptions } from "../dist/platform/room-fanout.js";
 import { createMediaRepository } from "../dist/features/media/repository.js";
-import { createA4Repository } from "../dist/features/a4/repository.js";
+import { createCommunityRepository } from "../dist/features/community/repository.js";
 import {
   createCommunityDelivery,
   publicFrame,
@@ -19,8 +17,9 @@ import { createCommunityStreams } from "../dist/features/community/streams.js";
 
 // Room signals against a disposable database: commit-time capture and lock
 // order, A4 privacy, payload allowlists, and SSE ordering and recovery.
-// Other PostgreSQL suites share this database in parallel, so these tests
-// never run the global media or A4 clocks; they drive their own rows only.
+// Other PostgreSQL suites share this database in parallel, so these tests never
+// run the global media or A4 clocks, never change a4_controls, and write only
+// rows those clocks never treat as due.
 const enabled = !!process.env.A4_TEST_DATABASE_URL;
 if (enabled) {
   const runtime = new URL(process.env.A4_TEST_DATABASE_URL),
@@ -131,13 +130,11 @@ async function until(fn, label) {
   throw Error(`test deadline: ${label}`);
 }
 
-let pool, owner, sessions, media, a4, topicId;
-const key = () => randomUUID();
+let pool, owner, media, community, topicId;
 // Live fixtures are demos: a published non-demo live debate with media would
 // compete for the global featured slot that featured-postgres checks in parallel.
 // Stream-eligible fixtures are therefore scheduled, non-demo debates.
 async function debate(status = "live") {
-  const tag = randomUUID();
   return (
     await owner.query(
       `INSERT INTO debates(slug,topic_id,proposition,status,publication_state,rules_version,rules_snapshot,
@@ -145,7 +142,7 @@ async function debate(status = "live") {
       VALUES($1,$2,'Should room events replace debate polling?',$3,'published','preview-1',$4,
         CASE WHEN $5 THEN clock_timestamp()-INTERVAL '1 minute' END,$5) RETURNING id`,
       [
-        `rooms-${tag}`,
+        `rooms-${randomUUID()}`,
         topicId,
         status,
         JSON.stringify(rules),
@@ -154,13 +151,13 @@ async function debate(status = "live") {
     )
   ).rows[0].id;
 }
-async function runningMedia(id, deadline = "60 seconds") {
+async function runningMedia(id) {
   await owner.query(
     `INSERT INTO debate_media(debate_id,state,active_side,turn_number,turn_deadline_at,
       remaining_ms,active_ms,last_resumed_at,recording_status)
-    VALUES($1,'running','A',1,clock_timestamp()+$2::interval,10000,0,
+    VALUES($1,'running','A',1,clock_timestamp()+INTERVAL '60 seconds',10000,0,
       clock_timestamp()-INTERVAL '1 second','recording')`,
-    [id, deadline],
+    [id],
   );
 }
 async function head(room) {
@@ -186,55 +183,71 @@ async function user() {
   return (await pool.query("INSERT INTO users DEFAULT VALUES RETURNING id"))
     .rows[0].id;
 }
-async function actor() {
-  const u = (
-    await pool.query(
-      `INSERT INTO users DEFAULT VALUES RETURNING id,auth_generation AS "authGeneration"`,
-    )
-  ).rows[0];
-  const token = createSessionToken();
-  await sessions.create(u.id, token.tokenHash, new Date(Date.now() + 3600000), {
-    authGeneration: u.authGeneration,
-  });
-  return { userId: u.id, tokenHash: token.tokenHash };
-}
-// Drives one private sandbox to settlement through its creator's step control.
-async function settleSandbox(creator, id) {
-  await owner.query(
-    "UPDATE a4_sessions SET reveal_at=clock_timestamp()-INTERVAL '1 second' WHERE id=$1",
-    [id],
-  );
-  for (let i = 0; i < 8; i++) {
-    const view = await a4.view(creator, id);
-    if (view.state === "complete") return;
-    await a4.control(creator, key(), id, "step");
+async function transaction(work, client) {
+  if (client) return work(client);
+  const connection = await pool.connect();
+  try {
+    await connection.query("BEGIN");
+    const value = await work(connection);
+    await connection.query("COMMIT");
+    return value;
+  } catch (error) {
+    await connection.query("ROLLBACK");
+    throw error;
+  } finally {
+    connection.release();
   }
-  throw new Error("sandbox did not settle");
 }
-// Human rounds advance only on the shared A4 clock; apply its guarded
-// transitions to this run's rows, one transaction each. Creation already
-// opens a first round whose window has started.
-async function advanceHuman(id) {
-  const steps = [
-    ["scheduled", "state='open'"],
-    ["open", "state='locked',locked_at=clock_timestamp(),snapshot='[]'"],
-    [
-      "locked",
-      `state='priced',pricing='{"share":{"n":"7","d":"10"},"price":{"n":"3","d":"10"}}'`,
-    ],
-    ["priced", "state='pending'"],
-    ["pending", "state='settled',revealed_at=clock_timestamp()"],
-  ];
-  let applied = 0;
-  for (const [from, step] of steps)
-    applied += (
-      await pool.query(
+// A4 runs are written as the engine writes them, but an hour from any deadline
+// so the shared A4 clock never processes them.
+async function run(debateId, creator, mode = "human", periods = 1, client) {
+  const id = randomUUID();
+  await transaction(async (c) => {
+    await c.query(
+      `INSERT INTO a4_sessions(id,creator_id,debate_id,asset,mode,state,config,seed,reveal_at,proposition,topic_id)
+      VALUES($1,$2,$3,'YAP',$4,'running','{}','run-seed-secret',clock_timestamp()+INTERVAL '1 hour',
+        'Should room events replace debate polling?',$5)`,
+      [id, creator, debateId, mode, topicId],
+    );
+    for (let period = 1; period <= periods; period++)
+      await c.query(
+        `INSERT INTO a4_rounds(id,session_id,asset,period,state,opens_at,closes_at,seed,seed_commitment)
+        VALUES($1,$2,'YAP',$3,'scheduled',clock_timestamp()+INTERVAL '30 minutes',
+          clock_timestamp()+INTERVAL '50 minutes','round-seed-secret','round-commitment-secret')`,
+        [randomUUID(), id, period],
+      );
+  }, client);
+  return id;
+}
+const advance = (id, from, step) =>
+  pool.query(`UPDATE a4_rounds SET ${step} WHERE session_id=$1 AND state=$2`, [
+    id,
+    from,
+  ]);
+const open = (id) => advance(id, "scheduled", "state='open'");
+// Locking, pricing and execution commit together, ending in a state the
+// shared clock leaves alone until the reveal an hour away.
+const seal = (id) =>
+  transaction(async (c) => {
+    for (const [from, step] of [
+      ["open", "state='locked',locked_at=clock_timestamp(),snapshot='[]'"],
+      [
+        "locked",
+        `state='priced',pricing='{"share":{"n":"7","d":"10"},"price":{"n":"3","d":"10"}}'`,
+      ],
+      ["priced", "state='pending'"],
+    ])
+      await c.query(
         `UPDATE a4_rounds SET ${step} WHERE session_id=$1 AND state=$2`,
         [id, from],
-      )
-    ).rowCount;
-  return applied;
-}
+      );
+  });
+const reveal = (id) =>
+  advance(id, "pending", "state='settled',revealed_at=clock_timestamp()");
+const publish = (userId) =>
+  pool.query("INSERT INTO a4_public_publishers(user_id) VALUES($1)", [userId]);
+const unpublish = (userId) =>
+  pool.query("DELETE FROM a4_public_publishers WHERE user_id=$1", [userId]);
 
 describe(
   "room signals in PostgreSQL",
@@ -246,16 +259,12 @@ describe(
         connectionString: process.env.A4_TEST_OWNER_URL,
         options: "-c search_path=pg_catalog,yaparena,pg_temp",
       });
-      sessions = createSessionRepository(pool);
       media = createMediaRepository(pool);
-      a4 = createA4Repository(pool, "bots");
-      await owner.query(
-        "UPDATE a4_controls SET enabled=true,bots_enabled=true",
-      );
+      community = createCommunityRepository(pool);
       topicId = (
         await owner.query(
           "INSERT INTO topics(slug,title,summary,side_a_label,side_b_label,publication_state) VALUES($1,'Room events topic','Synthetic room event fixture topic','Support','Oppose','published') RETURNING id",
-          [`rooms-${key()}`],
+          [`rooms-${randomUUID()}`],
         )
       ).rows[0].id;
     });
@@ -340,91 +349,87 @@ describe(
       assert.equal(await head(room), start);
     });
 
-    it("orders an automatic ending's lifecycle summary before its media reference", async () => {
-      const room = await debate();
-      await runningMedia(room, "-1 second");
-      const start = await head(room);
+    it("signals media when the debate lifecycle changes what the media snapshot reports", async () => {
+      const room = await debate("scheduled");
+      let start = await head(room);
+      // Readiness, start, end and replay publication change only the debate row.
+      await owner.query("UPDATE debates SET status='ready' WHERE id=$1", [
+        room,
+      ]);
+      assert.deepEqual(kinds(await events(room, start)), ["summary", "media"]);
+      start = await head(room);
+      await owner.query(
+        "UPDATE debates SET updated_at=clock_timestamp() WHERE id=$1",
+        [room],
+      );
+      assert.deepEqual(await events(room, start), []);
       // The media clock's maximum-duration ending, written as one transaction.
-      const clock = await pool.connect();
-      try {
-        await clock.query("BEGIN");
-        await clock.query(
+      const ending = await debate();
+      await runningMedia(ending);
+      start = await head(ending);
+      await transaction(async (c) => {
+        await c.query(
           `UPDATE debates SET status='ended',live_ended_at=clock_timestamp(),
           ended_reason='maximum_duration',updated_at=clock_timestamp() WHERE id=$1`,
-          [room],
+          [ending],
         );
-        await clock.query(
+        await c.query(
           `UPDATE debate_media SET state='ended',active_side=NULL,turn_deadline_at=NULL,
           last_resumed_at=NULL,recording_status='processing',revision=revision+1 WHERE debate_id=$1`,
-          [room],
+          [ending],
         );
-        await clock.query("COMMIT");
-      } finally {
-        clock.release();
-      }
-      // The debate row's immediate capture precedes the commit-time media reference.
-      assert.deepEqual(kinds(await events(room, start)), ["summary", "media"]);
-      const snapshot = await media.getPublicSnapshot(room);
-      assert.equal(snapshot.streamRevision, await head(room));
-      assert.equal(snapshot.state.state, "ended");
+      });
+      // The debate row's immediate capture precedes one commit-time media reference.
+      assert.deepEqual(kinds(await events(ending, start)), [
+        "summary",
+        "media",
+      ]);
+      const snapshot = await media.getPublicSnapshot(ending);
+      assert.equal(snapshot.streamRevision, await head(ending));
+      assert.equal(snapshot.eventStatus, "ended");
     });
 
     it("signals human rounds, and private sandboxes only once their result is public", async () => {
       const shared = await debate("scheduled");
-      const creator = await actor();
+      const creator = await user();
       let start = await head(shared);
-      const human = await a4.create(creator, key(), {
-        debateId: shared,
-        mode: "human",
-        config: { roundSeconds: 60 },
-      });
+      const human = await run(shared, creator);
       assert.deepEqual(kinds(await events(shared, start)), ["round"]);
-      start = await head(shared);
-      // Locked, priced, executed and settled: one reference each.
-      assert.equal(await advanceHuman(human.id), 4);
-      assert.deepEqual(
-        kinds(await events(shared, start)),
-        Array(4).fill("round"),
-      );
-      // Several rounds changing in one transaction produce one reference.
+      for (const step of [open, seal, reveal]) {
+        start = await head(shared);
+        await step(human);
+        assert.deepEqual(kinds(await events(shared, start)), ["round"]);
+      }
+      // Several rounds changing in one statement produce one reference.
       const batch = await debate("scheduled");
-      const periods = await a4.create(await actor(), key(), {
-        debateId: batch,
-        mode: "human",
-        config: { roundSeconds: 60, periods: 3, delayed: true },
-      });
+      const periods = await run(batch, await user(), "human", 3);
       start = await head(batch);
       await pool.query(
         "UPDATE a4_rounds SET state='void' WHERE session_id=$1",
-        [periods.id],
+        [periods],
       );
       assert.deepEqual(kinds(await events(batch, start)), ["round"]);
 
       const sandboxRoom = await debate("scheduled");
       start = await head(sandboxRoom);
-      const sandbox = await a4.create(creator, key(), {
-        debateId: sandboxRoom,
-        mode: "mixed",
-        config: { population: 10, roundSeconds: 60 },
-      });
-      await settleSandbox(creator, sandbox.id);
+      const sandbox = await run(sandboxRoom, creator, "mixed");
+      for (const step of [open, seal, reveal]) await step(sandbox);
       assert.deepEqual(await events(sandboxRoom, start), []);
 
       start = await head(sandboxRoom);
-      await a4.publication(creator, true);
+      await publish(creator);
       assert.deepEqual(kinds(await events(sandboxRoom, start)), ["activity"]);
       start = await head(sandboxRoom);
-      const published = await a4.create(creator, key(), {
-        debateId: sandboxRoom,
-        mode: "mixed",
-        config: { population: 10, roundSeconds: 60 },
-      });
-      await settleSandbox(creator, published.id);
+      const published = await run(sandboxRoom, creator, "observer");
+      await open(published);
+      await seal(published);
       // Opening, locking and pricing stay silent; settlement publishes.
+      assert.deepEqual(await events(sandboxRoom, start), []);
+      await reveal(published);
       assert.deepEqual(kinds(await events(sandboxRoom, start)), ["activity"]);
       start = await head(sandboxRoom);
       const sharedStart = await head(shared);
-      await a4.publication(creator, false);
+      await unpublish(creator);
       assert.deepEqual(kinds(await events(sandboxRoom, start)), ["activity"]);
       assert.deepEqual(await events(shared, sharedStart), []);
 
@@ -442,7 +447,7 @@ describe(
           await client.query(
             `INSERT INTO a4_synthetic_rounds(id,debate_id,seed_key,simulated_at,seed,result)
             VALUES($1,$2,$3,clock_timestamp()-INTERVAL '1 hour','seed','{}')`,
-            [randomUUID(), seeded, `rooms-${key()}`],
+            [randomUUID(), seeded, `rooms-${randomUUID()}`],
           );
         await client.query("COMMIT");
       } finally {
@@ -451,25 +456,46 @@ describe(
       assert.deepEqual(kinds(await events(seeded, start)), ["activity"]);
     });
 
+    it("lets a like wait behind an A4 account lock instead of deadlocking on the room counter", async () => {
+      const room = await debate("scheduled");
+      const viewer = await user();
+      const start = await head(room);
+      const command = await pool.connect();
+      try {
+        await command.query("BEGIN");
+        // As an A4 command does: lock the account, then write a human run whose
+        // reference takes this room's counter at COMMIT.
+        await command.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [
+          viewer,
+        ]);
+        await run(room, viewer, "human", 1, command);
+        let liked = false;
+        const liking = community.setLike(room, viewer, true).then((value) => {
+          liked = true;
+          return value;
+        });
+        await delay(300);
+        // The like waits on the account row before it takes the room counter.
+        assert.equal(liked, false);
+        await command.query("COMMIT");
+        assert.equal((await liking).liked, true);
+      } finally {
+        command.release();
+      }
+      assert.deepEqual(kinds(await events(room, start)), ["round", "summary"]);
+    });
+
     it("projects references through allowlisted public frames only", async () => {
       const room = await debate("scheduled");
       await runningMedia(room);
       const start = await head(room);
-      const creator = await actor();
+      const creator = await user();
       await media.stop(room, "Private incident reason never leaves");
-      const run = await a4.create(creator, key(), {
-        debateId: room,
-        mode: "human",
-        config: { roundSeconds: 60 },
-      });
-      await advanceHuman(run.id);
-      await a4.publication(creator, true);
-      const sandbox = await a4.create(creator, key(), {
-        debateId: room,
-        mode: "mixed",
-        config: { population: 10, roundSeconds: 60 },
-      });
-      await settleSandbox(creator, sandbox.id);
+      const human = await run(room, creator);
+      for (const step of [open, seal, reveal]) await step(human);
+      await publish(creator);
+      const sandbox = await run(room, creator, "mixed");
+      for (const step of [open, seal, reveal]) await step(sandbox);
       const delivery = createCommunityDelivery(pool);
       const value = await delivery.read(room, start);
       const frame = publicFrame(room, start, value);
@@ -477,24 +503,18 @@ describe(
       assertPublic(frame);
       assert.deepEqual(refreshes([frame]), [
         "media",
-        ...Array(5).fill("round"),
+        ...Array(4).fill("round"),
         "activity",
       ]);
       const text = JSON.stringify(frame);
-      const round = (
-        await owner.query(
-          "SELECT seed,seed_commitment FROM a4_rounds WHERE session_id=$1",
-          [run.id],
-        )
-      ).rows[0];
       for (const secret of [
         "Private incident reason",
-        round.seed,
-        round.seed_commitment,
-        sandbox.id,
-        run.id,
+        "seed-secret",
+        "commitment-secret",
+        human,
+        sandbox,
       ])
-        assert.ok(!text.includes(secret));
+        assert.ok(!text.includes(secret), secret);
       assertPublic(publicFrame(room, null, value));
       delivery.stop();
     });
@@ -517,17 +537,13 @@ describe(
         const [snapshot] = live.community();
         assert.equal(snapshot.kind, "snapshot");
         const author = await user();
-        const creator = await actor();
+        const creator = await user();
         await pool.query(
           "INSERT INTO event_chat_messages(debate_id,author_user_id,body,created_at) VALUES($1,$2,'Signals follow chat',clock_timestamp())",
           [room, author],
         );
         await media.stop(room, "Synthetic incident ends the media");
-        await a4.create(creator, key(), {
-          debateId: room,
-          mode: "human",
-          config: { roundSeconds: 60 },
-        });
+        await run(room, creator);
         await until(() => refreshes(live.community()).length >= 2, "signals");
         const frames = live.community();
         frames.forEach((frame) => assertPublic(frame));

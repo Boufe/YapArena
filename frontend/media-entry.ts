@@ -951,8 +951,9 @@ if (root) {
   let pollTimer: number | undefined;
   let streamLive = false;
   const followDeadline = createDeadlineFollower();
-  // Room signals replace status polling while the stream is live. The turn
-  // deadline is read shortly after it passes; polling is the slower fallback.
+  // Room signals replace status polling while the stream is live; a slow read
+  // remains as a safety net. The turn deadline is read shortly after it
+  // passes, and polling is the slower fallback while the stream is down.
   function pollDelay() {
     const running = currentState?.state === "running";
     const deadline = running ? currentState!.turnDeadlineAt : null;
@@ -961,9 +962,8 @@ if (root) {
       `${currentState?.revision}:${deadline}`,
       Date.now() + serverOffset,
     );
-    const fallback = streamLive ? null : speakerConnected ? 2000 : 6000;
-    if (follow === null) return fallback;
-    return fallback === null ? follow : Math.min(follow, fallback);
+    const fallback = streamLive ? 60000 : speakerConnected ? 2000 : 6000;
+    return follow === null ? fallback : Math.min(follow, fallback);
   }
   function pollStatus() {
     if (

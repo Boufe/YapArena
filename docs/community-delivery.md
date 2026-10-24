@@ -53,19 +53,19 @@ The additive migration `1791335211412_durable-community-delivery.js` installs pr
 logs, room counters, chat `stream_revision`, and transaction triggers. The triggers cover existing
 writers, including older schema-compatible application images:
 
-| Public state                        | Writers inventoried                                                                                                                          | Transaction capture                                                    |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Chat creation                       | Community `postChat`; operator synthetic seed/fixture SQL                                                                                    | Chat INSERT                                                            |
-| Removal/restoration                 | Community `decideCase` / independent `decideAppeal`                                                                                          | Chat state/body UPDATE                                                 |
-| Purged chat                         | Community hourly `pruneExpired`                                                                                                              | Chat DELETE                                                            |
-| Likes                               | Community idempotent `setLike`; retention cleanup                                                                                            | Like INSERT/DELETE                                                     |
-| Chat pause/resume                   | Community `decideCase` / `resumeChat`                                                                                                        | Control state changes; implicit initial `open` is a no-op              |
-| Chat writability / event visibility | Matching event creation and manual `operatorTransition`; media `tick` automatic maximum-duration ending in web or worker; operator event SQL | Debate INSERT/status/publication/demo/topic UPDATE/DELETE              |
-| Topic visibility                    | Matching `publishTopic`; operator topic publication SQL                                                                                      | Topic publication UPDATE, sorted affected rooms                        |
-| Public author label                 | Identity profile editing/publication                                                                                                         | Profile name/publication UPDATE, sorted affected rooms, snapshot reset |
-| Media state signal                  | Media `start`, `pause`, `resume`, `stop`, `tick` (turns, automatic ending), recording results, captions; operator SQL                        | Public-snapshot column change on `debate_media`, at COMMIT             |
-| Human round signal                  | A4 `create`, `tick`, `control` and voiding for human-only runs; operator SQL                                                                 | Human run INSERT/state UPDATE and its round state UPDATE, at COMMIT    |
-| Shared activity signal              | Settlement of a consenting creator's sandbox; publication consent; synthetic seed rounds                                                     | Round `settled`, publisher INSERT/DELETE, synthetic round INSERT       |
+| Public state                        | Writers inventoried                                                                                                                          | Transaction capture                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Chat creation                       | Community `postChat`; operator synthetic seed/fixture SQL                                                                                    | Chat INSERT                                                                    |
+| Removal/restoration                 | Community `decideCase` / independent `decideAppeal`                                                                                          | Chat state/body UPDATE                                                         |
+| Purged chat                         | Community hourly `pruneExpired`                                                                                                              | Chat DELETE                                                                    |
+| Likes                               | Community idempotent `setLike`; retention cleanup                                                                                            | Like INSERT/DELETE                                                             |
+| Chat pause/resume                   | Community `decideCase` / `resumeChat`                                                                                                        | Control state changes; implicit initial `open` is a no-op                      |
+| Chat writability / event visibility | Matching event creation and manual `operatorTransition`; media `tick` automatic maximum-duration ending in web or worker; operator event SQL | Debate INSERT/status/publication/demo/topic UPDATE/DELETE                      |
+| Topic visibility                    | Matching `publishTopic`; operator topic publication SQL                                                                                      | Topic publication UPDATE, sorted affected rooms                                |
+| Public author label                 | Identity profile editing/publication                                                                                                         | Profile name/publication UPDATE, sorted affected rooms, snapshot reset         |
+| Media state signal                  | Media `start`, `pause`, `resume`, `stop`, `tick`, recording results, captions; readiness, operator transitions, replay publication           | Public-snapshot column change on `debate_media` or debate lifecycle, at COMMIT |
+| Human round signal                  | A4 `create`, `tick`, `control` and voiding for human-only runs; operator SQL                                                                 | Human run INSERT/state UPDATE and its round state UPDATE, at COMMIT            |
+| Shared activity signal              | Settlement of a consenting creator's sandbox; publication consent; synthetic seed rounds                                                     | Round `settled`, publisher INSERT/DELETE, synthetic round INSERT               |
 
 Private reports, case reasons, evidence, restrictions, notifications, audit records and like-change
 allowance records do not enter this log. Restrictions and role changes remain server checks on
@@ -111,7 +111,12 @@ room counters in ascending UUID order and does not subsequently lock their publi
 
 Room signals run as deferred constraint triggers, so a media or A4 transaction allocates its
 room counter at COMMIT, after every business row lock it took. A publication-consent change
-allocates its affected rooms there in ascending UUID order.
+allocates its affected rooms there in ascending UUID order. A4 commands hold the account row
+`FOR UPDATE` until then, so community writers take that row `FOR KEY SHARE` with their account
+lock, before any room counter, rather than in a later foreign-key check. An operator transition or
+moderation decision that notifies a user after taking the room counter can still meet that user's
+concurrent A4 command in the same room; PostgreSQL aborts one of the two, and both retry safely
+(A4 with its request key, chat with its unchanged submission key).
 Chat/like retention locks at most 50 eligible messages and 50 likes using SKIP LOCKED before either
 DELETE trigger, in a separate transaction for each of at most ten rooms. Stream retention acquires
 only room counters, sorted by UUID. Manual bulk SQL that mutates multiple existing rooms must prelock
@@ -229,7 +234,7 @@ room and projection).
 
 | `refresh`  | Committed when                                                                                      | Re-read projection                      |
 | ---------- | --------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `media`    | a column of the public media snapshot changes (state, side, turn, deadlines, revision, recording)   | `GET /api/media/events/<id>`            |
+| `media`    | a media snapshot column changes, or the debate's status, publication or demo flag changes           | `GET /api/media/events/<id>`            |
 | `round`    | a human-only run is created or changes state, or one of its rounds changes state                    | the signed-in A4 workspace              |
 | `activity` | a consenting creator's sandbox round settles, publication consent changes, or a seed round is added | `GET /api/public/debates/<id>/activity` |
 
@@ -252,9 +257,11 @@ the commit), it retries up to three times with backoff. Countdowns use server de
 offset from the response's `serverNow`; A4 run views now carry `serverNow` from the database
 clock. Each page also reads about two seconds after a deadline it already knows, backing off while
 the server finishes the transition. Polling at the slower intervals below runs only while the
-stream is not live (disabled, disconnected, backgrounded or not eligible). The `/coins` page has no
-room stream and uses the deadline and 30-second private refresh only. The intervals are proposals
-awaiting product approval.
+stream is not live (disabled, disconnected, backgrounded or not eligible); media keeps a 60-second
+safety read while it is live. A4 pages spread signal-driven reads over up to three seconds, so a
+room's viewers do not read at once. The `/coins` page has no room stream and uses the deadline and
+30-second private refresh only. The intervals are proposals awaiting product approval. A new server
+cannot run before this migration: startup refuses pending migrations.
 
 ## Limits and degraded operation
 
@@ -273,7 +280,7 @@ awaiting product approval.
 | Listener retry                                 | 0.5–30 sec exponential delay with jitter; reverify identity, commit LISTEN, wake all active rooms                                                  |
 | Browser retry / freshness                      | 1–30 sec exponential delay with jitter; initial application/heartbeat deadline about 10–15 sec; 45-sec transport or stalled-application detection  |
 | Degraded public reads                          | Poll durable updates every 2 sec, failure backoff up to 15 sec, at most 20 batches/pass; abort on stream reconnect/health and while backgrounded   |
-| Media status reads (proposed)                  | On `media` signals, about 2 sec after a known turn deadline, and polling 2 sec (speaker) / 6 sec (viewer) only while the stream is not live        |
+| Media status reads (proposed)                  | On `media` signals, about 2 sec after a known turn deadline, every 60 sec while live; polling 2 sec (speaker) / 6 sec (viewer) while not live      |
 | A4 reads on the debate page (proposed)         | Shared activity on `activity` signals, else every 60 sec live / 15 sec not live; private workspace on own action, `round` signal, deadline, 30 sec |
 | Graceful shutdown                              | Close streams first; cancel active delivery connections; bound listener close to 1.5 sec; release pool; existing process hard deadline 10 sec      |
 

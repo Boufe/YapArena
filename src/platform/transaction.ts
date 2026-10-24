@@ -1,4 +1,4 @@
-import type { Pool, PoolClient } from "pg";
+import type { PoolClient } from "pg";
 
 export type IsolationLevel =
   "read committed" | "repeatable read" | "serializable";
@@ -29,8 +29,21 @@ export interface Transaction<T> {
   rollback(value: T): never;
 }
 
-export type TransactionWork<T> = (
-  client: PoolClient,
+// The part of a pg client the helper uses; PoolClient satisfies it, and so
+// do narrower clients such as the replay worker's.
+export interface TransactionClient {
+  query(text: string): Promise<unknown>;
+  on(event: "error", listener: (error: Error) => void): unknown;
+  removeListener(event: "error", listener: (error: Error) => void): unknown;
+  release(error?: Error | boolean): void;
+}
+
+export interface TransactionPool<C extends TransactionClient> {
+  connect(): Promise<C>;
+}
+
+export type TransactionWork<T, C extends TransactionClient = PoolClient> = (
+  client: C,
   transaction: Transaction<T>,
 ) => Promise<T>;
 
@@ -106,9 +119,9 @@ function plan(options: TransactionOptions): Plan {
   };
 }
 
-async function execute<T>(
-  client: PoolClient,
-  work: TransactionWork<T>,
+async function execute<T, C extends TransactionClient>(
+  client: C,
+  work: TransactionWork<T, C>,
   { setup, guard, mapError }: Plan,
   beforeCommit?: () => void,
   rollbackFailed?: () => void,
@@ -149,9 +162,12 @@ async function execute<T>(
  * Runs work in one transaction on a pooled connection: BEGIN with the
  * requested modes and timeouts, then COMMIT, or ROLLBACK and rethrow.
  */
-export async function withTransaction<T>(
-  pool: Pick<Pool, "connect">,
-  work: TransactionWork<T>,
+export async function withTransaction<
+  T,
+  C extends TransactionClient = PoolClient,
+>(
+  pool: TransactionPool<C>,
+  work: TransactionWork<T, C>,
   options: TransactionOptions = {},
 ): Promise<T> {
   const steps = plan(options);
@@ -192,9 +208,12 @@ export async function withTransaction<T>(
  * and will release itself. guardConnection only ignores a failed ROLLBACK
  * here; the caller listens for socket errors.
  */
-export async function runTransaction<T>(
-  client: PoolClient,
-  work: TransactionWork<T>,
+export async function runTransaction<
+  T,
+  C extends TransactionClient = PoolClient,
+>(
+  client: C,
+  work: TransactionWork<T, C>,
   options: TransactionOptions = {},
 ): Promise<T> {
   return execute(client, work, plan(options));
